@@ -1,0 +1,32 @@
+// Esquema de datos del servicio.
+//
+// Cada microservicio tiene el suyo y toca UNICAMENTE su propio esquema de
+// PostgreSQL. Un servicio nunca consulta las tablas de otro: para eso estan su
+// API y los eventos.
+//
+// Ver arquitectura-cap-purulha.md §9.1
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Usuario de EJECUCION: solo lee y escribe datos.
+  url       = env("DATABASE_URL")
+  // Usuario DUENO: lo usa unicamente `prisma migrate`.
+  // Separarlos es lo que impide que un servicio sea dueno de sus tablas y
+  // pueda saltarse los permisos que se le otorgaron.
+  directUrl = env("DIRECT_URL")
+}
+
+/// Modelo de ejemplo. Al generar un servicio real se reemplaza por su dominio.
+model Ejemplo {
+  id        String   @id @default(uuid())
+  nombre    String   @db.VarChar(120)
+  activo    Boolean  @default(true)
+  creadoEn  DateTime @default(now()) @map("creado_en")
+
+  @@index([creadoEn])
+  @@map("ejemplo")
+}

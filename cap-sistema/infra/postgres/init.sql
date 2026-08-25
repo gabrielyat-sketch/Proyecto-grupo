@@ -27,6 +27,16 @@
 -- ─── Rol dueno de los esquemas y de las migraciones ───────────────────────
 CREATE ROLE cap_migrador WITH LOGIN PASSWORD 'dev_migrador';
 
+-- SOLO DESARROLLO: `prisma migrate dev` necesita crear una base sombra para
+-- comparar el esquema esperado contra el real, y para eso el rol requiere
+-- CREATEDB.
+--
+-- En PRODUCCION esto NO se otorga. Alli se ejecuta `prisma migrate deploy`,
+-- que aplica migraciones ya generadas y revisadas, sin base sombra y sin
+-- necesidad de crear bases de datos. Un rol con CREATEDB en produccion es
+-- privilegio de mas sin ninguna ganancia.
+ALTER ROLE cap_migrador CREATEDB;
+
 -- ─── auth ─────────────────────────────────────────────────────────
 CREATE SCHEMA IF NOT EXISTS auth AUTHORIZATION cap_migrador;
 CREATE USER cap_auth WITH PASSWORD 'dev_auth';
@@ -132,6 +142,23 @@ ALTER DEFAULT PRIVILEGES FOR ROLE cap_migrador IN SCHEMA trazabilidad
   GRANT SELECT, INSERT ON TABLES TO cap_trazabilidad;
 ALTER DEFAULT PRIVILEGES FOR ROLE cap_migrador IN SCHEMA trazabilidad
   GRANT USAGE, SELECT ON SEQUENCES TO cap_trazabilidad;
+
+-- ─── plantilla (SOLO DESARROLLO) ──────────────────────────────────────
+--
+--  Esquema de trabajo del servicio de referencia services/_plantilla.
+--  Existe unicamente para que la plantilla y sus pruebas e2e puedan correr
+--  contra una base real. NO se crea en produccion: la plantilla no se
+--  despliega, es un molde.
+CREATE SCHEMA IF NOT EXISTS plantilla AUTHORIZATION cap_migrador;
+CREATE USER cap_plantilla WITH PASSWORD 'dev_plantilla';
+
+GRANT USAGE ON SCHEMA plantilla TO cap_plantilla;
+REVOKE CREATE ON SCHEMA plantilla FROM cap_plantilla;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE cap_migrador IN SCHEMA plantilla
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO cap_plantilla;
+ALTER DEFAULT PRIVILEGES FOR ROLE cap_migrador IN SCHEMA plantilla
+  GRANT USAGE, SELECT ON SEQUENCES TO cap_plantilla;
 
 -- ─── Bloqueo del esquema public ───────────────────────────────────────────
 -- Evita que cualquier rol cree tablas fuera de su esquema por accidente.
