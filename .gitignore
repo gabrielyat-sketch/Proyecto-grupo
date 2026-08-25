@@ -1,9 +1,49 @@
+# ── dependencias ──────────────────────────────────────────────────────
 node_modules/
+.pnp/
+
+# ── compilados ────────────────────────────────────────────────────────
+dist/
+build/
+*.tsbuildinfo
+
+# ── entorno: NUNCA versionar secretos ─────────────────────────────────
 .env
 .env.*
 !.env.example
-dist/
-build/
+*.pem
+*.key
+
+# ── Prisma ────────────────────────────────────────────────────────────
+**/prisma/generated/
+**/prisma/*.db
+
+# ── pruebas ───────────────────────────────────────────────────────────
 coverage/
-.vscode/
+.nyc_output/
+
+# ── logs ──────────────────────────────────────────────────────────────
 *.log
+npm-debug.log*
+
+# ── Flutter (cap-movil) ───────────────────────────────────────────────
+cap-movil/build/
+cap-movil/.dart_tool/
+cap-movil/.flutter-plugins*
+cap-movil/**/*.g.dart
+
+# ── editores y SO ─────────────────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# ── artefactos generados en local ─────────────────────────────────────
+pdf-generados/
+
+# ── DATOS DE PACIENTES: nunca al repositorio ──────────────────────────
+# Los formatos escaneados del CAP pueden contener datos reales.
+documentacion/fichas-cap/*
+!documentacion/fichas-cap/.gitkeep
+!documentacion/fichas-cap/README.md
