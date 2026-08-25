@@ -34,7 +34,12 @@ cap-movil/.flutter-plugins*
 cap-movil/**/*.g.dart
 
 # ── editores y SO ─────────────────────────────────────────────────────
+# La configuracion de VS Code SI se versiona: oculta las carpetas generadas
+# del explorador y fija LF como fin de linea. Que cada integrante la tenga
+# evita que el proyecto se vea como un desorden de 590 MB y que los Pull
+# Requests aparezcan con el archivo entero modificado por CRLF.
 .vscode/*
+!.vscode/settings.json
 !.vscode/extensions.json
 .idea/
 .DS_Store
