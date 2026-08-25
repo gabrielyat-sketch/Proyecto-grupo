@@ -15,6 +15,7 @@ build/
 *.key
 
 # ── Prisma ────────────────────────────────────────────────────────────
+**/prisma/generado/
 **/prisma/generated/
 **/prisma/*.db
 

@@ -8,6 +8,11 @@
 
 generator client {
   provider = "prisma-client-js"
+  // Cada servicio genera su cliente en SU carpeta. Con la ruta por defecto,
+  // los ocho servicios del monorepo escribirian sobre el mismo
+  // node_modules/@prisma/client y el ultimo `prisma generate` dejaria a los
+  // demas apuntando a un esquema que no es el suyo.
+  output   = "./generado"
 }
 
 datasource db {

@@ -1,0 +1,131 @@
+// Servicio de Usuarios y Acceso — esquema `auth`.
+//
+// Ningun otro servicio accede a estas tablas: la identidad del usuario viaja
+// en el JWT, no por consultas cruzadas a esta base.
+//
+// Ver arquitectura-cap-purulha.md §9.1, §9.2 y §10
+
+generator client {
+  provider = "prisma-client-js"
+  // Cada servicio genera su cliente en SU carpeta. Con la ruta por defecto,
+  // los ocho servicios del monorepo escribirian sobre el mismo
+  // node_modules/@prisma/client y el ultimo `prisma generate` dejaria a los
+  // demas apuntando a un esquema que no es el suyo.
+  output   = "./generado"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+/// Los seis roles del CAP. Coincide con el enum Rol de @cap/shared: si se
+/// agrega uno aqui, hay que agregarlo alla, o los guards lo rechazaran.
+enum RolUsuario {
+  ADMINISTRADOR
+  DIRECTOR
+  MEDICO
+  ENFERMERIA
+  FARMACIA
+  RECEPCION
+}
+
+model Usuario {
+  id             String     @id @default(uuid())
+  /// Nombre de acceso. Se guarda en minusculas para que no existan dos
+  /// cuentas que solo difieran en mayusculas.
+  usuario        String     @unique @db.VarChar(60)
+  nombres        String     @db.VarChar(120)
+  apellidos      String     @db.VarChar(120)
+  /// Argon2id. Nunca cifrado reversible: una contrasena no debe poder
+  /// recuperarse en ningun caso.
+  contrasenaHash String     @map("contrasena_hash")
+  rol            RolUsuario
+  activo         Boolean    @default(true)
+  /// Las cuentas nuevas y las restablecidas nacen con contrasena temporal.
+  debeCambiarContrasena Boolean   @default(true) @map("debe_cambiar_contrasena")
+  bloqueadoHasta        DateTime? @map("bloqueado_hasta")
+  ultimoAcceso          DateTime? @map("ultimo_acceso")
+  creadoEn              DateTime  @default(now()) @map("creado_en")
+  actualizadoEn         DateTime  @updatedAt @map("actualizado_en")
+
+  mfa             ConfiguracionMfa?
+  codigosRespaldo CodigoRespaldo[]
+  sesiones        SesionRefresh[]
+
+  @@index([activo])
+  @@map("usuario")
+}
+
+/// Segundo factor por TOTP. Obligatorio para Administrador y Director; el
+/// resto puede activarlo voluntariamente.
+model ConfiguracionMfa {
+  usuarioId String @id @map("usuario_id")
+  /// Secreto TOTP cifrado con AES-256-GCM. Guardarlo en claro seria como
+  /// guardar en claro la contrasena del segundo factor.
+  secretoCifrado Bytes     @map("secreto_cifrado")
+  activo         Boolean   @default(false)
+  activadoEn     DateTime? @map("activado_en")
+  creadoEn       DateTime  @default(now()) @map("creado_en")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@map("configuracion_mfa")
+}
+
+/// Codigos de un solo uso para recuperar el acceso cuando se pierde el
+/// telefono. Se entregan en sobre cerrado al director del CAP.
+model CodigoRespaldo {
+  id        String    @id @default(uuid())
+  usuarioId String    @map("usuario_id")
+  /// Argon2id, igual que una contrasena: si alguien lee la base, no obtiene
+  /// codigos utilizables.
+  hash      String
+  usadoEn   DateTime? @map("usado_en")
+  creadoEn  DateTime  @default(now()) @map("creado_en")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@map("codigo_respaldo")
+}
+
+/// Sesion de refresco. El token no se guarda: se guarda su SHA-256, igual que
+/// no se guarda una contrasena en claro.
+model SesionRefresh {
+  id        String @id @default(uuid())
+  usuarioId String @map("usuario_id")
+  tokenHash String @unique @map("token_hash")
+  /// Todas las rotaciones de una misma sesion comparten familia. Si un token
+  /// ya rotado se reusa, se revoca la familia completa: es la senal de que
+  /// alguien copio el token.
+  familia          String
+  expiraEn         DateTime  @map("expira_en")
+  revocadaEn       DateTime? @map("revocada_en")
+  motivoRevocacion String?   @map("motivo_revocacion") @db.VarChar(60)
+  ip               String?   @db.VarChar(45)
+  agente           String?   @db.VarChar(255)
+  creadoEn         DateTime  @default(now()) @map("creado_en")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@index([familia])
+  @@index([expiraEn])
+  @@map("sesion_refresh")
+}
+
+/// Intentos de acceso fallidos, para el bloqueo temporal de cuenta.
+///
+/// Se guarda el texto del usuario intentado y no una referencia, porque el
+/// caso mas comun de ataque es probar nombres de usuario que no existen.
+model IntentoFallido {
+  id      BigInt   @id @default(autoincrement())
+  usuario String   @db.VarChar(60)
+  ip      String?  @db.VarChar(45)
+  fecha   DateTime @default(now())
+
+  @@index([usuario, fecha])
+  @@map("intento_fallido")
+}
