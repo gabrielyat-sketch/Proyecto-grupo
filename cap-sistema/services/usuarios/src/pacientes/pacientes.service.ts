@@ -1,0 +1,296 @@
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { crearPagina, normalizarPagina, Pagina, ServicioCifrado } from '@cap/shared';
+import { PrismaService } from '../prisma/prisma.service';
+import { SERVICIO_CIFRADO } from '../comun/cifrado.module';
+import { Evento, OutboxService } from '../eventos/outbox.service';
+import { CrearPacienteDto } from './dto/crear-paciente.dto';
+import { BuscarPacientesDto } from './dto/buscar-pacientes.dto';
+import { ActualizarPacienteDto } from './dto/actualizar-paciente.dto';
+
+/** Forma de una fila del listado, tal como la devuelve el select RESUMEN. */
+interface FilaResumen {
+  id: string;
+  nombres: string;
+  apellidos: string;
+  fechaNacimiento: Date;
+  sexo: string;
+  idioma: string;
+  fallecido: boolean;
+  comunidad: { id: string; nombre: string };
+  expediente: { id: string; numeroCifrado: Uint8Array } | null;
+}
+
+/** Columnas del listado. Nunca incluye dpiCifrado ni dpiIndice. */
+const RESUMEN = {
+  id: true,
+  nombres: true,
+  apellidos: true,
+  fechaNacimiento: true,
+  sexo: true,
+  idioma: true,
+  fallecido: true,
+  comunidad: { select: { id: true, nombre: true } },
+  expediente: { select: { id: true, numeroCifrado: true } },
+} as const;
+
+@Injectable()
+export class PacientesService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly outbox: OutboxService,
+    @Inject(SERVICIO_CIFRADO) private readonly cifrado: ServicioCifrado,
+  ) {}
+
+  /**
+   * Busqueda de recepcion. Es el camino critico del sistema: debe responder en
+   * menos de 2 segundos con 100,000 pacientes (arquitectura §9.7).
+   *
+   * Por DPI: HMAC del valor y busqueda por igualdad sobre una columna indexada
+   * y unica. Es una lectura de indice, no cambia de costo aunque la base
+   * crezca.
+   *
+   * Por nombre: busqueda por INICIO de apellido o nombre, no por texto
+   * contenido. Un LIKE '%texto%' no puede usar indice y obliga a recorrer la
+   * tabla entera; ademas el personal de archivo busca por el principio del
+   * apellido, que es como estan ordenadas las carpetas de papel.
+   */
+  async buscar(consulta: BuscarPacientesDto): Promise<Pagina<unknown>> {
+    const { tamano, saltar } = normalizarPagina(consulta);
+
+    if (!consulta.dpi && !consulta.nombre && !consulta.comunidadId) {
+      throw new BadRequestException(
+        'Indique al menos un criterio: DPI, nombre o comunidad.',
+      );
+    }
+
+    const where: Record<string, unknown> = {};
+
+    if (consulta.dpi) {
+      where.dpiIndice = this.cifrado.indiceCiego(consulta.dpi);
+    }
+
+    if (consulta.nombre) {
+      const inicio = consulta.nombre.trim();
+      where.OR = [
+        { apellidos: { startsWith: inicio, mode: 'insensitive' } },
+        { nombres: { startsWith: inicio, mode: 'insensitive' } },
+      ];
+    }
+
+    if (consulta.comunidadId) {
+      where.comunidadId = consulta.comunidadId;
+    }
+
+    const [datos, total] = await this.prisma.$transaction([
+      this.prisma.paciente.findMany({
+        where,
+        skip: saltar,
+        take: tamano,
+        orderBy: [{ apellidos: 'asc' }, { nombres: 'asc' }],
+        select: RESUMEN,
+      }),
+      this.prisma.paciente.count({ where }),
+    ]);
+
+    return crearPagina(datos.map((p) => this.aResumen(p)), total, consulta);
+  }
+
+  async obtener(id: string) {
+    const p = await this.prisma.paciente.findUnique({
+      where: { id },
+      include: {
+        comunidad: { select: { id: true, nombre: true } },
+        grupoFamiliar: { select: { id: true, codigo: true } },
+        expediente: { select: { id: true, numeroCifrado: true, aperturaEn: true } },
+      },
+    });
+    if (!p) throw new NotFoundException('No existe ese paciente.');
+
+    return {
+      id: p.id,
+      dpi: p.dpiCifrado ? this.cifrado.descifrar(Buffer.from(p.dpiCifrado)) : null,
+      nombres: p.nombres,
+      apellidos: p.apellidos,
+      fechaNacimiento: p.fechaNacimiento,
+      edad: PacientesService.edad(p.fechaNacimiento),
+      sexo: p.sexo,
+      idioma: p.idioma,
+      telefono: p.telefono,
+      fallecido: p.fallecido,
+      comunidad: p.comunidad,
+      grupoFamiliar: p.grupoFamiliar,
+      expediente: p.expediente
+        ? {
+            id: p.expediente.id,
+            numero: this.cifrado.descifrar(Buffer.from(p.expediente.numeroCifrado)),
+            aperturaEn: p.expediente.aperturaEn,
+          }
+        : null,
+    };
+  }
+
+  /**
+   * Crea el paciente, su expediente y el registro de digitalizacion en UNA
+   * transaccion, junto con el evento de la bandeja de salida. Un paciente sin
+   * expediente no sirve para nada, asi que no puede quedar a medias.
+   */
+  async crear(dto: CrearPacienteDto, usuarioId: string, trazaId?: string) {
+    if (!(await this.prisma.comunidad.findUnique({ where: { id: dto.comunidadId } }))) {
+      throw new BadRequestException('La comunidad indicada no existe.');
+    }
+
+    const dpiIndice = dto.dpi ? this.cifrado.indiceCiego(dto.dpi) : null;
+
+    if (dpiIndice) {
+      const existe = await this.prisma.paciente.findUnique({
+        where: { dpiIndice: new Uint8Array(dpiIndice) },
+        select: { id: true },
+      });
+      if (existe) {
+        // El id va en detalles y no como campo suelto: el formato de error es
+        // uno solo en los ocho servicios, y el frontend lo usa para ofrecer
+        // "abrir el expediente existente" en vez de dejar al usuario atascado.
+        throw new ConflictException({
+          mensaje: 'Ya existe un paciente registrado con ese DPI.',
+          detalles: ['pacienteId:' + existe.id],
+        });
+      }
+    }
+
+    const numero = dto.numeroExpediente?.trim() || (await this.siguienteNumeroExpediente());
+    const numeroIndice = this.cifrado.indiceCiego(numero);
+
+    if (
+      await this.prisma.expediente.findUnique({
+        where: { numeroIndice: new Uint8Array(numeroIndice) },
+        select: { id: true },
+      })
+    ) {
+      throw new ConflictException('Ya existe un expediente con ese numero.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const paciente = await tx.paciente.create({
+        data: {
+          dpiCifrado: dto.dpi ? new Uint8Array(this.cifrado.cifrar(dto.dpi)) : null,
+          dpiIndice: dpiIndice ? new Uint8Array(dpiIndice) : null,
+          nombres: dto.nombres.trim(),
+          apellidos: dto.apellidos.trim(),
+          fechaNacimiento: dto.fechaNacimiento,
+          sexo: dto.sexo,
+          idioma: dto.idioma ?? 'ESPANOL',
+          comunidadId: dto.comunidadId,
+          grupoFamiliarId: dto.grupoFamiliarId,
+          telefono: dto.telefono?.trim(),
+        },
+      });
+
+      const expediente = await tx.expediente.create({
+        data: {
+          pacienteId: paciente.id,
+          numeroCifrado: new Uint8Array(this.cifrado.cifrar(numero)),
+          numeroIndice: new Uint8Array(numeroIndice),
+        },
+      });
+
+      await tx.registroDigitalizacion.create({
+        data: {
+          expedienteId: expediente.id,
+          estado: dto.digitalizado ? 'EN_PROCESO' : 'COMPLETO',
+          digitalizadoPor: dto.digitalizado ? usuarioId : null,
+          iniciadoEn: dto.digitalizado ? new Date() : null,
+          completadoEn: dto.digitalizado ? null : new Date(),
+        },
+      });
+
+      // El evento NO lleva DPI ni nombre: el bus no es un canal cifrado por
+      // campo y los indicadores no necesitan identificar a la persona.
+      await this.outbox.registrar(
+        tx,
+        Evento.PACIENTE_CREADO,
+        {
+          pacienteId: paciente.id,
+          comunidadId: paciente.comunidadId,
+          sexo: paciente.sexo,
+          anioNacimiento: paciente.fechaNacimiento.getFullYear(),
+          registradoPor: usuarioId,
+        },
+        trazaId,
+      );
+
+      return { id: paciente.id, numeroExpediente: numero, expedienteId: expediente.id };
+    });
+  }
+
+  async actualizar(id: string, dto: ActualizarPacienteDto) {
+    if (!(await this.prisma.paciente.findUnique({ where: { id }, select: { id: true } }))) {
+      throw new NotFoundException('No existe ese paciente.');
+    }
+    if (dto.comunidadId && !(await this.prisma.comunidad.findUnique({ where: { id: dto.comunidadId } }))) {
+      throw new BadRequestException('La comunidad indicada no existe.');
+    }
+
+    await this.prisma.paciente.update({
+      where: { id },
+      data: {
+        ...(dto.nombres !== undefined ? { nombres: dto.nombres.trim() } : {}),
+        ...(dto.apellidos !== undefined ? { apellidos: dto.apellidos.trim() } : {}),
+        ...(dto.idioma !== undefined ? { idioma: dto.idioma } : {}),
+        ...(dto.comunidadId !== undefined ? { comunidadId: dto.comunidadId } : {}),
+        ...(dto.grupoFamiliarId !== undefined ? { grupoFamiliarId: dto.grupoFamiliarId } : {}),
+        ...(dto.telefono !== undefined ? { telefono: dto.telefono.trim() } : {}),
+        ...(dto.fallecido !== undefined ? { fallecido: dto.fallecido } : {}),
+      },
+    });
+
+    return this.obtener(id);
+  }
+
+  /**
+   * Correlativo del expediente. Usa una secuencia de PostgreSQL y no
+   * MAX(numero) + 1 por dos motivos: el numero esta cifrado, asi que no se
+   * puede calcular un maximo sobre el; y dos altas simultaneas darian el mismo
+   * numero.
+   */
+  private async siguienteNumeroExpediente(): Promise<string> {
+    const filas = await this.prisma.$queryRaw<{ nextval: bigint }[]>`
+      SELECT nextval('usuarios.expediente_correlativo') AS nextval
+    `;
+    const n = Number(filas[0].nextval);
+    return 'EXP-' + new Date().getFullYear() + '-' + String(n).padStart(6, '0');
+  }
+
+  private aResumen(p: FilaResumen) {
+    return {
+      id: p.id,
+      nombres: p.nombres,
+      apellidos: p.apellidos,
+      fechaNacimiento: p.fechaNacimiento,
+      edad: PacientesService.edad(p.fechaNacimiento),
+      sexo: p.sexo,
+      idioma: p.idioma,
+      fallecido: p.fallecido,
+      comunidad: p.comunidad,
+      expediente: p.expediente
+        ? {
+            id: p.expediente.id,
+            numero: this.cifrado.descifrar(Buffer.from(p.expediente.numeroCifrado)),
+          }
+        : null,
+    };
+  }
+
+  static edad(fechaNacimiento: Date): number {
+    const hoy = new Date();
+    let edad = hoy.getFullYear() - fechaNacimiento.getFullYear();
+    const mes = hoy.getMonth() - fechaNacimiento.getMonth();
+    if (mes < 0 || (mes === 0 && hoy.getDate() < fechaNacimiento.getDate())) edad--;
+    return edad;
+  }
+}

@@ -41,13 +41,26 @@ export class FiltroExcepciones implements ExceptionFilter {
       if (typeof cuerpo === 'string') {
         mensaje = cuerpo;
       } else if (cuerpo && typeof cuerpo === 'object') {
-        const c = cuerpo as { message?: string | string[]; codigo?: string };
+        const c = cuerpo as {
+          message?: string | string[];
+          mensaje?: string;
+          detalles?: string[];
+          codigo?: string;
+        };
+
         if (Array.isArray(c.message)) {
+          // Formato de class-validator: una linea por campo invalido.
           mensaje = 'La informacion enviada no es valida.';
           detalles = c.message;
         } else if (typeof c.message === 'string') {
           mensaje = c.message;
         }
+
+        // Los servicios de este proyecto escriben en espanol. Sin esta rama,
+        // lanzar new ConflictException({ mensaje: '...' }) devolvia el mensaje
+        // generico de error interno y el detalle se perdia en silencio.
+        if (typeof c.mensaje === 'string') mensaje = c.mensaje;
+        if (Array.isArray(c.detalles)) detalles = c.detalles;
         if (typeof c.codigo === 'string') codigo = c.codigo;
       }
     }

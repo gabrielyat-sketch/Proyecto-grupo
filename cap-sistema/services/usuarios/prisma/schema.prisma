@@ -1,0 +1,250 @@
+// Servicio de Informacion de Usuarios — esquema `usuarios`.
+//
+// Aqui viven los datos clinicos de los pacientes del CAP. Es el servicio con
+// el requisito de proteccion mas alto del sistema.
+//
+// Ver arquitectura-cap-purulha.md §9.2, §9.3 y §9.4
+
+generator client {
+  provider = "prisma-client-js"
+  // Cada servicio genera su cliente en SU carpeta. Con la ruta por defecto,
+  // los ocho servicios del monorepo escribirian sobre el mismo
+  // node_modules/@prisma/client y el ultimo `prisma generate` dejaria a los
+  // demas apuntando a un esquema que no es el suyo.
+  output   = "./generado"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Sexo {
+  M
+  F
+}
+
+/// Idioma de preferencia para la atencion. En Purulha se habla poqomchi' y
+/// q'eqchi' ademas de espanol; saberlo permite asignar personal que hable el
+/// idioma del paciente y preparar material adecuado.
+enum Idioma {
+  ESPANOL
+  POQOMCHI
+  QEQCHI
+  OTRO
+}
+
+enum EstadoDigitalizacion {
+  PENDIENTE
+  EN_PROCESO
+  COMPLETO
+  NO_LOCALIZADO
+}
+
+/// Comunidades del municipio que atiende el CAP.
+model Comunidad {
+  id       String  @id @default(uuid())
+  nombre   String  @unique @db.VarChar(120)
+  /// Codigo interno del CAP, si lo tiene.
+  codigo   String? @db.VarChar(20)
+  distante Boolean @default(false)
+  activa   Boolean @default(true)
+
+  grupos    GrupoFamiliar[]
+  pacientes Paciente[]
+
+  @@index([activa])
+  @@map("comunidad")
+}
+
+/// Grupo familiar. El CAP organiza la atencion por familia, no solo por
+/// individuo: los programas de desnutricion y embarazo se siguen en ese nivel.
+model GrupoFamiliar {
+  id          String  @id @default(uuid())
+  /// Codigo del grupo familiar segun el registro del CAP.
+  codigo      String  @unique @db.VarChar(30)
+  comunidadId String  @map("comunidad_id")
+  direccion   String? @db.VarChar(255)
+  telefono    String? @db.VarChar(20)
+
+  comunidad Comunidad  @relation(fields: [comunidadId], references: [id])
+  pacientes Paciente[]
+
+  creadoEn DateTime @default(now()) @map("creado_en")
+
+  @@index([comunidadId])
+  @@map("grupo_familiar")
+}
+
+model Paciente {
+  id String @id @default(uuid())
+
+  // ─── Identificacion ────────────────────────────────────────────────────
+  //
+  // El DPI es OPCIONAL a proposito. Los ninos del programa de desnutricion no
+  // lo tienen, y en el area rural hay adultos que tampoco. El identificador
+  // que siempre existe es el numero de expediente que asigna el CAP.
+  //
+  /// DPI cifrado con AES-256-GCM. Solo se descifra para mostrarlo a un
+  /// usuario autorizado.
+  dpiCifrado Bytes? @map("dpi_cifrado")
+  /// Indice ciego: HMAC-SHA256 del DPI. Es lo que hace posible la busqueda
+  /// de recepcion sobre un campo cifrado.
+  ///
+  /// La UNICIDAD VIVE AQUI, no en dpiCifrado. Un @unique sobre el texto
+  /// cifrado no serviria de nada: AES-GCM produce un resultado distinto cada
+  /// vez, asi que el mismo DPI insertado dos veces pasaria el control y el
+  /// paciente quedaria duplicado.
+  dpiIndice Bytes? @unique @map("dpi_indice")
+
+  // ─── Datos que NO se cifran ────────────────────────────────────────────
+  //
+  // Requieren busqueda parcial, orden alfabetico o filtros estadisticos.
+  // Estan protegidos por RBAC y por el cifrado de disco del proveedor.
+  //
+  nombres         String   @db.VarChar(120)
+  apellidos       String   @db.VarChar(120)
+  fechaNacimiento DateTime @map("fecha_nacimiento") @db.Date
+  sexo            Sexo
+  idioma          Idioma   @default(ESPANOL)
+
+  comunidadId     String  @map("comunidad_id")
+  grupoFamiliarId String? @map("grupo_familiar_id")
+  telefono        String? @db.VarChar(20)
+
+  fallecido     Boolean  @default(false)
+  creadoEn      DateTime @default(now()) @map("creado_en")
+  actualizadoEn DateTime @updatedAt @map("actualizado_en")
+
+  comunidad     Comunidad      @relation(fields: [comunidadId], references: [id])
+  grupoFamiliar GrupoFamiliar? @relation(fields: [grupoFamiliarId], references: [id])
+  expediente    Expediente?
+
+  /// Busqueda por nombre cuando el paciente no trae DPI. El orden de las
+  /// columnas es (apellidos, nombres) porque asi busca y ordena el personal
+  /// de archivo.
+  @@index([apellidos, nombres])
+  @@index([comunidadId])
+  @@index([grupoFamiliarId])
+  @@index([fechaNacimiento])
+  @@map("paciente")
+}
+
+/// Expediente clinico. Uno por paciente, igual que la carpeta de papel.
+model Expediente {
+  id String @id @default(uuid())
+
+  /// Numero de expediente cifrado + indice ciego, con la unicidad en el
+  /// indice por la misma razon que el DPI.
+  numeroCifrado Bytes @map("numero_cifrado")
+  numeroIndice  Bytes @unique @map("numero_indice")
+
+  pacienteId String @unique @map("paciente_id")
+
+  /// Fecha de apertura del expediente en papel, que puede ser muy anterior a
+  /// la digitalizacion.
+  aperturaEn DateTime? @map("apertura_en") @db.Date
+  creadoEn   DateTime  @default(now()) @map("creado_en")
+
+  paciente       Paciente                @relation(fields: [pacienteId], references: [id])
+  atenciones     Atencion[]
+  digitalizacion RegistroDigitalizacion?
+
+  @@map("expediente")
+}
+
+/// Una consulta o atencion registrada en el expediente.
+model Atencion {
+  id           String   @id @default(uuid())
+  expedienteId String   @map("expediente_id")
+  fecha        DateTime @default(now())
+
+  /// Identificador del usuario del sistema que registro la atencion. Viene
+  /// del JWT: NO es una llave foranea, porque las cuentas viven en el
+  /// servicio auth y un servicio nunca consulta la base de otro.
+  registradaPor String @map("registrada_por")
+
+  // ─── Datos clinicos: CIFRADOS, sin indice ──────────────────────────────
+  //
+  // Nunca se buscan por contenido. Se leen dentro del expediente ya abierto,
+  // por lo que no hacen falta ni indice ni indice ciego.
+  //
+  motivoCifrado      Bytes  @map("motivo_cifrado")
+  diagnosticoCifrado Bytes? @map("diagnostico_cifrado")
+  tratamientoCifrado Bytes? @map("tratamiento_cifrado")
+  notasCifrado       Bytes? @map("notas_cifrado")
+
+  // ─── Signos vitales: SIN cifrar ────────────────────────────────────────
+  //
+  // Alimentan los indicadores de los programas de salud (hipertension,
+  // desnutricion). Cifrarlos obligaria a descifrar miles de filas para
+  // calcular un promedio.
+  //
+  pesoKg            Decimal? @map("peso_kg") @db.Decimal(5, 2)
+  tallaCm           Decimal? @map("talla_cm") @db.Decimal(5, 1)
+  presionSistolica  Int?     @map("presion_sistolica")
+  presionDiastolica Int?     @map("presion_diastolica")
+  temperaturaC      Decimal? @map("temperatura_c") @db.Decimal(4, 1)
+
+  /// true si proviene de digitalizar un expediente de papel y no de una
+  /// consulta atendida en el momento.
+  digitalizada Boolean @default(false)
+
+  expediente Expediente @relation(fields: [expedienteId], references: [id])
+
+  /// Historial del expediente, lo mas reciente primero. Es la consulta mas
+  /// frecuente del sistema despues de la busqueda de paciente.
+  @@index([expedienteId, fecha(sort: Desc)])
+  /// Indicadores por rango de fechas.
+  @@index([fecha])
+  @@map("atencion")
+}
+
+/// Avance de la digitalizacion del expediente de papel (RF-08).
+///
+/// Va en su propia tabla y no como columnas de Expediente porque `expediente`
+/// se lee en el camino critico de menos de 2 segundos, y estos campos solo los
+/// consulta el panel de digitalizacion. Mantener la fila caliente angosta
+/// importa cuando hay 100,000 expedientes.
+model RegistroDigitalizacion {
+  expedienteId String               @id @map("expediente_id")
+  estado       EstadoDigitalizacion @default(PENDIENTE)
+  /// Usuario del sistema que realizo la digitalizacion (viene del JWT).
+  digitalizadoPor String?   @map("digitalizado_por")
+  iniciadoEn      DateTime? @map("iniciado_en")
+  completadoEn    DateTime? @map("completado_en")
+  /// Cuantas atenciones del papel se transcribieron.
+  atencionesTranscritas Int     @default(0) @map("atenciones_transcritas")
+  observaciones         String? @db.VarChar(500)
+
+  expediente Expediente @relation(fields: [expedienteId], references: [id])
+
+  @@index([estado])
+  @@map("registro_digitalizacion")
+}
+
+/// Bandeja de salida de eventos (patron outbox).
+///
+/// El evento se escribe en la MISMA transaccion que el cambio de negocio. Un
+/// proceso aparte lo publica despues al bus.
+///
+/// Se crea desde ahora aunque el publicador llegue en la Etapa 10: agregarlo
+/// despues obligaria a tocar todas las rutas de escritura, y un evento perdido
+/// desfasa un indicador de salud de forma permanente y silenciosa.
+model Outbox {
+  id      String @id @default(uuid())
+  tipo    String @db.VarChar(60)
+  version Int    @default(1)
+  /// Cuerpo del evento. NO debe contener datos clinicos: el bus no es un
+  /// canal cifrado por campo.
+  datos       Json
+  trazaId     String?   @map("traza_id") @db.VarChar(64)
+  ocurridoEn  DateTime  @default(now()) @map("ocurrido_en")
+  publicadoEn DateTime? @map("publicado_en")
+  intentos    Int       @default(0)
+
+  /// El publicador busca lo no publicado, en orden de ocurrencia.
+  @@index([publicadoEn, ocurridoEn])
+  @@map("outbox")
+}
