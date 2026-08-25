@@ -1,0 +1,489 @@
+openapi: 3.0.0
+paths:
+  /v1/salud:
+    get:
+      operationId: SaludController_vivo
+      parameters: []
+      responses:
+        "200":
+          description: ""
+      summary: El proceso esta vivo
+      tags: &a1
+        - salud
+  /v1/salud/listo:
+    get:
+      operationId: SaludController_listo
+      parameters: []
+      responses:
+        "200":
+          description: ""
+      summary: El servicio y sus dependencias responden
+      tags: *a1
+  /v1/comunidades:
+    get:
+      operationId: ComunidadesController_listar
+      parameters:
+        - name: todas
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+      security: &a2
+        - bearer: []
+      summary: Comunidades que atiende el CAP
+      tags: &a3
+        - comunidades
+    post:
+      operationId: ComunidadesController_crear
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrearComunidadDto"
+      responses:
+        "201":
+          description: ""
+      security: *a2
+      tags: *a3
+  /v1/pacientes:
+    get:
+      description: La busqueda por DPI se resuelve con el indice ciego sobre el campo
+        cifrado.
+      operationId: PacientesController_buscar
+      parameters:
+        - name: dpi
+          required: false
+          in: query
+          description: Busqueda exacta por DPI, resuelta con el indice ciego.
+          schema:
+            example: "1234567890101"
+            type: string
+        - name: nombre
+          required: false
+          in: query
+          description: Busqueda por INICIO de apellido o nombre. No busca en medio del
+            texto.
+          schema:
+            example: perez
+            type: string
+        - name: comunidadId
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: pagina
+          required: false
+          in: query
+          schema:
+            default: 1
+            type: number
+        - name: tamano
+          required: false
+          in: query
+          schema:
+            maximum: 100
+            default: 25
+            type: number
+      responses:
+        "200":
+          description: ""
+      security: &a4
+        - bearer: []
+      summary: Busca pacientes por DPI, inicio de nombre o comunidad
+      tags: &a5
+        - pacientes
+    post:
+      operationId: PacientesController_crear
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrearPacienteDto"
+      responses:
+        "201":
+          description: ""
+      security: *a4
+      summary: Registra un paciente y abre su expediente
+      tags: *a5
+  /v1/pacientes/{id}:
+    get:
+      operationId: PacientesController_obtener
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+      security: *a4
+      tags: *a5
+    patch:
+      operationId: PacientesController_actualizar
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActualizarPacienteDto"
+      responses:
+        "200":
+          description: ""
+      security: *a4
+      tags: *a5
+  /v1/grupos-familiares:
+    get:
+      operationId: GruposController_listar
+      parameters:
+        - name: comunidadId
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: codigo
+          required: false
+          in: query
+          description: Busca por inicio del codigo del grupo.
+          schema:
+            type: string
+        - name: pagina
+          required: false
+          in: query
+          schema:
+            default: 1
+            type: number
+        - name: tamano
+          required: false
+          in: query
+          schema:
+            maximum: 100
+            default: 25
+            type: number
+      responses:
+        "200":
+          description: ""
+      security: &a6
+        - bearer: []
+      summary: Lista paginada de grupos familiares
+      tags: &a7
+        - grupos-familiares
+    post:
+      operationId: GruposController_crear
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrearGrupoDto"
+      responses:
+        "201":
+          description: ""
+      security: *a6
+      tags: *a7
+  /v1/grupos-familiares/{id}:
+    get:
+      operationId: GruposController_obtener
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+      security: *a6
+      summary: Grupo familiar con sus integrantes
+      tags: *a7
+  /v1/expedientes/buscar:
+    get:
+      operationId: ExpedientesController_porNumero
+      parameters:
+        - name: numero
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+      security:
+        - bearer: []
+      summary: Busca un expediente por su numero
+      tags:
+        - expedientes
+  /v1/expedientes/{expedienteId}/atenciones:
+    get:
+      operationId: AtencionesController_listar
+      parameters:
+        - name: expedienteId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: pagina
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: tamano
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+      security: &a8
+        - bearer: []
+      summary: Historial del expediente, lo mas reciente primero
+      tags: &a9
+        - atenciones
+    post:
+      operationId: AtencionesController_registrar
+      parameters:
+        - name: expedienteId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegistrarAtencionDto"
+      responses:
+        "201":
+          description: ""
+      security: *a8
+      summary: Registra una atencion en el expediente
+      tags: *a9
+  /v1/digitalizacion/resumen:
+    get:
+      operationId: DigitalizacionController_resumen
+      parameters: []
+      responses:
+        "200":
+          description: ""
+      security: &a10
+        - bearer: []
+      summary: Avance de la digitalizacion de expedientes
+      tags: &a11
+        - digitalizacion
+  /v1/digitalizacion/{expedienteId}:
+    patch:
+      operationId: DigitalizacionController_actualizar
+      parameters:
+        - name: expedienteId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActualizarDigitalizacionDto"
+      responses:
+        "200":
+          description: ""
+      security: *a10
+      tags: *a11
+info:
+  title: Servicio usuarios - CAP Purulha
+  description: >-
+    Contrato del servicio usuarios.
+
+
+    Generado desde el codigo. No editar a mano: los cambios se pierden en la
+    siguiente exportacion. Fuente de verdad: arquitectura-cap-purulha.md
+  version: "1.0"
+  contact: {}
+tags: []
+servers:
+  - url: http://localhost:3002
+    description: Desarrollo local
+components:
+  securitySchemes:
+    bearer:
+      scheme: bearer
+      bearerFormat: JWT
+      type: http
+  schemas:
+    CrearComunidadDto:
+      type: object
+      properties:
+        nombre:
+          type: string
+          example: Chilasco
+        codigo:
+          type: string
+          example: CHI-01
+        distante:
+          type: boolean
+          description: Comunidad de dificil acceso. Se usa para priorizar visitas y
+            seguimiento.
+      required:
+        - nombre
+    CrearPacienteDto:
+      type: object
+      properties:
+        dpi:
+          type: string
+          example: "1234567890101"
+          description: "DPI de 13 digitos. OPCIONAL: los ninos y parte de la poblacion
+            rural no lo tienen."
+        nombres:
+          type: string
+          example: Juana Isabel
+        apellidos:
+          type: string
+          example: Perez Caal
+        fechaNacimiento:
+          format: date-time
+          type: string
+          example: 1985-04-12
+        sexo:
+          type: string
+          enum:
+            - M
+            - F
+        idioma:
+          type: string
+          enum:
+            - ESPANOL
+            - POQOMCHI
+            - QEQCHI
+            - OTRO
+          default: ESPANOL
+        comunidadId:
+          type: string
+          description: Identificador de la comunidad
+        grupoFamiliarId:
+          type: string
+        telefono:
+          type: string
+        numeroExpediente:
+          type: string
+          description: Numero del expediente de papel. Se usa al digitalizar; si se omite,
+            el sistema genera uno.
+        digitalizado:
+          type: boolean
+          description: Marca el expediente como proveniente de papel (RF-08).
+      required:
+        - nombres
+        - apellidos
+        - fechaNacimiento
+        - sexo
+        - comunidadId
+    ActualizarPacienteDto:
+      type: object
+      properties:
+        nombres:
+          type: string
+        apellidos:
+          type: string
+        idioma:
+          type: string
+          enum:
+            - ESPANOL
+            - POQOMCHI
+            - QEQCHI
+            - OTRO
+        comunidadId:
+          type: string
+        grupoFamiliarId:
+          type: string
+        telefono:
+          type: string
+        fallecido:
+          type: boolean
+    CrearGrupoDto:
+      type: object
+      properties:
+        codigo:
+          type: string
+          description: Codigo del grupo familiar segun el registro del CAP. Si se omite,
+            el sistema genera uno.
+        comunidadId:
+          type: string
+        direccion:
+          type: string
+          example: Caserio El Rejon, casa 14
+        telefono:
+          type: string
+      required:
+        - comunidadId
+    RegistrarAtencionDto:
+      type: object
+      properties:
+        motivo:
+          type: string
+          example: Control de presion arterial
+        diagnostico:
+          type: string
+        tratamiento:
+          type: string
+        notas:
+          type: string
+        pesoKg:
+          type: number
+          minimum: 0.5
+          maximum: 400
+        tallaCm:
+          type: number
+          minimum: 20
+          maximum: 250
+        presionSistolica:
+          type: number
+          minimum: 50
+          maximum: 300
+        presionDiastolica:
+          type: number
+          minimum: 30
+          maximum: 200
+        temperaturaC:
+          type: number
+          minimum: 30
+          maximum: 45
+        fecha:
+          format: date-time
+          type: string
+          description: "Fecha real de la atencion. Se usa al digitalizar papel: la
+            consulta ocurrio hace anos."
+        digitalizada:
+          type: boolean
+          description: Marca la atencion como transcrita desde papel.
+      required:
+        - motivo
+    ActualizarDigitalizacionDto:
+      type: object
+      properties:
+        estado:
+          type: string
+          enum:
+            - PENDIENTE
+            - EN_PROCESO
+            - COMPLETO
+            - NO_LOCALIZADO
+        observaciones:
+          type: string
+      required:
+        - estado

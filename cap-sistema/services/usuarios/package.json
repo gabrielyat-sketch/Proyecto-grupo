@@ -1,8 +1,8 @@
 {
-  "name": "@cap/plantilla",
+  "name": "@cap/usuarios",
   "version": "0.1.0",
   "private": true,
-  "description": "Servicio de referencia. No se despliega: es el molde de los demas microservicios.",
+  "description": "Servicio de Informacion de Usuarios: pacientes, expedientes y atenciones.",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsc -p tsconfig.build.json --watch",
@@ -12,6 +12,8 @@
     "lint": "tsc --noEmit",
     "prisma:migrar": "prisma migrate dev",
     "prisma:generar": "prisma generate",
+    "seed": "tsx prisma/seed.ts",
+    "carga": "tsx prisma/carga-prueba.ts",
     "contrato": "ts-node --project tsconfig.scripts.json scripts/exportar-contrato.ts"
   },
   "dependencies": {
