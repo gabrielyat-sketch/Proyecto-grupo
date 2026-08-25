@@ -1,0 +1,19 @@
+# Normaliza finales de linea: el repositorio guarda LF, cada quien trabaja
+# con lo que su sistema use. Evita que un cambio de Windows a Linux aparezca
+# como "archivo completo modificado" en el Pull Request.
+* text=auto eol=lf
+
+# Scripts que corren dentro de contenedores Linux: siempre LF.
+*.sh    text eol=lf
+*.sql   text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+
+# Binarios: git no los toca.
+*.png   binary
+*.jpg   binary
+*.pdf   binary
+*.docx  binary
+*.ico   binary
+*.ttf   binary
+*.woff2 binary

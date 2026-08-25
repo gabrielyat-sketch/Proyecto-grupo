@@ -1,0 +1,13 @@
+{
+  "name": "@cap/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Libreria compartida por los microservicios del CAP",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "jest",
+    "lint": "eslint src --ext .ts"
+  }
+}
