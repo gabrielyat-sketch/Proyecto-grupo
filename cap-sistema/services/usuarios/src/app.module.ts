@@ -8,6 +8,7 @@ import { CifradoModule } from './comun/cifrado.module';
 import { EventosModule } from './eventos/eventos.module';
 import { ComunidadesModule } from './comunidades/comunidades.module';
 import { PacientesModule } from './pacientes/pacientes.module';
+import { GruposModule } from './grupos/grupos.module';
 import { ExpedientesModule } from './expedientes/expedientes.module';
 import { AtencionesModule } from './atenciones/atenciones.module';
 import { DigitalizacionModule } from './digitalizacion/digitalizacion.module';
@@ -31,6 +32,7 @@ import { leerEntorno } from './config/entorno';
     SaludModule,
     ComunidadesModule,
     PacientesModule,
+    GruposModule,
     ExpedientesModule,
     AtencionesModule,
     DigitalizacionModule,

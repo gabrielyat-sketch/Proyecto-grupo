@@ -20,6 +20,13 @@
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "mock": "prism mock docs/openapi/usuarios.yaml"
+    "mock": "prism mock docs/openapi/usuarios.yaml",
+    "contratos": "npm run contrato --workspaces --if-present",
+    "endpoints": "tsx scripts/indice-endpoints.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.3.0",
+    "tsx": "^4.23.12",
+    "yaml": "^2.9.0"
   }
 }

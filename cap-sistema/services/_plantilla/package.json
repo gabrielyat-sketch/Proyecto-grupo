@@ -11,7 +11,8 @@
     "test:e2e": "jest --config test/jest-e2e.json --runInBand",
     "lint": "tsc --noEmit",
     "prisma:migrar": "prisma migrate dev",
-    "prisma:generar": "prisma generate"
+    "prisma:generar": "prisma generate",
+    "contrato": "ts-node --project tsconfig.scripts.json scripts/exportar-contrato.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.2.3",
@@ -37,6 +38,9 @@
     "prisma": "^6.19.3",
     "supertest": "^7.2.2",
     "ts-jest": "^29.4.12",
-    "typescript": "^5.9.3"
+    "ts-node": "^10.9.2",
+    "tsx": "^4.23.12",
+    "typescript": "^5.9.3",
+    "yaml": "^2.9.0"
   }
 }

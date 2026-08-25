@@ -1,0 +1,352 @@
+openapi: 3.0.0
+paths:
+  /v1/salud:
+    get:
+      operationId: SaludController_vivo
+      parameters: []
+      responses:
+        "200":
+          description: ""
+      summary: El proceso esta vivo
+      tags: &a1
+        - salud
+  /v1/salud/listo:
+    get:
+      operationId: SaludController_listo
+      parameters: []
+      responses:
+        "200":
+          description: ""
+      summary: El servicio y sus dependencias responden
+      tags: *a1
+  /v1/auth/login:
+    post:
+      description: Devuelve los tokens, o mfaRequerido=true con un token parcial si el
+        rol exige segundo factor.
+      operationId: AutenticacionController_login
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginDto"
+      responses:
+        "200":
+          description: ""
+      summary: Inicia sesion
+      tags: &a2
+        - autenticacion
+  /v1/auth/mfa/verificar:
+    post:
+      operationId: AutenticacionController_verificarMfa
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerificarMfaDto"
+      responses:
+        "200":
+          description: ""
+      summary: Completa el login con el codigo de segundo factor
+      tags: *a2
+  /v1/auth/refrescar:
+    post:
+      operationId: AutenticacionController_refrescar
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefrescarDto"
+      responses:
+        "200":
+          description: ""
+      summary: Rota el token de refresco y emite uno de acceso nuevo
+      tags: *a2
+  /v1/auth/cerrar-sesion:
+    post:
+      operationId: AutenticacionController_cerrarSesion
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefrescarDto"
+      responses:
+        "204":
+          description: ""
+      summary: Revoca la sesion indicada
+      tags: *a2
+  /v1/auth/yo:
+    get:
+      operationId: AutenticacionController_yo
+      parameters: []
+      responses:
+        "200":
+          description: ""
+      security:
+        - bearer: []
+      summary: Perfil del usuario autenticado
+      tags: *a2
+  /v1/auth/contrasena:
+    post:
+      operationId: AutenticacionController_cambiarContrasena
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CambiarContrasenaDto"
+      responses:
+        "204":
+          description: ""
+      security:
+        - bearer: []
+      summary: Cambia la propia contrasena
+      tags: *a2
+  /v1/auth/mfa/configurar:
+    post:
+      description: El segundo factor queda INACTIVO hasta confirmarlo en mfa/activar.
+      operationId: AutenticacionController_configurarMfa
+      parameters: []
+      responses:
+        "200":
+          description: ""
+      security:
+        - bearer: []
+      summary: Genera el secreto TOTP y los codigos de respaldo
+      tags: *a2
+  /v1/auth/mfa/activar:
+    post:
+      operationId: AutenticacionController_activarMfa
+      parameters: []
+      responses:
+        "204":
+          description: ""
+      security:
+        - bearer: []
+      summary: Confirma con un codigo real y activa el segundo factor
+      tags: *a2
+  /v1/usuarios:
+    get:
+      operationId: UsuariosController_listar
+      parameters:
+        - name: pagina
+          required: false
+          in: query
+          schema:
+            default: 1
+            type: number
+        - name: tamano
+          required: false
+          in: query
+          schema:
+            maximum: 100
+            default: 25
+            type: number
+        - name: rol
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - ADMINISTRADOR
+              - DIRECTOR
+              - MEDICO
+              - ENFERMERIA
+              - FARMACIA
+              - RECEPCION
+        - name: buscar
+          required: false
+          in: query
+          description: Busca en usuario, nombres y apellidos
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+      security: &a3
+        - bearer: []
+      summary: Lista paginada de cuentas
+      tags: &a4
+        - usuarios
+    post:
+      description: "Devuelve una contrasena temporal. Es la unica vez que se muestra:
+        anotela y entreguela a la persona."
+      operationId: UsuariosController_crear
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrearUsuarioDto"
+      responses:
+        "201":
+          description: ""
+      security: *a3
+      summary: Crea una cuenta
+      tags: *a4
+  /v1/usuarios/{id}:
+    get:
+      operationId: UsuariosController_obtener
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+      security: *a3
+      tags: *a4
+    patch:
+      operationId: UsuariosController_actualizar
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActualizarUsuarioDto"
+      responses:
+        "200":
+          description: ""
+      security: *a3
+      summary: Actualiza datos, rol o estado de una cuenta
+      tags: *a4
+  /v1/usuarios/{id}/restablecer-contrasena:
+    post:
+      operationId: UsuariosController_restablecer
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "201":
+          description: ""
+      security: *a3
+      summary: Genera una contrasena temporal nueva y cierra las sesiones
+      tags: *a4
+info:
+  title: Servicio auth - CAP Purulha
+  description: >-
+    Contrato del servicio auth.
+
+
+    Generado desde el codigo. No editar a mano: los cambios se pierden en la
+    siguiente exportacion. Fuente de verdad: arquitectura-cap-purulha.md
+  version: "1.0"
+  contact: {}
+tags: []
+servers:
+  - url: http://localhost:3001
+    description: Desarrollo local
+components:
+  securitySchemes:
+    bearer:
+      scheme: bearer
+      bearerFormat: JWT
+      type: http
+  schemas:
+    LoginDto:
+      type: object
+      properties:
+        usuario:
+          type: string
+          example: jperez
+        contrasena:
+          type: string
+          example: Clave-Del-Personal-2026
+      required:
+        - usuario
+        - contrasena
+    VerificarMfaDto:
+      type: object
+      properties:
+        tokenParcial:
+          type: string
+          description: Token parcial devuelto por el login
+        codigo:
+          type: string
+          example: "123456"
+          description: Codigo TOTP de 6 digitos o codigo de respaldo
+      required:
+        - tokenParcial
+        - codigo
+    RefrescarDto:
+      type: object
+      properties:
+        tokenRefresco:
+          type: string
+      required:
+        - tokenRefresco
+    CambiarContrasenaDto:
+      type: object
+      properties:
+        contrasenaActual:
+          type: string
+        contrasenaNueva:
+          type: string
+          minLength: 10
+      required:
+        - contrasenaActual
+        - contrasenaNueva
+    CrearUsuarioDto:
+      type: object
+      properties:
+        usuario:
+          type: string
+          example: jperez
+        nombres:
+          type: string
+          example: Juana
+        apellidos:
+          type: string
+          example: Perez Caal
+        rol:
+          type: string
+          enum:
+            - ADMINISTRADOR
+            - DIRECTOR
+            - MEDICO
+            - ENFERMERIA
+            - FARMACIA
+            - RECEPCION
+      required:
+        - usuario
+        - nombres
+        - apellidos
+        - rol
+    ActualizarUsuarioDto:
+      type: object
+      properties:
+        nombres:
+          type: string
+        apellidos:
+          type: string
+        rol:
+          type: string
+          enum:
+            - ADMINISTRADOR
+            - DIRECTOR
+            - MEDICO
+            - ENFERMERIA
+            - FARMACIA
+            - RECEPCION
+        activo:
+          type: boolean

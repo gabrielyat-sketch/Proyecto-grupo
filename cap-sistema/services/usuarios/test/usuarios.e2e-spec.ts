@@ -26,6 +26,7 @@ describe('Servicio usuarios (e2e)', () => {
   const nuevoDpi = () => String(++siguienteDpi);
 
   const creados: string[] = [];
+  const gruposCreados: string[] = [];
 
   beforeAll(async () => {
     const modulo = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -57,6 +58,7 @@ describe('Servicio usuarios (e2e)', () => {
         await prisma.expediente.deleteMany({ where: { pacienteId: id } });
         await prisma.paciente.deleteMany({ where: { id } });
       }
+      await prisma.grupoFamiliar.deleteMany({ where: { id: { in: gruposCreados } } });
       await prisma.outbox.deleteMany({});
       await prisma.comunidad.deleteMany({ where: { nombre: 'Comunidad de Prueba E2E' } });
     }
@@ -542,6 +544,91 @@ describe('Servicio usuarios (e2e)', () => {
       expect(r.body.total).toBeGreaterThan(0);
       expect(r.body.porEstado).toHaveProperty('PENDIENTE');
       expect(typeof r.body.porcentajeCompleto).toBe('number');
+    });
+  });
+
+  describe('grupos familiares', () => {
+    let grupoId: string;
+
+    it('crea un grupo con codigo generado por el sistema', async () => {
+      const r = await request(http())
+        .post('/v1/grupos-familiares')
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .send({ comunidadId, direccion: 'Caserio de prueba, casa 1' })
+        .expect(201);
+      expect(r.body.codigo).toMatch(/^GF-\d{4}-\d{6}$/);
+      grupoId = r.body.id;
+      gruposCreados.push(grupoId);
+    });
+
+    it('acepta un codigo propio del registro del CAP', async () => {
+      const r = await request(http())
+        .post('/v1/grupos-familiares')
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .send({ codigo: 'E2E-FAM-001', comunidadId })
+        .expect(201);
+      gruposCreados.push(r.body.id);
+      expect(r.body.codigo).toBe('E2E-FAM-001');
+    });
+
+    it('rechaza un codigo duplicado con mensaje claro', async () => {
+      const r = await request(http())
+        .post('/v1/grupos-familiares')
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .send({ codigo: 'E2E-FAM-001', comunidadId })
+        .expect(409);
+      expect(r.body.mensaje).toMatch(/ya existe/i);
+    });
+
+    it('rechaza una comunidad inexistente', async () => {
+      await request(http())
+        .post('/v1/grupos-familiares')
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .send({ comunidadId: '00000000-0000-0000-0000-000000000000' })
+        .expect(400);
+    });
+
+    it('cuenta los integrantes en la base, sin traer los pacientes', async () => {
+      const p = await crearPaciente({ grupoFamiliarId: grupoId });
+      void p;
+      const r = await request(http())
+        .get('/v1/grupos-familiares?codigo=GF-')
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .expect(200);
+      const grupo = r.body.datos.find((g: { id: string }) => g.id === grupoId);
+      expect(grupo.integrantes).toBeGreaterThanOrEqual(1);
+    });
+
+    it('devuelve los integrantes con su edad calculada', async () => {
+      const r = await request(http())
+        .get('/v1/grupos-familiares/' + grupoId)
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .expect(200);
+      expect(Array.isArray(r.body.integrantes)).toBe(true);
+      expect(r.body.integrantes[0]).toHaveProperty('edad');
+    });
+
+    it('el listado esta paginado', async () => {
+      const r = await request(http())
+        .get('/v1/grupos-familiares?tamano=1')
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .expect(200);
+      expect(r.body.tamano).toBe(1);
+      expect(r.body).toHaveProperty('totalPaginas');
+    });
+
+    it('Farmacia no tiene acceso a los grupos familiares', async () => {
+      await request(http())
+        .get('/v1/grupos-familiares')
+        .set('Authorization', 'Bearer ' + token(Rol.FARMACIA))
+        .expect(403);
+    });
+
+    it('devuelve 404 con un grupo inexistente', async () => {
+      await request(http())
+        .get('/v1/grupos-familiares/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .expect(404);
     });
   });
 
