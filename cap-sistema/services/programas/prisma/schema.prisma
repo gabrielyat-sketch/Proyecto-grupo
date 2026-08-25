@@ -1,0 +1,199 @@
+// Servicio de Programas de Salud — esquema `programas`.
+//
+// Seguimiento de hipertension y embarazo. La desnutricion infantil entra en la
+// Etapa 7.
+//
+// Ver arquitectura-cap-purulha.md §9.1 y §9.2
+
+generator client {
+  provider = "prisma-client-js"
+  // Cada servicio genera su cliente en SU carpeta (ver §6.1).
+  output   = "./generado"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum EstadoPrograma {
+  ACTIVO
+  EGRESADO
+  ABANDONO
+  FALLECIDO
+  TRASLADADO
+}
+
+/// Clasificacion de presion arterial. Se calcula, no se teclea: dejarla como
+/// campo libre produce clasificaciones inconsistentes entre el personal.
+enum ClasificacionPresion {
+  NORMAL
+  ELEVADA
+  ESTADIO_1
+  ESTADIO_2
+  CRISIS
+}
+
+enum RiesgoEmbarazo {
+  BAJO
+  ALTO
+}
+
+enum ResultadoEmbarazo {
+  PARTO_NORMAL
+  CESAREA
+  ABORTO
+  OBITO
+  TRASLADO
+  OTRO
+}
+
+/// Inscripcion de un paciente en el programa de hipertension.
+model ProgramaHipertension {
+  id String @id @default(uuid())
+
+  /// Paciente del servicio `usuarios`. NO es llave foranea: los pacientes
+  /// viven en otro esquema y un servicio nunca consulta la base de otro. La
+  /// existencia se valida por HTTP al inscribir.
+  pacienteId String @map("paciente_id")
+
+  /// Se copia al inscribir para poder agrupar indicadores por comunidad sin
+  /// llamar al servicio de usuarios en cada consulta. Es desnormalizacion
+  /// deliberada: si el paciente cambia de comunidad, este dato queda del
+  /// momento de la inscripcion, que es justo lo que interesa para el reporte.
+  comunidadId String @map("comunidad_id")
+
+  fechaIngreso DateTime       @default(now()) @map("fecha_ingreso") @db.Date
+  estado       EstadoPrograma @default(ACTIVO)
+  fechaEgreso  DateTime?      @map("fecha_egreso") @db.Date
+  motivoEgreso String?        @map("motivo_egreso") @db.VarChar(200)
+
+  /// Metas de control acordadas con el paciente.
+  metaSistolica  Int @default(140) @map("meta_sistolica")
+  metaDiastolica Int @default(90) @map("meta_diastolica")
+
+  inscritoPor String   @map("inscrito_por")
+  creadoEn    DateTime @default(now()) @map("creado_en")
+
+  controles ControlHipertension[]
+
+  /// Un paciente no puede estar dos veces ACTIVO en el mismo programa. Se
+  /// resuelve en la aplicacion y no con un unique parcial, porque si egresa y
+  /// vuelve a inscribirse debe poder hacerlo.
+  @@index([pacienteId])
+  @@index([estado])
+  @@index([comunidadId])
+  @@map("programa_hipertension")
+}
+
+model ControlHipertension {
+  id         String   @id @default(uuid())
+  programaId String   @map("programa_id")
+  fecha      DateTime @default(now())
+
+  sistolica  Int
+  diastolica Int
+  /// Calculada a partir de las cifras, nunca tecleada.
+  clasificacion ClasificacionPresion
+  /// true si la lectura alcanza la meta acordada con el paciente.
+  enMeta Boolean
+
+  pesoKg Decimal? @map("peso_kg") @db.Decimal(5, 2)
+  /// Si el paciente refiere estar tomando el tratamiento indicado.
+  adherencia Boolean?
+
+  /// Observaciones clinicas: cifradas, como en el expediente.
+  observacionesCifrado Bytes? @map("observaciones_cifrado")
+
+  proximoControl DateTime? @map("proximo_control") @db.Date
+  registradoPor  String    @map("registrado_por")
+
+  programa ProgramaHipertension @relation(fields: [programaId], references: [id], onDelete: Cascade)
+
+  @@index([programaId, fecha(sort: Desc)])
+  @@index([fecha])
+  @@map("control_hipertension")
+}
+
+/// Inscripcion en el programa de control prenatal.
+model ProgramaEmbarazo {
+  id          String @id @default(uuid())
+  pacienteId  String @map("paciente_id")
+  comunidadId String @map("comunidad_id")
+
+  /// Fecha de ultima menstruacion. De aqui salen la fecha probable de parto y
+  /// las semanas de gestacion de cada control.
+  fum DateTime @map("fum") @db.Date
+  /// Fecha probable de parto, calculada con la regla de Naegele (FUM + 280 d).
+  fpp DateTime @map("fpp") @db.Date
+
+  numeroGestacion Int            @default(1) @map("numero_gestacion")
+  partosPrevios   Int            @default(0) @map("partos_previos")
+  riesgo          RiesgoEmbarazo @default(BAJO)
+  /// Por que se clasifico como alto riesgo. Se guarda el motivo para que el
+  /// personal siguiente sepa a que atenerse.
+  motivoRiesgo String? @map("motivo_riesgo") @db.VarChar(300)
+
+  estado      EstadoPrograma     @default(ACTIVO)
+  resultado   ResultadoEmbarazo?
+  fechaCierre DateTime?          @map("fecha_cierre") @db.Date
+
+  inscritoPor String   @map("inscrito_por")
+  creadoEn    DateTime @default(now()) @map("creado_en")
+
+  controles ControlPrenatal[]
+
+  @@index([pacienteId])
+  @@index([estado])
+  @@index([riesgo])
+  @@index([fpp])
+  @@map("programa_embarazo")
+}
+
+model ControlPrenatal {
+  id         String   @id @default(uuid())
+  programaId String   @map("programa_id")
+  fecha      DateTime @default(now())
+
+  /// Calculadas a partir de la FUM y la fecha del control.
+  semanasGestacion Int @map("semanas_gestacion")
+
+  pesoKg     Decimal? @map("peso_kg") @db.Decimal(5, 2)
+  sistolica  Int?
+  diastolica Int?
+  /// Altura uterina en centimetros.
+  alturaUterinaCm Decimal? @map("altura_uterina_cm") @db.Decimal(4, 1)
+  /// Frecuencia cardiaca fetal, latidos por minuto.
+  fcf   Int?
+  edema Boolean?
+
+  observacionesCifrado Bytes? @map("observaciones_cifrado")
+
+  /// Senales de alarma detectadas por el sistema en este control.
+  alertas        String[]  @default([])
+  proximoControl DateTime? @map("proximo_control") @db.Date
+  registradoPor  String    @map("registrado_por")
+
+  programa ProgramaEmbarazo @relation(fields: [programaId], references: [id], onDelete: Cascade)
+
+  @@index([programaId, fecha(sort: Desc)])
+  @@index([fecha])
+  @@map("control_prenatal")
+}
+
+/// Bandeja de salida de eventos (patron outbox), igual que en `usuarios`.
+model Outbox {
+  id      String @id @default(uuid())
+  tipo    String @db.VarChar(60)
+  version Int    @default(1)
+  /// NUNCA lleva observaciones clinicas.
+  datos       Json
+  trazaId     String?   @map("traza_id") @db.VarChar(64)
+  ocurridoEn  DateTime  @default(now()) @map("ocurrido_en")
+  publicadoEn DateTime? @map("publicado_en")
+  intentos    Int       @default(0)
+
+  @@index([publicadoEn, ocurridoEn])
+  @@map("outbox")
+}

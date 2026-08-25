@@ -27,6 +27,27 @@ gateway público).
 | `PATCH` | `/v1/usuarios/{id}` | Actualiza datos, rol o estado de una cuenta | Bearer |
 | `POST` | `/v1/usuarios/{id}/restablecer-contrasena` | Genera una contrasena temporal nueva y cierra las sesiones | Bearer |
 
+## programas
+
+| Método | Ruta | Qué hace | Auth |
+|---|---|---|---|
+| `GET` | `/v1/programas/embarazo` | Seguimientos, ordenados por fecha probable de parto | Bearer |
+| `POST` | `/v1/programas/embarazo` | Inscribe un embarazo | Bearer |
+| `GET` | `/v1/programas/embarazo/alto-riesgo` | Embarazos activos clasificados como de alto riesgo | Bearer |
+| `GET` | `/v1/programas/embarazo/{id}` |  | Bearer |
+| `PATCH` | `/v1/programas/embarazo/{id}/cierre` | Cierra el seguimiento con su resultado | Bearer |
+| `GET` | `/v1/programas/embarazo/{id}/controles` |  | Bearer |
+| `POST` | `/v1/programas/embarazo/{id}/controles` | Registra un control prenatal | Bearer |
+| `GET` | `/v1/programas/hipertension` | Inscripciones, con su ultimo control | Bearer |
+| `POST` | `/v1/programas/hipertension` | Inscribe a un paciente en el programa | Bearer |
+| `GET` | `/v1/programas/hipertension/atrasados` | Pacientes que ya pasaron su fecha de proximo control | Bearer |
+| `GET` | `/v1/programas/hipertension/{id}` |  | Bearer |
+| `GET` | `/v1/programas/hipertension/{id}/controles` |  | Bearer |
+| `POST` | `/v1/programas/hipertension/{id}/controles` | Registra un control | Bearer |
+| `PATCH` | `/v1/programas/hipertension/{id}/egreso` | Cierra la inscripcion en el programa | Bearer |
+| `GET` | `/v1/salud` | El proceso esta vivo | — |
+| `GET` | `/v1/salud/listo` | El servicio y sus dependencias responden | — |
+
 ## usuarios
 
 | Método | Ruta | Qué hace | Auth |
@@ -50,4 +71,4 @@ gateway público).
 
 ---
 
-**Total: 31 operaciones en 2 servicios.**
+**Total: 47 operaciones en 3 servicios.**
