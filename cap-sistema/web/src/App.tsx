@@ -10,6 +10,8 @@ import { RutaProtegida } from './rutas/RutaProtegida';
 import { RutaPorRol } from './rutas/RutaPorRol';
 import { Inicio } from './rutas/Inicio';
 import { EnConstruccion } from './rutas/EnConstruccion';
+import { PaginaRecepcion } from './modulos/recepcion/PaginaRecepcion';
+import { PaginaNuevoPaciente } from './modulos/recepcion/PaginaNuevoPaciente';
 import { MENU } from './navegacion/menu';
 
 /**
@@ -65,12 +67,33 @@ export function App() {
               }
             >
               <Route index element={<Inicio />} />
+
+              {/*
+                Recepcion tiene pantallas propias, asi que va antes del mapeo
+                de modulos pendientes: la ruta declarada primero gana.
+              */}
+              <Route
+                path="/recepcion"
+                element={
+                  <RutaPorRol ruta="/recepcion">
+                    <PaginaRecepcion />
+                  </RutaPorRol>
+                }
+              />
+              <Route
+                path="/recepcion/nuevo"
+                element={
+                  <RutaPorRol ruta="/recepcion">
+                    <PaginaNuevoPaciente />
+                  </RutaPorRol>
+                }
+              />
               {/*
                 Las rutas salen del mismo menu que dibuja la navegacion: no
                 puede haber una opcion sin pantalla ni una pantalla que el rol
                 no tenga permitida.
               */}
-              {MENU.map(({ ruta, etiqueta, descripcion }) => (
+              {MENU.filter((m) => m.ruta !== '/recepcion').map(({ ruta, etiqueta, descripcion }) => (
                 <Route
                   key={ruta}
                   path={ruta}

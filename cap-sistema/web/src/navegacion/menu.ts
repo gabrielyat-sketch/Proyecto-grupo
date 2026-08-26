@@ -64,7 +64,6 @@ export const MENU: readonly ElementoMenu[] = [
     icono: BadgeIcon,
     // GET /v1/pacientes lo consulta todo el personal; el alta es de Recepcion.
     roles: TODO_EL_PERSONAL,
-    pendiente: true,
   },
   {
     ruta: '/expedientes',
