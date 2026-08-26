@@ -27,6 +27,26 @@ gateway público).
 | `PATCH` | `/v1/usuarios/{id}` | Actualiza datos, rol o estado de una cuenta | Bearer |
 | `POST` | `/v1/usuarios/{id}/restablecer-contrasena` | Genera una contrasena temporal nueva y cierra las sesiones | Bearer |
 
+## medicamentos
+
+| Método | Ruta | Qué hace | Auth |
+|---|---|---|---|
+| `GET` | `/v1/entregas` | Historial de entregas | Bearer |
+| `POST` | `/v1/entregas` | Registra una entrega a un paciente | Bearer |
+| `GET` | `/v1/entregas/{id}` |  | Bearer |
+| `GET` | `/v1/inventario/movimientos` | Movimientos de inventario, lo mas reciente primero | Bearer |
+| `GET` | `/v1/lotes/por-vencer` | Lotes que vencen dentro de la ventana de alerta | Bearer |
+| `GET` | `/v1/lotes/vencidos` | Lotes vencidos que aun figuran con existencia | Bearer |
+| `PATCH` | `/v1/lotes/{id}/baja` | Da de baja lo que queda de un lote | Bearer |
+| `GET` | `/v1/medicamentos` | Catalogo con la existencia total de cada medicamento | Bearer |
+| `POST` | `/v1/medicamentos` |  | Bearer |
+| `GET` | `/v1/medicamentos/bajo-minimo` | Medicamentos por debajo de su existencia minima | Bearer |
+| `GET` | `/v1/medicamentos/{id}` | Detalle con sus lotes y el estado de vencimiento de cada uno | Bearer |
+| `PATCH` | `/v1/medicamentos/{id}` | Ajusta existencia minima, receta obligatoria o estado | Bearer |
+| `POST` | `/v1/medicamentos/{medicamentoId}/lotes` | Ingresa un lote al inventario | Bearer |
+| `GET` | `/v1/salud` | El proceso esta vivo | — |
+| `GET` | `/v1/salud/listo` | El servicio y sus dependencias responden | — |
+
 ## programas
 
 | Método | Ruta | Qué hace | Auth |
@@ -71,4 +91,4 @@ gateway público).
 
 ---
 
-**Total: 47 operaciones en 3 servicios.**
+**Total: 62 operaciones en 4 servicios.**

@@ -1,0 +1,23 @@
+{
+  "preset": "ts-jest",
+  "testEnvironment": "node",
+  "rootDir": "..",
+  "testRegex": ".e2e-spec.ts$",
+  "setupFiles": [
+    "<rootDir>/test/entorno-pruebas.ts"
+  ],
+  "transformIgnorePatterns": [
+    "node_modules/(?!.*(@scure|@noble)/)"
+  ],
+  "transform": {
+    "^.+\\.[tj]s$": [
+      "ts-jest",
+      {
+        "tsconfig": {
+          "allowJs": true,
+          "module": "commonjs"
+        }
+      }
+    ]
+  }
+}

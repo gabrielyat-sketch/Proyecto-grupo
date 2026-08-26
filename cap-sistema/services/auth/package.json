@@ -13,7 +13,7 @@
     "prisma:migrar": "prisma migrate dev",
     "prisma:generar": "prisma generate",
     "seed": "tsx prisma/seed.ts",
-    "contrato": "ts-node --project tsconfig.scripts.json scripts/exportar-contrato.ts"
+    "contrato": "ts-node --project tsconfig.json scripts/exportar-contrato.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.2.3",

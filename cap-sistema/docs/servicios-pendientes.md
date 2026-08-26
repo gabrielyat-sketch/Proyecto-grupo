@@ -1,6 +1,6 @@
 # Servicios pendientes de construir
 
-Los cinco microservicios que faltan. **No existen como carpeta todavía**: cada uno se crea copiando
+Los cuatro microservicios que faltan. **No existen como carpeta todavía**: cada uno se crea copiando
 `services/_plantilla` cuando llega su etapa, siguiendo el procedimiento de su README.
 
 Este documento guarda las decisiones de diseño ya tomadas para cada uno, para que quien lo construya
@@ -8,7 +8,6 @@ no tenga que redescubrirlas.
 
 | Servicio | Puerto | Esquema | RF | Etapa |
 |---|---|---|---|---|
-| `medicamentos` | 3004 | `medicamentos` | RF-02 | 8 |
 | `trazabilidad` | 3007 | `trazabilidad` | RF-09 | 9 |
 | `reportes` | 3005 | `reportes` | RF-04, RF-07 | 10 y 11 |
 | `cms` | 3006 | `cms` | RF-05 | 12 |
@@ -16,18 +15,6 @@ no tenga que redescubrirlas.
 
 Los esquemas y usuarios de base de datos de los cinco **ya están creados** en
 `infra/postgres/init.sql`. No hay que tocar ese archivo al construirlos.
-
----
-
-## medicamentos — Etapa 8
-
-**Responsabilidad:** inventario, lotes, existencias, vencimientos y entregas.
-
-Alimenta dos eventos del bus: `medicamento.entregado` y `lote.por.vencer`.
-
-El control por **lote** no es opcional: dos lotes del mismo medicamento tienen fechas de vencimiento
-distintas, y el requerimiento SHOULD de alertas por vencimiento se calcula sobre el lote, no sobre
-el medicamento.
 
 ---
 

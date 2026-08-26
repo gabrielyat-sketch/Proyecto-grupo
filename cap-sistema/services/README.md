@@ -12,6 +12,7 @@ copiando `_plantilla` cuando llega su etapa. Su diseño ya decidido está en
 | `auth` | 3001 | Cuentas, roles, JWT, refresh, MFA TOTP | RF-06 |
 | `usuarios` | 3002 | Pacientes, expedientes, atenciones, digitalización | RF-01, RF-08 |
 | `programas` | 3003 | Hipertensión y embarazo | RF-03 |
+| `medicamentos` | 3004 | Inventario por lotes, vencimientos y entregas | RF-02 |
 
 ## La regla
 
@@ -42,3 +43,4 @@ Dentro de cada servicio, en `src/<dominio>/`. Todo lo demás —`config`, `prism
 | `auth` | `src/autenticacion/`, `src/tokens/`, `src/mfa/` |
 | `usuarios` | `src/pacientes/`, `src/atenciones/` |
 | `programas` | `src/dominio/clinico.ts` ← toda la lógica clínica, en funciones puras |
+| `medicamentos` | `src/dominio/inventario.ts` ← la selección FEFO · `src/entregas/` |
