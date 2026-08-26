@@ -5,14 +5,15 @@
   "description": "Panel del personal del CAP Purulha",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/liberar-puerto.mjs 5173 && vite --host --port 5173 --strictPort",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "lint": "eslint src",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
-    "api:generar": "openapi-typescript ../docs/openapi/auth.yaml -o src/api/generado/auth.ts && openapi-typescript ../docs/openapi/usuarios.yaml -o src/api/generado/usuarios.ts && openapi-typescript ../docs/openapi/programas.yaml -o src/api/generado/programas.ts && openapi-typescript ../docs/openapi/medicamentos.yaml -o src/api/generado/medicamentos.ts"
+    "api:generar": "openapi-typescript ../docs/openapi/auth.yaml -o src/api/generado/auth.ts && openapi-typescript ../docs/openapi/usuarios.yaml -o src/api/generado/usuarios.ts && openapi-typescript ../docs/openapi/programas.yaml -o src/api/generado/programas.ts && openapi-typescript ../docs/openapi/medicamentos.yaml -o src/api/generado/medicamentos.ts",
+    "dev:solo": "vite --host --port 5173 --strictPort"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

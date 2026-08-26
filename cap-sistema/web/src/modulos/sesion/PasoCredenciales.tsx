@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button, Stack, TextField } from '@mui/material';
 import { AvisoError } from '../../componentes/AvisoError';
+import { CampoContrasena } from '../../componentes/CampoContrasena';
 import { entrar, type ResultadoEntrada } from './servicio-sesion';
 
 // Reglas minimas: el servidor es quien valida de verdad. Aqui solo se evita
@@ -20,8 +21,21 @@ export function PasoCredenciales({ alAvanzar }: { alAvanzar: (r: ResultadoEntrad
   const {
     register,
     handleSubmit,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<Campos>({ resolver: zodResolver(esquema), defaultValues: { usuario: '', contrasena: '' } });
+
+  /**
+   * En cuanto la persona corrige algo, el formulario vuelve a estado neutro.
+   *
+   * Sin esto, tras un intento fallido todo queda en rojo y el mensaje de error
+   * sigue en pantalla mientras se escribe de nuevo: parece que el sistema
+   * siguiera rechazando lo que se esta escribiendo ahora.
+   */
+  function limpiarAvisos() {
+    setError(null);
+    clearErrors();
+  }
 
   async function enviar(campos: Campos) {
     setError(null);
@@ -32,8 +46,10 @@ export function PasoCredenciales({ alAvanzar }: { alAvanzar: (r: ResultadoEntrad
     }
   }
 
+  // onChange en el formulario, no campo por campo: el evento de cualquier
+  // entrada burbujea hasta aqui y no hay que envolver los register.
   return (
-    <form onSubmit={handleSubmit(enviar)} noValidate>
+    <form onSubmit={handleSubmit(enviar)} onChange={limpiarAvisos} noValidate>
       <Stack spacing={2.5}>
         <AvisoError error={error} />
 
@@ -48,9 +64,8 @@ export function PasoCredenciales({ alAvanzar }: { alAvanzar: (r: ResultadoEntrad
           {...register('usuario')}
         />
 
-        <TextField
+        <CampoContrasena
           label="Contrasena"
-          type="password"
           autoComplete="current-password"
           error={Boolean(errors.contrasena)}
           helperText={errors.contrasena?.message}

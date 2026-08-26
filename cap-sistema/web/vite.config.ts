@@ -18,6 +18,19 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    watch: {
+      /**
+       * Espera a que el archivo termine de escribirse antes de procesarlo.
+       *
+       * Guardar un archivo no es instantaneo: primero se vacia y luego se
+       * escribe el contenido. Si el vigilante lo lee en ese hueco, se queda
+       * con una version VACIA en cache y no vuelve a invalidarla. El sintoma
+       * es una pantalla en blanco con "does not provide an export named X",
+       * mientras el archivo en disco esta perfecto, asi que se busca el
+       * problema donde no esta.
+       */
+      awaitWriteFinish: { stabilityThreshold: 200, pollInterval: 50 },
+    },
     proxy: Object.fromEntries(
       Object.entries(servicios).map(([prefijo, destino]) => [
         prefijo,

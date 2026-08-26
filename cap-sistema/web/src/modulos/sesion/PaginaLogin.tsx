@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Alert } from '@mui/material';
 import { MarcoAcceso } from '../../componentes/MarcoAcceso';
 import { PasoCredenciales } from './PasoCredenciales';
 import { PasoCodigo } from './PasoCodigo';
@@ -29,6 +30,10 @@ const TEXTOS: Record<Paso['nombre'], { titulo: string; descripcion: string }> = 
 export function PaginaLogin() {
   const [paso, setPaso] = useState<Paso>({ nombre: 'credenciales' });
   const navegar = useNavigate();
+  // Aviso que dejo la pantalla anterior; por ejemplo, tras cambiar la
+  // contrasena, que cierra la sesion y devuelve aqui.
+  const { state } = useLocation() as { state?: { aviso?: string } };
+  const aviso = paso.nombre === 'credenciales' ? state?.aviso : undefined;
 
   const entrar = () => navegar('/', { replace: true });
 
@@ -46,6 +51,7 @@ export function PaginaLogin() {
 
   return (
     <MarcoAcceso titulo={titulo} descripcion={descripcion}>
+      {aviso ? <Alert severity="success">{aviso}</Alert> : null}
       {paso.nombre === 'credenciales' ? <PasoCredenciales alAvanzar={avanzar} /> : null}
       {paso.nombre === 'codigo' ? (
         <PasoCodigo tokenParcial={paso.tokenParcial} alVolver={volver} alEntrar={entrar} />

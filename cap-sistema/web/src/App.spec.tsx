@@ -21,7 +21,9 @@ describe('acceso a la aplicacion', () => {
     render(<App />);
 
     await waitFor(() => expect(screen.getByLabelText(/Usuario/i)).toBeInTheDocument());
-    expect(screen.getByLabelText(/Contrasena/i)).toBeInTheDocument();
+    // Texto exacto: el boton del ojo se anuncia como 'Mostrar la contrasena'
+    // y una busqueda por coincidencia parcial encontraria los dos.
+    expect(screen.getByLabelText('Contrasena')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Entrar/i })).toBeInTheDocument();
   });
 
@@ -50,9 +52,9 @@ describe('acceso a la aplicacion', () => {
     render(<App />);
 
     await waitFor(() =>
-      expect(screen.getByRole('heading', { name: /Sesion abierta/i })).toBeInTheDocument(),
+      expect(screen.getByRole('heading', { name: /Buen dia, jlopez/i })).toBeInTheDocument(),
     );
-    expect(screen.getByText('jlopez')).toBeInTheDocument();
-    expect(screen.getByText('RECEPCION')).toBeInTheDocument();
+    // El inicio lista los modulos del rol, no el login.
+    expect(screen.getByText(/modulos disponibles para su rol/i)).toBeInTheDocument();
   });
 });

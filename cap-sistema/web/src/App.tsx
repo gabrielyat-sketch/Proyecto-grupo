@@ -2,9 +2,15 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import { tema } from './tema';
+import { Layout } from './componentes/Layout';
 import { PaginaLogin } from './modulos/sesion/PaginaLogin';
+import { PaginaCambiarContrasena } from './modulos/sesion/PaginaCambiarContrasena';
+import { VigilanciaInactividad } from './modulos/sesion/VigilanciaInactividad';
 import { RutaProtegida } from './rutas/RutaProtegida';
+import { RutaPorRol } from './rutas/RutaPorRol';
 import { Inicio } from './rutas/Inicio';
+import { EnConstruccion } from './rutas/EnConstruccion';
+import { MENU } from './navegacion/menu';
 
 /**
  * Un solo cliente para toda la aplicacion. Se crea fuera del componente a proposito:
@@ -28,16 +34,55 @@ export function App() {
       <ThemeProvider theme={tema}>
         <CssBaseline />
         <BrowserRouter>
+          {/*
+            Fuera de <Routes> a proposito: montado una sola vez, la cuenta
+            no se reinicia al cambiar de pantalla. Dentro, bastaria con
+            navegar una vez para dejar el panel abierto toda la tarde.
+          */}
+          <VigilanciaInactividad />
           <Routes>
             <Route path="/acceso" element={<PaginaLogin />} />
+
+            {/*
+              Protegida —hace falta sesion para cambiar la propia contrasena—
+              pero fuera del layout: cuando el cambio es obligatorio, el panel
+              no debe llegar a dibujarse.
+            */}
             <Route
-              path="/"
+              path="/contrasena"
               element={
                 <RutaProtegida>
-                  <Inicio />
+                  <PaginaCambiarContrasena />
                 </RutaProtegida>
               }
             />
+
+            <Route
+              element={
+                <RutaProtegida>
+                  <Layout />
+                </RutaProtegida>
+              }
+            >
+              <Route index element={<Inicio />} />
+              {/*
+                Las rutas salen del mismo menu que dibuja la navegacion: no
+                puede haber una opcion sin pantalla ni una pantalla que el rol
+                no tenga permitida.
+              */}
+              {MENU.map(({ ruta, etiqueta, descripcion }) => (
+                <Route
+                  key={ruta}
+                  path={ruta}
+                  element={
+                    <RutaPorRol ruta={ruta}>
+                      <EnConstruccion titulo={etiqueta} descripcion={descripcion} />
+                    </RutaPorRol>
+                  }
+                />
+              ))}
+            </Route>
+
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>

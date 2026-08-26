@@ -1,4 +1,4 @@
-import { almacenSesion, apiAuthPublico, ErrorApi, errorDeRed } from '../../api';
+import { almacenSesion, apiAuth, apiAuthPublico, ErrorApi, errorDeRed } from '../../api';
 import type { components } from '../../api/generado/auth';
 
 type SesionAbierta = components['schemas']['SesionAbiertaDto'];
@@ -78,6 +78,30 @@ export async function activarMfaInicial(tokenParcial: string, codigo: string): P
     tokenRefresco: data.tokenRefresco,
     usuario: data.usuario,
   });
+}
+
+/**
+ * Cambia la propia contrasena.
+ *
+ * El servidor revoca TODAS las sesiones del usuario, sin excluir la que hace la
+ * peticion: si alguien la cambia porque sospecha que otro la conocia, dejar su
+ * propia sesion viva no serviria de nada. Por eso aqui se limpia la sesion y
+ * quien llama debe mandar a la persona a la pantalla de acceso.
+ *
+ * Dejar la sesion en pantalla seria peor que inutil: el token de refresco ya
+ * esta muerto, asi que a los 15 minutos el panel empezaria a fallar sin
+ * explicacion.
+ */
+export async function cambiarContrasena(
+  contrasenaActual: string,
+  contrasenaNueva: string,
+): Promise<void> {
+  const { error } = await apiAuth.POST('/v1/auth/contrasena', {
+    body: { contrasenaActual, contrasenaNueva },
+  });
+  if (error) fallar(error, '/v1/auth/contrasena');
+
+  almacenSesion.limpiar();
 }
 
 export async function salir(): Promise<void> {

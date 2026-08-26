@@ -1,48 +1,53 @@
-import { Box, Button, Container, Divider, Stack, Typography } from '@mui/material';
+import { Link as EnlaceRuta } from 'react-router-dom';
+import { Box, Card, CardActionArea, Stack, Typography } from '@mui/material';
 import { usarSesion } from '../modulos/sesion/contexto';
-import { salir } from '../modulos/sesion/servicio-sesion';
+import { menuPara } from '../navegacion/menu';
 
 /**
- * Provisional: confirma que la sesion quedo abierta y muestra quien entro.
- * La reemplaza el layout con el menu por rol.
+ * Pantalla de entrada del panel.
+ *
+ * Muestra unicamente los modulos que el rol puede abrir. Es deliberado que no
+ * haya nada mas: quien llega aqui viene a hacer una tarea concreta, y una
+ * pantalla llena de tarjetas y cifras obliga a buscar antes de empezar.
  */
 export function Inicio() {
   const { usuario } = usarSesion();
+  const opciones = menuPara(usuario?.rol);
 
   return (
-    <Container maxWidth="sm">
-      <Box sx={{ mt: 10 }}>
-        <Stack spacing={3}>
-          <Stack spacing={0.5}>
-            <Typography variant="overline" color="primary" sx={{ letterSpacing: '0.14em' }}>
-              CAP Purulha
-            </Typography>
-            <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
-              Sesion abierta
-            </Typography>
-          </Stack>
+    <Box>
+      <Stack spacing={0.5} sx={{ mb: 4 }}>
+        <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
+          Buen dia, {usuario?.usuario}
+        </Typography>
+        <Typography color="text.secondary">
+          Estos son los modulos disponibles para su rol.
+        </Typography>
+      </Stack>
 
-          <Divider />
-
-          <Stack spacing={0.5}>
-            <Typography variant="body2" color="text.secondary">
-              Usuario
-            </Typography>
-            <Typography>{usuario?.usuario}</Typography>
-          </Stack>
-
-          <Stack spacing={0.5}>
-            <Typography variant="body2" color="text.secondary">
-              Rol
-            </Typography>
-            <Typography>{usuario?.rol}</Typography>
-          </Stack>
-
-          <Button variant="outlined" onClick={() => void salir()} sx={{ alignSelf: 'flex-start' }}>
-            Cerrar sesion
-          </Button>
-        </Stack>
+      <Box
+        sx={{
+          display: 'grid',
+          gap: 2,
+          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
+        }}
+      >
+        {opciones.map(({ ruta, etiqueta, icono: Icono, pendiente }) => (
+          <Card key={ruta} elevation={0} sx={{ border: '1px solid', borderColor: 'divider' }}>
+            <CardActionArea component={EnlaceRuta} to={ruta} sx={{ p: 2.5, height: '100%' }}>
+              <Stack spacing={1.5} sx={{ alignItems: 'flex-start' }}>
+                <Icono color="primary" />
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  {etiqueta}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {pendiente ? 'En construccion' : 'Disponible'}
+                </Typography>
+              </Stack>
+            </CardActionArea>
+          </Card>
+        ))}
       </Box>
-    </Container>
+    </Box>
   );
 }
