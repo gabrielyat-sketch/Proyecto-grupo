@@ -4,5 +4,6 @@ export * from './crypto';
 export * from './errores';
 export * from './fechas';
 export * from './logging';
+export * from './openapi';
 export * from './paginacion';
 export * from './traza';
