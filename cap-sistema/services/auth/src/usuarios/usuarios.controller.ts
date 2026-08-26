@@ -1,10 +1,11 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Rol, Roles, Usuario } from '@cap/shared';
+import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiPaginaDe, type Pagina, Rol, Roles, Usuario } from '@cap/shared';
 import { UsuariosService } from './usuarios.service';
 import { CrearUsuarioDto } from './dto/crear-usuario.dto';
 import { ActualizarUsuarioDto } from './dto/actualizar-usuario.dto';
 import { ConsultarUsuariosDto } from './dto/consultar-usuarios.dto';
+import { ContrasenaRestablecidaDto, CuentaCreadaDto, CuentaDto } from './dto/respuestas.dto';
 
 /**
  * Gestion de cuentas. Todo el modulo es exclusivo del Administrador.
@@ -18,12 +19,15 @@ export class UsuariosController {
 
   @Get()
   @ApiOperation({ summary: 'Lista paginada de cuentas' })
-  listar(@Query() consulta: ConsultarUsuariosDto) {
+  @ApiPaginaDe(CuentaDto)
+  listar(@Query() consulta: ConsultarUsuariosDto): Promise<Pagina<CuentaDto>> {
     return this.servicio.listar(consulta);
   }
 
   @Get(':id')
-  obtener(@Param('id') id: string) {
+  @ApiOperation({ summary: 'Obtiene una cuenta por su identificador' })
+  @ApiOkResponse({ type: CuentaDto })
+  obtener(@Param('id') id: string): Promise<CuentaDto> {
     return this.servicio.obtener(id);
   }
 
@@ -33,23 +37,26 @@ export class UsuariosController {
     description:
       'Devuelve una contrasena temporal. Es la unica vez que se muestra: anotela y entreguela a la persona.',
   })
-  crear(@Body() dto: CrearUsuarioDto) {
+  @ApiCreatedResponse({ type: CuentaCreadaDto })
+  crear(@Body() dto: CrearUsuarioDto): Promise<CuentaCreadaDto> {
     return this.servicio.crear(dto);
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Actualiza datos, rol o estado de una cuenta' })
+  @ApiOkResponse({ type: CuentaDto })
   actualizar(
     @Param('id') id: string,
     @Body() dto: ActualizarUsuarioDto,
     @Usuario('id') idQuienEdita: string,
-  ) {
+  ): Promise<CuentaDto> {
     return this.servicio.actualizar(id, dto, idQuienEdita);
   }
 
   @Post(':id/restablecer-contrasena')
   @ApiOperation({ summary: 'Genera una contrasena temporal nueva y cierra las sesiones' })
-  restablecer(@Param('id') id: string) {
+  @ApiCreatedResponse({ type: ContrasenaRestablecidaDto })
+  restablecer(@Param('id') id: string): Promise<ContrasenaRestablecidaDto> {
     return this.servicio.restablecerContrasena(id);
   }
 }

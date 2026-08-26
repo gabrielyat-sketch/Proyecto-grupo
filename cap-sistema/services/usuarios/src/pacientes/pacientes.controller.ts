@@ -1,10 +1,11 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Rol, Roles, Usuario } from '@cap/shared';
+import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiPaginaDe, type Pagina, Rol, Roles, Usuario } from '@cap/shared';
 import { PacientesService } from './pacientes.service';
 import { CrearPacienteDto } from './dto/crear-paciente.dto';
 import { BuscarPacientesDto } from './dto/buscar-pacientes.dto';
 import { ActualizarPacienteDto } from './dto/actualizar-paciente.dto';
+import { PacienteCreadoDto, PacienteDto, PacienteResumenDto } from './dto/respuestas.dto';
 
 /**
  * Acceso por rol.
@@ -35,30 +36,36 @@ export class PacientesController {
     summary: 'Busca pacientes por DPI, inicio de nombre o comunidad',
     description: 'La busqueda por DPI se resuelve con el indice ciego sobre el campo cifrado.',
   })
-  buscar(@Query() consulta: BuscarPacientesDto) {
+  @ApiPaginaDe(PacienteResumenDto, 'Resultados. El listado NO incluye DPI ni telefono.')
+  buscar(@Query() consulta: BuscarPacientesDto): Promise<Pagina<PacienteResumenDto>> {
     return this.servicio.buscar(consulta);
   }
 
   @Get(':id')
   @Roles(...PUEDEN_CONSULTAR)
-  obtener(@Param('id') id: string) {
+  @ApiOperation({ summary: 'Ficha completa del paciente' })
+  @ApiOkResponse({ type: PacienteDto })
+  obtener(@Param('id') id: string): Promise<PacienteDto> {
     return this.servicio.obtener(id);
   }
 
   @Post()
   @Roles(Rol.RECEPCION, Rol.ADMINISTRADOR)
   @ApiOperation({ summary: 'Registra un paciente y abre su expediente' })
+  @ApiCreatedResponse({ type: PacienteCreadoDto })
   crear(
     @Body() dto: CrearPacienteDto,
     @Usuario('id') usuarioId: string,
     @Req() req: { trazaId?: string },
-  ) {
+  ): Promise<PacienteCreadoDto> {
     return this.servicio.crear(dto, usuarioId, req.trazaId);
   }
 
   @Patch(':id')
   @Roles(Rol.RECEPCION, Rol.ADMINISTRADOR)
-  actualizar(@Param('id') id: string, @Body() dto: ActualizarPacienteDto) {
+  @ApiOperation({ summary: 'Corrige datos del paciente' })
+  @ApiOkResponse({ type: PacienteDto })
+  actualizar(@Param('id') id: string, @Body() dto: ActualizarPacienteDto): Promise<PacienteDto> {
     return this.servicio.actualizar(id, dto);
   }
 }

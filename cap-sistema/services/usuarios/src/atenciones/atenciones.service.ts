@@ -128,6 +128,9 @@ export class AtencionesService {
     temperaturaC: unknown;
   }) {
     const abrir = (v: Uint8Array | null) => (v ? this.cifrado.descifrar(Buffer.from(v)) : null);
+    // Prisma devuelve Decimal, y JSON.stringify ya lo convertia a texto. Hacerlo
+    // explicito no cambia la respuesta: hace que el tipo declarado sea cierto.
+    const decimal = (v: unknown) => (v === null || v === undefined ? null : String(v));
     return {
       id: a.id,
       fecha: a.fecha,
@@ -137,11 +140,11 @@ export class AtencionesService {
       diagnostico: abrir(a.diagnosticoCifrado),
       tratamiento: abrir(a.tratamientoCifrado),
       notas: abrir(a.notasCifrado),
-      pesoKg: a.pesoKg,
-      tallaCm: a.tallaCm,
+      pesoKg: decimal(a.pesoKg),
+      tallaCm: decimal(a.tallaCm),
       presionSistolica: a.presionSistolica,
       presionDiastolica: a.presionDiastolica,
-      temperaturaC: a.temperaturaC,
+      temperaturaC: decimal(a.temperaturaC),
     };
   }
 }

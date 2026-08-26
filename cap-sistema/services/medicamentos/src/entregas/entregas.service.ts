@@ -5,13 +5,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { crearPagina, fechaDelDia, normalizarPagina } from '@cap/shared';
+import { crearPagina, fechaDelDia, normalizarPagina, type Pagina } from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '../../prisma/generado';
 import { CLIENTE_PACIENTES, IClientePacientes } from '../pacientes/cliente-pacientes';
 import { Evento, OutboxService } from '../eventos/outbox.service';
 import { seleccionarFefo } from '../dominio/inventario';
 import { RegistrarEntregaDto } from './dto/registrar-entrega.dto';
+import { EntregaDto } from './dto/respuestas.dto';
 
 /** Forma de una entrega con sus lineas, tal como la devuelven las consultas. */
 interface EntregaConDetalles {
@@ -25,7 +26,7 @@ interface EntregaConDetalles {
     cantidad: number;
     lote: {
       numeroLote: string;
-      fechaVencimiento?: Date;
+      fechaVencimiento: Date;
       medicamento: { codigo: string; nombreGenerico: string; unidad: string };
     };
   }[];
@@ -52,7 +53,7 @@ export class EntregasService {
     usuarioId: string,
     autorizacion: string,
     trazaId?: string,
-  ) {
+  ): Promise<EntregaDto> {
     const paciente = await this.pacientes.obtener(dto.pacienteId, autorizacion, trazaId);
 
     const idsRepetidos = new Set(dto.lineas.map((l) => l.medicamentoId));
@@ -207,7 +208,7 @@ export class EntregasService {
     comunidadId?: string;
     pagina?: number;
     tamano?: number;
-  }) {
+  }): Promise<Pagina<EntregaDto>> {
     const { tamano, saltar } = normalizarPagina(consulta);
     const where = {
       ...(consulta.pacienteId ? { pacienteId: consulta.pacienteId } : {}),
@@ -226,6 +227,9 @@ export class EntregasService {
               lote: {
                 select: {
                   numeroLote: true,
+                  // Se pide tambien aqui, no solo en el detalle: sin esto el
+                  // mismo campo aparecia o desaparecia segun el endpoint.
+                  fechaVencimiento: true,
                   medicamento: { select: { codigo: true, nombreGenerico: true, unidad: true } },
                 },
               },
@@ -237,13 +241,13 @@ export class EntregasService {
     ]);
 
     return crearPagina(
-      entregas.map((e) => EntregasService.aVista(e as unknown as EntregaConDetalles)),
+      entregas.map((e) => EntregasService.aVista(e)),
       total,
       consulta,
     );
   }
 
-  async obtener(id: string) {
+  async obtener(id: string): Promise<EntregaDto> {
     return this.detalle(id, this.prisma);
   }
 
@@ -252,7 +256,7 @@ export class EntregasService {
    * transaccion en curso. Asi el mismo metodo sirve para devolver la entrega
    * recien creada dentro de la transaccion y para consultarla despues.
    */
-  private async detalle(id: string, cliente: Prisma.TransactionClient) {
+  private async detalle(id: string, cliente: Prisma.TransactionClient): Promise<EntregaDto> {
     const e = await cliente.entrega.findUnique({
       where: { id },
       include: {
@@ -273,7 +277,7 @@ export class EntregasService {
     return EntregasService.aVista(e as EntregaConDetalles);
   }
 
-  private static aVista(e: EntregaConDetalles) {
+  private static aVista(e: EntregaConDetalles): EntregaDto {
     return {
       id: e.id,
       pacienteId: e.pacienteId,

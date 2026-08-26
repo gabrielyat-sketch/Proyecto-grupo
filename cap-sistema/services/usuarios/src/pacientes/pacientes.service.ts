@@ -12,6 +12,7 @@ import { Evento, OutboxService } from '../eventos/outbox.service';
 import { CrearPacienteDto } from './dto/crear-paciente.dto';
 import { BuscarPacientesDto } from './dto/buscar-pacientes.dto';
 import { ActualizarPacienteDto } from './dto/actualizar-paciente.dto';
+import { PacienteResumenDto } from './dto/respuestas.dto';
 
 /** Forma de una fila del listado, tal como la devuelve el select RESUMEN. */
 interface FilaResumen {
@@ -60,7 +61,7 @@ export class PacientesService {
    * tabla entera; ademas el personal de archivo busca por el principio del
    * apellido, que es como estan ordenadas las carpetas de papel.
    */
-  async buscar(consulta: BuscarPacientesDto): Promise<Pagina<unknown>> {
+  async buscar(consulta: BuscarPacientesDto): Promise<Pagina<PacienteResumenDto>> {
     const { tamano, saltar } = normalizarPagina(consulta);
 
     if (!consulta.dpi && !consulta.nombre && !consulta.comunidadId) {

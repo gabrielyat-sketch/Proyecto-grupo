@@ -1,10 +1,16 @@
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { crearPagina, fechaDelDia, normalizarPagina } from '@cap/shared';
+import { crearPagina, fechaDelDia, normalizarPagina, type Pagina } from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { ENTORNO, Entorno } from '../config/entorno';
 import { bajoMinimo, clasificarVencimiento } from '../dominio/inventario';
 import { CrearMedicamentoDto } from './dto/crear-medicamento.dto';
 import { ConsultarMedicamentosDto } from './dto/consultar-medicamentos.dto';
+import {
+  MedicamentoBajoMinimoDto,
+  MedicamentoConExistenciaDto,
+  MedicamentoDetalleDto,
+  MedicamentoDto,
+} from './dto/respuestas.dto';
 
 @Injectable()
 export class CatalogoService {
@@ -20,7 +26,7 @@ export class CatalogoService {
    * los lotes de cada medicamento uno por uno: eso seria el N+1 clasico de
    * esta pantalla, y la farmacia la abre decenas de veces al dia.
    */
-  async listar(consulta: ConsultarMedicamentosDto) {
+  async listar(consulta: ConsultarMedicamentosDto): Promise<Pagina<MedicamentoConExistenciaDto>> {
     const { tamano, saltar } = normalizarPagina(consulta);
     const buscar = consulta.buscar?.trim();
 
@@ -84,7 +90,7 @@ export class CatalogoService {
   }
 
   /** Detalle con sus lotes, cada uno con su estado de vencimiento calculado. */
-  async obtener(id: string) {
+  async obtener(id: string): Promise<MedicamentoDetalleDto> {
     const m = await this.prisma.medicamento.findUnique({
       where: { id },
       include: {
@@ -129,7 +135,7 @@ export class CatalogoService {
     };
   }
 
-  async crear(dto: CrearMedicamentoDto) {
+  async crear(dto: CrearMedicamentoDto): Promise<MedicamentoDto> {
     const codigo = dto.codigo.trim().toUpperCase();
     if (await this.prisma.medicamento.findUnique({ where: { codigo } })) {
       throw new ConflictException({ mensaje: 'Ya existe un medicamento con ese codigo.' });
@@ -149,7 +155,10 @@ export class CatalogoService {
     });
   }
 
-  async actualizar(id: string, datos: { stockMinimo?: number; activo?: boolean; requiereReceta?: boolean }) {
+  async actualizar(
+    id: string,
+    datos: { stockMinimo?: number; activo?: boolean; requiereReceta?: boolean },
+  ): Promise<MedicamentoDto> {
     if (!(await this.prisma.medicamento.findUnique({ where: { id }, select: { id: true } }))) {
       throw new NotFoundException('No existe ese medicamento.');
     }
@@ -163,7 +172,7 @@ export class CatalogoService {
    * agregado, no recorriendo lotes: el catalogo del CAP son cientos de
    * medicamentos, no cientos de miles.
    */
-  async bajoMinimo() {
+  async bajoMinimo(): Promise<MedicamentoBajoMinimoDto[]> {
     const medicamentos = await this.prisma.medicamento.findMany({
       where: { activo: true, stockMinimo: { gt: 0 } },
       orderBy: { nombreGenerico: 'asc' },

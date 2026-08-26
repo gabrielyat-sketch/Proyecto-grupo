@@ -6,11 +6,11 @@ import { config as cargarDotenv } from 'dotenv';
 // tienen prioridad sobre cualquier archivo.
 cargarDotenv({ quiet: true });
 
-import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
-import { FiltroExcepciones } from '@cap/shared';
+import { construirDocumentoOpenApi, FiltroExcepciones } from '@cap/shared';
 import { AppModule } from './app.module';
 import { leerEntorno } from './config/entorno';
 
@@ -40,16 +40,16 @@ async function arrancar(): Promise<void> {
 
   // Swagger solo fuera de produccion: en produccion publicar el contrato
   // completo le entrega a un atacante el mapa de la API.
+  //
+  // El documento se construye con el mismo helper que usa el script de
+  // exportacion. Si cada uno armara el suyo, lo publicado en /docs podria
+  // dejar de coincidir con el .yaml que consume el frontend, y esa diferencia
+  // no la detecta nadie hasta que algo falla.
   if (env.NODE_ENV !== 'production') {
-    const documento = SwaggerModule.createDocument(
-      app,
-      new DocumentBuilder()
-        .setTitle('Servicio ' + env.NOMBRE_SERVICIO + ' - CAP Purulha')
-        .setDescription('Contrato del servicio. Fuente: arquitectura-cap-purulha.md')
-        .setVersion('1.0')
-        .addBearerAuth()
-        .build(),
-    );
+    const documento = construirDocumentoOpenApi(app, {
+      nombreServicio: env.NOMBRE_SERVICIO,
+      puerto: env.PUERTO,
+    });
     SwaggerModule.setup('docs', app, documento);
     logger.log('Documentacion disponible en /docs');
   }

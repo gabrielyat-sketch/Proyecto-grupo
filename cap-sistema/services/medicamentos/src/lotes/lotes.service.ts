@@ -5,12 +5,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { crearPagina, fechaDelDia, normalizarPagina, sumarDias } from '@cap/shared';
+import { crearPagina, fechaDelDia, normalizarPagina, type Pagina, sumarDias } from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { ENTORNO, Entorno } from '../config/entorno';
 import { Evento, OutboxService } from '../eventos/outbox.service';
 import { clasificarVencimiento, diasParaVencer } from '../dominio/inventario';
 import { IngresarLoteDto } from './dto/ingresar-lote.dto';
+import { LoteDto, LotePorVencerDto, LoteVencidoDto } from './dto/respuestas.dto';
 
 @Injectable()
 export class LotesService {
@@ -25,7 +26,7 @@ export class LotesService {
     dto: IngresarLoteDto,
     usuarioId: string,
     trazaId?: string,
-  ) {
+  ): Promise<LoteDto> {
     const medicamento = await this.prisma.medicamento.findUnique({ where: { id: medicamentoId } });
     if (!medicamento) throw new NotFoundException('No existe ese medicamento.');
     if (!medicamento.activo) {
@@ -93,7 +94,10 @@ export class LotesService {
    * fecha en la base usando el indice de `fecha_vencimiento`, no trayendo
    * todo el inventario para revisarlo en memoria.
    */
-  async porVencer(dias: number | undefined, consulta: { pagina?: number; tamano?: number }) {
+  async porVencer(
+    dias: number | undefined,
+    consulta: { pagina?: number; tamano?: number },
+  ): Promise<Pagina<LotePorVencerDto>> {
     const ventana = dias && dias > 0 ? Math.min(dias, 365) : this.env.DIAS_ALERTA_VENCIMIENTO;
     const hoy = fechaDelDia(new Date());
     const limite = sumarDias(hoy, ventana);
@@ -141,7 +145,7 @@ export class LotesService {
    * hace es no dejar que se entreguen (ver seleccionarFefo) y mostrarlos aqui
    * para que alguien actue.
    */
-  async vencidos(consulta: { pagina?: number; tamano?: number }) {
+  async vencidos(consulta: { pagina?: number; tamano?: number }): Promise<Pagina<LoteVencidoDto>> {
     const hoy = fechaDelDia(new Date());
     const where = {
       estado: 'DISPONIBLE' as const,
@@ -176,7 +180,12 @@ export class LotesService {
   }
 
   /** Da de baja lo que queda de un lote: vencido, danado o extraviado. */
-  async darDeBaja(loteId: string, motivo: string, usuarioId: string, trazaId?: string) {
+  async darDeBaja(
+    loteId: string,
+    motivo: string,
+    usuarioId: string,
+    trazaId?: string,
+  ): Promise<LoteDto> {
     const lote = await this.prisma.lote.findUnique({
       where: { id: loteId },
       include: { medicamento: { select: { codigo: true } } },
