@@ -24,6 +24,18 @@ import { RegistrarControlPrenatalDto } from './dto/registrar-control.dto';
 /** Un embarazo no dura mas de esto; una FUM mas antigua es un error de captura. */
 const DIAS_MAXIMOS_DESDE_FUM = 320;
 
+/**
+ * Semanas de gestacion al dia de HOY EN PURULHA.
+ *
+ * Todas las semanas del servicio pasan por aqui. Cuando un endpoint usaba
+ * `new Date()` directo y otro `fechaDelDia`, el mismo embarazo reportaba 10
+ * semanas al inscribirlo y 9 en el control de esa misma noche: despues de las
+ * 18:00 locales ya es el dia siguiente en UTC.
+ */
+function semanasHoy(fum: Date): number {
+  return semanasGestacion(fum, fechaDelDia(new Date()));
+}
+
 @Injectable()
 export class EmbarazoService {
   constructor(
@@ -93,7 +105,7 @@ export class EmbarazoService {
           comunidadId: programa.comunidadId,
           edad: paciente.edad,
           riesgo: programa.riesgo,
-          semanasAlInscribir: semanasGestacion(dto.fum, new Date()),
+          semanasAlInscribir: semanasHoy(dto.fum),
           inscritoPor: usuarioId,
         },
         trazaId,
@@ -101,7 +113,7 @@ export class EmbarazoService {
 
       return {
         ...programa,
-        semanasGestacion: semanasGestacion(programa.fum, new Date()),
+        semanasGestacion: semanasHoy(programa.fum),
         motivosRiesgo: riesgo.motivos,
       };
     });
@@ -147,7 +159,7 @@ export class EmbarazoService {
       this.prisma.programaEmbarazo.count({ where }),
     ]);
 
-    const hoy = new Date();
+    const hoy = fechaDelDia(new Date());
     return crearPagina(
       datos.map(({ controles, ...p }) => ({
         ...p,
@@ -162,7 +174,7 @@ export class EmbarazoService {
   async obtener(id: string) {
     const p = await this.prisma.programaEmbarazo.findUnique({ where: { id } });
     if (!p) throw new NotFoundException('No existe ese seguimiento de embarazo.');
-    return { ...p, semanasGestacion: semanasGestacion(p.fum, new Date()) };
+    return { ...p, semanasGestacion: semanasHoy(p.fum) };
   }
 
   async registrarControl(

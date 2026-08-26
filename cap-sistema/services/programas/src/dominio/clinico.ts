@@ -1,3 +1,5 @@
+import { diasEntre, fechaDelDia, sumarDias } from '@cap/shared';
+
 /**
  * Reglas clínicas del servicio, como funciones puras.
  *
@@ -76,7 +78,7 @@ export function fechaProbableParto(fum: Date): Date {
  * completas.
  */
 export function semanasGestacion(fum: Date, enFecha: Date): number {
-  const dias = Math.floor((aUtc(enFecha) - aUtc(fum)) / 86_400_000);
+  const dias = diasEntre(fum, enFecha);
   if (dias < 0) return 0;
   return Math.floor(dias / 7);
 }
@@ -175,36 +177,10 @@ export function alertasControlPrenatal(c: {
 // ═══════════════════════════ Utilidades de fecha ═══════════════════════════
 
 /**
- * Guatemala es UTC-6 todo el año: no aplica horario de verano. Por eso basta
- * un desfase fijo y no hace falta una biblioteca de husos horarios.
- */
-export const DESFASE_GUATEMALA_HORAS = -6;
-
-/**
- * Convierte un INSTANTE (por ejemplo `new Date()`) al día del calendario que
- * corresponde en Purulhá.
+ * Las fechas del calendario de Purulhá viven en @cap/shared: `medicamentos`
+ * las necesita igual que este servicio para decidir si un lote está vencido.
  *
- * Sin esto, un control registrado a las 19:00 en el CAP cae ya en el día
- * siguiente en UTC, y la cita de control se agenda un día corrido. No es
- * teórico: un CAP es un Centro de Atención **Permanente** y atiende de noche.
- *
- * Solo se aplica a instantes. Una fecha que ya viene sin hora — la FUM, la
- * fecha de nacimiento — no se toca: desplazarla la retrasaría un día.
+ * Se re-exportan para que el resto del módulo y sus pruebas las sigan usando
+ * desde aquí, sin tener que saber de dónde vienen.
  */
-export function fechaDelDia(instante: Date): Date {
-  const local = new Date(instante.getTime() + DESFASE_GUATEMALA_HORAS * 3_600_000);
-  return new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()));
-}
-
-/**
- * Suma días sobre una FECHA (sin hora). Trabaja con los componentes UTC, así
- * que no se corre por husos ni por horario de verano.
- */
-export function sumarDias(fecha: Date, dias: number): Date {
-  return new Date(aUtc(fecha) + dias * 86_400_000);
-}
-
-/** Milisegundos del día UTC, descartando la hora. */
-function aUtc(f: Date): number {
-  return Date.UTC(f.getUTCFullYear(), f.getUTCMonth(), f.getUTCDate());
-}
+export { DESFASE_GUATEMALA_HORAS, diasEntre, fechaDelDia, sumarDias } from '@cap/shared';

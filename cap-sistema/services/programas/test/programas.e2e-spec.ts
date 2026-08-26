@@ -56,7 +56,15 @@ describe('Servicio programas (e2e)', () => {
     jwt.sign({ sub: 'u-prueba', usuario: 'prueba', rol, sesionId: 's', mfaVerificado: true });
   const auth = (rol: Rol) => 'Bearer ' + token(rol);
 
-  const diasAtras = (d: number) => new Date(Date.now() - d * 86400000).toISOString().slice(0, 10);
+  /**
+   * Fecha a N dias atras contados desde el dia de HOY EN PURULHA.
+   *
+   * Restar milisegundos sobre `Date.now()` cuenta dias UTC. Despues de las
+   * 18:00 locales eso da un dia de mas, y las semanas de gestacion salen
+   * corridas.
+   */
+  const diasAtras = (d: number) =>
+    sumarDias(fechaDelDia(new Date()), -d).toISOString().slice(0, 10);
 
   beforeAll(async () => {
     const modulo = await Test.createTestingModule({ imports: [AppModule] })
@@ -352,6 +360,30 @@ describe('Servicio programas (e2e)', () => {
       expect(new Date(c.proximoControl).toISOString().slice(0, 10)).toBe(
         esperada.toISOString().slice(0, 10),
       );
+    });
+
+    it('las semanas coinciden entre inscripcion, consulta y control', async () => {
+      // Cuando cada endpoint calculaba el dia por su cuenta, el mismo
+      // embarazo reportaba 10 semanas al inscribirlo y 9 en el control de esa
+      // misma noche.
+      const consultado = await request(http())
+        .get('/v1/programas/embarazo/' + programaId)
+        .set('Authorization', auth(Rol.MEDICO))
+        .expect(200);
+
+      const listado = await request(http())
+        .get('/v1/programas/embarazo?estado=ACTIVO')
+        .set('Authorization', auth(Rol.MEDICO))
+        .expect(200);
+      const enLista = listado.body.datos.find((e: { id: string }) => e.id === programaId);
+
+      const controles = await request(http())
+        .get('/v1/programas/embarazo/' + programaId + '/controles')
+        .set('Authorization', auth(Rol.MEDICO))
+        .expect(200);
+
+      expect(enLista.semanasGestacion).toBe(consultado.body.semanasGestacion);
+      expect(controles.body.datos[0].semanasGestacion).toBe(consultado.body.semanasGestacion);
     });
 
     it('detecta presion elevada y ELEVA el riesgo del embarazo', async () => {

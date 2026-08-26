@@ -15,9 +15,10 @@ cap-sistema/
 │
 ├── services/              ← los microservicios
 │   ├── _plantilla/           molde. No se despliega; de aquí salen los demás
-│   ├── auth/       :3001     cuentas, login, MFA          ✅ construido
-│   ├── usuarios/   :3002     pacientes, expedientes       ✅ construido
-│   └── programas/  :3003     hipertensión, embarazo       ✅ construido
+│   ├── auth/         :3001   cuentas, login, MFA          ✅ construido
+│   ├── usuarios/     :3002   pacientes, expedientes       ✅ construido
+│   ├── programas/    :3003   hipertensión, embarazo       ✅ construido
+│   └── medicamentos/ :3004   inventario, lotes, entregas  ✅ construido
 │
 ├── web/                   ← panel del personal. Sin código todavía (Etapa 5)
 │
@@ -113,11 +114,12 @@ Por servicio: `npm run test:e2e -w @cap/auth`, `npm run contrato -w @cap/usuario
 | 3 | `auth` | ✅ |
 | 4 | `usuarios` | ✅ |
 | 6 | `programas` (hipertensión, embarazo) | ✅ |
+| 8 | `medicamentos` (inventario, lotes, entregas) | ✅ |
 | 5 | Panel web | ⬜ pendiente |
 | 7 | Desnutrición infantil | ⬜ |
-| 8–12 | Ver `docs/servicios-pendientes.md` | ⬜ |
+| 9–12 | Ver `docs/servicios-pendientes.md` | ⬜ |
 
-**272 pruebas** (155 unitarias, 117 e2e contra PostgreSQL real).
+**359 pruebas** (206 unitarias, 153 e2e contra PostgreSQL real).
 
 ## La regla más importante del repositorio
 

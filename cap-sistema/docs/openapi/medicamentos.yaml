@@ -1,0 +1,406 @@
+openapi: 3.0.0
+paths:
+  /v1/salud:
+    get:
+      operationId: SaludController_vivo
+      parameters: []
+      responses:
+        "200":
+          description: ""
+      summary: El proceso esta vivo
+      tags: &a1
+        - salud
+  /v1/salud/listo:
+    get:
+      operationId: SaludController_listo
+      parameters: []
+      responses:
+        "200":
+          description: ""
+      summary: El servicio y sus dependencias responden
+      tags: *a1
+  /v1/medicamentos:
+    get:
+      operationId: CatalogoController_listar
+      parameters:
+        - name: buscar
+          required: false
+          in: query
+          description: Busca por inicio del nombre generico o del codigo.
+          schema:
+            type: string
+        - name: incluirInactivos
+          required: false
+          in: query
+          description: true para incluir los medicamentos desactivados.
+          schema:
+            type: string
+        - name: pagina
+          required: false
+          in: query
+          schema:
+            default: 1
+            type: number
+        - name: tamano
+          required: false
+          in: query
+          schema:
+            maximum: 100
+            default: 25
+            type: number
+      responses:
+        "200":
+          description: ""
+      security: &a2
+        - bearer: []
+      summary: Catalogo con la existencia total de cada medicamento
+      tags: &a3
+        - medicamentos
+    post:
+      operationId: CatalogoController_crear
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrearMedicamentoDto"
+      responses:
+        "201":
+          description: ""
+      security: *a2
+      tags: *a3
+  /v1/medicamentos/bajo-minimo:
+    get:
+      operationId: CatalogoController_bajoMinimo
+      parameters: []
+      responses:
+        "200":
+          description: ""
+      security: *a2
+      summary: Medicamentos por debajo de su existencia minima
+      tags: *a3
+  /v1/medicamentos/{id}:
+    get:
+      operationId: CatalogoController_obtener
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+      security: *a2
+      summary: Detalle con sus lotes y el estado de vencimiento de cada uno
+      tags: *a3
+    patch:
+      operationId: CatalogoController_actualizar
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+      security: *a2
+      summary: Ajusta existencia minima, receta obligatoria o estado
+      tags: *a3
+  /v1/medicamentos/{medicamentoId}/lotes:
+    post:
+      operationId: LotesController_ingresar
+      parameters:
+        - name: medicamentoId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IngresarLoteDto"
+      responses:
+        "201":
+          description: ""
+      security: &a4
+        - bearer: []
+      summary: Ingresa un lote al inventario
+      tags: &a5
+        - lotes
+  /v1/lotes/por-vencer:
+    get:
+      description: Por defecto usa DIAS_ALERTA_VENCIMIENTO (90 dias).
+      operationId: LotesController_porVencer
+      parameters:
+        - name: dias
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: pagina
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: tamano
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+      security: *a4
+      summary: Lotes que vencen dentro de la ventana de alerta
+      tags: *a5
+  /v1/lotes/vencidos:
+    get:
+      operationId: LotesController_vencidos
+      parameters:
+        - name: pagina
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: tamano
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+      security: *a4
+      summary: Lotes vencidos que aun figuran con existencia
+      tags: *a5
+  /v1/lotes/{id}/baja:
+    patch:
+      operationId: LotesController_darDeBaja
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+      security: *a4
+      summary: Da de baja lo que queda de un lote
+      tags: *a5
+  /v1/entregas:
+    get:
+      operationId: EntregasController_listar
+      parameters:
+        - name: pacienteId
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: comunidadId
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: pagina
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: tamano
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+      security: &a6
+        - bearer: []
+      summary: Historial de entregas
+      tags: &a7
+        - entregas
+    post:
+      description: El sistema elige los lotes por FEFO (primero el que vence antes).
+        Si algun medicamento no alcanza, NO se entrega nada.
+      operationId: EntregasController_registrar
+      parameters:
+        - name: authorization
+          required: true
+          in: header
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegistrarEntregaDto"
+      responses:
+        "201":
+          description: ""
+      security: *a6
+      summary: Registra una entrega a un paciente
+      tags: *a7
+  /v1/entregas/{id}:
+    get:
+      operationId: EntregasController_obtener
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+      security: *a6
+      tags: *a7
+  /v1/inventario/movimientos:
+    get:
+      operationId: InventarioController_movimientos
+      parameters:
+        - name: loteId
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: tipo
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: pagina
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: tamano
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+      security:
+        - bearer: []
+      summary: Movimientos de inventario, lo mas reciente primero
+      tags:
+        - inventario
+info:
+  title: Servicio medicamentos - CAP Purulha
+  description: >-
+    Contrato del servicio medicamentos.
+
+
+    Generado desde el codigo. No editar a mano: los cambios se pierden en la
+    siguiente exportacion. Fuente de verdad: arquitectura-cap-purulha.md
+  version: "1.0"
+  contact: {}
+tags: []
+servers:
+  - url: http://localhost:3004
+    description: Desarrollo local
+components:
+  securitySchemes:
+    bearer:
+      scheme: bearer
+      bearerFormat: JWT
+      type: http
+  schemas:
+    CrearMedicamentoDto:
+      type: object
+      properties:
+        codigo:
+          type: string
+          example: MED-0142
+        nombreGenerico:
+          type: string
+          example: Amoxicilina
+        nombreComercial:
+          type: string
+          example: Amoxil
+        presentacion:
+          type: string
+          example: Caja de 100 tabletas
+        concentracion:
+          type: string
+          example: 500 mg
+        unidad:
+          type: string
+          enum:
+            - TABLETA
+            - CAPSULA
+            - JARABE_ML
+            - AMPOLLA
+            - FRASCO
+            - SOBRE
+            - UNIDAD
+            - GRAMO
+        stockMinimo:
+          type: number
+          default: 0
+          description: Debajo de esta existencia total aparece en la alerta. Cero
+            desactiva la alerta.
+        requiereReceta:
+          type: boolean
+          default: false
+      required:
+        - codigo
+        - nombreGenerico
+        - unidad
+    IngresarLoteDto:
+      type: object
+      properties:
+        numeroLote:
+          type: string
+          example: L-2026-0871
+          description: Numero impreso en la caja
+        fechaVencimiento:
+          format: date-time
+          type: string
+          example: 2027-08-31
+        cantidad:
+          type: number
+          example: 500
+          minimum: 1
+        proveedor:
+          type: string
+          example: Almacen departamental MSPAS
+      required:
+        - numeroLote
+        - fechaVencimiento
+        - cantidad
+    LineaEntregaDto:
+      type: object
+      properties:
+        medicamentoId:
+          type: string
+        cantidad:
+          type: number
+          example: 20
+          minimum: 1
+      required:
+        - medicamentoId
+        - cantidad
+    RegistrarEntregaDto:
+      type: object
+      properties:
+        pacienteId:
+          type: string
+        lineas:
+          description: Los medicamentos de la receta. El sistema elige los lotes por FEFO.
+          type: array
+          items:
+            $ref: "#/components/schemas/LineaEntregaDto"
+        observaciones:
+          type: string
+      required:
+        - pacienteId
+        - lineas
