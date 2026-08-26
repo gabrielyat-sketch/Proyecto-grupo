@@ -96,7 +96,7 @@ model Paciente {
   /// cifrado no serviria de nada: AES-GCM produce un resultado distinto cada
   /// vez, asi que el mismo DPI insertado dos veces pasaria el control y el
   /// paciente quedaria duplicado.
-  dpiIndice Bytes? @unique @map("dpi_indice")
+  dpiIndice  Bytes? @unique @map("dpi_indice")
 
   // ─── Datos que NO se cifran ────────────────────────────────────────────
   //
@@ -113,7 +113,17 @@ model Paciente {
   grupoFamiliarId String? @map("grupo_familiar_id")
   telefono        String? @db.VarChar(20)
 
-  fallecido     Boolean  @default(false)
+  fallecido Boolean @default(false)
+
+  /// Apellidos y nombres juntos, en minusculas y sin tildes.
+  ///
+  /// Existe porque el personal escribe el nombre completo de corrido y con las
+  /// columnas separadas eso no coincide con ninguna de las dos. Lo mantiene la
+  /// aplicacion con textoDeBusqueda() de @cap/shared, la MISMA funcion que
+  /// normaliza el criterio al buscar: si divergieran, la busqueda dejaria de
+  /// encontrar registros que si existen, en silencio.
+  nombreBusqueda String @default("") @map("nombre_busqueda")
+
   creadoEn      DateTime @default(now()) @map("creado_en")
   actualizadoEn DateTime @updatedAt @map("actualizado_en")
 
@@ -121,10 +131,16 @@ model Paciente {
   grupoFamiliar GrupoFamiliar? @relation(fields: [grupoFamiliarId], references: [id])
   expediente    Expediente?
 
-  /// Busqueda por nombre cuando el paciente no trae DPI. El orden de las
-  /// columnas es (apellidos, nombres) porque asi busca y ordena el personal
-  /// de archivo.
+  /// Orden alfabetico del listado: (apellidos, nombres) es como estan las
+  /// carpetas de papel del archivo.
   @@index([apellidos, nombres])
+  /// INDICE CLAVE de la busqueda por nombre.
+  ///
+  /// Trigramas y no B-tree porque la busqueda ya no es solo por el inicio del
+  /// campo: "Isem" debe encontrar a "Xona Isem", y un B-tree no puede
+  /// resolver un patron que empieza con comodin. Sin este indice, cada
+  /// busqueda recorreria los 100,000 pacientes.
+  @@index([nombreBusqueda(ops: raw("public.gin_trgm_ops"))], type: Gin)
   @@index([comunidadId])
   @@index([grupoFamiliarId])
   @@index([fechaNacimiento])
@@ -208,15 +224,15 @@ model Atencion {
 /// consulta el panel de digitalizacion. Mantener la fila caliente angosta
 /// importa cuando hay 100,000 expedientes.
 model RegistroDigitalizacion {
-  expedienteId String               @id @map("expediente_id")
-  estado       EstadoDigitalizacion @default(PENDIENTE)
+  expedienteId          String               @id @map("expediente_id")
+  estado                EstadoDigitalizacion @default(PENDIENTE)
   /// Usuario del sistema que realizo la digitalizacion (viene del JWT).
-  digitalizadoPor String?   @map("digitalizado_por")
-  iniciadoEn      DateTime? @map("iniciado_en")
-  completadoEn    DateTime? @map("completado_en")
+  digitalizadoPor       String?              @map("digitalizado_por")
+  iniciadoEn            DateTime?            @map("iniciado_en")
+  completadoEn          DateTime?            @map("completado_en")
   /// Cuantas atenciones del papel se transcribieron.
-  atencionesTranscritas Int     @default(0) @map("atenciones_transcritas")
-  observaciones         String? @db.VarChar(500)
+  atencionesTranscritas Int                  @default(0) @map("atenciones_transcritas")
+  observaciones         String?              @db.VarChar(500)
 
   expediente Expediente @relation(fields: [expedienteId], references: [id])
 
@@ -233,9 +249,9 @@ model RegistroDigitalizacion {
 /// despues obligaria a tocar todas las rutas de escritura, y un evento perdido
 /// desfasa un indicador de salud de forma permanente y silenciosa.
 model Outbox {
-  id      String @id @default(uuid())
-  tipo    String @db.VarChar(60)
-  version Int    @default(1)
+  id          String    @id @default(uuid())
+  tipo        String    @db.VarChar(60)
+  version     Int       @default(1)
   /// Cuerpo del evento. NO debe contener datos clinicos: el bus no es un
   /// canal cifrado por campo.
   datos       Json

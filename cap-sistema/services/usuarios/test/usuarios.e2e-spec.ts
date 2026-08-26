@@ -273,6 +273,126 @@ describe('Servicio usuarios (e2e)', () => {
     });
   });
 
+  /**
+   * Casos que fallaban en la version anterior de la busqueda, encontrados
+   * probando el panel con datos reales.
+   *
+   * La consulta comparaba `apellidos` y `nombres` por separado con LIKE
+   * 'texto%'. Solo encontraba lo que empezara igual que uno de los dos campos
+   * completos, asi que el segundo apellido, el nombre completo de corrido y
+   * cualquier tilde quedaban fuera.
+   */
+  describe('busqueda por nombre: tildes, orden y nombre completo', () => {
+    const APELLIDOS = 'Zzbusqueda Xona';
+    const NOMBRES = 'Ramiro Gabriel';
+    let idBuscado: string;
+
+    /** Cuantos de los resultados son el paciente de esta prueba. */
+    async function buscar(criterio: string) {
+      const r = await request(http())
+        .get('/v1/pacientes?nombre=' + encodeURIComponent(criterio))
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .expect(200);
+      return (r.body.datos as { id: string }[]).filter((d) => d.id === idBuscado).length;
+    }
+
+    beforeAll(async () => {
+      const r = await request(http())
+        .post('/v1/pacientes')
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .send({
+          dpi: nuevoDpi(),
+          // Con tilde a proposito: es el caso que fallaba.
+          nombres: NOMBRES,
+          apellidos: 'Zzbusqueda Xoná',
+          fechaNacimiento: '1990-05-20',
+          sexo: 'M',
+          comunidadId,
+        })
+        .expect(201);
+      creados.push(r.body.id);
+      idBuscado = r.body.id;
+    });
+
+    it('encuentra escribiendo el apellido SIN la tilde', async () => {
+      expect(await buscar('Zzbusqueda Xona')).toBe(1);
+    });
+
+    it('encuentra escribiendo el apellido CON la tilde', async () => {
+      expect(await buscar('Zzbusqueda Xoná')).toBe(1);
+    });
+
+    it('encuentra por el SEGUNDO apellido', async () => {
+      // 'Xona' es el segundo apellido: con LIKE sobre el campo completo no
+      // empezaba nada y devolvia cero.
+      expect(await buscar('Xona')).toBe(1);
+    });
+
+    it('encuentra escribiendo el nombre completo de corrido', async () => {
+      expect(await buscar(APELLIDOS + ' ' + NOMBRES)).toBe(1);
+    });
+
+    it('la coma que separa apellidos de nombres no estorba', async () => {
+      expect(await buscar(APELLIDOS + ', ' + NOMBRES)).toBe(1);
+    });
+
+    it('encuentra en cualquier orden: nombre primero, apellido despues', async () => {
+      expect(await buscar('Ramiro Zzbusqueda')).toBe(1);
+    });
+
+    it('no distingue mayusculas de minusculas', async () => {
+      expect(await buscar('zzBUSQUEDA rAmIrO')).toBe(1);
+    });
+
+    it('todas las palabras deben coincidir, no solo una', async () => {
+      // Con una sola palabra correcta y otra que no existe, no debe aparecer:
+      // si bastara una, buscar dos apellidos devolveria mas gente que buscar
+      // uno, que es lo contrario de lo que espera quien busca.
+      expect(await buscar('Zzbusqueda Inexistentexyz')).toBe(0);
+    });
+
+    it('busca por INICIO de palabra, no por texto contenido', async () => {
+      // 'amiro' esta dentro de 'Ramiro' pero no empieza ninguna palabra.
+      // Sin esta regla, buscar 'ana' traeria a todas las 'Juana'.
+      expect(await buscar('amiro')).toBe(0);
+    });
+
+    it('corregir el apellido actualiza la busqueda', async () => {
+      const r = await request(http())
+        .post('/v1/pacientes')
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .send({
+          nombres: 'Correccion',
+          apellidos: 'Zzantiguo Apellido',
+          fechaNacimiento: '1990-05-20',
+          sexo: 'F',
+          comunidadId,
+        })
+        .expect(201);
+      creados.push(r.body.id);
+
+      await request(http())
+        .patch('/v1/pacientes/' + r.body.id)
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .send({ apellidos: 'Zznuevo Apellido' })
+        .expect(200);
+
+      const viejo = await request(http())
+        .get('/v1/pacientes?nombre=Zzantiguo')
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .expect(200);
+      expect((viejo.body.datos as { id: string }[]).some((d) => d.id === r.body.id)).toBe(false);
+
+      const nuevoResultado = await request(http())
+        .get('/v1/pacientes?nombre=Zznuevo Correccion')
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .expect(200);
+      expect((nuevoResultado.body.datos as { id: string }[]).some((d) => d.id === r.body.id)).toBe(
+        true,
+      );
+    });
+  });
+
   describe('busqueda', () => {
     it('encuentra por DPI exacto', async () => {
       const dpi = nuevoDpi();

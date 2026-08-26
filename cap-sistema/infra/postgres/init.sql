@@ -38,6 +38,23 @@ CREATE ROLE cap_migrador WITH LOGIN PASSWORD 'dev_migrador';
 ALTER ROLE cap_migrador CREATEDB;
 
 -- ─── auth ─────────────────────────────────────────────────────────
+-- ─────────────────────────────────────────────────────────────────────────
+-- Extensiones
+-- ─────────────────────────────────────────────────────────────────────────
+--
+-- pg_trgm sostiene la busqueda de pacientes por nombre. Sin ella, buscar por
+-- una palabra que no este al principio del campo obliga a recorrer la tabla
+-- entera, y con 100,000 pacientes eso deja de responder en menos de 2
+-- segundos (arquitectura 9.7).
+--
+-- Se instala aqui y no en una migracion porque cap_migrador NO tiene CREATE
+-- sobre la base de datos, a proposito: instalar una extension es una operacion
+-- de administracion, no de despliegue de una aplicacion.
+--
+-- Se instala en `public` y se referencia calificada (public.gin_trgm_ops)
+-- porque Prisma fija el search_path al esquema del servicio.
+CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA public;
+
 CREATE SCHEMA IF NOT EXISTS auth AUTHORIZATION cap_migrador;
 CREATE USER cap_auth WITH PASSWORD 'dev_auth';
 

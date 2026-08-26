@@ -5,7 +5,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { crearPagina, normalizarPagina, Pagina, ServicioCifrado } from '@cap/shared';
+import {
+  crearPagina,
+  normalizarPagina,
+  Pagina,
+  palabrasDeBusqueda,
+  ServicioCifrado,
+  textoDeBusqueda,
+} from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { SERVICIO_CIFRADO } from '../comun/cifrado.module';
 import { Evento, OutboxService } from '../eventos/outbox.service';
@@ -77,11 +84,22 @@ export class PacientesService {
     }
 
     if (consulta.nombre) {
-      const inicio = consulta.nombre.trim();
-      where.OR = [
-        { apellidos: { startsWith: inicio, mode: 'insensitive' } },
-        { nombres: { startsWith: inicio, mode: 'insensitive' } },
-      ];
+      // Cada palabra debe aparecer, empezando alguna palabra del nombre
+      // completo. Asi "yat ramiro" encuentra a "Yat Yat Ramiro Gabriel" sin
+      // importar el orden, y "ramiro" solo no arrastra a los miles de "Yat".
+      //
+      // Dos patrones por palabra: al principio del texto, o despues de un
+      // espacio. Buscar por texto CONTENIDO en cualquier posicion encontraria
+      // "ana" dentro de "Juana", que no es lo que el personal espera.
+      const palabras = palabrasDeBusqueda(consulta.nombre);
+      if (palabras.length > 0) {
+        where.AND = palabras.map((palabra) => ({
+          OR: [
+            { nombreBusqueda: { startsWith: palabra } },
+            { nombreBusqueda: { contains: ' ' + palabra } },
+          ],
+        }));
+      }
     }
 
     if (consulta.comunidadId) {
@@ -183,6 +201,7 @@ export class PacientesService {
           dpiIndice: dpiIndice ? new Uint8Array(dpiIndice) : null,
           nombres: dto.nombres.trim(),
           apellidos: dto.apellidos.trim(),
+          nombreBusqueda: textoDeBusqueda(dto.apellidos, dto.nombres),
           fechaNacimiento: dto.fechaNacimiento,
           sexo: dto.sexo,
           idioma: dto.idioma ?? 'ESPANOL',
@@ -230,7 +249,14 @@ export class PacientesService {
   }
 
   async actualizar(id: string, dto: ActualizarPacienteDto) {
-    if (!(await this.prisma.paciente.findUnique({ where: { id }, select: { id: true } }))) {
+    // Se traen los nombres actuales, no solo el id: si cambia uno solo de los
+    // dos campos, el texto de busqueda debe recalcularse con AMBOS valores
+    // finales. Recalcularlo con la mitad dejaria al paciente inencontrable.
+    const actual = await this.prisma.paciente.findUnique({
+      where: { id },
+      select: { id: true, nombres: true, apellidos: true },
+    });
+    if (!actual) {
       throw new NotFoundException('No existe ese paciente.');
     }
     if (dto.comunidadId && !(await this.prisma.comunidad.findUnique({ where: { id: dto.comunidadId } }))) {
@@ -247,6 +273,14 @@ export class PacientesService {
         ...(dto.grupoFamiliarId !== undefined ? { grupoFamiliarId: dto.grupoFamiliarId } : {}),
         ...(dto.telefono !== undefined ? { telefono: dto.telefono.trim() } : {}),
         ...(dto.fallecido !== undefined ? { fallecido: dto.fallecido } : {}),
+        ...(dto.nombres !== undefined || dto.apellidos !== undefined
+          ? {
+              nombreBusqueda: textoDeBusqueda(
+                dto.apellidos ?? actual.apellidos,
+                dto.nombres ?? actual.nombres,
+              ),
+            }
+          : {}),
       },
     });
 
