@@ -1,0 +1,58 @@
+{
+  // ─────────────────────────────────────────────────────────────────────
+  //  Oculta del explorador todo lo que NO es codigo del proyecto.
+  //
+  //  Son unos 590 MB y decenas de miles de archivos que git ya ignora:
+  //  dependencias descargadas, codigo compilado y el cliente que genera
+  //  Prisma. Verlos en el arbol hace parecer que el proyecto es un
+  //  desorden cuando en realidad son 265 archivos.
+  //
+  //  Nada de esto se borra: se regenera con `npm install`, `npm run build`
+  //  y `npx prisma generate`. Solo deja de estorbar a la vista.
+  // ─────────────────────────────────────────────────────────────────────
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/prisma/generado": true,
+    "**/coverage": true,
+    "**/*.tsbuildinfo": true,
+    "**/.turbo": true
+  },
+
+  // Que la busqueda tampoco los recorra: sin esto, buscar "paciente"
+  // devuelve cientos de coincidencias dentro de node_modules.
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/prisma/generado": true,
+    "**/coverage": true,
+    "**/package-lock.json": true
+  },
+
+  // El vigilante de archivos tampoco tiene que seguirlos: con 590 MB
+  // vigilados, VS Code consume memoria sin ninguna razon.
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/dist/**": true,
+    "**/prisma/generado/**": true
+  },
+
+  // ─── Convenciones del proyecto ───────────────────────────────────────
+  // El repositorio guarda LF (ver .gitattributes). Sin esto, un editor en
+  // Windows introduce CRLF y el Pull Request muestra el archivo entero
+  // como modificado.
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+
+  "editor.tabSize": 2,
+  "[prisma]": {
+    "editor.tabSize": 2
+  },
+
+  // Los .env NUNCA se versionan. Esto solo evita abrirlos por accidente
+  // en una pantalla compartida durante una demostracion al CAP.
+  "files.associations": {
+    "*.env.example": "dotenv"
+  }
+}
