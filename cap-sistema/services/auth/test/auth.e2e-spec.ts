@@ -236,6 +236,123 @@ describe('Servicio auth (e2e)', () => {
     });
   });
 
+  /**
+   * Estas pruebas recorren el camino COMPLETO por HTTP, sin llamar a ningun
+   * servicio por dentro.
+   *
+   * Importa la distincion: la prueba de arriba configuraba el MFA invocando
+   * MfaService directamente, y por eso paso mucho tiempo sin que nadie notara
+   * que ese paso no tenia endpoint. Una cuenta administrativa recien creada
+   * quedaba encerrada: el rol le exigia segundo factor y no habia forma de
+   * configurarlo. Probar el servicio no es lo mismo que probar que el usuario
+   * puede llegar a el.
+   */
+  describe('primera configuracion del segundo factor (solo por HTTP)', () => {
+    it('una cuenta administrativa nueva puede configurar su MFA y entrar', async () => {
+      const { contrasena } = await crearCuenta('e2e_primera_vez', Rol.ADMINISTRADOR);
+
+      // 1. Login: la contrasena es correcta, pero falta el segundo factor y
+      //    todavia no esta configurado.
+      const login = await request(http())
+        .post('/v1/auth/login')
+        .send({ usuario: 'e2e_primera_vez', contrasena })
+        .expect(200);
+
+      expect(login.body.mfaRequerido).toBe(true);
+      expect(login.body.configuracionPendiente).toBe(true);
+      const tokenParcial = login.body.tokenParcial as string;
+
+      // 2. Con el token parcial —y solo con el— se obtiene el QR.
+      const config = await request(http())
+        .post('/v1/auth/mfa/configurar-inicial')
+        .send({ tokenParcial })
+        .expect(200);
+
+      expect(config.body.uri).toContain('otpauth://totp/');
+      expect(config.body.secreto).toBeDefined();
+      expect(config.body.codigosRespaldo).toHaveLength(8);
+
+      // 3. Se confirma con un codigo real y la sesion queda abierta.
+      const sesion = await request(http())
+        .post('/v1/auth/mfa/activar-inicial')
+        .send({
+          tokenParcial,
+          codigo: generateSync({ strategy: 'totp', secret: config.body.secreto }),
+        })
+        .expect(200);
+
+      expect(sesion.body.mfaRequerido).toBe(false);
+      expect(sesion.body.tokenAcceso).toBeDefined();
+
+      // 4. Ese token abre de verdad un endpoint autenticado, con el MFA activo.
+      const yo = await request(http())
+        .get('/v1/auth/yo')
+        .set('Authorization', 'Bearer ' + sesion.body.tokenAcceso)
+        .expect(200);
+
+      expect(yo.body.usuario).toBe('e2e_primera_vez');
+      expect(yo.body.mfaActivo).toBe(true);
+    });
+
+    it('el siguiente login ya pide el codigo, sin configuracion pendiente', async () => {
+      const login = await request(http())
+        .post('/v1/auth/login')
+        .send({ usuario: 'e2e_primera_vez', contrasena: 'Clave-Inicial-2026' })
+        .expect(200);
+
+      expect(login.body.mfaRequerido).toBe(true);
+      expect(login.body.configuracionPendiente).toBe(false);
+    });
+
+    it('con el MFA ya activo, configurar-inicial responde 409', async () => {
+      // Si no, cualquiera que supiera la contrasena podria regenerarle el
+      // segundo factor a otra persona y quedarse con el.
+      const login = await request(http())
+        .post('/v1/auth/login')
+        .send({ usuario: 'e2e_primera_vez', contrasena: 'Clave-Inicial-2026' })
+        .expect(200);
+
+      const r = await request(http())
+        .post('/v1/auth/mfa/configurar-inicial')
+        .send({ tokenParcial: login.body.tokenParcial })
+        .expect(409);
+
+      expect(r.body.mensaje).toContain('ya tiene el segundo factor');
+    });
+
+    it('un codigo incorrecto NO activa el segundo factor', async () => {
+      const { contrasena } = await crearCuenta('e2e_codigo_malo', Rol.DIRECTOR);
+      const login = await request(http())
+        .post('/v1/auth/login')
+        .send({ usuario: 'e2e_codigo_malo', contrasena })
+        .expect(200);
+
+      await request(http())
+        .post('/v1/auth/mfa/configurar-inicial')
+        .send({ tokenParcial: login.body.tokenParcial })
+        .expect(200);
+
+      await request(http())
+        .post('/v1/auth/mfa/activar-inicial')
+        .send({ tokenParcial: login.body.tokenParcial, codigo: '000000' })
+        .expect(400);
+
+      // Sigue pendiente: un intento fallido no puede dejar el MFA a medias.
+      const otro = await request(http())
+        .post('/v1/auth/login')
+        .send({ usuario: 'e2e_codigo_malo', contrasena })
+        .expect(200);
+      expect(otro.body.configuracionPendiente).toBe(true);
+    });
+
+    it('un token parcial inventado no sirve para configurar nada', async () => {
+      await request(http())
+        .post('/v1/auth/mfa/configurar-inicial')
+        .send({ tokenParcial: 'token.completamente.falso' })
+        .expect(401);
+    });
+  });
+
   describe('refresco y rotacion', () => {
     it('rota el token: el nuevo funciona y el viejo deja de servir', async () => {
       const { contrasena } = await crearCuenta('e2e_rotacion', Rol.MEDICO);
