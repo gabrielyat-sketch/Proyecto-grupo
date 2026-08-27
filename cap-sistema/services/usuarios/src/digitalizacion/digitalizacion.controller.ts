@@ -4,7 +4,7 @@ import { IsEnum, IsOptional, IsString, Length } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Rol, Roles, Usuario } from '@cap/shared';
 import { DigitalizacionService } from './digitalizacion.service';
-import { EstadoDigitalizacion } from '../../prisma/generado';
+import { EstadoDigitalizacion } from '../../generado';
 import { RegistroDigitalizacionDto, ResumenDigitalizacionDto } from './dto/respuestas.dto';
 
 class ActualizarDigitalizacionDto {

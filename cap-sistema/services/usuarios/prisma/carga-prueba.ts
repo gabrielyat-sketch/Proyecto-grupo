@@ -14,7 +14,7 @@
 import { config as cargarDotenv } from 'dotenv';
 import { randomInt } from 'node:crypto';
 import { ServicioCifrado } from '@cap/shared';
-import { PrismaClient, Sexo, Idioma } from './generado';
+import { PrismaClient, Sexo, Idioma } from '../generado';
 
 cargarDotenv({ quiet: true });
 

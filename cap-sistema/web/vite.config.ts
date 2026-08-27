@@ -47,5 +47,19 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
     css: false,
+    /**
+     * Mas margen que los 5 s por defecto.
+     *
+     * No es lentitud del panel. La ficha clinica son diez secciones y
+     * doscientos campos, y jsdom la dibuja mucho mas despacio que un navegador;
+     * escribir en un campo la vuelve a dibujar en cada letra. Como los archivos
+     * de prueba corren en paralelo, esa carga empujaba por encima del limite a
+     * pruebas de otras pantallas que no tenian nada que ver, y fallaban de
+     * forma intermitente segun que mas estuviera corriendo en la maquina.
+     *
+     * El limite sigue existiendo: una prueba de verdad colgada falla igual,
+     * solo que mas tarde.
+     */
+    testTimeout: 20_000,
   },
 });

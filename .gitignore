@@ -15,6 +15,10 @@ build/
 *.key
 
 # ── Prisma ────────────────────────────────────────────────────────────
+# El cliente de Prisma se genera FUERA de prisma/: dentro, la extension de
+# VS Code fusionaba el schema real con la copia que deja el generador y
+# marcaba todo como duplicado.
+cap-sistema/services/*/generado/
 **/prisma/generado/
 **/prisma/generated/
 **/prisma/*.db

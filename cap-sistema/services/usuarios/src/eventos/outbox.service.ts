@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '../../prisma/generado';
+import { Prisma } from '../../generado';
 
 /** Eventos que publica este servicio (docs/eventos/esquema-eventos.md). */
 export const Evento = {

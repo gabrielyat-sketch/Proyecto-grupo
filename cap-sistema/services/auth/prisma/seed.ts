@@ -17,7 +17,7 @@
 import { config as cargarDotenv } from 'dotenv';
 import { randomBytes } from 'node:crypto';
 import { hashContrasena } from '@cap/shared';
-import { PrismaClient } from './generado';
+import { PrismaClient } from '../generado';
 
 cargarDotenv({ quiet: true });
 

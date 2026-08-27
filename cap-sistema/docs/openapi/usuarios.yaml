@@ -793,6 +793,284 @@ paths:
       security: *a10
       summary: Cambia el estado de digitalizacion de un expediente
       tags: *a11
+  /v1/fichas/catalogo/{tipo}:
+    get:
+      description: Todo lo que la pantalla necesita para dibujarse, en una sola
+        respuesta. Los textos vienen tal cual estan impresos en el formulario
+        oficial.
+      operationId: FichasController_catalogo
+      parameters:
+        - name: tipo
+          required: true
+          in: path
+          schema:
+            enum:
+              - ADULTO
+              - NEONATO
+              - NINEZ
+              - PRENATAL
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogoFichaDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: &a12
+        - bearer: []
+      summary: "Estructura de una ficha: signos de peligro, antecedentes y problemas"
+      tags: &a13
+        - fichas
+  /v1/expedientes/{expedienteId}/fichas:
+    post:
+      description: "La ficha entera se guarda en una sola transaccion. Los
+        identificadores de signos, problemas y diagnosticos se validan contra el
+        catalogo de ESA ficha: no se puede guardar un problema de la ficha de
+        neonatos dentro de una de adultos."
+      operationId: FichasController_registrar
+      parameters:
+        - name: expedienteId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrearFichaDto"
+      responses:
+        "201":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FichaCreadaDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a12
+      summary: Registra una ficha clinica completa
+      tags: *a13
+  /v1/fichas/{id}:
+    get:
+      description: El IMC viene calculado de peso y talla; no se guarda en la base.
+      operationId: FichasController_obtener
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FichaDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a12
+      summary: Una ficha registrada, con el texto descifrado y el catalogo resuelto
+      tags: *a13
+  /v1/pacientes/{pacienteId}/antecedentes:
+    get:
+      description: Devuelve solo lo respondido. Un antecedente ausente significa que
+        no se ha preguntado, que no es lo mismo que "no".
+      operationId: AntecedentesController_obtener
+      parameters:
+        - name: pacienteId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AntecedentesPacienteDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: &a14
+        - bearer: []
+      summary: Antecedentes ya registrados de un paciente
+      tags: &a15
+        - antecedentes
+    patch:
+      description: "Actualizacion PARCIAL: lo que no viene en la peticion se conserva.
+        Por eso es PATCH y no PUT: si guardar reemplazara el conjunto completo,
+        llenar media hoja borraria lo que otro turno ya habia preguntado."
+      operationId: AntecedentesController_guardar
+      parameters:
+        - name: pacienteId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuardarAntecedentesDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AntecedentesPacienteDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a14
+      summary: Guarda o actualiza las respuestas enviadas
+      tags: *a15
 info:
   title: Servicio usuarios - CAP Purulha
   description: >-
@@ -1569,6 +1847,747 @@ components:
         - completadoEn
         - atencionesTranscritas
         - observaciones
+    SignoPeligroCatalogoDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orden:
+          type: number
+          description: Orden en que aparece en el formulario impreso.
+        texto:
+          type: string
+          description: Texto tal cual esta impreso en el papel.
+        pideTexto:
+          type: boolean
+          description: true en "Otros (describir)".
+      required:
+        - id
+        - orden
+        - texto
+        - pideTexto
+    AntecedenteCatalogoDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        codigo:
+          type: string
+          description: Identificador estable, citable desde los reportes.
+          example: MED_DIABETES
+        grupo:
+          type: string
+          enum:
+            - MEDICO
+            - FAMILIAR
+            - HABITO
+        orden:
+          type: number
+        texto:
+          type: string
+          example: Hipertensión arterial
+        pideDetalle:
+          type: boolean
+          description: Pide escribir "cual".
+        pideFecha:
+          type: boolean
+          description: Pide la fecha de la ultima vez.
+        pideNumero:
+          type: boolean
+          description: "Pide una cantidad: dosis, cigarrillos al dia."
+        permiteNoAplica:
+          type: boolean
+          description: El papel ofrece "No aplica" ademas de SI y NO.
+      required:
+        - id
+        - codigo
+        - grupo
+        - orden
+        - texto
+        - pideDetalle
+        - pideFecha
+        - pideNumero
+        - permiteNoAplica
+    OpcionCatalogoDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orden:
+          type: number
+          description: Orden en que aparece en el formulario impreso.
+        texto:
+          type: string
+          description: Texto tal cual esta impreso en el papel.
+      required:
+        - id
+        - orden
+        - texto
+    DiagnosticoCatalogoDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orden:
+          type: number
+          description: Orden en que aparece en el formulario impreso.
+        texto:
+          type: string
+          description: Texto tal cual esta impreso en el papel.
+        pideTexto:
+          type: boolean
+          description: 'true en las opciones "Otro: ____", que piden escribir cual.'
+      required:
+        - id
+        - orden
+        - texto
+        - pideTexto
+    ProblemaCatalogoDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orden:
+          type: number
+        nombre:
+          type: string
+          example: Tos o dificultad para respirar
+        signos:
+          description: Lo que en el papel se subraya en EVALUAR.
+          type: array
+          items:
+            $ref: "#/components/schemas/OpcionCatalogoDto"
+        diagnosticos:
+          description: Lo que se subraya en CLASIFICAR.
+          type: array
+          items:
+            $ref: "#/components/schemas/DiagnosticoCatalogoDto"
+      required:
+        - id
+        - orden
+        - nombre
+        - signos
+        - diagnosticos
+    CatalogoFichaDto:
+      type: object
+      properties:
+        tipoFicha:
+          type: string
+          enum: &a16
+            - ADULTO
+            - NEONATO
+            - NINEZ
+            - PRENATAL
+        signosPeligro:
+          type: array
+          items:
+            $ref: "#/components/schemas/SignoPeligroCatalogoDto"
+        antecedentes:
+          type: array
+          items:
+            $ref: "#/components/schemas/AntecedenteCatalogoDto"
+        problemas:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProblemaCatalogoDto"
+      required:
+        - tipoFicha
+        - signosPeligro
+        - antecedentes
+        - problemas
+    SignoPeligroEvaluadoDto:
+      type: object
+      properties:
+        signoId:
+          type: string
+          format: uuid
+        presente:
+          type: boolean
+        detalle:
+          type: string
+          description: Solo en el signo "Otros (describir)".
+      required:
+        - signoId
+        - presente
+    ProblemaEvaluadoDto:
+      type: object
+      properties:
+        problemaId:
+          type: string
+          format: uuid
+        presente:
+          type: boolean
+          description: La casilla SI/NO de la primera columna.
+        signoIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        diagnosticoIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        otroDiagnostico:
+          type: string
+          description: 'El texto de las opciones "Otro: ____".'
+        conducta:
+          type: string
+          description: Conducta indicada para este problema.
+      required:
+        - problemaId
+        - presente
+    MedicamentoIndicadoDto:
+      type: object
+      properties:
+        nombre:
+          type: string
+          example: Amoxicilina 500 mg
+        dosis:
+          type: string
+          example: 1 tableta cada 8 horas
+        dias:
+          type: number
+          example: 7
+      required:
+        - nombre
+    CrearFichaDto:
+      type: object
+      properties:
+        tipoFicha:
+          type: string
+          enum:
+            - ADULTO
+            - NEONATO
+            - NINEZ
+            - PRENATAL
+        fecha:
+          format: date-time
+          type: string
+          description: Por defecto, ahora. Se indica al digitalizar papel.
+        digitalizada:
+          type: boolean
+          description: true si proviene de transcribir un expediente de papel.
+        motivo:
+          type: string
+          description: Seccion V. Motivo de la consulta.
+        historiaEnfermedad:
+          type: string
+          description: Seccion VI. Historia de la enfermedad actual.
+        manejoEstabilizacion:
+          type: string
+          description: Seccion IV. Solo si el paciente fue referido.
+        signosPeligro:
+          type: array
+          items:
+            $ref: "#/components/schemas/SignoPeligroEvaluadoDto"
+        pesoKg:
+          type: number
+          example: 72.5
+        tallaCm:
+          type: number
+          example: 158
+        presionSistolica:
+          type: number
+          example: 128
+        presionDiastolica:
+          type: number
+          example: 82
+        temperaturaC:
+          type: number
+          example: 36.8
+        pulso:
+          type: number
+          example: 78
+          description: Pulso por minuto.
+        respiraciones:
+          type: number
+          example: 18
+          description: Respiraciones por minuto.
+        circunferenciaCinturaCm:
+          type: number
+          example: 86
+          description: Circunferencia de cintura en centimetros.
+        problemas:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProblemaEvaluadoDto"
+        medicamentos:
+          type: array
+          items:
+            $ref: "#/components/schemas/MedicamentoIndicadoDto"
+        consejeria:
+          type: string
+          description: Seccion X. Consejeria brindada.
+        referencia:
+          type: string
+          description: A donde se refirio al paciente.
+        vacunaAdministrada:
+          type: string
+          description: Vacuna aplicada durante la consulta.
+        fechaProximaVisita:
+          format: date-time
+          type: string
+        diagnostico:
+          type: string
+          description: Resumen del diagnostico, ademas de los del catalogo.
+        tratamiento:
+          type: string
+        notas:
+          type: string
+      required:
+        - tipoFicha
+        - motivo
+    FichaCreadaDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        expedienteId:
+          type: string
+          format: uuid
+        fecha:
+          format: date-time
+          type: string
+      required:
+        - id
+        - expedienteId
+        - fecha
+    SignoPeligroFichaDto:
+      type: object
+      properties:
+        signoId:
+          type: string
+          format: uuid
+        texto:
+          type: string
+        presente:
+          type: boolean
+        detalle:
+          type: string
+          nullable: true
+      required:
+        - signoId
+        - texto
+        - presente
+        - detalle
+    ProblemaFichaRegistradoDto:
+      type: object
+      properties:
+        problemaId:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+        presente:
+          type: boolean
+        signos:
+          description: Texto de los signos marcados.
+          type: array
+          items:
+            type: string
+        diagnosticos:
+          description: Texto de los diagnosticos marcados.
+          type: array
+          items:
+            type: string
+        otroDiagnostico:
+          type: string
+          nullable: true
+        conducta:
+          type: string
+          nullable: true
+      required:
+        - problemaId
+        - nombre
+        - presente
+        - signos
+        - diagnosticos
+        - otroDiagnostico
+        - conducta
+    MedicamentoFichaDto:
+      type: object
+      properties:
+        nombre:
+          type: string
+        dosis:
+          type: string
+          nullable: true
+        dias:
+          type: number
+          nullable: true
+      required:
+        - nombre
+        - dosis
+        - dias
+    FichaDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        expedienteId:
+          type: string
+          format: uuid
+        tipoFicha:
+          type: string
+          enum: *a16
+          nullable: true
+        fecha:
+          format: date-time
+          type: string
+        registradaPor:
+          type: string
+          format: uuid
+        digitalizada:
+          type: boolean
+        motivo:
+          type: string
+          nullable: true
+        historiaEnfermedad:
+          type: string
+          nullable: true
+        manejoEstabilizacion:
+          type: string
+          nullable: true
+        diagnostico:
+          type: string
+          nullable: true
+        tratamiento:
+          type: string
+          nullable: true
+        notas:
+          type: string
+          nullable: true
+        consejeria:
+          type: string
+          nullable: true
+        referencia:
+          type: string
+          nullable: true
+        vacunaAdministrada:
+          type: string
+          nullable: true
+        pesoKg:
+          type: string
+          format: decimal
+          nullable: true
+          example: "72.50"
+        tallaCm:
+          type: string
+          format: decimal
+          nullable: true
+          example: "158.0"
+        presionSistolica:
+          type: number
+          nullable: true
+        presionDiastolica:
+          type: number
+          nullable: true
+        temperaturaC:
+          type: string
+          format: decimal
+          nullable: true
+        pulso:
+          type: number
+          nullable: true
+        respiraciones:
+          type: number
+          nullable: true
+        circunferenciaCinturaCm:
+          type: string
+          format: decimal
+          nullable: true
+        imc:
+          type: number
+          nullable: true
+          description: Calculado de peso y talla. null si falta alguno de los dos.
+          example: 29.04
+        fechaProximaVisita:
+          type: string
+          format: date-time
+          nullable: true
+        signosPeligro:
+          type: array
+          items:
+            $ref: "#/components/schemas/SignoPeligroFichaDto"
+        problemas:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProblemaFichaRegistradoDto"
+        medicamentos:
+          type: array
+          items:
+            $ref: "#/components/schemas/MedicamentoFichaDto"
+      required:
+        - id
+        - expedienteId
+        - tipoFicha
+        - fecha
+        - registradaPor
+        - digitalizada
+        - motivo
+        - historiaEnfermedad
+        - manejoEstabilizacion
+        - diagnostico
+        - tratamiento
+        - notas
+        - consejeria
+        - referencia
+        - vacunaAdministrada
+        - pesoKg
+        - tallaCm
+        - presionSistolica
+        - presionDiastolica
+        - temperaturaC
+        - pulso
+        - respiraciones
+        - circunferenciaCinturaCm
+        - imc
+        - fechaProximaVisita
+        - signosPeligro
+        - problemas
+        - medicamentos
+    AntecedenteRegistradoDto:
+      type: object
+      properties:
+        antecedenteId:
+          type: string
+          format: uuid
+        codigo:
+          type: string
+          example: MED_DIABETES
+        texto:
+          type: string
+        grupo:
+          type: string
+          enum:
+            - MEDICO
+            - FAMILIAR
+            - HABITO
+        respuesta:
+          type: string
+          enum:
+            - SI
+            - NO
+            - NO_APLICA
+        detalle:
+          type: string
+          nullable: true
+        fecha:
+          type: string
+          format: date-time
+          nullable: true
+        numero:
+          type: number
+          nullable: true
+        actualizadoEn:
+          format: date-time
+          type: string
+      required:
+        - antecedenteId
+        - codigo
+        - texto
+        - grupo
+        - respuesta
+        - detalle
+        - fecha
+        - numero
+        - actualizadoEn
+    AntecedentesObstetricosDto:
+      type: object
+      properties:
+        fur:
+          type: string
+          format: date-time
+          nullable: true
+        gestas:
+          type: number
+          nullable: true
+        partos:
+          type: number
+          nullable: true
+        abortos:
+          type: number
+          nullable: true
+        abortosConsecutivos:
+          type: boolean
+          nullable: true
+        legradosLiu:
+          type: number
+          nullable: true
+        cesareas:
+          type: number
+          nullable: true
+        nacidosVivos:
+          type: number
+          nullable: true
+        nacidosMuertos:
+          type: number
+          nullable: true
+        hijosVivos:
+          type: number
+          nullable: true
+        hijosMuertos:
+          type: number
+          nullable: true
+        embarazosMultiples:
+          type: boolean
+          nullable: true
+        fechaUltimoParto:
+          type: string
+          format: date-time
+          nullable: true
+        prematurosAntes8Meses:
+          type: number
+          nullable: true
+        preeclampsia:
+          type: boolean
+          nullable: true
+        tamizajeCervix:
+          type: string
+          nullable: true
+          description: Papanicolau o IVAA.
+        tamizajeFecha:
+          type: string
+          format: date-time
+          nullable: true
+        tamizajeNormal:
+          type: boolean
+          nullable: true
+        usaPlanificacion:
+          type: boolean
+          nullable: true
+        metodoPlanificacion:
+          type: string
+          nullable: true
+        tipoSangre:
+          type: string
+          nullable: true
+          example: O
+        rhPositivo:
+          type: boolean
+          nullable: true
+    AntecedentesPacienteDto:
+      type: object
+      properties:
+        pacienteId:
+          type: string
+          format: uuid
+        marcados:
+          type: array
+          items:
+            $ref: "#/components/schemas/AntecedenteRegistradoDto"
+        obstetricos:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/AntecedentesObstetricosDto"
+      required:
+        - pacienteId
+        - marcados
+        - obstetricos
+    GuardarAntecedenteDto:
+      type: object
+      properties:
+        antecedenteId:
+          type: string
+          format: uuid
+        respuesta:
+          type: string
+          enum:
+            - SI
+            - NO
+            - NO_APLICA
+          description: NO_APLICA solo se acepta en los antecedentes que lo permiten; el
+            papel no ofrece esa casilla en todos.
+        detalle:
+          type: string
+          description: 'El "cual" del papel: que medicamento, que cancer.'
+        fecha:
+          format: date-time
+          type: string
+          description: Fecha de la ultima dosis, de la ultima citologia.
+        numero:
+          type: number
+          description: Numero de dosis, cigarrillos al dia.
+          example: 3
+      required:
+        - antecedenteId
+        - respuesta
+    GuardarObstetricosDto:
+      type: object
+      properties:
+        fur:
+          format: date-time
+          type: string
+          description: Fecha de ultima menstruacion.
+        gestas:
+          type: number
+        partos:
+          type: number
+        abortos:
+          type: number
+        abortosConsecutivos:
+          type: boolean
+        legradosLiu:
+          type: number
+          description: Legrados intrauterinos.
+        cesareas:
+          type: number
+        nacidosVivos:
+          type: number
+        nacidosMuertos:
+          type: number
+        hijosVivos:
+          type: number
+        hijosMuertos:
+          type: number
+        embarazosMultiples:
+          type: boolean
+        fechaUltimoParto:
+          format: date-time
+          type: string
+        prematurosAntes8Meses:
+          type: number
+          description: Ninos nacidos antes de los 8 meses.
+        preeclampsia:
+          type: boolean
+        tamizajeCervix:
+          type: string
+          description: Papanicolau o IVAA.
+          example: PAPANICOLAU
+        tamizajeFecha:
+          format: date-time
+          type: string
+        tamizajeNormal:
+          type: boolean
+        usaPlanificacion:
+          type: boolean
+        metodoPlanificacion:
+          type: string
+          example: Inyección
+        tipoSangre:
+          type: string
+          example: O
+        rhPositivo:
+          type: boolean
+          description: true para RH (+), false para RH (-).
+    GuardarAntecedentesDto:
+      type: object
+      properties:
+        marcados:
+          type: array
+          items:
+            $ref: "#/components/schemas/GuardarAntecedenteDto"
+        obstetricos:
+          $ref: "#/components/schemas/GuardarObstetricosDto"
     RespuestaErrorDto:
       type: object
       properties:

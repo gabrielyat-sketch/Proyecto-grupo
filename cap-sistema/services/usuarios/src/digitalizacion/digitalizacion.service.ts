@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { EstadoDigitalizacion } from '../../prisma/generado';
+import { EstadoDigitalizacion } from '../../generado';
 import { ConteoPorEstadoDto } from './dto/respuestas.dto';
 
 @Injectable()

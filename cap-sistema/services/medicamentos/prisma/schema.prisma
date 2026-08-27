@@ -7,7 +7,12 @@
 generator client {
   provider = "prisma-client-js"
   // Cada servicio genera su cliente en SU carpeta (ver §6.1).
-  output   = "./generado"
+  output   = "../generado"
+  // FUERA de prisma/ a proposito. La extension de Prisma para VS Code trata
+  // todos los .prisma de esa carpeta como UN solo esquema —soporte de
+  // esquemas multiarchivo—, y el cliente generado deja ahi una copia del
+  // schema. El editor las fusionaba y marcaba todo como duplicado:
+  // "el enum Sexo ya existe", "el generador client ya existe".
 }
 
 datasource db {

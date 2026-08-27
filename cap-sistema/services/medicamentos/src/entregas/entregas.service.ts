@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { crearPagina, fechaDelDia, normalizarPagina, type Pagina } from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma } from '../../prisma/generado';
+import { Prisma } from '../../generado';
 import { CLIENTE_PACIENTES, IClientePacientes } from '../pacientes/cliente-pacientes';
 import { Evento, OutboxService } from '../eventos/outbox.service';
 import { seleccionarFefo } from '../dominio/inventario';

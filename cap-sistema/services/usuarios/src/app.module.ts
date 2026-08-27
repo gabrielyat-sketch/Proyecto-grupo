@@ -12,6 +12,8 @@ import { GruposModule } from './grupos/grupos.module';
 import { ExpedientesModule } from './expedientes/expedientes.module';
 import { AtencionesModule } from './atenciones/atenciones.module';
 import { DigitalizacionModule } from './digitalizacion/digitalizacion.module';
+import { FichasModule } from './fichas/fichas.module';
+import { AntecedentesModule } from './antecedentes/antecedentes.module';
 import { leerEntorno } from './config/entorno';
 
 @Module({
@@ -36,6 +38,8 @@ import { leerEntorno } from './config/entorno';
     ExpedientesModule,
     AtencionesModule,
     DigitalizacionModule,
+    FichasModule,
+    AntecedentesModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: GuardJwt },

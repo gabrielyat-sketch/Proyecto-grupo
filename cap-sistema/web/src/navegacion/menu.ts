@@ -135,13 +135,32 @@ export const MENU: readonly ElementoMenu[] = [
   },
 ];
 
+/**
+ * Rutas que existen pero NO salen en el menu.
+ *
+ * La ficha clinica no es una opcion a la que se entre: necesita un paciente ya
+ * elegido, y se llega a ella desde la busqueda. Aun asi hay que cerrarla por
+ * rol, porque escribir la direccion a mano tambien es una forma de entrar.
+ *
+ * Los roles son los MISMOS del controlador que la guarda —POST de fichas es de
+ * Medico y Enfermeria— y no incluyen al Administrador aunque lo vea todo:
+ * ofrecerle una pantalla que el servidor le va a negar con un 403 le haria
+ * pensar que el sistema falla.
+ */
+const RUTAS_FUERA_DEL_MENU: Record<string, readonly Rol[]> = {
+  '/ficha': ['MEDICO', 'ENFERMERIA'],
+};
+
 /** Opciones visibles para un rol. Vacio si el rol no se reconoce. */
 export function menuPara(rol: string | undefined): ElementoMenu[] {
   if (!rol) return [];
   return MENU.filter((e) => (e.roles as readonly string[]).includes(rol));
 }
 
-/** true si ese rol puede entrar a esa ruta. */
+/** true si ese rol puede entrar a esa ruta, este o no en el menu. */
 export function puedeEntrar(rol: string | undefined, ruta: string): boolean {
+  if (!rol) return false;
+  const fuera = RUTAS_FUERA_DEL_MENU[ruta];
+  if (fuera) return (fuera as readonly string[]).includes(rol);
   return menuPara(rol).some((e) => e.ruta === ruta);
 }

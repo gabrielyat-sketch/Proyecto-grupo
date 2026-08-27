@@ -85,3 +85,19 @@ export function errorDeRed(ruta: string): ErrorApi {
 export function esErrorApi(e: unknown): e is ErrorApi {
   return e instanceof ErrorApi;
 }
+
+/**
+ * Convierte lo que devuelve openapi-fetch en un ErrorApi y lo lanza.
+ *
+ * `openapi-fetch` no lanza: entrega `{ data, error, response }`. Cada servicio
+ * del panel tenia que traducir eso a mano, y todos lo hacian igual salvo por un
+ * detalle —el estado quedaba fijo en 400—, lo que hacia que un 403 llegara a la
+ * pantalla disfrazado de error de validacion. Con `response` a la vista, el
+ * estado real se conserva.
+ */
+export function fallarApi(error: unknown, ruta: string, respuesta?: Response): never {
+  if (error && typeof error === 'object' && 'mensaje' in error) {
+    throw new ErrorApi(respuesta?.status ?? 400, error as CuerpoError);
+  }
+  throw errorDeRed(ruta);
+}

@@ -14,7 +14,8 @@
     "prisma:generar": "prisma generate",
     "seed": "tsx prisma/seed.ts",
     "carga": "tsx prisma/carga-prueba.ts",
-    "contrato": "ts-node --project tsconfig.json scripts/exportar-contrato.ts"
+    "contrato": "ts-node --project tsconfig.json scripts/exportar-contrato.ts",
+    "catalogo": "ts-node --project tsconfig.json prisma/catalogo-ficha-adulto.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.2.3",

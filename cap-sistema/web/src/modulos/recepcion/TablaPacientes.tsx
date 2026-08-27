@@ -1,5 +1,7 @@
+import { Link as EnlaceRuta } from 'react-router-dom';
 import {
   Box,
+  Button,
   Chip,
   Pagination,
   Paper,
@@ -12,14 +14,9 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import type { PaginaPacientes } from './servicio-pacientes';
-
-const IDIOMA: Record<string, string> = {
-  ESPANOL: 'Espanol',
-  POQOMCHI: "Poqomchi'",
-  QEQCHI: "Q'eqchi'",
-  OTRO: 'Otro',
-};
+import { ETIQUETA_IDIOMA, type PaginaPacientes } from './servicio-pacientes';
+import { usarSesion } from '../sesion/contexto';
+import { puedeEntrar } from '../../navegacion/menu';
 
 const fecha = (valor: string | Date) =>
   new Date(valor).toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -39,6 +36,11 @@ export function TablaPacientes({
   resultados: PaginaPacientes;
   onPagina: (pagina: number) => void;
 }) {
+  const { usuario } = usarSesion();
+  // La columna de la ficha solo aparece a quien puede registrarla. Ofrecersela
+  // a Recepcion o a Farmacia terminaria en un 403 que parece una falla.
+  const puedeAtender = puedeEntrar(usuario?.rol, '/ficha');
+
   return (
     <Stack spacing={2}>
       <Typography variant="body2" color="text.secondary">
@@ -62,6 +64,7 @@ export function TablaPacientes({
               <TableCell>Comunidad</TableCell>
               <TableCell>Idioma</TableCell>
               <TableCell>Expediente</TableCell>
+              {puedeAtender ? <TableCell>Atencion</TableCell> : null}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -81,10 +84,23 @@ export function TablaPacientes({
                 <TableCell align="right">{p.edad}</TableCell>
                 <TableCell>{p.sexo}</TableCell>
                 <TableCell>{p.comunidad?.nombre}</TableCell>
-                <TableCell>{IDIOMA[p.idioma] ?? p.idioma}</TableCell>
+                <TableCell>{ETIQUETA_IDIOMA[p.idioma] ?? p.idioma}</TableCell>
                 <TableCell sx={{ fontFamily: 'monospace' }}>
                   {p.expediente?.numero ?? '-'}
                 </TableCell>
+                {puedeAtender ? (
+                  <TableCell>
+                    <Button
+                      component={EnlaceRuta}
+                      to={'/pacientes/' + p.id + '/ficha'}
+                      size="small"
+                      variant="outlined"
+                      disabled={p.fallecido}
+                    >
+                      Abrir ficha
+                    </Button>
+                  </TableCell>
+                ) : null}
               </TableRow>
             ))}
           </TableBody>
