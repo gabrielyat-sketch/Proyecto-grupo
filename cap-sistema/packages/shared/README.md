@@ -19,12 +19,11 @@ lógica hay que arreglarlo ocho veces y basta olvidar una.
 | `config/` | Validación de variables de entorno con zod, al arrancar | Listo |
 | `paginacion/` | Normalización de página y tope duro de 100 registros | Listo |
 | `traza/` | Middleware de correlación `X-Traza-Id` | Listo |
-| `auditoria/` | Cliente del servicio de trazabilidad | **Pendiente — Etapa 9** |
+| `auditoria/` | Cliente del servicio de trazabilidad | ✅ Etapa 9 |
 | `eventos/` | Publicador con outbox transaccional y consumidor idempotente | **Pendiente — Etapa 10** |
 
-Las dos carpetas pendientes están vacías a propósito: `auditoria/` necesita que exista el servicio
-de trazabilidad, y `eventos/` necesita el bus de Redis. Implementarlas antes sería escribir contra
-un destino que todavía no existe.
+`eventos/` sigue vacía a propósito: necesita el bus de Redis, que llega en la Etapa 10.
+Implementarla antes sería escribir contra un destino que todavía no existe.
 
 ## Cuidado especial con `crypto/`
 

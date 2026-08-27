@@ -1,0 +1,139 @@
+// Esquema del servicio de trazabilidad — bitacora append-only (RF-09).
+//
+// Este esquema es distinto de todos los demas del sistema en una cosa: el
+// usuario de ejecucion `cap_trazabilidad` tiene SELECT e INSERT, pero NO
+// UPDATE ni DELETE (infra/postgres/init.sql). Ninguna consulta de Prisma que
+// escriba sobre un registro existente va a funcionar, y eso es deliberado.
+//
+// Ver arquitectura-cap-purulha.md §9.5 y §10.4
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generado"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Usuario de EJECUCION: solo lee e inserta.
+  url       = env("DATABASE_URL")
+  // Usuario DUENO: lo usa unicamente `prisma migrate`.
+  // Si el servicio fuera dueno de sus tablas tendria UPDATE y DELETE sobre
+  // ellas pase lo que pase con los GRANT, y la garantia append-only se caeria.
+  directUrl = env("DIRECT_URL")
+}
+
+/// Que ocurrio. §10.4 exige registrar cambios de dato clinico, consultas de
+/// expediente e impresiones o exportaciones.
+enum Accion {
+  CONSULTA
+  CREACION
+  MODIFICACION
+  ELIMINACION
+  IMPRESION
+  EXPORTACION
+
+  @@map("accion")
+}
+
+/// Una entrada de la bitacora.
+///
+/// La cadena: hash_n = SHA256(hash_(n-1) || contenido_n). Alterar un registro
+/// pasado rompe todos los hashes posteriores, y eso es lo que convierte la
+/// bitacora en evidencia.
+model Registro {
+  /// Orden de la cadena. La secuencia puede dejar huecos si una transaccion
+  /// se deshace, y no importa: la verificacion sigue el enlace `hashPrevio`,
+  /// no la contigüidad de los numeros. Un registro que desapareciera rompe el
+  /// enlace igual.
+  numero BigInt @id @default(autoincrement())
+
+  /// Hash del registro anterior. El primero de la cadena guarda 64 ceros.
+  ///
+  /// UNICO a proposito. Es lo que impide bifurcar la cadena: con solo INSERT,
+  /// un atacante no puede alterar nada, pero si podria APENDER un registro que
+  /// apunte a un hash previo antiguo y crear una rama paralela. Con esta
+  /// restriccion, ese segundo insert lo rechaza PostgreSQL, no la aplicacion.
+  hashPrevio String @unique @map("hash_previo") @db.Char(64)
+
+  /// SHA-256 de `hashPrevio || contenido canonico`, en hexadecimal.
+  /// Unico: dos registros con el mismo hash significarian una bifurcacion.
+  hash String @unique @db.Char(64)
+
+  // ─── Contenido: lo que entra en el hash ────────────────────────────────
+
+  /// Servicio que origino la accion: auth, usuarios, programas, medicamentos.
+  servicio String @db.VarChar(40)
+
+  accion Accion
+
+  /// Tipo de dato tocado (paciente, expediente, atencion, entrega...) y su id
+  /// en el servicio de origen. No es una llave foranea: los servicios no
+  /// comparten tablas.
+  entidad   String @db.VarChar(60)
+  entidadId String @map("entidad_id") @db.VarChar(64)
+
+  /// Quien. Sale del JWT, no de lo que el cliente diga que es.
+  usuarioId  String @map("usuario_id") @db.VarChar(64)
+  usuarioRol String @map("usuario_rol") @db.VarChar(30)
+
+  /// Por que. §10.4 lo exige junto con usuario, fecha y accion.
+  motivo String? @db.VarChar(300)
+
+  /// Valor anterior y nuevo, CIFRADOS con LLAVE_DATOS. Son datos clinicos: la
+  /// bitacora no puede ser la puerta trasera por la que se leen sin permiso.
+  ///
+  /// El hash se calcula sobre el texto cifrado, tal como queda almacenado. Asi
+  /// `verificar-cadena.ts` demuestra la integridad SIN necesitar la llave de
+  /// descifrado: el CAP puede auditar sin exponer un solo dato de paciente.
+  /// `Bytes`, como el resto de campos cifrados del sistema (usuarios §9.3).
+  /// Para el hash se serializan en base64: ver `contenidoCanonico`.
+  valorAnterior Bytes? @map("valor_anterior")
+  valorNuevo    Bytes? @map("valor_nuevo")
+
+  /// Identificador de correlacion X-Traza-Id: permite reconstruir una peticion
+  /// completa a traves de varios servicios.
+  trazaId String  @map("traza_id") @db.VarChar(64)
+  ip      String? @db.VarChar(45)
+
+  /// Cuando ocurrio en el servicio de origen, y cuando llego aqui. Se guardan
+  /// las dos: si difieren mucho, hubo cola o reloj desajustado, y eso importa
+  /// para leer la bitacora.
+  ///
+  /// `registradoEn` lo pone la aplicacion, no un DEFAULT de la base: asi entra
+  /// en el hash. Todo lo que se guarda queda cubierto por la cadena, salvo
+  /// `numero` y los dos hashes.
+  ocurridoEn   DateTime @map("ocurrido_en")
+  registradoEn DateTime @map("registrado_en")
+
+  @@index([entidad, entidadId])
+  @@index([usuarioId, registradoEn])
+  @@index([accion, registradoEn])
+  @@index([registradoEn])
+  @@map("registro")
+}
+
+/// Hash raiz del dia, firmado con una llave que vive fuera de la base de datos
+/// (arquitectura §9.5).
+///
+/// Sin esto, quien tuviera control total de la base podria reescribir la
+/// cadena entera y recalcular todos los hashes: quedaria coherente y nadie lo
+/// notaria. La firma no se puede rehacer sin la llave, que no esta aqui.
+model RaizDiaria {
+  /// Dia cubierto, en hora local de Guatemala. Es la llave: un dia, una raiz.
+  dia DateTime @id @db.Date
+
+  numeroDesde BigInt @map("numero_desde")
+  numeroHasta BigInt @map("numero_hasta")
+  cantidad    Int
+
+  /// Hash del ultimo registro del dia: cierra todo lo anterior.
+  hashFinal String @map("hash_final") @db.Char(64)
+
+  /// HMAC-SHA256 de (dia || numeroDesde || numeroHasta || hashFinal) con
+  /// LLAVE_RAIZ_TRAZA.
+  firma String @db.Char(64)
+
+  generadaEn DateTime @default(now()) @map("generada_en")
+
+  @@map("raiz_diaria")
+}

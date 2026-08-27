@@ -1,6 +1,6 @@
 # Servicios pendientes de construir
 
-Los cuatro microservicios que faltan. **No existen como carpeta todavía**: cada uno se crea copiando
+Los tres microservicios que faltan. **No existen como carpeta todavía**: cada uno se crea copiando
 `services/_plantilla` cuando llega su etapa, siguiendo el procedimiento de su README.
 
 Este documento guarda las decisiones de diseño ya tomadas para cada uno, para que quien lo construya
@@ -8,38 +8,12 @@ no tenga que redescubrirlas.
 
 | Servicio | Puerto | Esquema | RF | Etapa |
 |---|---|---|---|---|
-| `trazabilidad` | 3007 | `trazabilidad` | RF-09 | 9 |
 | `reportes` | 3005 | `reportes` | RF-04, RF-07 | 10 y 11 |
 | `cms` | 3006 | `cms` | RF-05 | 12 |
 | `ml` | 3008 | `ml` | — (COULD) | Opcional |
 
 Los esquemas y usuarios de base de datos de los cinco **ya están creados** en
 `infra/postgres/init.sql`. No hay que tocar ese archivo al construirlos.
-
----
-
-## trazabilidad — Etapa 9
-
-**Responsabilidad:** cadena de hash append-only. Auditoría de cambios, consultas sensibles e
-impresiones (RF-09).
-
-### La restricción que lo sostiene
-
-El usuario `cap_trazabilidad` tiene **`SELECT` e `INSERT`, pero NO `UPDATE` ni `DELETE`**. Es
-deliberado: ni la propia aplicación puede alterar la traza. Ya está así en
-`infra/postgres/init.sql`, y hay pruebas que lo verifican.
-
-La cadena: `hash_n = SHA256(hash_(n-1) || contenido_n)`. Alterar un registro pasado rompe toda la
-cadena posterior.
-
-Sin las protecciones que la acompañan — usuario sin `UPDATE`, hash raíz diario firmado fuera de la
-base, copia en respaldos y procedimiento de verificación ejecutable — el mecanismo sería solo
-decorativo.
-
-### Es el pendiente que más se acumula
-
-`auth`, `usuarios` y `programas` **no auditan nada todavía**. Cada etapa que pasa son más rutas de
-escritura que habrá que volver a tocar para conectarlas.
 
 ---
 
