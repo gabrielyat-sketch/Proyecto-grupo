@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '../../prisma/generado';
+import { Prisma } from '../../generado';
 
 export const Evento = {
   MEDICAMENTO_ENTREGADO: 'medicamento.entregado',
