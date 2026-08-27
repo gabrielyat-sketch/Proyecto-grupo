@@ -56,9 +56,9 @@ export class FichasController {
     @Param('expedienteId') expedienteId: string,
     @Body() dto: CrearFichaDto,
     @Usuario('id') usuarioId: string,
-    @Req() _req: { trazaId?: string },
+    @Req() req: { trazaId?: string },
   ): Promise<FichaCreadaDto> {
-    return this.servicio.registrar(expedienteId, dto, usuarioId);
+    return this.servicio.registrar(expedienteId, dto, usuarioId, req.trazaId);
   }
 
   @Get('fichas/:id')

@@ -13,6 +13,8 @@ import { EnConstruccion } from './rutas/EnConstruccion';
 import { PaginaRecepcion } from './modulos/recepcion/PaginaRecepcion';
 import { PaginaNuevoPaciente } from './modulos/recepcion/PaginaNuevoPaciente';
 import { PaginaFicha } from './modulos/fichas/PaginaFicha';
+import { PaginaDigitalizacion } from './modulos/digitalizacion/PaginaDigitalizacion';
+import { PaginaSalaEspera } from './modulos/espera/PaginaSalaEspera';
 import { MENU } from './navegacion/menu';
 
 /**
@@ -89,11 +91,29 @@ export function App() {
               <Route
                 path="/recepcion/nuevo"
                 element={
-                  <RutaPorRol ruta="/recepcion">
+                  <RutaPorRol ruta="/recepcion/nuevo">
                     <PaginaNuevoPaciente />
                   </RutaPorRol>
                 }
               />
+              <Route
+                path="/espera"
+                element={
+                  <RutaPorRol ruta="/espera">
+                    <PaginaSalaEspera />
+                  </RutaPorRol>
+                }
+              />
+
+              <Route
+                path="/digitalizacion"
+                element={
+                  <RutaPorRol ruta="/digitalizacion">
+                    <PaginaDigitalizacion />
+                  </RutaPorRol>
+                }
+              />
+
               {/*
                 La ficha no esta en el menu: se llega a ella con un paciente ya
                 elegido, desde la busqueda. La guarda es la misma de siempre.
@@ -111,7 +131,7 @@ export function App() {
                 puede haber una opcion sin pantalla ni una pantalla que el rol
                 no tenga permitida.
               */}
-              {MENU.filter((m) => m.ruta !== '/recepcion').map(({ ruta, etiqueta, descripcion }) => (
+              {MENU.filter((m) => m.ruta !== '/recepcion' && m.ruta !== '/digitalizacion' && m.ruta !== '/espera').map(({ ruta, etiqueta, descripcion }) => (
                 <Route
                   key={ruta}
                   path={ruta}

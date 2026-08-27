@@ -17,6 +17,7 @@ import {
 import { ETIQUETA_IDIOMA, type PaginaPacientes } from './servicio-pacientes';
 import { usarSesion } from '../sesion/contexto';
 import { puedeEntrar } from '../../navegacion/menu';
+import type { PacienteResumen } from './servicio-pacientes';
 
 const fecha = (valor: string | Date) =>
   new Date(valor).toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -32,9 +33,12 @@ const fecha = (valor: string | Date) =>
 export function TablaPacientes({
   resultados,
   onPagina,
+  onLlegada,
 }: {
   resultados: PaginaPacientes;
   onPagina: (pagina: number) => void;
+  /** Marcar que el paciente acaba de llegar al CAP. Solo lo hace recepcion. */
+  onLlegada?: (paciente: PacienteResumen) => void;
 }) {
   const { usuario } = usarSesion();
   // La columna de la ficha solo aparece a quien puede registrarla. Ofrecersela
@@ -64,7 +68,7 @@ export function TablaPacientes({
               <TableCell>Comunidad</TableCell>
               <TableCell>Idioma</TableCell>
               <TableCell>Expediente</TableCell>
-              {puedeAtender ? <TableCell>Atencion</TableCell> : null}
+              {onLlegada || puedeAtender ? <TableCell>Atencion</TableCell> : null}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -88,17 +92,31 @@ export function TablaPacientes({
                 <TableCell sx={{ fontFamily: 'monospace' }}>
                   {p.expediente?.numero ?? '-'}
                 </TableCell>
-                {puedeAtender ? (
+                {onLlegada || puedeAtender ? (
                   <TableCell>
-                    <Button
-                      component={EnlaceRuta}
-                      to={'/pacientes/' + p.id + '/ficha'}
-                      size="small"
-                      variant="outlined"
-                      disabled={p.fallecido}
-                    >
-                      Abrir ficha
-                    </Button>
+                    <Stack direction="row" sx={{ gap: 1 }}>
+                      {onLlegada ? (
+                        <Button
+                          size="small"
+                          variant="contained"
+                          disabled={p.fallecido}
+                          onClick={() => onLlegada(p)}
+                        >
+                          Marcar llegada
+                        </Button>
+                      ) : null}
+                      {puedeAtender ? (
+                        <Button
+                          component={EnlaceRuta}
+                          to={'/pacientes/' + p.id + '/ficha'}
+                          size="small"
+                          variant="outlined"
+                          disabled={p.fallecido}
+                        >
+                          Abrir ficha
+                        </Button>
+                      ) : null}
+                    </Stack>
                   </TableCell>
                 ) : null}
               </TableRow>

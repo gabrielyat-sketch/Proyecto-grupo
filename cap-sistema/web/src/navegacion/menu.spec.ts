@@ -35,9 +35,14 @@ describe('menu por rol', () => {
     expect(puedeEntrar('MEDICO', '/farmacia')).toBe(true);
   });
 
-  it('Recepcion ve Digitalizacion; Medico y Farmacia no', () => {
+  it('Recepcion y Enfermeria ven Digitalizacion; Farmacia no', () => {
+    // En el CAP, recepcion captura los datos personales del paciente y le pasa
+    // la carpeta a enfermeria, que llena las fichas clinicas. Las dos necesitan
+    // la cola: si enfermeria no supiera que carpeta le toca, dependeria de que
+    // alguien se lo dijera de palabra cada vez.
     expect(puedeEntrar('RECEPCION', '/digitalizacion')).toBe(true);
-    expect(puedeEntrar('MEDICO', '/digitalizacion')).toBe(false);
+    expect(puedeEntrar('ENFERMERIA', '/digitalizacion')).toBe(true);
+    expect(puedeEntrar('MEDICO', '/digitalizacion')).toBe(true);
     expect(puedeEntrar('FARMACIA', '/digitalizacion')).toBe(false);
   });
 

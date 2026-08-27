@@ -188,6 +188,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/digitalizacion/comunidades": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Avance de la digitalizacion comunidad por comunidad
+         * @description El archivo de papel se recorre por comunidad, y poder cerrar una entera es lo que evita que una digitalizacion de meses se abandone a la mitad.
+         */
+        get: operations["DigitalizacionController_comunidades"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/digitalizacion/cola": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Expedientes por transcribir
+         * @description Sin filtro de estado devuelve lo que falta: pendientes y en proceso. El orden es por apellido, que es como estan las carpetas en el archivo.
+         */
+        get: operations["DigitalizacionController_cola"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/digitalizacion/{expedienteId}": {
         parameters: {
             query?: never;
@@ -287,6 +327,66 @@ export interface paths {
          * @description Actualizacion PARCIAL: lo que no viene en la peticion se conserva. Por eso es PATCH y no PUT: si guardar reemplazara el conjunto completo, llenar media hoja borraria lo que otro turno ya habia preguntado.
          */
         patch: operations["AntecedentesController_guardar"];
+        trace?: never;
+    };
+    "/v1/visitas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Marca que un paciente llego y espera ser atendido
+         * @description Es lo unico que el sistema no puede deducir solo: un paciente registrado hace anios y uno que acaba de entrar por la puerta son identicos en la base.
+         */
+        post: operations["VisitasController_marcarLlegada"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/visitas/espera": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Quienes esperan ahora, por orden de llegada
+         * @description Solo las llegadas de hoy: una visita de ayer que nadie cerro no se arrastra a la lista de manana.
+         */
+        get: operations["VisitasController_enEspera"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/visitas/{id}/retiro": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Saca de la sala a alguien que se fue sin atencion
+         * @description El motivo es obligatorio: "se fue" no le sirve a nadie dentro de un mes.
+         */
+        patch: operations["VisitasController_retirar"];
         trace?: never;
     };
 }
@@ -654,6 +754,58 @@ export interface components {
              * @example 31.4
              */
             porcentajeCompleto: number;
+        };
+        AvanceComunidadDto: {
+            /** Format: uuid */
+            comunidadId: string;
+            /** @example Matanzas */
+            nombre: string;
+            /** @description Comunidad lejana al CAP. */
+            distante: boolean;
+            /** @example 240 */
+            total: number;
+            /** @example 96 */
+            completos: number;
+            /**
+             * @description Pendientes y en proceso: lo que falta por hacer.
+             * @example 138
+             */
+            faltantes: number;
+            /**
+             * @description Buscados en el archivo y no encontrados.
+             * @example 6
+             */
+            noLocalizados: number;
+            /**
+             * @description Con un decimal.
+             * @example 40
+             */
+            porcentajeCompleto: number;
+        };
+        ExpedienteEnColaDto: {
+            /** Format: uuid */
+            expedienteId: string;
+            /** Format: uuid */
+            pacienteId: string;
+            /** @example EXP-2026-000123 */
+            numero: string;
+            nombres: string;
+            apellidos: string;
+            /** @example 41 */
+            edad: number;
+            /** @example F */
+            sexo: string;
+            comunidad: string;
+            /** @enum {string} */
+            estado: "PENDIENTE" | "EN_PROCESO" | "COMPLETO" | "NO_LOCALIZADO";
+            /**
+             * @description Cuantas atenciones del papel se llevan transcritas.
+             * @example 3
+             */
+            atencionesTranscritas: number;
+            /** Format: date-time */
+            iniciadoEn: string | null;
+            observaciones: string | null;
         };
         ActualizarDigitalizacionDto: {
             /** @enum {string} */
@@ -1023,6 +1175,57 @@ export interface components {
         GuardarAntecedentesDto: {
             marcados?: components["schemas"]["GuardarAntecedenteDto"][];
             obstetricos?: components["schemas"]["GuardarObstetricosDto"];
+        };
+        MarcarLlegadaDto: {
+            /** Format: uuid */
+            pacienteId: string;
+            /**
+             * @description A que viene, en una linea. Se guarda cifrado.
+             * @example Control de embarazo
+             */
+            motivo?: string;
+        };
+        VisitaDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            pacienteId: string;
+            /** @enum {string} */
+            estado: "ESPERANDO" | "ATENDIDA" | "RETIRADA";
+            /** Format: date-time */
+            llegadaEn: string;
+            /** Format: date-time */
+            cerradaEn: string | null;
+            motivo: string | null;
+            motivoRetiro: string | null;
+        };
+        VisitaEnEsperaDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            pacienteId: string;
+            nombres: string;
+            apellidos: string;
+            /** @example 41 */
+            edad: number;
+            /** @example F */
+            sexo: string;
+            comunidad: string;
+            /** @example EXP-2026-000123 */
+            numeroExpediente: string | null;
+            /** Format: date-time */
+            llegadaEn: string;
+            /**
+             * @description Minutos que lleva esperando, al momento de responder.
+             * @example 23
+             */
+            esperandoMinutos: number;
+            /** @description Descifrado al vuelo. */
+            motivo: string | null;
+        };
+        RetirarVisitaDto: {
+            /** @example Se canso de esperar y se fue */
+            motivo: string;
         };
         RespuestaErrorDto: {
             /**
@@ -1942,6 +2145,118 @@ export interface operations {
             };
         };
     };
+    DigitalizacionController_comunidades: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvanceComunidadDto"][];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
+    DigitalizacionController_cola: {
+        parameters: {
+            query?: {
+                comunidadId?: string;
+                /** @description Por defecto, los que faltan: pendientes y en proceso. */
+                estado?: "PENDIENTE" | "EN_PROCESO" | "COMPLETO" | "NO_LOCALIZADO";
+                /** @description Empieza en 1. Por defecto 1. */
+                pagina?: number;
+                /** @description Por defecto 25. El servidor recorta cualquier valor mayor a 100. */
+                tamano?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description La cola. NO incluye DPI ni telefono. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginaDto"] & {
+                        datos: components["schemas"]["ExpedienteEnColaDto"][];
+                    };
+                };
+            };
+            /** @description La informacion enviada no es valida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
     DigitalizacionController_actualizar: {
         parameters: {
             query?: never;
@@ -2301,6 +2616,188 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AntecedentesPacienteDto"];
+                };
+            };
+            /** @description La informacion enviada no es valida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El recurso solicitado no existe. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
+    VisitasController_marcarLlegada: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarcarLlegadaDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitaDto"];
+                };
+            };
+            /** @description La informacion enviada no es valida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Ese paciente ya esta en la sala de espera. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
+    VisitasController_enEspera: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitaEnEsperaDto"][];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
+    VisitasController_retirar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RetirarVisitaDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitaDto"];
                 };
             };
             /** @description La informacion enviada no es valida. */

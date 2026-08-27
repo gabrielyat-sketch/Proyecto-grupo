@@ -1,11 +1,24 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { crearPagina, normalizarPagina, type Pagina, ServicioCifrado } from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
-import { EstadoDigitalizacion } from '../../generado';
-import { ConteoPorEstadoDto } from './dto/respuestas.dto';
+import { SERVICIO_CIFRADO } from '../comun/cifrado.module';
+import { EstadoDigitalizacion, Prisma } from '../../generado';
+import { ConsultarColaDto } from './dto/consultar-cola.dto';
+import {
+  AvanceComunidadDto,
+  ConteoPorEstadoDto,
+  ExpedienteEnColaDto,
+} from './dto/respuestas.dto';
+
+/** Los dos estados que significan "todavia falta". */
+const FALTANTES: EstadoDigitalizacion[] = ['PENDIENTE', 'EN_PROCESO'];
 
 @Injectable()
 export class DigitalizacionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(SERVICIO_CIFRADO) private readonly cifrado: ServicioCifrado,
+  ) {}
 
   /**
    * Panel de avance de la digitalizacion (seccion 10 del plan).
@@ -36,6 +49,132 @@ export class DigitalizacionService {
     };
   }
 
+  /**
+   * Avance por comunidad.
+   *
+   * Va en SQL directo porque Prisma no agrupa a traves de relaciones, y la
+   * alternativa —traer los expedientes para contarlos en memoria— serian
+   * 100,000 filas para calcular una tabla de veinte renglones.
+   *
+   * Ordenado por nombre y no por lo que falta: el archivo de papel se recorre
+   * en un orden que decide el personal, no el sistema. Los numeros estan a la
+   * vista para que elijan; adivinar su estrategia y reordenarles la lista solo
+   * les haria buscar cada vez donde quedo la comunidad de ayer.
+   */
+  async porComunidad(): Promise<AvanceComunidadDto[]> {
+    const filas = await this.prisma.$queryRaw<
+      {
+        comunidadId: string;
+        nombre: string;
+        distante: boolean;
+        total: bigint;
+        completos: bigint;
+        faltantes: bigint;
+        noLocalizados: bigint;
+      }[]
+    >`
+      SELECT c.id                                                        AS "comunidadId",
+             c.nombre                                                    AS "nombre",
+             c.distante                                                  AS "distante",
+             count(*)                                                    AS "total",
+             count(*) FILTER (WHERE r.estado = 'COMPLETO')               AS "completos",
+             count(*) FILTER (WHERE r.estado IN ('PENDIENTE','EN_PROCESO')) AS "faltantes",
+             count(*) FILTER (WHERE r.estado = 'NO_LOCALIZADO')          AS "noLocalizados"
+      FROM usuarios.registro_digitalizacion r
+      JOIN usuarios.expediente e ON e.id = r.expediente_id
+      JOIN usuarios.paciente   p ON p.id = e.paciente_id
+      JOIN usuarios.comunidad  c ON c.id = p.comunidad_id
+      GROUP BY c.id, c.nombre, c.distante
+      ORDER BY c.nombre
+    `;
+
+    return filas.map((f) => {
+      const total = Number(f.total);
+      const completos = Number(f.completos);
+      return {
+        comunidadId: f.comunidadId,
+        nombre: f.nombre,
+        distante: f.distante,
+        total,
+        completos,
+        faltantes: Number(f.faltantes),
+        noLocalizados: Number(f.noLocalizados),
+        porcentajeCompleto: total === 0 ? 0 : Math.round((completos / total) * 1000) / 10,
+      };
+    });
+  }
+
+  /**
+   * La cola de trabajo: que carpeta toca transcribir.
+   *
+   * Sin filtro de estado devuelve lo que FALTA —pendientes y en proceso—, que
+   * es lo que se pregunta al sentarse a trabajar. Los completos y los no
+   * localizados se piden a proposito, para revisarlos.
+   *
+   * El orden es por apellido dentro de la comunidad, que es como estan las
+   * carpetas en el archivo: buscarlas en otro orden obligaria a recorrer el
+   * cajon entero por cada expediente.
+   */
+  async cola(consulta: ConsultarColaDto): Promise<Pagina<ExpedienteEnColaDto>> {
+    const { tamano, saltar } = normalizarPagina(consulta);
+
+    const where: Prisma.RegistroDigitalizacionWhereInput = {
+      estado: consulta.estado ? consulta.estado : { in: FALTANTES },
+      ...(consulta.comunidadId
+        ? { expediente: { paciente: { comunidadId: consulta.comunidadId } } }
+        : {}),
+    };
+
+    const [total, filas] = await this.prisma.$transaction([
+      this.prisma.registroDigitalizacion.count({ where }),
+      this.prisma.registroDigitalizacion.findMany({
+        where,
+        skip: saltar,
+        take: tamano,
+        orderBy: { expediente: { paciente: { apellidos: 'asc' } } },
+        select: {
+          expedienteId: true,
+          estado: true,
+          atencionesTranscritas: true,
+          iniciadoEn: true,
+          observaciones: true,
+          expediente: {
+            select: {
+              numeroCifrado: true,
+              paciente: {
+                select: {
+                  id: true,
+                  nombres: true,
+                  apellidos: true,
+                  fechaNacimiento: true,
+                  sexo: true,
+                  comunidad: { select: { nombre: true } },
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const datos = filas.map((f) => ({
+      expedienteId: f.expedienteId,
+      pacienteId: f.expediente.paciente.id,
+      numero: this.cifrado.descifrar(Buffer.from(f.expediente.numeroCifrado)),
+      nombres: f.expediente.paciente.nombres,
+      apellidos: f.expediente.paciente.apellidos,
+      edad: edadEnAnios(f.expediente.paciente.fechaNacimiento),
+      sexo: f.expediente.paciente.sexo,
+      comunidad: f.expediente.paciente.comunidad.nombre,
+      estado: f.estado,
+      atencionesTranscritas: f.atencionesTranscritas,
+      iniciadoEn: f.iniciadoEn,
+      observaciones: f.observaciones,
+    }));
+
+    return crearPagina(datos, total, consulta);
+  }
+
   async actualizar(
     expedienteId: string,
     estado: EstadoDigitalizacion,
@@ -58,4 +197,13 @@ export class DigitalizacionService {
       },
     });
   }
+}
+
+/** Anios cumplidos. Se calcula al responder y no se guarda. */
+function edadEnAnios(nacimiento: Date): number {
+  const hoy = new Date();
+  let edad = hoy.getFullYear() - nacimiento.getFullYear();
+  const mes = hoy.getMonth() - nacimiento.getMonth();
+  if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) edad--;
+  return edad;
 }

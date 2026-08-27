@@ -3,6 +3,7 @@ import type { SvgIconProps } from '@mui/material';
 import BadgeIcon from '@mui/icons-material/Badge';
 import FolderSharedIcon from '@mui/icons-material/FolderShared';
 import ScannerIcon from '@mui/icons-material/Scanner';
+import EventSeatIcon from '@mui/icons-material/EventSeat';
 import MonitorHeartIcon from '@mui/icons-material/MonitorHeart';
 import MedicationIcon from '@mui/icons-material/Medication';
 import InsightsIcon from '@mui/icons-material/Insights';
@@ -66,6 +67,16 @@ export const MENU: readonly ElementoMenu[] = [
     roles: TODO_EL_PERSONAL,
   },
   {
+    ruta: '/espera',
+    descripcion:
+      'Quienes llegaron hoy y todavia no tienen ficha, en orden de llegada. Recepcion marca la llegada al entrar; la visita se cierra sola al guardar la ficha.',
+    etiqueta: 'Sala de espera',
+    icono: EventSeatIcon,
+    // Farmacia no: la sala dice quien vino al medico y a que, y eso es
+    // informacion clinica aunque no lo parezca.
+    roles: ['ADMINISTRADOR', 'DIRECTOR', 'RECEPCION', 'ENFERMERIA', 'MEDICO'],
+  },
+  {
     ruta: '/expedientes',
     descripcion:
       'Consulta del expediente y su historial de atenciones. El acceso al historial clinico queda restringido al personal medico y de enfermeria.',
@@ -81,9 +92,9 @@ export const MENU: readonly ElementoMenu[] = [
       'Modo de captura rapida por teclado para transcribir los expedientes en papel (RF-08), con avance por comunidad y autoguardado.',
     etiqueta: 'Digitalizacion',
     icono: ScannerIcon,
-    // GET /v1/digitalizacion/resumen
-    roles: ['ADMINISTRADOR', 'DIRECTOR', 'RECEPCION'],
-    pendiente: true,
+    // Recepcion captura los datos del paciente y le pasa la carpeta a
+    // enfermeria, que llena las fichas. Las dos tienen que ver la cola.
+    roles: ['ADMINISTRADOR', 'DIRECTOR', 'RECEPCION', 'ENFERMERIA', 'MEDICO'],
   },
   {
     ruta: '/programas',
@@ -149,6 +160,10 @@ export const MENU: readonly ElementoMenu[] = [
  */
 const RUTAS_FUERA_DEL_MENU: Record<string, readonly Rol[]> = {
   '/ficha': ['MEDICO', 'ENFERMERIA'],
+  // Dar de alta a un paciente es de Recepcion. Todo el personal puede
+  // BUSCARLO —por eso /recepcion es de los seis roles— pero solo recepcion y
+  // administracion lo registran, que es lo que dice el controlador.
+  '/recepcion/nuevo': ['RECEPCION', 'ADMINISTRADOR'],
 };
 
 /** Opciones visibles para un rol. Vacio si el rol no se reconoce. */

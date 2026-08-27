@@ -120,10 +120,10 @@ function servidor({
 const enviado = (fragmento: string) =>
   cuerpos.find((c) => String(c.ruta).endsWith(fragmento))?.cuerpo as Record<string, unknown>;
 
-function abrir(perfil: Perfil = MEDICO) {
+function abrir(perfil: Perfil = MEDICO, consulta = '') {
   almacenSesion.limpiar();
   almacenSesion.guardar({ tokenAcceso: 't', tokenRefresco: 'r', usuario: perfil });
-  window.history.pushState({}, '', '/pacientes/p-1/ficha');
+  window.history.pushState({}, '', '/pacientes/p-1/ficha' + consulta);
   return render(<App />);
 }
 
@@ -450,6 +450,71 @@ describe('ficha clinica de adultos', () => {
       'AQV',
       'Otro',
     ]);
+  });
+
+  describe('llegando desde la cola de digitalizacion', () => {
+    it('la ficha nace marcada como venida de papel', async () => {
+      // Quien transcribe abre decenas de carpetas seguidas. Pedirle que marque
+      // la misma casilla cada vez es una que se le va a olvidar, y una ficha
+      // transcrita sin marcar no cuenta en el avance ni deja rastro de que
+      // salio de un expediente de papel.
+      servidor();
+      abrir(MEDICO, '?digitalizacion=1');
+      await esperarFicha();
+
+      expect(
+        screen.getByLabelText('Viene de un expediente en papel (llego desde la cola)'),
+      ).toBeChecked();
+    });
+
+    it('la salida vuelve a la cola, no a recepcion', async () => {
+      servidor();
+      abrir(MEDICO, '?digitalizacion=1');
+      await esperarFicha();
+
+      // Hay dos salidas: la de la barra de arriba y la del pie. Las dos
+      // vuelven a la cola.
+      for (const enlace of screen.getAllByRole('link', { name: /Cola|Salir sin guardar/ })) {
+        expect(enlace).toHaveAttribute('href', '/digitalizacion');
+      }
+    });
+
+    it('al guardar ofrece la siguiente hoja de la MISMA carpeta', async () => {
+      // Un expediente de papel trae varias consultas; transcribirlas de una
+      // sentada, sin volver a buscar al paciente, es lo que hace que el trabajo
+      // avance de verdad.
+      servidor();
+      const usuario = userEvent.setup();
+      abrir(MEDICO, '?digitalizacion=1');
+      await esperarFicha();
+
+      await usuario.type(screen.getByLabelText(/Motivo de la consulta/), 'Consulta de 2019');
+      await usuario.click(screen.getAllByRole('button', { name: 'Guardar ficha' })[0]);
+      await screen.findByText('Ficha registrada');
+
+      expect(enviado('/fichas').digitalizada).toBe(true);
+
+      await usuario.click(
+        screen.getByRole('button', { name: 'Siguiente hoja de esta carpeta' }),
+      );
+
+      // La hoja nueva sigue siendo de la misma carpeta de papel.
+      expect(
+        screen.getByLabelText('Viene de un expediente en papel (llego desde la cola)'),
+      ).toBeChecked();
+      expect(screen.getByLabelText(/Motivo de la consulta/)).toHaveValue('');
+    });
+
+    it('sin el parametro, la ficha es una consulta normal del dia', async () => {
+      servidor();
+      abrir(MEDICO);
+      await esperarFicha();
+
+      expect(screen.getByLabelText('Viene de un expediente en papel')).not.toBeChecked();
+      for (const enlace of screen.getAllByRole('link', { name: /Recepcion|Salir sin guardar/ })) {
+        expect(enlace).toHaveAttribute('href', '/recepcion');
+      }
+    });
   });
 
   it('Recepcion no entra a la ficha: no es suya', async () => {

@@ -2,6 +2,7 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from '@nes
 import { ServicioCifrado } from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { SERVICIO_CIFRADO } from '../comun/cifrado.module';
+import { Evento, OutboxService } from '../eventos/outbox.service';
 import { CrearFichaDto, type TipoFichaDto } from './dto/crear-ficha.dto';
 import type {
   CatalogoFichaDto,
@@ -20,6 +21,7 @@ export class FichasService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(SERVICIO_CIFRADO) private readonly cifrado: ServicioCifrado,
+    private readonly outbox: OutboxService,
   ) {}
 
   /**
@@ -111,10 +113,14 @@ export class FichasService {
     expedienteId: string,
     dto: CrearFichaDto,
     usuarioId: string,
+    trazaId?: string,
   ): Promise<FichaCreadaDto> {
     const expediente = await this.prisma.expediente.findUnique({
       where: { id: expedienteId },
-      select: { id: true, paciente: { select: { fechaNacimiento: true } } },
+      select: {
+        id: true,
+        paciente: { select: { id: true, comunidadId: true, fechaNacimiento: true } },
+      },
     });
     if (!expediente) throw new NotFoundException('No existe ese expediente.');
 
@@ -205,6 +211,72 @@ export class FichasService {
           },
         });
       }
+
+      // El evento lleva signos vitales, que alimentan indicadores, pero NUNCA
+      // el diagnostico ni las notas clinicas. Va DENTRO de la transaccion: si
+      // se escribiera fuera, un fallo entre el COMMIT y la escritura del evento
+      // dejaria el indicador desfasado de forma permanente y silenciosa.
+      await this.outbox.registrar(
+        tx,
+        Evento.ATENCION_REGISTRADA,
+        {
+          atencionId: atencion.id,
+          pacienteId: expediente.paciente.id,
+          comunidadId: expediente.paciente.comunidadId,
+          fecha: atencion.fecha.toISOString(),
+          digitalizada: dto.digitalizada ?? false,
+          pesoKg: dto.pesoKg ?? null,
+          tallaCm: dto.tallaCm ?? null,
+          presionSistolica: dto.presionSistolica ?? null,
+          presionDiastolica: dto.presionDiastolica ?? null,
+          registradaPor: usuarioId,
+        },
+        trazaId,
+      );
+
+      // Lo que el panel de digitalizacion cuenta como avance. Sin esto, una
+      // jornada entera de transcripcion dejaria el contador en cero y el
+      // personal no veria progresar lo que si esta haciendo, que es
+      // exactamente como se abandona una digitalizacion (riesgo R-6).
+      if (dto.digitalizada) {
+        await tx.registroDigitalizacion.updateMany({
+          where: { expedienteId },
+          data: { atencionesTranscritas: { increment: 1 } },
+        });
+
+        // La primera hoja transcrita mueve la carpeta a "en proceso" y sella
+        // quien y cuando la empezo. Es el unico de los cuatro estados que el
+        // sistema puede deducir por si mismo: los otros dependen de mirar el
+        // papel, y por eso los declara una persona.
+        await tx.registroDigitalizacion.updateMany({
+          where: { expedienteId, estado: 'PENDIENTE' },
+          data: { estado: 'EN_PROCESO', iniciadoEn: new Date(), digitalizadoPor: usuarioId },
+        });
+      }
+
+      /**
+       * Si el paciente estaba en la sala de espera, esta ficha lo atiende.
+       *
+       * Se cierra sola y no a mano: pedirle a la enfermera un paso mas justo
+       * cuando ya termino y va por el siguiente es pedirle que se le olvide, y
+       * una sala de espera con gente ya atendida deja de servir en dos dias.
+       *
+       * Va dentro de la misma transaccion que la ficha. Si se hiciera despues,
+       * un fallo entre las dos dejaria a alguien esperando eternamente a pesar
+       * de haber sido atendido.
+       *
+       * updateMany y no update porque puede no haber ninguna: la mayoria de las
+       * fichas —las transcritas del papel— no vienen de una visita de hoy.
+       */
+      await tx.visita.updateMany({
+        where: { pacienteId: expediente.paciente.id, estado: 'ESPERANDO' },
+        data: {
+          estado: 'ATENDIDA',
+          cerradaEn: new Date(),
+          cerradaPor: usuarioId,
+          atencionId: atencion.id,
+        },
+      });
 
       return atencion;
     });

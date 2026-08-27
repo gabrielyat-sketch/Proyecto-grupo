@@ -263,3 +263,86 @@ describe('alta de paciente', () => {
     expect(within(aviso).queryByText(/reporte este codigo/i)).not.toBeInTheDocument();
   });
 });
+
+describe('quien puede dar de alta un paciente', () => {
+  it('Enfermeria busca, pero NO se le ofrece registrar', async () => {
+    // El servidor solo deja registrar a Recepcion y Administracion. Ofrecerle
+    // el boton terminaba en un 403 al guardar, despues de llenar el formulario
+    // entero: la persona cree que el sistema fallo, cuando esta haciendo lo
+    // correcto.
+    servidorCon();
+    almacenSesion.limpiar();
+    almacenSesion.guardar({
+      tokenAcceso: 't',
+      tokenRefresco: 'r',
+      usuario: { ...RECEPCION, id: 'u-9', usuario: 'mcaal', rol: 'ENFERMERIA' },
+    });
+    window.history.pushState({}, '', '/recepcion');
+    render(<App />);
+
+    await screen.findByRole('heading', { name: 'Recepcion' });
+    expect(screen.queryByRole('link', { name: /Registrar paciente/i })).not.toBeInTheDocument();
+  });
+
+  it('escribir la ruta del alta a mano tampoco entra', async () => {
+    servidorCon();
+    almacenSesion.limpiar();
+    almacenSesion.guardar({
+      tokenAcceso: 't',
+      tokenRefresco: 'r',
+      usuario: { ...RECEPCION, id: 'u-9', usuario: 'mcaal', rol: 'ENFERMERIA' },
+    });
+    window.history.pushState({}, '', '/recepcion/nuevo');
+    render(<App />);
+
+    await waitFor(() => expect(window.location.pathname).toBe('/'));
+  });
+
+  it('Recepcion si lo ve: es su trabajo', async () => {
+    servidorCon();
+    almacenSesion.limpiar();
+    almacenSesion.guardar({ tokenAcceso: 't', tokenRefresco: 'r', usuario: RECEPCION });
+    window.history.pushState({}, '', '/recepcion');
+    render(<App />);
+
+    expect(await screen.findByRole('link', { name: /Registrar paciente/i })).toBeInTheDocument();
+  });
+});
+
+describe('marcar la llegada de un paciente', () => {
+  it('Recepcion lo pasa a la sala de espera, con motivo opcional', async () => {
+    servidorCon();
+    almacenSesion.limpiar();
+    almacenSesion.guardar({ tokenAcceso: 't', tokenRefresco: 'r', usuario: RECEPCION });
+    window.history.pushState({}, '', '/recepcion');
+    render(<App />);
+
+    await userEvent.type(await screen.findByLabelText(/DPI, apellido o nombre/i), 'perez');
+    await userEvent.click(await screen.findByRole('button', { name: 'Marcar llegada' }));
+
+    const diálogo = await screen.findByRole('dialog');
+    await userEvent.type(within(diálogo).getByLabelText(/A que viene/), 'Control de embarazo');
+    await userEvent.click(within(diálogo).getByRole('button', { name: 'Marcar llegada' }));
+
+    await waitFor(() => {
+      const llegada = peticiones.find((p) => p.method === 'POST' && p.url.includes('/v1/visitas'));
+      expect(llegada).toBeDefined();
+    });
+  });
+
+  it('Enfermeria no marca llegadas: no esta en la ventanilla', async () => {
+    servidorCon();
+    almacenSesion.limpiar();
+    almacenSesion.guardar({
+      tokenAcceso: 't',
+      tokenRefresco: 'r',
+      usuario: { ...RECEPCION, id: 'u-9', usuario: 'mcaal', rol: 'ENFERMERIA' },
+    });
+    window.history.pushState({}, '', '/recepcion');
+    render(<App />);
+
+    await userEvent.type(await screen.findByLabelText(/DPI, apellido o nombre/i), 'perez');
+    await screen.findByText(/Perez Caal/);
+    expect(screen.queryByRole('button', { name: 'Marcar llegada' })).not.toBeInTheDocument();
+  });
+});
