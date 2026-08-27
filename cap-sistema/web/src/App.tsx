@@ -12,13 +12,19 @@ import { Inicio } from './rutas/Inicio';
 import { EnConstruccion } from './rutas/EnConstruccion';
 import { PaginaRecepcion } from './modulos/recepcion/PaginaRecepcion';
 import { PaginaNuevoPaciente } from './modulos/recepcion/PaginaNuevoPaciente';
+import { PaginaFicha } from './modulos/fichas/PaginaFicha';
 import { MENU } from './navegacion/menu';
 
 /**
  * Un solo cliente para toda la aplicacion. Se crea fuera del componente a proposito:
  * dentro, cada re-render lo recrearia y la cache se perderia en cada pulsacion.
+ *
+ * Se exporta para poder vaciarlo entre pruebas. Al ser de modulo, sobrevive al
+ * desmontaje del arbol: sin vaciarlo, una prueba lee los datos guardados por la
+ * anterior y falla por un motivo que no tiene que ver con lo que estaba
+ * comprobando.
  */
-const clienteConsultas = new QueryClient({
+export const clienteConsultas = new QueryClient({
   defaultOptions: {
     queries: {
       // El expediente de un paciente no cambia mientras el operador lo mira.
@@ -85,6 +91,18 @@ export function App() {
                 element={
                   <RutaPorRol ruta="/recepcion">
                     <PaginaNuevoPaciente />
+                  </RutaPorRol>
+                }
+              />
+              {/*
+                La ficha no esta en el menu: se llega a ella con un paciente ya
+                elegido, desde la busqueda. La guarda es la misma de siempre.
+              */}
+              <Route
+                path="/pacientes/:pacienteId/ficha"
+                element={
+                  <RutaPorRol ruta="/ficha">
+                    <PaginaFicha />
                   </RutaPorRol>
                 }
               />
