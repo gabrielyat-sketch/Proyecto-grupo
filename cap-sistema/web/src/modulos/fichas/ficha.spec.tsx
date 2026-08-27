@@ -392,6 +392,66 @@ describe('ficha clinica de adultos', () => {
     expect(screen.queryByLabelText('Gestas')).not.toBeInTheDocument();
   });
 
+  it('los gineco-obstetricos son solo los impresos en ESTA hoja', async () => {
+    // Cesareas, legrados, nacidos vivos y muertos, preeclampsia y demas
+    // pertenecen a la ficha PRENATAL. El modelo de datos los guarda —son las
+    // mismas columnas para las dos fichas— pero pedirlos en una consulta de
+    // adulto seria inventarle campos al formulario oficial.
+    servidor();
+    abrir();
+    await esperarFicha();
+
+    for (const impreso of ['Gestas', 'Partos', 'Abortos', 'Tipo de sangre']) {
+      expect(screen.getByLabelText(impreso)).toBeInTheDocument();
+    }
+
+    for (const ajeno of [
+      'Cesareas',
+      'Legrados (LIU)',
+      'Nacidos vivos',
+      'Nacidos muertos',
+      'Hijos vivos',
+      'Hijos muertos',
+      'Antes de 8 meses',
+      'Abortos consecutivos',
+      'Embarazos multiples',
+      'Preeclampsia o eclampsia',
+      'Fecha del ultimo parto',
+    ]) {
+      expect(screen.queryByLabelText(ajeno)).not.toBeInTheDocument();
+      expect(screen.queryByText(ajeno)).not.toBeInTheDocument();
+    }
+  });
+
+  it('el metodo de planificacion se elige de la lista impresa, no se escribe', async () => {
+    // A mano, el mismo metodo aparece como "inyeccion", "Inyectable" y "depo",
+    // y despues ningun reporte de cobertura puede sumarlos.
+    servidor();
+    const usuario = userEvent.setup();
+    abrir();
+    await esperarFicha();
+
+    expect(screen.queryByLabelText('Cual')).not.toBeInTheDocument();
+
+    const grupo = screen.getByRole('radiogroup', {
+      name: 'Usa metodo de planificacion familiar',
+    });
+    within(grupo).getAllByRole('radio')[0].focus();
+    await usuario.keyboard('s');
+
+    const lista = await screen.findByLabelText('Cual');
+    const opciones = within(lista).getAllByRole('option').map((o) => o.textContent);
+    expect(opciones).toEqual([
+      'Sin registrar',
+      'Pildora',
+      'Inyeccion',
+      'Condon',
+      'T de cobre',
+      'AQV',
+      'Otro',
+    ]);
+  });
+
   it('Recepcion no entra a la ficha: no es suya', async () => {
     servidor();
     abrir(RECEPCION);

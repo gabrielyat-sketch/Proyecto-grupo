@@ -16,7 +16,9 @@ export interface EntradaIndice {
  * recorre de arriba abajo —igual que el papel— y el indice solo lleva el
  * recuento de lo que falta y sirve de atajo.
  *
- * Alt+1 a Alt+9 saltan a cada seccion sin tocar el raton.
+ * Ocupa lo justo: el sitio que se le quite al indice se lo gana el formulario,
+ * que es donde de verdad hace falta el ancho. El aviso de los atajos va una
+ * sola vez arriba y no repetido en cada renglon.
  */
 export function IndiceFicha({
   entradas,
@@ -35,7 +37,7 @@ export function IndiceFicha({
       aria-label="Secciones de la ficha"
       sx={{ position: 'sticky', top: 88, gap: 0.25 }}
     >
-      {entradas.map((e, i) => {
+      {entradas.map((e) => {
         const cuenta = avance[e.clave];
         const esActiva = e.clave === activa;
         const completa = cuenta && cuenta.respondidas === cuenta.total;
@@ -50,13 +52,13 @@ export function IndiceFicha({
             sx={{
               display: 'flex',
               alignItems: 'baseline',
-              gap: 1,
+              gap: 0.75,
               width: '100%',
               textAlign: 'left',
               cursor: 'pointer',
               font: 'inherit',
-              px: 1,
-              py: 0.75,
+              px: 0.75,
+              py: 0.6,
               border: 0,
               borderLeft: '3px solid',
               borderLeftColor: esActiva ? 'primary.main' : 'transparent',
@@ -67,24 +69,27 @@ export function IndiceFicha({
           >
             <Typography
               aria-hidden
-              sx={{
-                minWidth: 26,
-                fontSize: 12,
-                fontWeight: 700,
-                color: 'text.secondary',
-              }}
+              sx={{ minWidth: 24, fontSize: 11, fontWeight: 700, color: 'text.secondary' }}
             >
               {e.numeral}
             </Typography>
 
-            <Typography sx={{ flex: 1, fontSize: 14, fontWeight: esActiva ? 600 : 400 }}>
+            <Typography
+              sx={{
+                flex: 1,
+                minWidth: 0,
+                fontSize: 13,
+                lineHeight: 1.25,
+                fontWeight: esActiva ? 600 : 400,
+              }}
+            >
               {e.titulo}
             </Typography>
 
             {cuenta ? (
               <Typography
                 sx={{
-                  fontSize: 12,
+                  fontSize: 11,
                   fontVariantNumeric: 'tabular-nums',
                   color: completa ? 'success.main' : 'text.secondary',
                   fontWeight: completa ? 700 : 400,
@@ -93,18 +98,17 @@ export function IndiceFicha({
                 {cuenta.respondidas}/{cuenta.total}
               </Typography>
             ) : null}
-
-            {i < 9 ? (
-              <Typography
-                aria-hidden
-                sx={{ fontSize: 11, color: 'text.disabled', minWidth: 30, textAlign: 'right' }}
-              >
-                alt+{i + 1}
-              </Typography>
-            ) : null}
           </Box>
         );
       })}
+
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{ px: 0.75, pt: 1, lineHeight: 1.3 }}
+      >
+        Alt y el numero de seccion para saltar
+      </Typography>
     </Stack>
   );
 }

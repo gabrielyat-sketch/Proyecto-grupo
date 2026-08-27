@@ -157,6 +157,18 @@ ficha. Así nunca queda desfasado del peso del que dice venir.
 del campo aparece el equivalente mientras se escribe, para que nadie haga la
 cuenta a mano.
 
+**Los gineco-obstétricos son solo los de esta hoja.** FUR, gestas, partos,
+abortos, detección de cáncer de cérvix, método de planificación familiar y tipo
+de sangre. Las cuentas de cesáreas, legrados, nacidos vivos y muertos,
+preeclampsia y demás pertenecen a la **ficha prenatal**, que las trae impresas.
+El modelo de datos las guarda —son las mismas columnas para las dos fichas—
+pero pedirlas en una consulta de adulto sería inventarle campos al formulario
+oficial, y lo que se capture así no tiene respaldo en ningún papel firmado.
+
+**El método de planificación es una lista cerrada**, con las opciones impresas.
+Escrito a mano, el mismo método aparece como "inyección", "Inyectable" y "depo",
+y después ningún reporte de cobertura puede sumarlos.
+
 **Los datos del paciente son de solo lectura.** Vienen del registro de
 recepción. Corregirlos aquí haría que el expediente y la ficha pudieran decir
 cosas distintas; además, el `PATCH` del paciente es de Recepción, no del médico.
@@ -186,7 +198,7 @@ el teclado se traba.
 
 ## Responsive
 
-- **Escritorio ancho (`lg`+):** índice lateral fijo de 240 px + formulario.
+- **Escritorio ancho (`lg`+):** índice lateral fijo de 188 px + formulario.
   Signos y diagnósticos en dos columnas.
 - **Tableta (`md`):** el índice desaparece; el examen físico pasa a cuatro
   columnas y las cuentas obstétricas a tres.
@@ -238,7 +250,10 @@ Ninguna.
    adultos.
 4. **Antecedentes quirúrgicos.** El inventario los lista como texto libre; no
    están en el modelo de datos ni en esta pantalla.
-5. **`npm run lint` no funciona en ningún paquete del repositorio**: no existe
+5. **El tipo de sangre está impreso dentro del bloque gineco-obstétrico**, así
+   que un paciente hombre nunca lo tiene dónde anotarse. Es lo que hace el
+   papel y la pantalla lo respeta, pero conviene preguntarlo en el CAP.
+6. **`npm run lint` no funciona en ningún paquete del repositorio**: no existe
    ningún `eslint.config.*`. No se tocó porque configurarlo es una decisión
    aparte que afecta a todo el código.
 

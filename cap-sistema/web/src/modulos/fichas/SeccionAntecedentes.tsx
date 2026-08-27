@@ -118,30 +118,27 @@ export function SeccionAntecedentes({
   );
 }
 
-const CUENTAS = [
-  ['gestas', 'Gestas'],
-  ['partos', 'Partos'],
-  ['abortos', 'Abortos'],
-  ['cesareas', 'Cesareas'],
-  ['legradosLiu', 'Legrados (LIU)'],
-  ['nacidosVivos', 'Nacidos vivos'],
-  ['nacidosMuertos', 'Nacidos muertos'],
-  ['hijosVivos', 'Hijos vivos'],
-  ['hijosMuertos', 'Hijos muertos'],
-  ['prematurosAntes8Meses', 'Antes de 8 meses'],
-] as const;
-
-const CASILLAS = [
-  ['abortosConsecutivos', 'Abortos consecutivos'],
-  ['embarazosMultiples', 'Embarazos multiples'],
-  ['preeclampsia', 'Preeclampsia o eclampsia'],
-] as const;
+/**
+ * Los metodos impresos en la ficha, en el orden del papel.
+ *
+ * Es una lista cerrada y no un campo de texto: escrito a mano, el mismo metodo
+ * aparece como "inyeccion", "Inyectable" y "depo", y despues ningun reporte de
+ * cobertura de planificacion familiar puede sumarlos.
+ */
+const METODOS = ['Pildora', 'Inyeccion', 'Condon', 'T de cobre', 'AQV', 'Otro'];
 
 /**
- * Las cuentas obstetricas van en una reticula de campos cortos.
+ * Antecedentes gineco-obstetricos de la ficha de ADULTOS.
  *
- * No son casillas de si o no sino numeros —gestas, partos, abortos— y de ellos
- * depende el riesgo obstetrico. Puestos como texto no se podria calcular.
+ * Solo lo que esta impreso en esta hoja: FUR, gestas, partos, abortos, la
+ * deteccion de cancer de cervix, el metodo de planificacion familiar y el tipo
+ * de sangre.
+ *
+ * Las cuentas de cesareas, legrados, nacidos vivos y muertos, preeclampsia y
+ * demas NO van aqui: pertenecen a la ficha PRENATAL, que las trae impresas.
+ * El modelo de datos las guarda —son las mismas columnas para las dos fichas—
+ * pero pedirlas en una consulta de adulto seria inventarle campos al formulario
+ * oficial, y lo que se capture asi no tiene respaldo en ningun papel firmado.
  */
 function Obstetricia({
   valores,
@@ -163,71 +160,58 @@ function Obstetricia({
           value={valores.fur}
           slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: hoy() } }}
           onChange={(e) => cambiar('fur', e.target.value)}
+          sx={{ maxWidth: { sm: 260 } }}
         />
         <TextField
-          label="Fecha del ultimo parto"
-          type="date"
+          label="Gestas"
           size="small"
-          value={valores.fechaUltimoParto}
-          slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: hoy() } }}
-          onChange={(e) => cambiar('fechaUltimoParto', e.target.value)}
+          inputMode="numeric"
+          value={valores.gestas}
+          onChange={(e) => cambiar('gestas', e.target.value)}
+        />
+        <TextField
+          label="Partos"
+          size="small"
+          inputMode="numeric"
+          value={valores.partos}
+          onChange={(e) => cambiar('partos', e.target.value)}
+        />
+        <TextField
+          label="Abortos"
+          size="small"
+          inputMode="numeric"
+          value={valores.abortos}
+          onChange={(e) => cambiar('abortos', e.target.value)}
         />
       </Stack>
 
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', lg: 'repeat(5, 1fr)' },
-          gap: 1.5,
-        }}
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        sx={{ gap: 2, alignItems: { md: 'flex-start' } }}
       >
-        {CUENTAS.map(([campo, etiqueta]) => (
-          <TextField
-            key={campo}
-            label={etiqueta}
-            size="small"
-            inputMode="numeric"
-            value={valores[campo]}
-            onChange={(e) => cambiar(campo, e.target.value)}
-          />
-        ))}
-      </Box>
-
-      <Box>
-        {CASILLAS.map(([campo, etiqueta]) => (
-          <LineaPregunta key={campo} texto={etiqueta}>
-            <SelectorSiNo
-              valor={valores[campo]}
-              etiqueta={etiqueta}
-              denso
-              onCambio={(v) => cambiar(campo, v)}
-            />
-          </LineaPregunta>
-        ))}
-      </Box>
-
-      <Stack direction={{ xs: 'column', md: 'row' }} sx={{ gap: 2 }}>
         <TextField
           select
-          label="Tamizaje de cervix"
+          label="Deteccion de cancer de cervix"
           size="small"
           value={valores.tamizajeCervix}
           onChange={(e) => cambiar('tamizajeCervix', e.target.value)}
           slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
+          sx={{ minWidth: { md: 240 } }}
         >
           <option value="">Sin registrar</option>
           <option value="PAPANICOLAU">Papanicolau</option>
           <option value="IVAA">IVAA</option>
         </TextField>
         <TextField
-          label="Fecha del tamizaje"
+          label="Fecha"
           type="date"
           size="small"
           value={valores.tamizajeFecha}
           slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: hoy() } }}
           onChange={(e) => cambiar('tamizajeFecha', e.target.value)}
+          sx={{ maxWidth: { md: 200 } }}
         />
-        <Stack sx={{ justifyContent: 'center', minWidth: 200 }}>
+        <Box sx={{ flex: 1, minWidth: 200 }}>
           <LineaPregunta texto="Resultado normal">
             <SelectorSiNo
               valor={valores.tamizajeNormal}
@@ -236,43 +220,75 @@ function Obstetricia({
               onCambio={(v) => cambiar('tamizajeNormal', v)}
             />
           </LineaPregunta>
-        </Stack>
+        </Box>
       </Stack>
 
-      <Stack direction={{ xs: 'column', md: 'row' }} sx={{ gap: 2, alignItems: { md: 'center' } }}>
-        <Stack sx={{ minWidth: 220 }}>
-          <LineaPregunta texto="Usa planificacion familiar">
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        sx={{ gap: 2, alignItems: { md: 'flex-start' } }}
+      >
+        <Box sx={{ minWidth: { md: 280 } }}>
+          <LineaPregunta texto="Usa metodo de planificacion familiar">
             <SelectorSiNo
               valor={valores.usaPlanificacion}
-              etiqueta="Usa planificacion familiar"
+              etiqueta="Usa metodo de planificacion familiar"
               denso
               onCambio={(v) => cambiar('usaPlanificacion', v)}
             />
           </LineaPregunta>
-        </Stack>
+        </Box>
+        {/* El "cual" del papel: solo tiene sentido si la respuesta fue que si. */}
+        <Collapse in={valores.usaPlanificacion === true} unmountOnExit sx={{ flex: 1 }}>
+          <TextField
+            select
+            label="Cual"
+            size="small"
+            value={valores.metodoPlanificacion}
+            onChange={(e) => cambiar('metodoPlanificacion', e.target.value)}
+            slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
+            sx={{ minWidth: { md: 200 } }}
+          >
+            <option value="">Sin registrar</option>
+            {METODOS.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </TextField>
+        </Collapse>
+      </Stack>
+
+      <Stack direction={{ xs: 'column', md: 'row' }} sx={{ gap: 2, alignItems: { md: 'flex-start' } }}>
         <TextField
-          label="Metodo"
-          size="small"
-          value={valores.metodoPlanificacion}
-          onChange={(e) => cambiar('metodoPlanificacion', e.target.value)}
-        />
-        <TextField
+          select
           label="Tipo de sangre"
           size="small"
           value={valores.tipoSangre}
-          onChange={(e) => cambiar('tipoSangre', e.target.value.toUpperCase())}
-          sx={{ maxWidth: { md: 140 } }}
-        />
-        <Stack sx={{ minWidth: 160 }}>
-          <LineaPregunta texto="RH positivo">
-            <SelectorSiNo
-              valor={valores.rhPositivo}
-              etiqueta="Factor RH positivo"
+          onChange={(e) => cambiar('tipoSangre', e.target.value)}
+          slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
+          sx={{ minWidth: { md: 180 } }}
+        >
+          <option value="">Sin registrar</option>
+          {['O', 'A', 'B', 'AB'].map((g) => (
+            <option key={g} value={g}>
+              {g}
+            </option>
+          ))}
+        </TextField>
+        <Box sx={{ minWidth: 200 }}>
+          <LineaPregunta texto="Factor RH">
+            <SelectorRespuesta
+              valor={valores.rhPositivo === null ? null : valores.rhPositivo ? 'MAS' : 'MENOS'}
+              etiqueta="Factor RH"
               denso
-              onCambio={(v) => cambiar('rhPositivo', v)}
+              opciones={[
+                { valor: 'MAS', letra: 'p', etiqueta: 'RH +' },
+                { valor: 'MENOS', letra: 'n', etiqueta: 'RH -' },
+              ]}
+              onCambio={(v) => cambiar('rhPositivo', v === null ? null : v === 'MAS')}
             />
           </LineaPregunta>
-        </Stack>
+        </Box>
       </Stack>
     </Stack>
   );

@@ -130,9 +130,19 @@ export function PaginaFicha() {
   useEffect(() => {
     if (!catalogo.data || antecedentes.isLoading || borrador) return;
     setBorrador(conAntecedentesPrevios(borradorVacio(catalogo.data), antecedentes.data));
+    // La ficha se abre por el principio, en la seccion I. Al venir de la
+    // busqueda el navegador conserva el desplazamiento de la pantalla anterior,
+    // y empezar a media hoja obliga a subir con el raton para ver de que
+    // paciente se trata.
+    window.scrollTo({ top: 0 });
   }, [catalogo.data, antecedentes.data, antecedentes.isLoading, borrador]);
 
-  const hayCambios = borrador !== null && guardada === null && tieneContenido(borrador);
+  // Memorizado porque recorre el borrador entero, y se consultaba en cada
+  // pulsacion de tecla: con doscientos campos eso se paga en cada letra.
+  const hayCambios = useMemo(
+    () => borrador !== null && guardada === null && tieneContenido(borrador),
+    [borrador, guardada],
+  );
 
   // Aviso del navegador al recargar o cerrar con la ficha a medias. Veinte
   // minutos de captura no pueden irse por una tecla mal dada.
@@ -428,8 +438,8 @@ export function PaginaFicha() {
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', lg: '240px minmax(0, 1fr)' },
-          gap: 3,
+          gridTemplateColumns: { xs: '1fr', lg: '188px minmax(0, 1fr)' },
+          gap: 2,
           alignItems: 'start',
         }}
       >
@@ -531,7 +541,6 @@ export function PaginaFicha() {
                 label="Motivo de la consulta *"
                 multiline
                 minRows={2}
-                autoFocus
                 value={borrador.motivo}
                 onChange={(e) => campo('motivo', e.target.value)}
                 helperText="Es lo unico obligatorio de toda la ficha"
