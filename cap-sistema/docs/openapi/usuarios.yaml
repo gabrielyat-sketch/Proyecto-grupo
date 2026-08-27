@@ -738,6 +738,127 @@ paths:
       summary: Avance de la digitalizacion de expedientes
       tags: &a11
         - digitalizacion
+  /v1/digitalizacion/comunidades:
+    get:
+      description: El archivo de papel se recorre por comunidad, y poder cerrar una
+        entera es lo que evita que una digitalizacion de meses se abandone a la
+        mitad.
+      operationId: DigitalizacionController_comunidades
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AvanceComunidadDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a10
+      summary: Avance de la digitalizacion comunidad por comunidad
+      tags: *a11
+  /v1/digitalizacion/cola:
+    get:
+      description: "Sin filtro de estado devuelve lo que falta: pendientes y en
+        proceso. El orden es por apellido, que es como estan las carpetas en el
+        archivo."
+      operationId: DigitalizacionController_cola
+      parameters:
+        - name: comunidadId
+          required: false
+          in: query
+          schema:
+            format: uuid
+            type: string
+        - name: estado
+          required: false
+          in: query
+          description: "Por defecto, los que faltan: pendientes y en proceso."
+          schema:
+            enum:
+              - PENDIENTE
+              - EN_PROCESO
+              - COMPLETO
+              - NO_LOCALIZADO
+            type: string
+        - name: pagina
+          required: false
+          in: query
+          description: Empieza en 1. Por defecto 1.
+          schema:
+            default: 1
+            example: 1
+            type: number
+        - name: tamano
+          required: false
+          in: query
+          description: Por defecto 25. El servidor recorta cualquier valor mayor a 100.
+          schema:
+            maximum: 100
+            default: 25
+            example: 25
+            type: number
+      responses:
+        "200":
+          description: La cola. NO incluye DPI ni telefono.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginaDto"
+                  - type: object
+                    required:
+                      - datos
+                    properties:
+                      datos:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ExpedienteEnColaDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a10
+      summary: Expedientes por transcribir
+      tags: *a11
   /v1/digitalizacion/{expedienteId}:
     patch:
       operationId: DigitalizacionController_actualizar
@@ -1794,6 +1915,100 @@ components:
         - total
         - porEstado
         - porcentajeCompleto
+    AvanceComunidadDto:
+      type: object
+      properties:
+        comunidadId:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+          example: Matanzas
+        distante:
+          type: boolean
+          description: Comunidad lejana al CAP.
+        total:
+          type: number
+          example: 240
+        completos:
+          type: number
+          example: 96
+        faltantes:
+          type: number
+          example: 138
+          description: "Pendientes y en proceso: lo que falta por hacer."
+        noLocalizados:
+          type: number
+          example: 6
+          description: Buscados en el archivo y no encontrados.
+        porcentajeCompleto:
+          type: number
+          description: Con un decimal.
+          example: 40
+      required:
+        - comunidadId
+        - nombre
+        - distante
+        - total
+        - completos
+        - faltantes
+        - noLocalizados
+        - porcentajeCompleto
+    ExpedienteEnColaDto:
+      type: object
+      properties:
+        expedienteId:
+          type: string
+          format: uuid
+        pacienteId:
+          type: string
+          format: uuid
+        numero:
+          type: string
+          example: EXP-2026-000123
+        nombres:
+          type: string
+        apellidos:
+          type: string
+        edad:
+          type: number
+          example: 41
+        sexo:
+          type: string
+          example: F
+        comunidad:
+          type: string
+        estado:
+          type: string
+          enum:
+            - PENDIENTE
+            - EN_PROCESO
+            - COMPLETO
+            - NO_LOCALIZADO
+        atencionesTranscritas:
+          type: number
+          description: Cuantas atenciones del papel se llevan transcritas.
+          example: 3
+        iniciadoEn:
+          type: string
+          format: date-time
+          nullable: true
+        observaciones:
+          type: string
+          nullable: true
+      required:
+        - expedienteId
+        - pacienteId
+        - numero
+        - nombres
+        - apellidos
+        - edad
+        - sexo
+        - comunidad
+        - estado
+        - atencionesTranscritas
+        - iniciadoEn
+        - observaciones
     ActualizarDigitalizacionDto:
       type: object
       properties:

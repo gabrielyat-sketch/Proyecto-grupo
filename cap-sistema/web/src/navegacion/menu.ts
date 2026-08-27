@@ -81,9 +81,9 @@ export const MENU: readonly ElementoMenu[] = [
       'Modo de captura rapida por teclado para transcribir los expedientes en papel (RF-08), con avance por comunidad y autoguardado.',
     etiqueta: 'Digitalizacion',
     icono: ScannerIcon,
-    // GET /v1/digitalizacion/resumen
-    roles: ['ADMINISTRADOR', 'DIRECTOR', 'RECEPCION'],
-    pendiente: true,
+    // Recepcion captura los datos del paciente y le pasa la carpeta a
+    // enfermeria, que llena las fichas. Las dos tienen que ver la cola.
+    roles: ['ADMINISTRADOR', 'DIRECTOR', 'RECEPCION', 'ENFERMERIA', 'MEDICO'],
   },
   {
     ruta: '/programas',

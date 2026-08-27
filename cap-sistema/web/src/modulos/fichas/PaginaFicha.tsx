@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link as EnlaceRuta, useNavigate, useParams } from 'react-router-dom';
+import { Link as EnlaceRuta, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
@@ -95,7 +95,19 @@ const EDAD_MINIMA_ADULTO = 10;
  */
 export function PaginaFicha() {
   const { pacienteId = '' } = useParams();
+  const [parametros] = useSearchParams();
   const navegar = useNavigate();
+
+  /**
+   * Se llego aqui desde la cola de digitalizacion.
+   *
+   * Cambia tres cosas: la casilla de "viene de un expediente en papel" nace
+   * marcada, la salida vuelve a la cola en vez de a recepcion, y despues de
+   * guardar se ofrece la siguiente hoja de la MISMA carpeta, porque un
+   * expediente de papel trae varias consultas y transcribirlas de una sentada
+   * es justo lo que hace que el trabajo avance.
+   */
+  const digitalizando = parametros.get('digitalizacion') === '1';
   const clienteConsultas = useQueryClient();
 
   const [borrador, setBorrador] = useState<Borrador | null>(null);
@@ -129,13 +141,14 @@ export function PaginaFicha() {
   // perdieron.
   useEffect(() => {
     if (!catalogo.data || antecedentes.isLoading || borrador) return;
-    setBorrador(conAntecedentesPrevios(borradorVacio(catalogo.data), antecedentes.data));
+    const inicial = conAntecedentesPrevios(borradorVacio(catalogo.data), antecedentes.data);
+    setBorrador(digitalizando ? { ...inicial, digitalizada: true } : inicial);
     // La ficha se abre por el principio, en la seccion I. Al venir de la
     // busqueda el navegador conserva el desplazamiento de la pantalla anterior,
     // y empezar a media hoja obliga a subir con el raton para ver de que
     // paciente se trata.
     window.scrollTo({ top: 0 });
-  }, [catalogo.data, antecedentes.data, antecedentes.isLoading, borrador]);
+  }, [catalogo.data, antecedentes.data, antecedentes.isLoading, borrador, digitalizando]);
 
   // Memorizado porque recorre el borrador entero, y se consultaba en cada
   // pulsacion de tecla: con doscientos campos eso se paga en cada letra.
@@ -357,12 +370,12 @@ export function PaginaFicha() {
           <Stack direction="row" sx={{ gap: 1.5, alignItems: 'center', minWidth: 0 }}>
             <Button
               component={EnlaceRuta}
-              to="/recepcion"
+              to={digitalizando ? '/digitalizacion' : '/recepcion'}
               startIcon={<ArrowBackIcon />}
               size="small"
               color="inherit"
             >
-              Recepcion
+              {digitalizando ? 'Cola' : 'Recepcion'}
             </Button>
             <Box sx={{ minWidth: 0 }}>
               <Typography component="h1" sx={{ fontWeight: 700, lineHeight: 1.2 }} noWrap>
@@ -396,18 +409,23 @@ export function PaginaFicha() {
           sx={{ mb: 2 }}
           action={
             <Stack direction="row" sx={{ gap: 1 }}>
-              <Button size="small" onClick={() => navegar('/recepcion')}>
-                Ir a recepcion
+              <Button size="small" onClick={() => navegar(digitalizando ? '/digitalizacion' : '/recepcion')}>
+                {digitalizando ? 'Volver a la cola' : 'Ir a recepcion'}
               </Button>
               <Button
                 size="small"
+                variant={digitalizando ? 'contained' : 'text'}
                 onClick={() => {
                   setGuardada(null);
-                  setBorrador(conAntecedentesPrevios(borradorVacio(catalogo.data!), antecedentes.data));
+                  const limpio = conAntecedentesPrevios(
+                    borradorVacio(catalogo.data!),
+                    antecedentes.data,
+                  );
+                  setBorrador(digitalizando ? { ...limpio, digitalizada: true } : limpio);
                   window.scrollTo({ top: 0 });
                 }}
               >
-                Otra atencion
+                {digitalizando ? 'Siguiente hoja de esta carpeta' : 'Otra atencion'}
               </Button>
             </Stack>
           }
@@ -490,7 +508,11 @@ export function PaginaFicha() {
                       onChange={(e) => campo('digitalizada', e.target.checked)}
                     />
                   }
-                  label="Viene de un expediente en papel"
+                  label={
+                    digitalizando
+                      ? 'Viene de un expediente en papel (llego desde la cola)'
+                      : 'Viene de un expediente en papel'
+                  }
                 />
               </Stack>
             </Stack>
@@ -653,7 +675,11 @@ export function PaginaFicha() {
             direction={{ xs: 'column', sm: 'row' }}
             sx={{ gap: 2, justifyContent: 'flex-end', pb: 4 }}
           >
-            <Button component={EnlaceRuta} to="/recepcion" color="inherit">
+            <Button
+              component={EnlaceRuta}
+              to={digitalizando ? '/digitalizacion' : '/recepcion'}
+              color="inherit"
+            >
               Salir sin guardar
             </Button>
             <Button variant="contained" size="large" onClick={guardar} disabled={registrar.isPending}>

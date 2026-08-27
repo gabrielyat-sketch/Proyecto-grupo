@@ -188,6 +188,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/digitalizacion/comunidades": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Avance de la digitalizacion comunidad por comunidad
+         * @description El archivo de papel se recorre por comunidad, y poder cerrar una entera es lo que evita que una digitalizacion de meses se abandone a la mitad.
+         */
+        get: operations["DigitalizacionController_comunidades"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/digitalizacion/cola": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Expedientes por transcribir
+         * @description Sin filtro de estado devuelve lo que falta: pendientes y en proceso. El orden es por apellido, que es como estan las carpetas en el archivo.
+         */
+        get: operations["DigitalizacionController_cola"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/digitalizacion/{expedienteId}": {
         parameters: {
             query?: never;
@@ -654,6 +694,58 @@ export interface components {
              * @example 31.4
              */
             porcentajeCompleto: number;
+        };
+        AvanceComunidadDto: {
+            /** Format: uuid */
+            comunidadId: string;
+            /** @example Matanzas */
+            nombre: string;
+            /** @description Comunidad lejana al CAP. */
+            distante: boolean;
+            /** @example 240 */
+            total: number;
+            /** @example 96 */
+            completos: number;
+            /**
+             * @description Pendientes y en proceso: lo que falta por hacer.
+             * @example 138
+             */
+            faltantes: number;
+            /**
+             * @description Buscados en el archivo y no encontrados.
+             * @example 6
+             */
+            noLocalizados: number;
+            /**
+             * @description Con un decimal.
+             * @example 40
+             */
+            porcentajeCompleto: number;
+        };
+        ExpedienteEnColaDto: {
+            /** Format: uuid */
+            expedienteId: string;
+            /** Format: uuid */
+            pacienteId: string;
+            /** @example EXP-2026-000123 */
+            numero: string;
+            nombres: string;
+            apellidos: string;
+            /** @example 41 */
+            edad: number;
+            /** @example F */
+            sexo: string;
+            comunidad: string;
+            /** @enum {string} */
+            estado: "PENDIENTE" | "EN_PROCESO" | "COMPLETO" | "NO_LOCALIZADO";
+            /**
+             * @description Cuantas atenciones del papel se llevan transcritas.
+             * @example 3
+             */
+            atencionesTranscritas: number;
+            /** Format: date-time */
+            iniciadoEn: string | null;
+            observaciones: string | null;
         };
         ActualizarDigitalizacionDto: {
             /** @enum {string} */
@@ -1911,6 +2003,118 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResumenDigitalizacionDto"];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
+    DigitalizacionController_comunidades: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvanceComunidadDto"][];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
+    DigitalizacionController_cola: {
+        parameters: {
+            query?: {
+                comunidadId?: string;
+                /** @description Por defecto, los que faltan: pendientes y en proceso. */
+                estado?: "PENDIENTE" | "EN_PROCESO" | "COMPLETO" | "NO_LOCALIZADO";
+                /** @description Empieza en 1. Por defecto 1. */
+                pagina?: number;
+                /** @description Por defecto 25. El servidor recorta cualquier valor mayor a 100. */
+                tamano?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description La cola. NO incluye DPI ni telefono. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginaDto"] & {
+                        datos: components["schemas"]["ExpedienteEnColaDto"][];
+                    };
+                };
+            };
+            /** @description La informacion enviada no es valida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
                 };
             };
             /** @description Falta el token, expiro o no es valido. */
