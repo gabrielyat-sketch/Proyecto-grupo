@@ -154,6 +154,52 @@ describe('Modo de digitalizacion (e2e)', () => {
       expect(mio.atencionesTranscritas).toBe(0);
     });
 
+    it('una carpeta de papel nace PENDIENTE: nadie la ha tocado', async () => {
+      // Antes nacia EN_PROCESO, y eso vaciaba de sentido el estado: todo lo que
+      // faltaba figuraba como empezado desde el primer minuto, y "pendiente"
+      // era un estado que el sistema no producia jamas.
+      const r = await request(http())
+        .get('/v1/digitalizacion/cola?comunidadId=' + comunidadId)
+        .set(como(Rol.RECEPCION))
+        .expect(200);
+
+      const mio = r.body.datos.find(
+        (e: { expedienteId: string }) => e.expedienteId === expedienteId,
+      );
+      expect(mio.estado).toBe('PENDIENTE');
+      expect(mio.iniciadoEn).toBeNull();
+    });
+
+    it('un paciente registrado hoy NO entra en la cola: no hay papel que pasar', async () => {
+      const nuevo = await request(http())
+        .post('/v1/pacientes')
+        .set(como(Rol.RECEPCION))
+        .send({
+          nombres: 'Zzhoy',
+          apellidos: 'Zzsinpapel',
+          fechaNacimiento: '1990-01-15',
+          sexo: 'F',
+          comunidadId,
+        })
+        .expect(201);
+      creados.push(nuevo.body.id);
+
+      const registro = await prisma.registroDigitalizacion.findUnique({
+        where: { expedienteId: nuevo.body.expedienteId },
+      });
+      expect(registro!.estado).toBe('COMPLETO');
+
+      const r = await request(http())
+        .get('/v1/digitalizacion/cola?comunidadId=' + comunidadId)
+        .set(como(Rol.RECEPCION))
+        .expect(200);
+      expect(
+        r.body.datos.some(
+          (e: { expedienteId: string }) => e.expedienteId === nuevo.body.expedienteId,
+        ),
+      ).toBe(false);
+    });
+
     it('NO expone el DPI: esta pantalla se usa con gente alrededor', async () => {
       const r = await request(http())
         .get('/v1/digitalizacion/cola?tamano=5')
@@ -235,6 +281,17 @@ describe('Modo de digitalizacion (e2e)', () => {
       ).atencionesTranscritas;
 
       expect(actual).toBe(previo + 1);
+    });
+
+    it('la primera hoja transcrita mueve la carpeta a EN_PROCESO sola', async () => {
+      // Es el unico de los cuatro estados que el sistema puede deducir: los
+      // otros dependen de mirar el papel.
+      const registro = await prisma.registroDigitalizacion.findUnique({
+        where: { expedienteId },
+      });
+      expect(registro!.estado).toBe('EN_PROCESO');
+      expect(registro!.iniciadoEn).not.toBeNull();
+      expect(registro!.digitalizadoPor).not.toBeNull();
     });
 
     it('una ficha de consulta del dia NO cuenta como digitalizacion', async () => {

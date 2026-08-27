@@ -90,7 +90,7 @@ export function App() {
               <Route
                 path="/recepcion/nuevo"
                 element={
-                  <RutaPorRol ruta="/recepcion">
+                  <RutaPorRol ruta="/recepcion/nuevo">
                     <PaginaNuevoPaciente />
                   </RutaPorRol>
                 }

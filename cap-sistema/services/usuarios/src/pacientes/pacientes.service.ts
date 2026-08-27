@@ -219,12 +219,28 @@ export class PacientesService {
         },
       });
 
+      /**
+       * El estado con el que nace el expediente en el archivo.
+       *
+       * Viene de papel  -> PENDIENTE: existe una carpeta y nadie la ha
+       *                    transcrito todavia. Antes nacia EN_PROCESO, y eso
+       *                    hacia que "en proceso" no significara nada: TODO lo
+       *                    que faltaba figuraba como empezado desde el primer
+       *                    minuto, aunque nadie lo hubiera abierto, y
+       *                    "pendiente" era un estado que el sistema no producia
+       *                    jamas.
+       * No viene de papel -> COMPLETO: es un paciente que se registra hoy y no
+       *                    hay ninguna hoja vieja que pasar al sistema.
+       *
+       * A EN_PROCESO se pasa solo, al transcribir la primera ficha de la
+       * carpeta. Eso el sistema SI lo sabe.
+       */
       await tx.registroDigitalizacion.create({
         data: {
           expedienteId: expediente.id,
-          estado: dto.digitalizado ? 'EN_PROCESO' : 'COMPLETO',
-          digitalizadoPor: dto.digitalizado ? usuarioId : null,
-          iniciadoEn: dto.digitalizado ? new Date() : null,
+          estado: dto.digitalizado ? 'PENDIENTE' : 'COMPLETO',
+          digitalizadoPor: null,
+          iniciadoEn: null,
           completadoEn: dto.digitalizado ? null : new Date(),
         },
       });

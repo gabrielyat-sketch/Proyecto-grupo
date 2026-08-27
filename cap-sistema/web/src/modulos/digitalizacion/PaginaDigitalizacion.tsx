@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
   Box,
@@ -71,7 +71,22 @@ export function PaginaDigitalizacion() {
 
   const expedientes = useQuery({
     queryKey: ['digitalizacion', 'cola', comunidadId, estado, pagina],
-    queryFn: () => obtenerCola({ comunidadId: comunidadId || undefined, estado: (estado || undefined) as never, pagina }),
+    queryFn: () =>
+      obtenerCola({
+        comunidadId: comunidadId || undefined,
+        estado: (estado || undefined) as never,
+        pagina,
+      }),
+    /**
+     * Al cambiar de pagina se conservan las filas anteriores mientras llegan
+     * las nuevas.
+     *
+     * Sin esto la tabla desaparecia entera y la sustituia un indicador de
+     * carga: la pagina se encogia de golpe y volvia a crecer, y el salto se
+     * siente como un tiron. Quedandose las filas viejas atenuadas, lo unico
+     * que cambia es el contenido.
+     */
+    placeholderData: keepPreviousData,
   });
 
   const marcar = useMutation({
@@ -89,6 +104,24 @@ export function PaginaDigitalizacion() {
   function cambiarComunidad(id: string) {
     setComunidadId(id);
     setPagina(1);
+    irAlPrincipioDeLaCola();
+  }
+
+  /**
+   * Vuelve al principio de la lista al cambiar de pagina.
+   *
+   * Sin esto, pasar a la pagina siguiente dejaba la vista donde estaba —abajo,
+   * junto al paginador— y las primeras carpetas de la pagina nueva quedaban
+   * arriba, fuera de la pantalla. Es el mismo descuido que tenia la ficha al
+   * abrirse.
+   */
+  function irAlPrincipioDeLaCola() {
+    cola.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function cambiarPagina(nueva: number) {
+    setPagina(nueva);
+    irAlPrincipioDeLaCola();
   }
 
   // Ctrl+J lleva el foco a la cola desde cualquier parte de la pantalla.
@@ -210,7 +243,7 @@ export function PaginaDigitalizacion() {
             ) : null}
           </Stack>
 
-          {expedientes.isLoading ? (
+          {expedientes.isLoading && !expedientes.data ? (
             <Stack sx={{ alignItems: 'center', py: 4 }}>
               <CircularProgress />
             </Stack>
@@ -223,13 +256,24 @@ export function PaginaDigitalizacion() {
                 : 'No hay expedientes con ese criterio.'}
             </Alert>
           ) : expedientes.data ? (
-            <ColaTrabajo
-              resultados={expedientes.data}
-              puedeTranscribir={puedeTranscribir}
-              puedeMarcar={puedeMarcar}
-              onPagina={setPagina}
-              onMarcar={setMarcando}
-            />
+            <Box
+              sx={{
+                // Atenuado mientras llega la pagina siguiente: se ve que algo
+                // esta pasando sin que la tabla desaparezca.
+                opacity: expedientes.isFetching ? 0.55 : 1,
+                transition: 'opacity 120ms ease-out',
+                // Respeta a quien pidio menos movimiento en su sistema.
+                '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
+              }}
+            >
+              <ColaTrabajo
+                resultados={expedientes.data}
+                puedeTranscribir={puedeTranscribir}
+                puedeMarcar={puedeMarcar}
+                onPagina={cambiarPagina}
+                onMarcar={setMarcando}
+              />
+            </Box>
           ) : null}
         </Stack>
       </Box>

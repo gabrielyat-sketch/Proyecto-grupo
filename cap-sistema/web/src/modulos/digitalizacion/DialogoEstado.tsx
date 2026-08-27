@@ -13,10 +13,35 @@ import {
 import { AvisoError } from '../../componentes/AvisoError';
 import { ETIQUETA_ESTADO, type EstadoDigitalizacion, type ExpedienteEnCola } from './servicio-digitalizacion';
 
-const ESTADOS: { valor: EstadoDigitalizacion; explicacion: string }[] = [
-  { valor: 'PENDIENTE', explicacion: 'La carpeta esta en el archivo y nadie la ha tocado.' },
-  { valor: 'EN_PROCESO', explicacion: 'Alguien la tiene y va a medias.' },
-  { valor: 'COMPLETO', explicacion: 'Todas las hojas del papel ya estan en el sistema.' },
+/**
+ * Que significa cada estado y quien lo pone.
+ *
+ * Los dos primeros los mueve el sistema solo, con lo que sabe: una carpeta de
+ * papel nace pendiente y pasa a "en proceso" en cuanto se transcribe su primera
+ * hoja. Los dos ultimos dependen de mirar el papel —el sistema no sabe cuantas
+ * hojas tiene una carpeta ni si esta en su cajon— y por eso los declara una
+ * persona. Decirlo en pantalla evita que alguien crea que el sistema lo sabe.
+ */
+const ESTADOS: {
+  valor: EstadoDigitalizacion;
+  explicacion: string;
+  automatico?: boolean;
+}[] = [
+  {
+    valor: 'PENDIENTE',
+    explicacion: 'La carpeta esta en el archivo y nadie ha transcrito ninguna hoja.',
+    automatico: true,
+  },
+  {
+    valor: 'EN_PROCESO',
+    explicacion: 'Ya se transcribio al menos una hoja, pero la carpeta no se ha dado por terminada.',
+    automatico: true,
+  },
+  {
+    valor: 'COMPLETO',
+    explicacion:
+      'Todas las hojas del papel ya estan en el sistema. Lo decide usted: el sistema no sabe cuantas hojas trae la carpeta.',
+  },
   {
     valor: 'NO_LOCALIZADO',
     explicacion: 'Se busco en el archivo y no aparece. Sale de la cola, pero queda registrada.',
@@ -89,9 +114,17 @@ export function DialogoEstado({
             ))}
           </TextField>
 
-          <Typography variant="body2" color="text.secondary">
-            {ESTADOS.find((e) => e.valor === estado)?.explicacion}
-          </Typography>
+          <Stack sx={{ gap: 0.5 }}>
+            <Typography variant="body2" color="text.secondary">
+              {ESTADOS.find((e) => e.valor === estado)?.explicacion}
+            </Typography>
+            {ESTADOS.find((e) => e.valor === estado)?.automatico ? (
+              <Typography variant="caption" color="text.secondary">
+                Este estado lo pone el sistema solo al transcribir. Cambiarlo a mano solo hace
+                falta para corregir.
+              </Typography>
+            ) : null}
+          </Stack>
 
           <TextField
             label={exigeMotivo ? 'Que paso *' : 'Observaciones'}

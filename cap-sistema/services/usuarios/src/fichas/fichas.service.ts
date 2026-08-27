@@ -243,6 +243,15 @@ export class FichasService {
           where: { expedienteId },
           data: { atencionesTranscritas: { increment: 1 } },
         });
+
+        // La primera hoja transcrita mueve la carpeta a "en proceso" y sella
+        // quien y cuando la empezo. Es el unico de los cuatro estados que el
+        // sistema puede deducir por si mismo: los otros dependen de mirar el
+        // papel, y por eso los declara una persona.
+        await tx.registroDigitalizacion.updateMany({
+          where: { expedienteId, estado: 'PENDIENTE' },
+          data: { estado: 'EN_PROCESO', iniciadoEn: new Date(), digitalizadoPor: usuarioId },
+        });
       }
 
       return atencion;

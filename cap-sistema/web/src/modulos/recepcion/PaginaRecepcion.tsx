@@ -16,6 +16,8 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import { AvisoError } from '../../componentes/AvisoError';
+import { usarSesion } from '../sesion/contexto';
+import { puedeEntrar } from '../../navegacion/menu';
 import { usarAtajo } from '../../navegacion/usarAtajo';
 import { interpretarBusqueda, motivoSinBuscar } from './busqueda';
 import { buscarPacientes, listarComunidades } from './servicio-pacientes';
@@ -29,6 +31,13 @@ import { TablaPacientes } from './TablaPacientes';
  * demoras propias ni pasos de mas antes de poder escribir.
  */
 export function PaginaRecepcion() {
+  const { usuario } = usarSesion();
+  // Enfermeria y los demas roles buscan pacientes, pero no los dan de alta.
+  // Ofrecerles el boton terminaba en un 403 al guardar, despues de llenar el
+  // formulario entero: la persona cree que el sistema fallo, cuando en realidad
+  // esta haciendo lo correcto.
+  const puedeRegistrar = puedeEntrar(usuario?.rol, '/recepcion/nuevo');
+
   const [texto, setTexto] = useState('');
   const [comunidadId, setComunidadId] = useState('');
   const [pagina, setPagina] = useState(1);
@@ -81,14 +90,16 @@ export function PaginaRecepcion() {
           </Typography>
         </Stack>
 
-        <Button
-          component={EnlaceRuta}
-          to="/recepcion/nuevo"
-          variant="contained"
-          startIcon={<PersonAddIcon />}
-        >
-          Registrar paciente
-        </Button>
+        {puedeRegistrar ? (
+          <Button
+            component={EnlaceRuta}
+            to="/recepcion/nuevo"
+            variant="contained"
+            startIcon={<PersonAddIcon />}
+          >
+            Registrar paciente
+          </Button>
+        ) : null}
       </Stack>
 
       <Paper
@@ -141,7 +152,9 @@ export function PaginaRecepcion() {
 
       {criterio.tipo === 'vacio' && !comunidadId ? (
         <Typography color="text.secondary">
-          Escriba para buscar. Si el paciente no aparece, registrelo con el boton de arriba.
+          {puedeRegistrar
+            ? 'Escriba para buscar. Si el paciente no aparece, registrelo con el boton de arriba.'
+            : 'Escriba para buscar.'}
         </Typography>
       ) : null}
 
@@ -158,12 +171,16 @@ export function PaginaRecepcion() {
           <Alert
             severity="info"
             action={
-              <Button component={EnlaceRuta} to="/recepcion/nuevo" size="small">
-                Registrar
-              </Button>
+              puedeRegistrar ? (
+                <Button component={EnlaceRuta} to="/recepcion/nuevo" size="small">
+                  Registrar
+                </Button>
+              ) : undefined
             }
           >
-            No se encontro ningun paciente con ese criterio.
+            {puedeRegistrar
+              ? 'No se encontro ningun paciente con ese criterio.'
+              : 'No se encontro ningun paciente con ese criterio. Pida en recepcion que lo registren.'}
           </Alert>
         ) : (
           <TablaPacientes resultados={resultados.data} onPagina={setPagina} />

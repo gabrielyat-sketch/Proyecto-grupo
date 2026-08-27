@@ -263,3 +263,48 @@ describe('alta de paciente', () => {
     expect(within(aviso).queryByText(/reporte este codigo/i)).not.toBeInTheDocument();
   });
 });
+
+describe('quien puede dar de alta un paciente', () => {
+  it('Enfermeria busca, pero NO se le ofrece registrar', async () => {
+    // El servidor solo deja registrar a Recepcion y Administracion. Ofrecerle
+    // el boton terminaba en un 403 al guardar, despues de llenar el formulario
+    // entero: la persona cree que el sistema fallo, cuando esta haciendo lo
+    // correcto.
+    servidorCon();
+    almacenSesion.limpiar();
+    almacenSesion.guardar({
+      tokenAcceso: 't',
+      tokenRefresco: 'r',
+      usuario: { ...RECEPCION, id: 'u-9', usuario: 'mcaal', rol: 'ENFERMERIA' },
+    });
+    window.history.pushState({}, '', '/recepcion');
+    render(<App />);
+
+    await screen.findByRole('heading', { name: 'Recepcion' });
+    expect(screen.queryByRole('link', { name: /Registrar paciente/i })).not.toBeInTheDocument();
+  });
+
+  it('escribir la ruta del alta a mano tampoco entra', async () => {
+    servidorCon();
+    almacenSesion.limpiar();
+    almacenSesion.guardar({
+      tokenAcceso: 't',
+      tokenRefresco: 'r',
+      usuario: { ...RECEPCION, id: 'u-9', usuario: 'mcaal', rol: 'ENFERMERIA' },
+    });
+    window.history.pushState({}, '', '/recepcion/nuevo');
+    render(<App />);
+
+    await waitFor(() => expect(window.location.pathname).toBe('/'));
+  });
+
+  it('Recepcion si lo ve: es su trabajo', async () => {
+    servidorCon();
+    almacenSesion.limpiar();
+    almacenSesion.guardar({ tokenAcceso: 't', tokenRefresco: 'r', usuario: RECEPCION });
+    window.history.pushState({}, '', '/recepcion');
+    render(<App />);
+
+    expect(await screen.findByRole('link', { name: /Registrar paciente/i })).toBeInTheDocument();
+  });
+});

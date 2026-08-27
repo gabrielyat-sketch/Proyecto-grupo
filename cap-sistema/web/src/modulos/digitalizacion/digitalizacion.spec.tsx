@@ -279,6 +279,42 @@ describe('modo de digitalizacion', () => {
     });
   });
 
+  describe('cambiar de lista', () => {
+    it('vuelve al principio, no se queda abajo', async () => {
+      const irArriba = vi.fn();
+      Element.prototype.scrollIntoView = irArriba;
+
+      servidor({ filas: [carpeta(1)] });
+      const usuario = userEvent.setup();
+      abrir(ENFERMERIA);
+      await esperarPanel();
+      await screen.findByText('EXP-2026-000001');
+
+      irArriba.mockClear();
+      const navegacion = await screen.findByRole('navigation', { name: 'Comunidades' });
+      await usuario.click(within(navegacion).getByText('Chilasco'));
+
+      expect(irArriba).toHaveBeenCalled();
+    });
+
+    it('las filas anteriores se quedan mientras llegan las nuevas', async () => {
+      // Antes la tabla desaparecia entera y la sustituia un indicador de carga:
+      // la pagina se encogia de golpe y volvia a crecer, y el salto se sentia
+      // como un tiron.
+      Element.prototype.scrollIntoView = vi.fn();
+      servidor({ filas: [carpeta(1)] });
+      const usuario = userEvent.setup();
+      abrir(ENFERMERIA);
+      await esperarPanel();
+      await screen.findByText('EXP-2026-000001');
+
+      const navegacion = await screen.findByRole('navigation', { name: 'Comunidades' });
+      await usuario.click(within(navegacion).getByText('Chilasco'));
+
+      expect(screen.getByText('EXP-2026-000001')).toBeInTheDocument();
+    });
+  });
+
   describe('estado de la carpeta', () => {
     it('se abre con el estado que la carpeta tiene ahora, no con otro', async () => {
       servidor({ filas: [carpeta(1, { estado: 'EN_PROCESO' })] });
@@ -311,6 +347,29 @@ describe('modo de digitalizacion', () => {
 
       await usuario.type(within(diálogo).getByLabelText(/Que paso/), 'No esta en su cajon');
       expect(within(diálogo).getByRole('button', { name: 'Guardar' })).toBeEnabled();
+    });
+
+    it('dice cuando el estado lo pone el sistema y cuando lo decide la persona', async () => {
+      servidor({ filas: [carpeta(1, { estado: 'PENDIENTE' })] });
+      const usuario = userEvent.setup();
+      abrir(RECEPCION);
+      await esperarPanel();
+
+      await usuario.click((await screen.findAllByRole('button', { name: 'Estado' }))[0]);
+      const diálogo = await screen.findByRole('dialog');
+
+      expect(
+        within(diálogo).getByText(/Este estado lo pone el sistema solo al transcribir/),
+      ).toBeInTheDocument();
+
+      await usuario.click(within(diálogo).getByLabelText('Estado de la carpeta'));
+      await usuario.click(await screen.findByRole('option', { name: 'Completo' }));
+      expect(
+        within(diálogo).getByText(/el sistema no sabe cuantas hojas trae la carpeta/),
+      ).toBeInTheDocument();
+      expect(
+        within(diálogo).queryByText(/Este estado lo pone el sistema/),
+      ).not.toBeInTheDocument();
     });
 
     it('guardar el estado lo envia y refresca el avance', async () => {

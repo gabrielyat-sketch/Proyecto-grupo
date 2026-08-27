@@ -149,6 +149,10 @@ export const MENU: readonly ElementoMenu[] = [
  */
 const RUTAS_FUERA_DEL_MENU: Record<string, readonly Rol[]> = {
   '/ficha': ['MEDICO', 'ENFERMERIA'],
+  // Dar de alta a un paciente es de Recepcion. Todo el personal puede
+  // BUSCARLO —por eso /recepcion es de los seis roles— pero solo recepcion y
+  // administracion lo registran, que es lo que dice el controlador.
+  '/recepcion/nuevo': ['RECEPCION', 'ADMINISTRADOR'],
 };
 
 /** Opciones visibles para un rol. Vacio si el rol no se reconoce. */
