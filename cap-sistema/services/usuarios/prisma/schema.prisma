@@ -188,6 +188,7 @@ model Paciente {
 
   antecedentes            AntecedentePaciente[]
   antecedentesObstetricos AntecedentesObstetricos?
+  visitas                 Visita[]
 
   /// Orden alfabetico del listado: (apellidos, nombres) es como estan las
   /// carpetas de papel del archivo.
@@ -300,6 +301,7 @@ model Atencion {
   signosPeligro SignoPeligroAtencion[]
   problemas     ProblemaAtencion[]
   medicamentos  MedicamentoIndicado[]
+  visita        Visita?
 
   expediente Expediente @relation(fields: [expedienteId], references: [id])
 
@@ -652,4 +654,56 @@ model MedicamentoIndicado {
 
   @@unique([atencionId, orden])
   @@map("medicamento_indicado")
+}
+
+/// Estado de una visita a la sala de espera.
+enum EstadoVisita {
+  ESPERANDO
+  ATENDIDA
+  /// Se fue sin que lo atendieran. Pasa, y hay que poder anotarlo: sin esta
+  /// salida la lista de manana arrastraria a los de hoy.
+  RETIRADA
+}
+
+/// Alguien que llego al CAP y espera ser atendido.
+///
+/// Es lo unico que el sistema no podia deducir de nada de lo que ya guardaba:
+/// un paciente registrado hace tres anios y uno que acaba de entrar por la
+/// puerta son identicos en la base. Alguien tiene que decir "llego", y eso es
+/// esta tabla.
+///
+/// NO es lo mismo que la digitalizacion, aunque las dos sean listas de trabajo.
+/// La sala de espera son cinco o diez personas sentadas ahora, y si no se
+/// atienden hoy alguien se va sin consulta; el archivo son miles de carpetas
+/// que pueden esperar meses. Mezclarlas haria que lo urgente se perdiera entre
+/// lo que no lo es.
+model Visita {
+  id         String       @id @default(uuid())
+  pacienteId String       @map("paciente_id")
+  estado     EstadoVisita @default(ESPERANDO)
+
+  llegadaEn     DateTime @default(now()) @map("llegada_en")
+  /// Usuario que marco la llegada (viene del JWT).
+  registradaPor String   @map("registrada_por")
+
+  /// A que viene, en una linea. Cifrado: "control prenatal" o "dolor de pecho"
+  /// son datos de salud, y esta lista se ve con la sala llena de gente.
+  motivoCifrado Bytes? @map("motivo_cifrado")
+
+  cerradaEn DateTime? @map("cerrada_en")
+  cerradaPor String?  @map("cerrada_por")
+
+  /// La ficha que salio de esta visita. Se llena sola al guardarla.
+  atencionId String? @unique @map("atencion_id")
+
+  /// Por que se fue sin atencion. Solo en las retiradas.
+  motivoRetiro String? @map("motivo_retiro") @db.VarChar(200)
+
+  paciente Paciente  @relation(fields: [pacienteId], references: [id])
+  atencion Atencion? @relation(fields: [atencionId], references: [id])
+
+  /// La consulta de la sala de espera: los que esperan, por orden de llegada.
+  @@index([estado, llegadaEn])
+  @@index([pacienteId])
+  @@map("visita")
 }

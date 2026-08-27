@@ -254,6 +254,30 @@ export class FichasService {
         });
       }
 
+      /**
+       * Si el paciente estaba en la sala de espera, esta ficha lo atiende.
+       *
+       * Se cierra sola y no a mano: pedirle a la enfermera un paso mas justo
+       * cuando ya termino y va por el siguiente es pedirle que se le olvide, y
+       * una sala de espera con gente ya atendida deja de servir en dos dias.
+       *
+       * Va dentro de la misma transaccion que la ficha. Si se hiciera despues,
+       * un fallo entre las dos dejaria a alguien esperando eternamente a pesar
+       * de haber sido atendido.
+       *
+       * updateMany y no update porque puede no haber ninguna: la mayoria de las
+       * fichas —las transcritas del papel— no vienen de una visita de hoy.
+       */
+      await tx.visita.updateMany({
+        where: { pacienteId: expediente.paciente.id, estado: 'ESPERANDO' },
+        data: {
+          estado: 'ATENDIDA',
+          cerradaEn: new Date(),
+          cerradaPor: usuarioId,
+          atencionId: atencion.id,
+        },
+      });
+
       return atencion;
     });
 

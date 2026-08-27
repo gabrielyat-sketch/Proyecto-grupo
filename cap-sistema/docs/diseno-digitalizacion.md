@@ -206,6 +206,34 @@ Ninguna.
 3. El evento `expediente.digitalizado` existe en el código pero **no está en
    `docs/eventos/esquema-eventos.md` y nadie lo emite**. Queda para la Etapa 10.
 
+## Lo que salió de revisarlo con el equipo
+
+Al probar la pantalla apareció una confusión legítima: desde el rol de
+enfermería, **Recepción y Digitalización parecían hacer lo mismo**. Investigarlo
+destapó que faltaba una pieza.
+
+Un paciente registrado hoy **sin** marcar "viene de expediente en papel" nace en
+estado `COMPLETO` — no hay nada que transcribir — así que **nunca aparece en la
+cola de digitalización**. No era que se perdiera entre muchos: no estaba. Lo que
+faltaba no era un filtro sino una **sala de espera**, que es un tercer concepto:
+
+| | Sala de espera | Digitalización |
+|---|---|---|
+| Qué es | Gente sentada esperando | Carpetas en un archivero |
+| Cuándo | Ahora | Cuando haya un rato |
+| Cuántos | Cinco o diez | Miles |
+| Si no se hace hoy | Alguien se va sin atención | No pasa nada |
+
+Está construida en `docs/diseno-sala-espera.md`. Mezclarla con la cola del
+archivo habría hecho que lo urgente se perdiera entre lo que puede esperar
+meses.
+
+También se corrigió que los **estados de la carpeta no significaban nada**: un
+expediente de papel nacía `EN_PROCESO`, con lo que todo lo que faltaba figuraba
+como empezado desde el primer minuto y `PENDIENTE` era un estado que el sistema
+no producía jamás. Ahora nace `PENDIENTE` y pasa a `EN_PROCESO` solo al
+transcribirse la primera hoja.
+
 ## Próximo paso recomendado
 
 Entrar como `mcaal` (enfermería), abrir Digitalización, elegir una comunidad y

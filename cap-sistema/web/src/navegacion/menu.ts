@@ -3,6 +3,7 @@ import type { SvgIconProps } from '@mui/material';
 import BadgeIcon from '@mui/icons-material/Badge';
 import FolderSharedIcon from '@mui/icons-material/FolderShared';
 import ScannerIcon from '@mui/icons-material/Scanner';
+import EventSeatIcon from '@mui/icons-material/EventSeat';
 import MonitorHeartIcon from '@mui/icons-material/MonitorHeart';
 import MedicationIcon from '@mui/icons-material/Medication';
 import InsightsIcon from '@mui/icons-material/Insights';
@@ -64,6 +65,16 @@ export const MENU: readonly ElementoMenu[] = [
     icono: BadgeIcon,
     // GET /v1/pacientes lo consulta todo el personal; el alta es de Recepcion.
     roles: TODO_EL_PERSONAL,
+  },
+  {
+    ruta: '/espera',
+    descripcion:
+      'Quienes llegaron hoy y todavia no tienen ficha, en orden de llegada. Recepcion marca la llegada al entrar; la visita se cierra sola al guardar la ficha.',
+    etiqueta: 'Sala de espera',
+    icono: EventSeatIcon,
+    // Farmacia no: la sala dice quien vino al medico y a que, y eso es
+    // informacion clinica aunque no lo parezca.
+    roles: ['ADMINISTRADOR', 'DIRECTOR', 'RECEPCION', 'ENFERMERIA', 'MEDICO'],
   },
   {
     ruta: '/expedientes',

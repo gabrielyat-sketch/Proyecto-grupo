@@ -1192,6 +1192,150 @@ paths:
       security: *a14
       summary: Guarda o actualiza las respuestas enviadas
       tags: *a15
+  /v1/visitas:
+    post:
+      description: "Es lo unico que el sistema no puede deducir solo: un paciente
+        registrado hace anios y uno que acaba de entrar por la puerta son
+        identicos en la base."
+      operationId: VisitasController_marcarLlegada
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarcarLlegadaDto"
+      responses:
+        "201":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VisitaDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "409":
+          description: Ese paciente ya esta en la sala de espera.
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: &a16
+        - bearer: []
+      summary: Marca que un paciente llego y espera ser atendido
+      tags: &a17
+        - visitas
+  /v1/visitas/espera:
+    get:
+      description: "Solo las llegadas de hoy: una visita de ayer que nadie cerro no se
+        arrastra a la lista de manana."
+      operationId: VisitasController_enEspera
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VisitaEnEsperaDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a16
+      summary: Quienes esperan ahora, por orden de llegada
+      tags: *a17
+  /v1/visitas/{id}/retiro:
+    patch:
+      description: 'El motivo es obligatorio: "se fue" no le sirve a nadie dentro de
+        un mes.'
+      operationId: VisitasController_retirar
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RetirarVisitaDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VisitaDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a16
+      summary: Saca de la sala a alguien que se fue sin atencion
+      tags: *a17
 info:
   title: Servicio usuarios - CAP Purulha
   description: >-
@@ -2193,7 +2337,7 @@ components:
       properties:
         tipoFicha:
           type: string
-          enum: &a16
+          enum: &a18
             - ADULTO
             - NEONATO
             - NINEZ
@@ -2452,7 +2596,7 @@ components:
           format: uuid
         tipoFicha:
           type: string
-          enum: *a16
+          enum: *a18
           nullable: true
         fecha:
           format: date-time
@@ -2803,6 +2947,110 @@ components:
             $ref: "#/components/schemas/GuardarAntecedenteDto"
         obstetricos:
           $ref: "#/components/schemas/GuardarObstetricosDto"
+    MarcarLlegadaDto:
+      type: object
+      properties:
+        pacienteId:
+          type: string
+          format: uuid
+        motivo:
+          type: string
+          description: A que viene, en una linea. Se guarda cifrado.
+          example: Control de embarazo
+      required:
+        - pacienteId
+    VisitaDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        pacienteId:
+          type: string
+          format: uuid
+        estado:
+          type: string
+          enum:
+            - ESPERANDO
+            - ATENDIDA
+            - RETIRADA
+        llegadaEn:
+          format: date-time
+          type: string
+        cerradaEn:
+          type: string
+          format: date-time
+          nullable: true
+        motivo:
+          type: string
+          nullable: true
+        motivoRetiro:
+          type: string
+          nullable: true
+      required:
+        - id
+        - pacienteId
+        - estado
+        - llegadaEn
+        - cerradaEn
+        - motivo
+        - motivoRetiro
+    VisitaEnEsperaDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        pacienteId:
+          type: string
+          format: uuid
+        nombres:
+          type: string
+        apellidos:
+          type: string
+        edad:
+          type: number
+          example: 41
+        sexo:
+          type: string
+          example: F
+        comunidad:
+          type: string
+        numeroExpediente:
+          type: string
+          nullable: true
+          example: EXP-2026-000123
+        llegadaEn:
+          format: date-time
+          type: string
+        esperandoMinutos:
+          type: number
+          description: Minutos que lleva esperando, al momento de responder.
+          example: 23
+        motivo:
+          type: string
+          nullable: true
+          description: Descifrado al vuelo.
+      required:
+        - id
+        - pacienteId
+        - nombres
+        - apellidos
+        - edad
+        - sexo
+        - comunidad
+        - numeroExpediente
+        - llegadaEn
+        - esperandoMinutos
+        - motivo
+    RetirarVisitaDto:
+      type: object
+      properties:
+        motivo:
+          type: string
+          example: Se canso de esperar y se fue
+      required:
+        - motivo
     RespuestaErrorDto:
       type: object
       properties:

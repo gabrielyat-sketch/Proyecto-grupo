@@ -14,6 +14,7 @@ import { PaginaRecepcion } from './modulos/recepcion/PaginaRecepcion';
 import { PaginaNuevoPaciente } from './modulos/recepcion/PaginaNuevoPaciente';
 import { PaginaFicha } from './modulos/fichas/PaginaFicha';
 import { PaginaDigitalizacion } from './modulos/digitalizacion/PaginaDigitalizacion';
+import { PaginaSalaEspera } from './modulos/espera/PaginaSalaEspera';
 import { MENU } from './navegacion/menu';
 
 /**
@@ -96,6 +97,15 @@ export function App() {
                 }
               />
               <Route
+                path="/espera"
+                element={
+                  <RutaPorRol ruta="/espera">
+                    <PaginaSalaEspera />
+                  </RutaPorRol>
+                }
+              />
+
+              <Route
                 path="/digitalizacion"
                 element={
                   <RutaPorRol ruta="/digitalizacion">
@@ -121,7 +131,7 @@ export function App() {
                 puede haber una opcion sin pantalla ni una pantalla que el rol
                 no tenga permitida.
               */}
-              {MENU.filter((m) => m.ruta !== '/recepcion' && m.ruta !== '/digitalizacion').map(({ ruta, etiqueta, descripcion }) => (
+              {MENU.filter((m) => m.ruta !== '/recepcion' && m.ruta !== '/digitalizacion' && m.ruta !== '/espera').map(({ ruta, etiqueta, descripcion }) => (
                 <Route
                   key={ruta}
                   path={ruta}
