@@ -7,6 +7,16 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaludVivoDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       summary: El proceso esta vivo
       tags: &a1
         - salud
@@ -17,20 +27,66 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaludListoDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "503":
+          description: La base de datos no responde. El gateway debe dejar de enviar
+            trafico a esta instancia.
       summary: El servicio y sus dependencias responden
       tags: *a1
   /v1/comunidades:
     get:
+      description: Por defecto solo las activas. Con ?todas=true incluye las dadas de baja.
       operationId: ComunidadesController_listar
       parameters:
         - name: todas
-          required: true
+          required: false
           in: query
+          description: Con 'true' incluye las comunidades dadas de baja.
           schema:
+            example: "true"
             type: string
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ComunidadDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: &a2
         - bearer: []
       summary: Comunidades que atiende el CAP
@@ -48,7 +104,36 @@ paths:
       responses:
         "201":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComunidadDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a2
+      summary: Registra una comunidad
       tags: *a3
   /v1/pacientes:
     get:
@@ -91,7 +176,44 @@ paths:
             type: number
       responses:
         "200":
-          description: ""
+          description: Resultados. El listado NO incluye DPI ni telefono.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginaDto"
+                  - type: object
+                    required:
+                      - datos
+                    properties:
+                      datos:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/PacienteResumenDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: &a4
         - bearer: []
       summary: Busca pacientes por DPI, inicio de nombre o comunidad
@@ -109,6 +231,34 @@ paths:
       responses:
         "201":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PacienteCreadoDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a4
       summary: Registra un paciente y abre su expediente
       tags: *a5
@@ -124,7 +274,42 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PacienteDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a4
+      summary: Ficha completa del paciente
       tags: *a5
     patch:
       operationId: PacientesController_actualizar
@@ -143,7 +328,42 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PacienteDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a4
+      summary: Corrige datos del paciente
       tags: *a5
   /v1/grupos-familiares:
     get:
@@ -175,7 +395,44 @@ paths:
             type: number
       responses:
         "200":
-          description: ""
+          description: Listado paginado.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginaDto"
+                  - type: object
+                    required:
+                      - datos
+                    properties:
+                      datos:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/GrupoFamiliarResumenDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: &a6
         - bearer: []
       summary: Lista paginada de grupos familiares
@@ -193,7 +450,36 @@ paths:
       responses:
         "201":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GrupoFamiliarCreadoDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a6
+      summary: Crea un grupo familiar
       tags: *a7
   /v1/grupos-familiares/{id}:
     get:
@@ -207,11 +493,46 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GrupoFamiliarDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a6
       summary: Grupo familiar con sus integrantes
       tags: *a7
   /v1/expedientes/buscar:
     get:
+      description: El numero esta cifrado en la base; se resuelve por su indice ciego.
       operationId: ExpedientesController_porNumero
       parameters:
         - name: numero
@@ -222,6 +543,34 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpedienteEncontradoDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security:
         - bearer: []
       summary: Busca un expediente por su numero
@@ -237,18 +586,65 @@ paths:
           schema:
             type: string
         - name: pagina
-          required: true
+          required: false
           in: query
+          description: Empieza en 1. Por defecto 1.
           schema:
-            type: string
+            example: 1
+            type: number
         - name: tamano
-          required: true
+          required: false
           in: query
+          description: Por defecto 25. El servidor recorta cualquier valor mayor a 100.
           schema:
-            type: string
+            example: 25
+            type: number
       responses:
         "200":
-          description: ""
+          description: Atenciones con los campos clinicos ya descifrados.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginaDto"
+                  - type: object
+                    required:
+                      - datos
+                    properties:
+                      datos:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/AtencionDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: &a8
         - bearer: []
       summary: Historial del expediente, lo mas reciente primero
@@ -271,6 +667,40 @@ paths:
       responses:
         "201":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AtencionDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a8
       summary: Registra una atencion en el expediente
       tags: *a9
@@ -281,6 +711,28 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumenDigitalizacionDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: &a10
         - bearer: []
       summary: Avance de la digitalizacion de expedientes
@@ -304,7 +756,42 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegistroDigitalizacionDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a10
+      summary: Cambia el estado de digitalizacion de un expediente
       tags: *a11
 info:
   title: Servicio usuarios - CAP Purulha
@@ -327,6 +814,61 @@ components:
       bearerFormat: JWT
       type: http
   schemas:
+    SaludVivoDto:
+      type: object
+      properties:
+        estado:
+          type: string
+          enum:
+            - vivo
+          example: vivo
+        fecha:
+          type: string
+          format: date-time
+      required:
+        - estado
+        - fecha
+    SaludListoDto:
+      type: object
+      properties:
+        estado:
+          type: string
+          enum:
+            - listo
+          example: listo
+        baseDatos:
+          type: string
+          description: "'ok' cuando la base responde. Si no, el endpoint devuelve 503 en
+            vez de este cuerpo."
+          example: ok
+      required:
+        - estado
+        - baseDatos
+    ComunidadDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+          example: Purulha Centro
+        codigo:
+          type: string
+          nullable: true
+          description: Codigo interno del CAP, si lo tiene.
+        distante:
+          type: boolean
+          description: "Comunidad lejana al CAP. Cambia la prioridad de seguimiento: a
+            quien vive lejos no se le cita por gusto."
+        activa:
+          type: boolean
+          description: Una comunidad inactiva ya no aparece al registrar pacientes.
+      required:
+        - id
+        - nombre
+        - distante
+        - activa
     CrearComunidadDto:
       type: object
       properties:
@@ -342,6 +884,191 @@ components:
             seguimiento.
       required:
         - nombre
+    PaginaDto:
+      type: object
+      properties:
+        pagina:
+          type: number
+          description: Pagina devuelta, empezando en 1.
+          example: 1
+        tamano:
+          type: number
+          description: Registros por pagina. El servidor recorta cualquier valor mayor al
+            maximo.
+          maximum: 100
+          example: 25
+        total:
+          type: number
+          description: Total de registros que cumplen el filtro.
+          example: 137
+        totalPaginas:
+          type: number
+          description: Total de paginas. Nunca es menor que 1.
+          example: 6
+      required:
+        - pagina
+        - tamano
+        - total
+        - totalPaginas
+    ComunidadResumenDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+          example: Purulha Centro
+      required:
+        - id
+        - nombre
+    ExpedienteResumenDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        numero:
+          type: string
+          description: Descifrado al vuelo. En la base vive cifrado.
+          example: EXP-2026-000123
+      required:
+        - id
+        - numero
+    PacienteResumenDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nombres:
+          type: string
+        apellidos:
+          type: string
+        fechaNacimiento:
+          format: date-time
+          type: string
+        edad:
+          type: number
+          description: Calculada al momento de responder.
+          example: 34
+        sexo:
+          type: string
+          example: F
+        idioma:
+          type: string
+          description: Idioma de atencion. En Purulha buena parte del padron habla q eqchi.
+          example: ES
+        fallecido:
+          type: boolean
+        comunidad:
+          $ref: "#/components/schemas/ComunidadResumenDto"
+        expediente:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/ExpedienteResumenDto"
+      required:
+        - id
+        - nombres
+        - apellidos
+        - fechaNacimiento
+        - edad
+        - sexo
+        - idioma
+        - fallecido
+        - comunidad
+        - expediente
+    GrupoResumenDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        codigo:
+          type: string
+          example: GF-2026-000045
+      required:
+        - id
+        - codigo
+    ExpedienteDePacienteDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        numero:
+          type: string
+          description: Descifrado al vuelo. En la base vive cifrado.
+          example: EXP-2026-000123
+        aperturaEn:
+          type: string
+          format: date-time
+          nullable: true
+          description: "Apertura del expediente EN PAPEL, que puede ser muy anterior a la
+            digitalizacion. null cuando no se conoce: los expedientes viejos no
+            siempre la traen."
+      required:
+        - id
+        - numero
+        - aperturaEn
+    PacienteDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        dpi:
+          type: string
+          nullable: true
+          description: null cuando el paciente no tiene DPI registrado.
+        nombres:
+          type: string
+        apellidos:
+          type: string
+        fechaNacimiento:
+          format: date-time
+          type: string
+        edad:
+          type: number
+          example: 34
+        sexo:
+          type: string
+          example: F
+        idioma:
+          type: string
+          example: ES
+        telefono:
+          type: string
+          nullable: true
+        fallecido:
+          type: boolean
+        comunidad:
+          $ref: "#/components/schemas/ComunidadResumenDto"
+        grupoFamiliar:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/GrupoResumenDto"
+        expediente:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/ExpedienteDePacienteDto"
+      required:
+        - id
+        - dpi
+        - nombres
+        - apellidos
+        - fechaNacimiento
+        - edad
+        - sexo
+        - idioma
+        - telefono
+        - fallecido
+        - comunidad
+        - grupoFamiliar
+        - expediente
     CrearPacienteDto:
       type: object
       properties:
@@ -393,6 +1120,22 @@ components:
         - fechaNacimiento
         - sexo
         - comunidadId
+    PacienteCreadoDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        numeroExpediente:
+          type: string
+          example: EXP-2026-000123
+        expedienteId:
+          type: string
+          format: uuid
+      required:
+        - id
+        - numeroExpediente
+        - expedienteId
     ActualizarPacienteDto:
       type: object
       properties:
@@ -415,6 +1158,93 @@ components:
           type: string
         fallecido:
           type: boolean
+    GrupoFamiliarResumenDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        codigo:
+          type: string
+          example: GF-2026-000045
+        direccion:
+          type: string
+          nullable: true
+        telefono:
+          type: string
+          nullable: true
+        comunidad:
+          $ref: "#/components/schemas/ComunidadResumenDto"
+        integrantes:
+          type: number
+          description: "Contado en la base de datos, no trayendo a los integrantes: evita
+            el N+1 de esta pantalla."
+          example: 5
+      required:
+        - id
+        - codigo
+        - direccion
+        - telefono
+        - comunidad
+        - integrantes
+    IntegranteDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nombres:
+          type: string
+        apellidos:
+          type: string
+        fechaNacimiento:
+          format: date-time
+          type: string
+        sexo:
+          type: string
+          example: M
+        fallecido:
+          type: boolean
+        edad:
+          type: number
+          example: 12
+      required:
+        - id
+        - nombres
+        - apellidos
+        - fechaNacimiento
+        - sexo
+        - fallecido
+        - edad
+    GrupoFamiliarDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        codigo:
+          type: string
+          example: GF-2026-000045
+        direccion:
+          type: string
+          nullable: true
+        telefono:
+          type: string
+          nullable: true
+        comunidad:
+          $ref: "#/components/schemas/ComunidadResumenDto"
+        integrantes:
+          description: Ordenados del mayor al menor.
+          type: array
+          items:
+            $ref: "#/components/schemas/IntegranteDto"
+      required:
+        - id
+        - codigo
+        - direccion
+        - telefono
+        - comunidad
+        - integrantes
     CrearGrupoDto:
       type: object
       properties:
@@ -431,6 +1261,182 @@ components:
           type: string
       required:
         - comunidadId
+    GrupoFamiliarCreadoDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        codigo:
+          type: string
+          example: GF-2026-000045
+        direccion:
+          type: string
+          nullable: true
+        telefono:
+          type: string
+          nullable: true
+        comunidadId:
+          type: string
+          format: uuid
+      required:
+        - id
+        - codigo
+        - direccion
+        - telefono
+        - comunidadId
+    PacienteDelExpedienteDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nombres:
+          type: string
+        apellidos:
+          type: string
+        fechaNacimiento:
+          format: date-time
+          type: string
+        sexo:
+          type: string
+          example: F
+        comunidad:
+          $ref: "#/components/schemas/ComunidadResumenDto"
+      required:
+        - id
+        - nombres
+        - apellidos
+        - fechaNacimiento
+        - sexo
+        - comunidad
+    DigitalizacionDelExpedienteDto:
+      type: object
+      properties:
+        estado:
+          type: string
+          enum:
+            - PENDIENTE
+            - EN_PROCESO
+            - COMPLETO
+            - NO_LOCALIZADO
+        digitalizadoPor:
+          type: string
+          nullable: true
+        iniciadoEn:
+          type: string
+          format: date-time
+          nullable: true
+        completadoEn:
+          type: string
+          format: date-time
+          nullable: true
+        atencionesTranscritas:
+          type: number
+          description: Cuantas atenciones del papel se transcribieron.
+        observaciones:
+          type: string
+          nullable: true
+      required:
+        - estado
+        - digitalizadoPor
+        - iniciadoEn
+        - completadoEn
+        - atencionesTranscritas
+        - observaciones
+    ExpedienteEncontradoDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        numero:
+          type: string
+          example: EXP-2026-000123
+        aperturaEn:
+          type: string
+          format: date-time
+          nullable: true
+          description: Apertura del expediente en papel. null cuando no se conoce.
+        paciente:
+          $ref: "#/components/schemas/PacienteDelExpedienteDto"
+        digitalizacion:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/DigitalizacionDelExpedienteDto"
+      required:
+        - id
+        - numero
+        - aperturaEn
+        - paciente
+        - digitalizacion
+    AtencionDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        fecha:
+          format: date-time
+          type: string
+        registradaPor:
+          type: string
+          format: uuid
+          description: Usuario del sistema que la registro.
+        digitalizada:
+          type: boolean
+          description: true si proviene de transcribir una atencion en papel.
+        motivo:
+          type: string
+          nullable: true
+          description: Descifrado. En la base es ilegible.
+        diagnostico:
+          type: string
+          nullable: true
+        tratamiento:
+          type: string
+          nullable: true
+        notas:
+          type: string
+          nullable: true
+        pesoKg:
+          type: string
+          format: decimal
+          nullable: true
+          example: "72.5"
+        tallaCm:
+          type: string
+          format: decimal
+          nullable: true
+          example: "158.0"
+        presionSistolica:
+          type: number
+          nullable: true
+          example: 148
+        presionDiastolica:
+          type: number
+          nullable: true
+          example: 94
+        temperaturaC:
+          type: string
+          format: decimal
+          nullable: true
+          example: "37.2"
+      required:
+        - id
+        - fecha
+        - registradaPor
+        - digitalizada
+        - motivo
+        - diagnostico
+        - tratamiento
+        - notas
+        - pesoKg
+        - tallaCm
+        - presionSistolica
+        - presionDiastolica
+        - temperaturaC
     RegistrarAtencionDto:
       type: object
       properties:
@@ -473,6 +1479,43 @@ components:
           description: Marca la atencion como transcrita desde papel.
       required:
         - motivo
+    ConteoPorEstadoDto:
+      type: object
+      properties:
+        PENDIENTE:
+          type: number
+          example: 1240
+        EN_PROCESO:
+          type: number
+          example: 85
+        COMPLETO:
+          type: number
+          example: 613
+        NO_LOCALIZADO:
+          type: number
+          description: Expedientes que el personal no encontro en el archivo fisico.
+          example: 12
+      required:
+        - PENDIENTE
+        - EN_PROCESO
+        - COMPLETO
+        - NO_LOCALIZADO
+    ResumenDigitalizacionDto:
+      type: object
+      properties:
+        total:
+          type: number
+          example: 1950
+        porEstado:
+          $ref: "#/components/schemas/ConteoPorEstadoDto"
+        porcentajeCompleto:
+          type: number
+          description: Con un decimal. 0 cuando todavia no hay expedientes.
+          example: 31.4
+      required:
+        - total
+        - porEstado
+        - porcentajeCompleto
     ActualizarDigitalizacionDto:
       type: object
       properties:
@@ -487,3 +1530,87 @@ components:
           type: string
       required:
         - estado
+    RegistroDigitalizacionDto:
+      type: object
+      properties:
+        expedienteId:
+          type: string
+          format: uuid
+        estado:
+          type: string
+          enum:
+            - PENDIENTE
+            - EN_PROCESO
+            - COMPLETO
+            - NO_LOCALIZADO
+        digitalizadoPor:
+          type: string
+          nullable: true
+        iniciadoEn:
+          type: string
+          format: date-time
+          nullable: true
+        completadoEn:
+          type: string
+          format: date-time
+          nullable: true
+        atencionesTranscritas:
+          type: number
+          example: 7
+        observaciones:
+          type: string
+          nullable: true
+          maxLength: 500
+      required:
+        - expedienteId
+        - estado
+        - digitalizadoPor
+        - iniciadoEn
+        - completadoEn
+        - atencionesTranscritas
+        - observaciones
+    RespuestaErrorDto:
+      type: object
+      properties:
+        codigo:
+          type: string
+          description: Codigo estable. El cliente decide que hacer segun este valor, no
+            segun el mensaje.
+          enum:
+            - VALIDACION
+            - NO_AUTENTICADO
+            - SIN_PERMISO
+            - NO_ENCONTRADO
+            - CONFLICTO
+            - DEMASIADAS_PETICIONES
+            - ERROR_INTERNO
+          example: VALIDACION
+        mensaje:
+          type: string
+          description: Mensaje en espanol, apto para mostrarse tal cual al usuario.
+          example: La informacion enviada no es valida.
+        detalles:
+          description: Detalle por campo. Presente sobre todo en errores de validacion.
+          example:
+            - dpi debe tener 13 digitos
+          type: array
+          items:
+            type: string
+        trazaId:
+          type: string
+          description: Identificador de correlacion. Es lo que se busca en los logs para
+            esta peticion.
+          example: 7f3a1c2e-9b4d-4e21-8a55-0c1d2e3f4a5b
+        ruta:
+          type: string
+          example: /v1/pacientes
+        fecha:
+          type: string
+          format: date-time
+          example: 2026-08-26T15:04:05.000Z
+      required:
+        - codigo
+        - mensaje
+        - trazaId
+        - ruta
+        - fecha

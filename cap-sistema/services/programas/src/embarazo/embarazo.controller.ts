@@ -1,9 +1,23 @@
 import { Body, Controller, Get, Headers, Param, Patch, Post, Query, Req } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Rol, Roles, Usuario } from '@cap/shared';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
+import { ApiParametrosPagina, ApiPaginaDe, type Pagina, Rol, Roles, Usuario } from '@cap/shared';
 import { EmbarazoService } from './embarazo.service';
 import { InscribirEmbarazoDto } from './dto/inscribir.dto';
 import { RegistrarControlPrenatalDto } from './dto/registrar-control.dto';
+import {
+  ControlPrenatalDto,
+  EmbarazoInscritoDto,
+  ProgramaEmbarazoBaseDto,
+  ProgramaEmbarazoDto,
+  ProgramaEmbarazoResumenDto,
+} from './dto/respuestas.dto';
 
 @ApiTags('programa-embarazo')
 @ApiBearerAuth()
@@ -14,13 +28,18 @@ export class EmbarazoController {
 
   @Get()
   @ApiOperation({ summary: 'Seguimientos, ordenados por fecha probable de parto' })
+  @ApiPaginaDe(ProgramaEmbarazoResumenDto)
+  @ApiParametrosPagina()
+  @ApiQuery({ name: 'estado', required: false, enum: ['ACTIVO', 'EGRESADO', 'ABANDONO', 'FALLECIDO', 'TRASLADADO'] })
+  @ApiQuery({ name: 'riesgo', required: false, enum: ['BAJO', 'ALTO'] })
+  @ApiQuery({ name: 'comunidadId', required: false, format: 'uuid' })
   listar(
     @Query('estado') estado?: string,
     @Query('riesgo') riesgo?: string,
     @Query('comunidadId') comunidadId?: string,
     @Query('pagina') pagina?: string,
     @Query('tamano') tamano?: string,
-  ) {
+  ): Promise<Pagina<ProgramaEmbarazoResumenDto>> {
     return this.servicio.listar({
       estado,
       riesgo,
@@ -32,7 +51,12 @@ export class EmbarazoController {
 
   @Get('alto-riesgo')
   @ApiOperation({ summary: 'Embarazos activos clasificados como de alto riesgo' })
-  altoRiesgo(@Query('pagina') pagina?: string, @Query('tamano') tamano?: string) {
+  @ApiPaginaDe(ProgramaEmbarazoResumenDto)
+  @ApiParametrosPagina()
+  altoRiesgo(
+    @Query('pagina') pagina?: string,
+    @Query('tamano') tamano?: string,
+  ): Promise<Pagina<ProgramaEmbarazoResumenDto>> {
     return this.servicio.listar({
       estado: 'ACTIVO',
       riesgo: 'ALTO',
@@ -42,7 +66,9 @@ export class EmbarazoController {
   }
 
   @Get(':id')
-  obtener(@Param('id') id: string) {
+  @ApiOperation({ summary: 'Seguimiento por su identificador' })
+  @ApiOkResponse({ type: ProgramaEmbarazoDto })
+  obtener(@Param('id') id: string): Promise<ProgramaEmbarazoDto> {
     return this.servicio.obtener(id);
   }
 
@@ -52,21 +78,25 @@ export class EmbarazoController {
     summary: 'Inscribe un embarazo',
     description: 'La FPP y la clasificacion de riesgo las calcula el sistema a partir de la FUM.',
   })
+  @ApiCreatedResponse({ type: EmbarazoInscritoDto })
   inscribir(
     @Body() dto: InscribirEmbarazoDto,
     @Usuario('id') usuarioId: string,
     @Headers('authorization') autorizacion: string,
     @Req() req: { trazaId?: string },
-  ) {
+  ): Promise<EmbarazoInscritoDto> {
     return this.servicio.inscribir(dto, usuarioId, autorizacion, req.trazaId);
   }
 
   @Get(':id/controles')
+  @ApiOperation({ summary: 'Controles prenatales, lo mas reciente primero' })
+  @ApiPaginaDe(ControlPrenatalDto)
+  @ApiParametrosPagina()
   listarControles(
     @Param('id') id: string,
     @Query('pagina') pagina?: string,
     @Query('tamano') tamano?: string,
-  ) {
+  ): Promise<Pagina<ControlPrenatalDto>> {
     return this.servicio.listarControles(id, { pagina: Number(pagina), tamano: Number(tamano) });
   }
 
@@ -77,19 +107,27 @@ export class EmbarazoController {
     description:
       'Las semanas de gestacion, las senales de alarma y la fecha del proximo control las calcula el sistema.',
   })
+  @ApiCreatedResponse({ type: ControlPrenatalDto })
   registrarControl(
     @Param('id') id: string,
     @Body() dto: RegistrarControlPrenatalDto,
     @Usuario('id') usuarioId: string,
     @Req() req: { trazaId?: string },
-  ) {
+  ): Promise<ControlPrenatalDto> {
     return this.servicio.registrarControl(id, dto, usuarioId, req.trazaId);
   }
 
   @Patch(':id/cierre')
   @Roles(Rol.MEDICO, Rol.ADMINISTRADOR)
   @ApiOperation({ summary: 'Cierra el seguimiento con su resultado' })
-  cerrar(@Param('id') id: string, @Body() dto: { resultado: string }) {
+  @ApiOkResponse({
+    type: ProgramaEmbarazoBaseDto,
+    description: 'Sin semanasGestacion: el seguimiento ya cerro, la cuenta dejo de correr.',
+  })
+  cerrar(
+    @Param('id') id: string,
+    @Body() dto: { resultado: string },
+  ): Promise<ProgramaEmbarazoBaseDto> {
     return this.servicio.cerrar(id, dto.resultado ?? 'OTRO');
   }
 }

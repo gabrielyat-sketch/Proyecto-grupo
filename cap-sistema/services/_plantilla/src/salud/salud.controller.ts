@@ -1,6 +1,6 @@
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Publico } from '@cap/shared';
+import { ApiOkResponse, ApiOperation, ApiServiceUnavailableResponse, ApiTags } from '@nestjs/swagger';
+import { Publico, SaludListoDto, SaludVivoDto } from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
@@ -23,14 +23,19 @@ export class SaludController {
   @Get()
   @Publico()
   @ApiOperation({ summary: 'El proceso esta vivo' })
-  vivo(): { estado: string; fecha: string } {
+  @ApiOkResponse({ type: SaludVivoDto })
+  vivo(): SaludVivoDto {
     return { estado: 'vivo', fecha: new Date().toISOString() };
   }
 
   @Get('listo')
   @Publico()
   @ApiOperation({ summary: 'El servicio y sus dependencias responden' })
-  async listo(): Promise<{ estado: string; baseDatos: string }> {
+  @ApiOkResponse({ type: SaludListoDto })
+  @ApiServiceUnavailableResponse({
+    description: 'La base de datos no responde. El gateway debe dejar de enviar trafico a esta instancia.',
+  })
+  async listo(): Promise<SaludListoDto> {
     const baseDatos = (await this.prisma.estaViva()) ? 'ok' : 'sin conexion';
     if (baseDatos !== 'ok') {
       throw new ServiceUnavailableException('La base de datos no responde.');

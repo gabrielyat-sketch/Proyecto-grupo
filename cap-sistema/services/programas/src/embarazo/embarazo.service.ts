@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { crearPagina, normalizarPagina, ServicioCifrado } from '@cap/shared';
+import { crearPagina, normalizarPagina, type Pagina, ServicioCifrado } from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { SERVICIO_CIFRADO } from '../comun/cifrado.module';
 import { CLIENTE_PACIENTES, IClientePacientes } from '../pacientes/cliente-pacientes';
@@ -20,6 +20,13 @@ import {
 } from '../dominio/clinico';
 import { InscribirEmbarazoDto } from './dto/inscribir.dto';
 import { RegistrarControlPrenatalDto } from './dto/registrar-control.dto';
+import {
+  ControlPrenatalDto,
+  EmbarazoInscritoDto,
+  ProgramaEmbarazoBaseDto,
+  ProgramaEmbarazoDto,
+  ProgramaEmbarazoResumenDto,
+} from './dto/respuestas.dto';
 
 /** Un embarazo no dura mas de esto; una FUM mas antigua es un error de captura. */
 const DIAS_MAXIMOS_DESDE_FUM = 320;
@@ -50,7 +57,7 @@ export class EmbarazoService {
     usuarioId: string,
     autorizacion: string,
     trazaId?: string,
-  ) {
+  ): Promise<EmbarazoInscritoDto> {
     const paciente = await this.pacientes.obtener(dto.pacienteId, autorizacion, trazaId);
 
     if (paciente.sexo !== 'F') {
@@ -125,7 +132,7 @@ export class EmbarazoService {
     comunidadId?: string;
     pagina?: number;
     tamano?: number;
-  }) {
+  }): Promise<Pagina<ProgramaEmbarazoResumenDto>> {
     const { tamano, saltar } = normalizarPagina(consulta);
     const where = {
       ...(consulta.estado ? { estado: consulta.estado as never } : {}),
@@ -171,7 +178,7 @@ export class EmbarazoService {
     );
   }
 
-  async obtener(id: string) {
+  async obtener(id: string): Promise<ProgramaEmbarazoDto> {
     const p = await this.prisma.programaEmbarazo.findUnique({ where: { id } });
     if (!p) throw new NotFoundException('No existe ese seguimiento de embarazo.');
     return { ...p, semanasGestacion: semanasHoy(p.fum) };
@@ -182,7 +189,7 @@ export class EmbarazoService {
     dto: RegistrarControlPrenatalDto,
     usuarioId: string,
     trazaId?: string,
-  ) {
+  ): Promise<ControlPrenatalDto> {
     const programa = await this.prisma.programaEmbarazo.findUnique({ where: { id: programaId } });
     if (!programa) throw new NotFoundException('No existe ese seguimiento de embarazo.');
     if (programa.estado !== 'ACTIVO') {
@@ -259,7 +266,10 @@ export class EmbarazoService {
     });
   }
 
-  async listarControles(programaId: string, consulta: { pagina?: number; tamano?: number }) {
+  async listarControles(
+    programaId: string,
+    consulta: { pagina?: number; tamano?: number },
+  ): Promise<Pagina<ControlPrenatalDto>> {
     await this.obtener(programaId);
     const { tamano, saltar } = normalizarPagina(consulta);
 
@@ -276,7 +286,11 @@ export class EmbarazoService {
     return crearPagina(datos.map((c) => this.descifrar(c)), total, consulta);
   }
 
-  async cerrar(id: string, resultado: string, fechaCierre?: Date) {
+  async cerrar(
+    id: string,
+    resultado: string,
+    fechaCierre?: Date,
+  ): Promise<ProgramaEmbarazoBaseDto> {
     const p = await this.prisma.programaEmbarazo.findUnique({ where: { id } });
     if (!p) throw new NotFoundException('No existe ese seguimiento de embarazo.');
     if (p.estado !== 'ACTIVO') throw new BadRequestException('Ese seguimiento ya fue cerrado.');
@@ -291,12 +305,40 @@ export class EmbarazoService {
     });
   }
 
-  private descifrar(c: { observacionesCifrado: Uint8Array | null; [k: string]: unknown }) {
-    const { observacionesCifrado, ...resto } = c;
+  /** Igual que en hipertension: tipo de salida concreto, no un indice abierto. */
+  private descifrar(c: {
+    id: string;
+    programaId: string;
+    fecha: Date;
+    semanasGestacion: number;
+    pesoKg: unknown;
+    sistolica: number | null;
+    diastolica: number | null;
+    alturaUterinaCm: unknown;
+    fcf: number | null;
+    edema: boolean | null;
+    observacionesCifrado: Uint8Array | null;
+    alertas: string[];
+    proximoControl: Date | null;
+    registradoPor: string;
+  }): ControlPrenatalDto {
+    const decimal = (v: unknown) => (v === null || v === undefined ? null : String(v));
     return {
-      ...resto,
-      observaciones: observacionesCifrado
-        ? this.cifrado.descifrar(Buffer.from(observacionesCifrado))
+      id: c.id,
+      programaId: c.programaId,
+      fecha: c.fecha,
+      semanasGestacion: c.semanasGestacion,
+      pesoKg: decimal(c.pesoKg),
+      sistolica: c.sistolica,
+      diastolica: c.diastolica,
+      alturaUterinaCm: decimal(c.alturaUterinaCm),
+      fcf: c.fcf,
+      edema: c.edema,
+      alertas: c.alertas,
+      proximoControl: c.proximoControl,
+      registradoPor: c.registradoPor,
+      observaciones: c.observacionesCifrado
+        ? this.cifrado.descifrar(Buffer.from(c.observacionesCifrado))
         : null,
     };
   }

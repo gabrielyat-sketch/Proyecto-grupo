@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { crearPagina, normalizarPagina, ServicioCifrado } from '@cap/shared';
+import { crearPagina, normalizarPagina, type Pagina, ServicioCifrado } from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { SERVICIO_CIFRADO } from '../comun/cifrado.module';
 import { CLIENTE_PACIENTES, IClientePacientes } from '../pacientes/cliente-pacientes';
@@ -18,6 +18,12 @@ import {
 } from '../dominio/clinico';
 import { InscribirHipertensionDto } from './dto/inscribir.dto';
 import { RegistrarControlHipertensionDto } from './dto/registrar-control.dto';
+import {
+  ControlHipertensionDto,
+  HipertensoAtrasadoDto,
+  ProgramaHipertensionDto,
+  ProgramaHipertensionResumenDto,
+} from './dto/respuestas.dto';
 
 @Injectable()
 export class HipertensionService {
@@ -33,7 +39,7 @@ export class HipertensionService {
     usuarioId: string,
     autorizacion: string,
     trazaId?: string,
-  ) {
+  ): Promise<ProgramaHipertensionDto> {
     const paciente = await this.pacientes.obtener(dto.pacienteId, autorizacion, trazaId);
 
     // Un paciente no puede estar dos veces ACTIVO en el mismo programa. Si
@@ -78,7 +84,12 @@ export class HipertensionService {
     });
   }
 
-  async listar(consulta: { estado?: string; comunidadId?: string; pagina?: number; tamano?: number }) {
+  async listar(consulta: {
+    estado?: string;
+    comunidadId?: string;
+    pagina?: number;
+    tamano?: number;
+  }): Promise<Pagina<ProgramaHipertensionResumenDto>> {
     const { tamano, saltar } = normalizarPagina(consulta);
     const where = {
       ...(consulta.estado ? { estado: consulta.estado as never } : {}),
@@ -125,7 +136,7 @@ export class HipertensionService {
     );
   }
 
-  async obtener(id: string) {
+  async obtener(id: string): Promise<ProgramaHipertensionDto> {
     const p = await this.prisma.programaHipertension.findUnique({ where: { id } });
     if (!p) throw new NotFoundException('No existe esa inscripcion.');
     return p;
@@ -136,7 +147,7 @@ export class HipertensionService {
     dto: RegistrarControlHipertensionDto,
     usuarioId: string,
     trazaId?: string,
-  ) {
+  ): Promise<ControlHipertensionDto> {
     const programa = await this.obtener(programaId);
     if (programa.estado !== 'ACTIVO') {
       throw new BadRequestException(
@@ -202,7 +213,10 @@ export class HipertensionService {
     });
   }
 
-  async listarControles(programaId: string, consulta: { pagina?: number; tamano?: number }) {
+  async listarControles(
+    programaId: string,
+    consulta: { pagina?: number; tamano?: number },
+  ): Promise<Pagina<ControlHipertensionDto>> {
     await this.obtener(programaId);
     const { tamano, saltar } = normalizarPagina(consulta);
 
@@ -219,7 +233,11 @@ export class HipertensionService {
     return crearPagina(datos.map((c) => this.descifrar(c)), total, consulta);
   }
 
-  async egresar(id: string, motivo: string, estado: 'EGRESADO' | 'ABANDONO' | 'FALLECIDO' | 'TRASLADADO') {
+  async egresar(
+    id: string,
+    motivo: string,
+    estado: 'EGRESADO' | 'ABANDONO' | 'FALLECIDO' | 'TRASLADADO',
+  ): Promise<ProgramaHipertensionDto> {
     const p = await this.obtener(id);
     if (p.estado !== 'ACTIVO') {
       throw new BadRequestException('Esa inscripcion ya no esta activa.');
@@ -237,7 +255,9 @@ export class HipertensionService {
    * esperado. Se resuelve con una consulta y no recorriendo programas en
    * memoria.
    */
-  async atrasados(consulta: { pagina?: number; tamano?: number }) {
+  async atrasados(
+    consulta: { pagina?: number; tamano?: number },
+  ): Promise<Pagina<HipertensoAtrasadoDto>> {
     const { tamano, saltar } = normalizarPagina(consulta);
     const hoy = new Date();
 
@@ -289,12 +309,42 @@ export class HipertensionService {
     );
   }
 
-  private descifrar(c: { observacionesCifrado: Uint8Array | null; [k: string]: unknown }) {
-    const { observacionesCifrado, ...resto } = c;
+  /**
+   * Devuelve el control con las observaciones descifradas.
+   *
+   * Antes hacia `...resto` sobre un tipo con indice abierto, asi que el tipo de
+   * salida era practicamente `unknown` y el contrato no podia describirlo.
+   */
+  private descifrar(c: {
+    id: string;
+    programaId: string;
+    fecha: Date;
+    sistolica: number;
+    diastolica: number;
+    clasificacion: string;
+    enMeta: boolean;
+    pesoKg: unknown;
+    adherencia: boolean | null;
+    observacionesCifrado: Uint8Array | null;
+    proximoControl: Date | null;
+    registradoPor: string;
+  }): ControlHipertensionDto {
     return {
-      ...resto,
-      observaciones: observacionesCifrado
-        ? this.cifrado.descifrar(Buffer.from(observacionesCifrado))
+      id: c.id,
+      programaId: c.programaId,
+      fecha: c.fecha,
+      sistolica: c.sistolica,
+      diastolica: c.diastolica,
+      clasificacion: c.clasificacion,
+      enMeta: c.enMeta,
+      // Decimal de Prisma: JSON.stringify ya lo convertia a texto. Hacerlo
+      // explicito no cambia la respuesta, hace que el tipo declarado sea cierto.
+      pesoKg: c.pesoKg === null || c.pesoKg === undefined ? null : String(c.pesoKg),
+      adherencia: c.adherencia,
+      proximoControl: c.proximoControl,
+      registradoPor: c.registradoPor,
+      observaciones: c.observacionesCifrado
+        ? this.cifrado.descifrar(Buffer.from(c.observacionesCifrado))
         : null,
     };
   }

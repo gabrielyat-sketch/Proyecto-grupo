@@ -7,6 +7,16 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaludVivoDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       summary: El proceso esta vivo
       tags: &a1
         - salud
@@ -17,6 +27,19 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaludListoDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "503":
+          description: La base de datos no responde. El gateway debe dejar de enviar
+            trafico a esta instancia.
       summary: El servicio y sus dependencias responden
       tags: *a1
   /v1/auth/login:
@@ -33,7 +56,25 @@ paths:
               $ref: "#/components/schemas/LoginDto"
       responses:
         "200":
-          description: ""
+          description: Sesion abierta, o segundo factor pendiente.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/SesionAbiertaDto"
+                  - $ref: "#/components/schemas/MfaRequeridoDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       summary: Inicia sesion
       tags: &a2
         - autenticacion
@@ -50,6 +91,22 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SesionAbiertaDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       summary: Completa el login con el codigo de segundo factor
       tags: *a2
   /v1/auth/refrescar:
@@ -65,6 +122,22 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefrescoDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       summary: Rota el token de refresco y emite uno de acceso nuevo
       tags: *a2
   /v1/auth/cerrar-sesion:
@@ -79,8 +152,94 @@ paths:
               $ref: "#/components/schemas/RefrescarDto"
       responses:
         "204":
-          description: ""
+          description: Sesion revocada.
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       summary: Revoca la sesion indicada
+      tags: *a2
+  /v1/auth/mfa/configurar-inicial:
+    post:
+      description: "Para cuentas cuyo rol exige MFA y que aun no lo configuraron. Se
+        autoriza con el token parcial del login, no con un token de acceso: sin
+        esto la cuenta inicial del sistema no podria entrar nunca. Devuelve el
+        QR, el secreto y los codigos de respaldo. El segundo factor queda
+        INACTIVO hasta confirmarlo en mfa/activar-inicial."
+      operationId: AutenticacionController_configurarMfaInicial
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfigurarMfaInicialDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfiguracionMfaDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "409":
+          description: La cuenta ya tiene el segundo factor configurado. Use mfa/verificar.
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      summary: Configura el segundo factor por primera vez, sin sesion previa
+      tags: *a2
+  /v1/auth/mfa/activar-inicial:
+    post:
+      description: "Devuelve los tokens directamente: a estas alturas la persona ya
+        demostro contrasena correcta y control de su aplicacion de
+        autenticacion."
+      operationId: AutenticacionController_activarMfaInicial
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerificarMfaDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SesionAbiertaDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "409":
+          description: La cuenta ya tiene el segundo factor configurado. Use mfa/verificar.
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      summary: Confirma la primera configuracion y abre la sesion
       tags: *a2
   /v1/auth/yo:
     get:
@@ -89,6 +248,28 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PerfilPropioDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security:
         - bearer: []
       summary: Perfil del usuario autenticado
@@ -105,7 +286,31 @@ paths:
               $ref: "#/components/schemas/CambiarContrasenaDto"
       responses:
         "204":
-          description: ""
+          description: Contrasena actualizada.
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security:
         - bearer: []
       summary: Cambia la propia contrasena
@@ -118,6 +323,28 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfiguracionMfaDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security:
         - bearer: []
       summary: Genera el secreto TOTP y los codigos de respaldo
@@ -128,7 +355,25 @@ paths:
       parameters: []
       responses:
         "204":
-          description: ""
+          description: Segundo factor activado.
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security:
         - bearer: []
       summary: Confirma con un codigo real y activa el segundo factor
@@ -170,7 +415,44 @@ paths:
             type: string
       responses:
         "200":
-          description: ""
+          description: Listado paginado.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginaDto"
+                  - type: object
+                    required:
+                      - datos
+                    properties:
+                      datos:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/CuentaDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: &a3
         - bearer: []
       summary: Lista paginada de cuentas
@@ -190,6 +472,34 @@ paths:
       responses:
         "201":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CuentaCreadaDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a3
       summary: Crea una cuenta
       tags: *a4
@@ -205,7 +515,42 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CuentaDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a3
+      summary: Obtiene una cuenta por su identificador
       tags: *a4
     patch:
       operationId: UsuariosController_actualizar
@@ -224,6 +569,40 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CuentaDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a3
       summary: Actualiza datos, rol o estado de una cuenta
       tags: *a4
@@ -239,6 +618,40 @@ paths:
       responses:
         "201":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContrasenaRestablecidaDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a3
       summary: Genera una contrasena temporal nueva y cierra las sesiones
       tags: *a4
@@ -263,6 +676,108 @@ components:
       bearerFormat: JWT
       type: http
   schemas:
+    SaludVivoDto:
+      type: object
+      properties:
+        estado:
+          type: string
+          enum:
+            - vivo
+          example: vivo
+        fecha:
+          type: string
+          format: date-time
+      required:
+        - estado
+        - fecha
+    SaludListoDto:
+      type: object
+      properties:
+        estado:
+          type: string
+          enum:
+            - listo
+          example: listo
+        baseDatos:
+          type: string
+          description: "'ok' cuando la base responde. Si no, el endpoint devuelve 503 en
+            vez de este cuerpo."
+          example: ok
+      required:
+        - estado
+        - baseDatos
+    Rol:
+      type: string
+      enum:
+        - ADMINISTRADOR
+        - DIRECTOR
+        - MEDICO
+        - ENFERMERIA
+        - FARMACIA
+        - RECEPCION
+    PerfilDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        usuario:
+          type: string
+          description: Nombre de usuario, siempre en minusculas.
+          example: jlopez
+        rol:
+          allOf:
+            - $ref: "#/components/schemas/Rol"
+        debeCambiarContrasena:
+          type: boolean
+          description: Si es true, el panel debe obligar al cambio antes de dejar trabajar.
+          example: false
+      required:
+        - id
+        - usuario
+        - rol
+        - debeCambiarContrasena
+    SesionAbiertaDto:
+      type: object
+      properties:
+        mfaRequerido:
+          type: boolean
+          enum:
+            - false
+          description: "Discriminante: false significa que ya hay sesion."
+        tokenAcceso:
+          type: string
+          description: JWT de acceso. Vida corta; se renueva con el token de refresco.
+        tokenRefresco:
+          type: string
+          description: Token de refresco rotatorio. Reutilizarlo revoca toda la sesion.
+        usuario:
+          $ref: "#/components/schemas/PerfilDto"
+      required:
+        - mfaRequerido
+        - tokenAcceso
+        - tokenRefresco
+        - usuario
+    MfaRequeridoDto:
+      type: object
+      properties:
+        mfaRequerido:
+          type: boolean
+          enum:
+            - true
+          description: "Discriminante: true significa que falta el segundo factor."
+        configuracionPendiente:
+          type: boolean
+          description: true cuando la cuenta aun no ha configurado el TOTP y debe hacerlo
+            ahora.
+        tokenParcial:
+          type: string
+          description: Token de un solo uso para completar el login. No es un token de
+            acceso.
+      required:
+        - mfaRequerido
+        - configuracionPendiente
+        - tokenParcial
     LoginDto:
       type: object
       properties:
@@ -295,6 +810,73 @@ components:
           type: string
       required:
         - tokenRefresco
+    RefrescoDto:
+      type: object
+      properties:
+        tokenAcceso:
+          type: string
+        tokenRefresco:
+          type: string
+        usuario:
+          $ref: "#/components/schemas/PerfilDto"
+      required:
+        - tokenAcceso
+        - tokenRefresco
+        - usuario
+    ConfigurarMfaInicialDto:
+      type: object
+      properties:
+        tokenParcial:
+          type: string
+          description: Token parcial devuelto por el login
+      required:
+        - tokenParcial
+    ConfiguracionMfaDto:
+      type: object
+      properties:
+        uri:
+          type: string
+          description: URI otpauth. El panel la convierte en codigo QR para la app de
+            autenticacion.
+          example: otpauth://totp/CAP%20Purulha:jlopez?secret=...
+        secreto:
+          type: string
+          description: El mismo secreto en texto, por si hay que escribirlo a mano.
+        codigosRespaldo:
+          description: Codigos de un solo uso. Es la UNICA vez que se muestran en claro.
+          type: array
+          items:
+            type: string
+      required:
+        - uri
+        - secreto
+        - codigosRespaldo
+    PerfilPropioDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        usuario:
+          type: string
+          description: Nombre de usuario, siempre en minusculas.
+          example: jlopez
+        rol:
+          allOf:
+            - $ref: "#/components/schemas/Rol"
+        debeCambiarContrasena:
+          type: boolean
+          description: Si es true, el panel debe obligar al cambio antes de dejar trabajar.
+          example: false
+        mfaActivo:
+          type: boolean
+          description: Segundo factor ya confirmado y en uso.
+      required:
+        - id
+        - usuario
+        - rol
+        - debeCambiarContrasena
+        - mfaActivo
     CambiarContrasenaDto:
       type: object
       properties:
@@ -306,6 +888,73 @@ components:
       required:
         - contrasenaActual
         - contrasenaNueva
+    PaginaDto:
+      type: object
+      properties:
+        pagina:
+          type: number
+          description: Pagina devuelta, empezando en 1.
+          example: 1
+        tamano:
+          type: number
+          description: Registros por pagina. El servidor recorta cualquier valor mayor al
+            maximo.
+          maximum: 100
+          example: 25
+        total:
+          type: number
+          description: Total de registros que cumplen el filtro.
+          example: 137
+        totalPaginas:
+          type: number
+          description: Total de paginas. Nunca es menor que 1.
+          example: 6
+      required:
+        - pagina
+        - tamano
+        - total
+        - totalPaginas
+    CuentaDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        usuario:
+          type: string
+          example: jlopez
+        nombres:
+          type: string
+          example: Juana
+        apellidos:
+          type: string
+          example: Lopez Chub
+        rol:
+          allOf:
+            - $ref: "#/components/schemas/Rol"
+        activo:
+          type: boolean
+          description: Una cuenta desactivada no puede iniciar sesion.
+        debeCambiarContrasena:
+          type: boolean
+        ultimoAcceso:
+          type: string
+          format: date-time
+          nullable: true
+          description: null si la cuenta nunca ha entrado.
+        creadoEn:
+          format: date-time
+          type: string
+      required:
+        - id
+        - usuario
+        - nombres
+        - apellidos
+        - rol
+        - activo
+        - debeCambiarContrasena
+        - ultimoAcceso
+        - creadoEn
     CrearUsuarioDto:
       type: object
       properties:
@@ -332,6 +981,51 @@ components:
         - nombres
         - apellidos
         - rol
+    CuentaCreadaDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        usuario:
+          type: string
+          example: jlopez
+        nombres:
+          type: string
+          example: Juana
+        apellidos:
+          type: string
+          example: Lopez Chub
+        rol:
+          allOf:
+            - $ref: "#/components/schemas/Rol"
+        activo:
+          type: boolean
+          description: Una cuenta desactivada no puede iniciar sesion.
+        debeCambiarContrasena:
+          type: boolean
+        ultimoAcceso:
+          type: string
+          format: date-time
+          nullable: true
+          description: null si la cuenta nunca ha entrado.
+        creadoEn:
+          format: date-time
+          type: string
+        contrasenaTemporal:
+          type: string
+          description: Anotela y entreguela a la persona. No se puede volver a consultar.
+      required:
+        - id
+        - usuario
+        - nombres
+        - apellidos
+        - rol
+        - activo
+        - debeCambiarContrasena
+        - ultimoAcceso
+        - creadoEn
+        - contrasenaTemporal
     ActualizarUsuarioDto:
       type: object
       properties:
@@ -350,3 +1044,60 @@ components:
             - RECEPCION
         activo:
           type: boolean
+    ContrasenaRestablecidaDto:
+      type: object
+      properties:
+        usuario:
+          type: string
+          description: Nombre de usuario al que corresponde la contrasena nueva.
+        contrasenaTemporal:
+          type: string
+          description: "Temporal: la persona debera cambiarla al entrar."
+      required:
+        - usuario
+        - contrasenaTemporal
+    RespuestaErrorDto:
+      type: object
+      properties:
+        codigo:
+          type: string
+          description: Codigo estable. El cliente decide que hacer segun este valor, no
+            segun el mensaje.
+          enum:
+            - VALIDACION
+            - NO_AUTENTICADO
+            - SIN_PERMISO
+            - NO_ENCONTRADO
+            - CONFLICTO
+            - DEMASIADAS_PETICIONES
+            - ERROR_INTERNO
+          example: VALIDACION
+        mensaje:
+          type: string
+          description: Mensaje en espanol, apto para mostrarse tal cual al usuario.
+          example: La informacion enviada no es valida.
+        detalles:
+          description: Detalle por campo. Presente sobre todo en errores de validacion.
+          example:
+            - dpi debe tener 13 digitos
+          type: array
+          items:
+            type: string
+        trazaId:
+          type: string
+          description: Identificador de correlacion. Es lo que se busca en los logs para
+            esta peticion.
+          example: 7f3a1c2e-9b4d-4e21-8a55-0c1d2e3f4a5b
+        ruta:
+          type: string
+          example: /v1/pacientes
+        fecha:
+          type: string
+          format: date-time
+          example: 2026-08-26T15:04:05.000Z
+      required:
+        - codigo
+        - mensaje
+        - trazaId
+        - ruta
+        - fecha

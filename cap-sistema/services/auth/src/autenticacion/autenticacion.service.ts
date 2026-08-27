@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   HttpException,
   HttpStatus,
@@ -14,6 +15,13 @@ import { IntentosService } from '../intentos/intentos.service';
 import { MfaService } from '../mfa/mfa.service';
 import { LoginDto } from './dto/login.dto';
 import { CambiarContrasenaDto } from './dto/cambiar-contrasena.dto';
+import {
+  ConfiguracionMfaDto,
+  MfaRequeridoDto,
+  PerfilPropioDto,
+  RefrescoDto,
+  SesionAbiertaDto,
+} from './dto/respuestas.dto';
 
 /**
  * Hash de una contrasena que no existe. Se usa para gastar el mismo tiempo
@@ -34,7 +42,7 @@ export class AutenticacionService {
     private readonly mfa: MfaService,
   ) {}
 
-  async login(dto: LoginDto, datos: DatosSesion) {
+  async login(dto: LoginDto, datos: DatosSesion): Promise<SesionAbiertaDto | MfaRequeridoDto> {
     const nombreUsuario = dto.usuario.toLowerCase().trim();
     const usuario = await this.prisma.usuario.findUnique({ where: { usuario: nombreUsuario } });
 
@@ -80,7 +88,11 @@ export class AutenticacionService {
     return this.emitirSesion(usuario, datos, false);
   }
 
-  async verificarMfa(tokenParcial: string, codigo: string, datos: DatosSesion) {
+  async verificarMfa(
+    tokenParcial: string,
+    codigo: string,
+    datos: DatosSesion,
+  ): Promise<SesionAbiertaDto> {
     const usuarioId = this.tokens.verificarParcialMfa(tokenParcial);
 
     const usuario = await this.prisma.usuario.findUnique({ where: { id: usuarioId } });
@@ -97,7 +109,7 @@ export class AutenticacionService {
     return this.emitirSesion(usuario, datos, true);
   }
 
-  async refrescar(tokenRefresco: string, datos: DatosSesion) {
+  async refrescar(tokenRefresco: string, datos: DatosSesion): Promise<RefrescoDto> {
     const r = await this.tokens.rotar(tokenRefresco, datos);
     return {
       tokenAcceso: r.tokenAcceso,
@@ -137,7 +149,71 @@ export class AutenticacionService {
     this.logger.log({ usuarioId, cerradas }, 'Contrasena cambiada');
   }
 
-  async perfilDe(usuarioId: string) {
+  /**
+   * Primera configuracion del segundo factor, SIN sesion previa.
+   *
+   * Una cuenta con rol administrativo que nunca configuro el TOTP quedaba
+   * atrapada: su rol le exige el segundo factor, pero /v1/auth/mfa/configurar
+   * pide un token de acceso, y ese token solo se obtiene pasando el segundo
+   * factor que aun no existe. La cuenta inicial del sistema —creada por el
+   * seed con rol ADMINISTRADOR— no podia entrar nunca.
+   *
+   * Se valida con el token parcial, que solo se emite tras una contrasena
+   * correcta, y unicamente mientras el MFA NO este activo. Con el MFA ya
+   * activo devuelve 409: asi nadie puede usarlo para regenerarle el segundo
+   * factor a otra persona.
+   */
+  async configurarMfaInicial(tokenParcial: string): Promise<ConfiguracionMfaDto> {
+    const usuario = await this.cuentaDeTokenParcial(tokenParcial);
+
+    if (await this.mfa.estaActivo(usuario.id)) {
+      throw new ConflictException({
+        mensaje: 'Esta cuenta ya tiene el segundo factor configurado.',
+        detalles: ['use:/v1/auth/mfa/verificar'],
+      });
+    }
+
+    return this.mfa.iniciarConfiguracion(usuario.id, usuario.usuario);
+  }
+
+  /**
+   * Confirma la primera configuracion con un codigo real y deja la sesion
+   * abierta.
+   *
+   * Devuelve la sesion directamente porque a estas alturas la persona ya
+   * demostro las dos cosas: contrasena correcta y control de la aplicacion de
+   * autenticacion. Obligarla a iniciar sesion otra vez no agrega seguridad.
+   */
+  async activarMfaInicial(
+    tokenParcial: string,
+    codigo: string,
+    datos: DatosSesion,
+  ): Promise<SesionAbiertaDto> {
+    const usuario = await this.cuentaDeTokenParcial(tokenParcial);
+
+    if (await this.mfa.estaActivo(usuario.id)) {
+      throw new ConflictException({
+        mensaje: 'Esta cuenta ya tiene el segundo factor configurado.',
+        detalles: ['use:/v1/auth/mfa/verificar'],
+      });
+    }
+
+    // Lanza si el codigo no es valido: la activacion no ocurre.
+    await this.mfa.activar(usuario.id, codigo);
+
+    return this.emitirSesion(usuario, datos, true);
+  }
+
+  private async cuentaDeTokenParcial(tokenParcial: string) {
+    const usuarioId = this.tokens.verificarParcialMfa(tokenParcial);
+    const usuario = await this.prisma.usuario.findUnique({ where: { id: usuarioId } });
+    if (!usuario || !usuario.activo) {
+      throw new UnauthorizedException('La cuenta no esta disponible.');
+    }
+    return usuario;
+  }
+
+  async perfilDe(usuarioId: string): Promise<PerfilPropioDto> {
     const usuario = await this.prisma.usuario.findUnique({ where: { id: usuarioId } });
     if (!usuario) throw new UnauthorizedException('La cuenta no esta disponible.');
     return {
@@ -150,7 +226,7 @@ export class AutenticacionService {
     usuario: { id: string; usuario: string; rol: string; debeCambiarContrasena: boolean },
     datos: DatosSesion,
     mfaVerificado: boolean,
-  ) {
+  ): Promise<SesionAbiertaDto> {
     const { token, sesion } = await this.tokens.crearSesion(usuario.id, datos);
 
     const tokenAcceso = this.tokens.emitirAcceso(

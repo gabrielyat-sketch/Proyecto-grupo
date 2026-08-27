@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EstadoDigitalizacion } from '../../prisma/generado';
+import { ConteoPorEstadoDto } from './dto/respuestas.dto';
 
 @Injectable()
 export class DigitalizacionService {
@@ -19,7 +20,7 @@ export class DigitalizacionService {
       _count: { _all: true },
     });
 
-    const conteo: Record<string, number> = {
+    const conteo: ConteoPorEstadoDto = {
       PENDIENTE: 0,
       EN_PROCESO: 0,
       COMPLETO: 0,

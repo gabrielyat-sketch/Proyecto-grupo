@@ -7,6 +7,16 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaludVivoDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       summary: El proceso esta vivo
       tags: &a1
         - salud
@@ -17,6 +27,19 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaludListoDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "503":
+          description: La base de datos no responde. El gateway debe dejar de enviar
+            trafico a esta instancia.
       summary: El servicio y sus dependencias responden
       tags: *a1
   /v1/programas/hipertension:
@@ -24,28 +47,76 @@ paths:
       operationId: HipertensionController_listar
       parameters:
         - name: estado
-          required: true
+          required: false
           in: query
           schema:
+            enum:
+              - ACTIVO
+              - EGRESADO
+              - ABANDONO
+              - FALLECIDO
+              - TRASLADADO
             type: string
         - name: comunidadId
-          required: true
+          required: false
           in: query
           schema:
+            format: uuid
             type: string
         - name: pagina
-          required: true
+          required: false
           in: query
+          description: Empieza en 1. Por defecto 1.
           schema:
-            type: string
+            example: 1
+            type: number
         - name: tamano
-          required: true
+          required: false
           in: query
+          description: Por defecto 25. El servidor recorta cualquier valor mayor a 100.
           schema:
-            type: string
+            example: 25
+            type: number
       responses:
         "200":
-          description: ""
+          description: "El ultimo control viene incrustado: evita el N+1 de esta pantalla."
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginaDto"
+                  - type: object
+                    required:
+                      - datos
+                    properties:
+                      datos:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ProgramaHipertensionResumenDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: &a2
         - bearer: []
       summary: Inscripciones, con su ultimo control
@@ -68,6 +139,34 @@ paths:
       responses:
         "201":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramaHipertensionDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a2
       summary: Inscribe a un paciente en el programa
       tags: *a3
@@ -76,18 +175,59 @@ paths:
       operationId: HipertensionController_atrasados
       parameters:
         - name: pagina
-          required: true
+          required: false
           in: query
+          description: Empieza en 1. Por defecto 1.
           schema:
-            type: string
+            example: 1
+            type: number
         - name: tamano
-          required: true
+          required: false
           in: query
+          description: Por defecto 25. El servidor recorta cualquier valor mayor a 100.
           schema:
-            type: string
+            example: 25
+            type: number
       responses:
         "200":
-          description: ""
+          description: Ordenados del mas atrasado al menos.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginaDto"
+                  - type: object
+                    required:
+                      - datos
+                    properties:
+                      datos:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/HipertensoAtrasadoDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a2
       summary: Pacientes que ya pasaron su fecha de proximo control
       tags: *a3
@@ -103,7 +243,42 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramaHipertensionDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a2
+      summary: Inscripcion por su identificador
       tags: *a3
   /v1/programas/hipertension/{id}/controles:
     get:
@@ -115,19 +290,67 @@ paths:
           schema:
             type: string
         - name: pagina
-          required: true
+          required: false
           in: query
+          description: Empieza en 1. Por defecto 1.
           schema:
-            type: string
+            example: 1
+            type: number
         - name: tamano
-          required: true
+          required: false
           in: query
+          description: Por defecto 25. El servidor recorta cualquier valor mayor a 100.
           schema:
-            type: string
+            example: 25
+            type: number
       responses:
         "200":
-          description: ""
+          description: Listado paginado.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginaDto"
+                  - type: object
+                    required:
+                      - datos
+                    properties:
+                      datos:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ControlHipertensionDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a2
+      summary: Controles del programa, lo mas reciente primero
       tags: *a3
     post:
       description: La clasificacion y la fecha del proximo control las calcula el
@@ -148,6 +371,40 @@ paths:
       responses:
         "201":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControlHipertensionDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a2
       summary: Registra un control
       tags: *a3
@@ -163,6 +420,40 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramaHipertensionDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a2
       summary: Cierra la inscripcion en el programa
       tags: *a3
@@ -171,33 +462,84 @@ paths:
       operationId: EmbarazoController_listar
       parameters:
         - name: estado
-          required: true
+          required: false
           in: query
           schema:
+            enum:
+              - ACTIVO
+              - EGRESADO
+              - ABANDONO
+              - FALLECIDO
+              - TRASLADADO
             type: string
         - name: riesgo
-          required: true
+          required: false
           in: query
           schema:
+            enum:
+              - BAJO
+              - ALTO
             type: string
         - name: comunidadId
-          required: true
+          required: false
           in: query
           schema:
+            format: uuid
             type: string
         - name: pagina
-          required: true
+          required: false
           in: query
+          description: Empieza en 1. Por defecto 1.
           schema:
-            type: string
+            example: 1
+            type: number
         - name: tamano
-          required: true
+          required: false
           in: query
+          description: Por defecto 25. El servidor recorta cualquier valor mayor a 100.
           schema:
-            type: string
+            example: 25
+            type: number
       responses:
         "200":
-          description: ""
+          description: Listado paginado.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginaDto"
+                  - type: object
+                    required:
+                      - datos
+                    properties:
+                      datos:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ProgramaEmbarazoResumenDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: &a4
         - bearer: []
       summary: Seguimientos, ordenados por fecha probable de parto
@@ -222,6 +564,34 @@ paths:
       responses:
         "201":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmbarazoInscritoDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a4
       summary: Inscribe un embarazo
       tags: *a5
@@ -230,18 +600,59 @@ paths:
       operationId: EmbarazoController_altoRiesgo
       parameters:
         - name: pagina
-          required: true
+          required: false
           in: query
+          description: Empieza en 1. Por defecto 1.
           schema:
-            type: string
+            example: 1
+            type: number
         - name: tamano
-          required: true
+          required: false
           in: query
+          description: Por defecto 25. El servidor recorta cualquier valor mayor a 100.
           schema:
-            type: string
+            example: 25
+            type: number
       responses:
         "200":
-          description: ""
+          description: Listado paginado.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginaDto"
+                  - type: object
+                    required:
+                      - datos
+                    properties:
+                      datos:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ProgramaEmbarazoResumenDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a4
       summary: Embarazos activos clasificados como de alto riesgo
       tags: *a5
@@ -257,7 +668,42 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramaEmbarazoDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a4
+      summary: Seguimiento por su identificador
       tags: *a5
   /v1/programas/embarazo/{id}/controles:
     get:
@@ -269,19 +715,67 @@ paths:
           schema:
             type: string
         - name: pagina
-          required: true
+          required: false
           in: query
+          description: Empieza en 1. Por defecto 1.
           schema:
-            type: string
+            example: 1
+            type: number
         - name: tamano
-          required: true
+          required: false
           in: query
+          description: Por defecto 25. El servidor recorta cualquier valor mayor a 100.
           schema:
-            type: string
+            example: 25
+            type: number
       responses:
         "200":
-          description: ""
+          description: Listado paginado.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginaDto"
+                  - type: object
+                    required:
+                      - datos
+                    properties:
+                      datos:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ControlPrenatalDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a4
+      summary: Controles prenatales, lo mas reciente primero
       tags: *a5
     post:
       description: Las semanas de gestacion, las senales de alarma y la fecha del
@@ -302,6 +796,40 @@ paths:
       responses:
         "201":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControlPrenatalDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a4
       summary: Registra un control prenatal
       tags: *a5
@@ -316,7 +844,42 @@ paths:
             type: string
       responses:
         "200":
-          description: ""
+          description: "Sin semanasGestacion: el seguimiento ya cerro, la cuenta dejo de
+            correr."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramaEmbarazoBaseDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a4
       summary: Cierra el seguimiento con su resultado
       tags: *a5
@@ -341,6 +904,217 @@ components:
       bearerFormat: JWT
       type: http
   schemas:
+    SaludVivoDto:
+      type: object
+      properties:
+        estado:
+          type: string
+          enum:
+            - vivo
+          example: vivo
+        fecha:
+          type: string
+          format: date-time
+      required:
+        - estado
+        - fecha
+    SaludListoDto:
+      type: object
+      properties:
+        estado:
+          type: string
+          enum:
+            - listo
+          example: listo
+        baseDatos:
+          type: string
+          description: "'ok' cuando la base responde. Si no, el endpoint devuelve 503 en
+            vez de este cuerpo."
+          example: ok
+      required:
+        - estado
+        - baseDatos
+    PaginaDto:
+      type: object
+      properties:
+        pagina:
+          type: number
+          description: Pagina devuelta, empezando en 1.
+          example: 1
+        tamano:
+          type: number
+          description: Registros por pagina. El servidor recorta cualquier valor mayor al
+            maximo.
+          maximum: 100
+          example: 25
+        total:
+          type: number
+          description: Total de registros que cumplen el filtro.
+          example: 137
+        totalPaginas:
+          type: number
+          description: Total de paginas. Nunca es menor que 1.
+          example: 6
+      required:
+        - pagina
+        - tamano
+        - total
+        - totalPaginas
+    UltimoControlHipertensionDto:
+      type: object
+      properties:
+        fecha:
+          format: date-time
+          type: string
+        sistolica:
+          type: number
+          example: 148
+        diastolica:
+          type: number
+          example: 94
+        clasificacion:
+          type: string
+          enum: &a7
+            - NORMAL
+            - ELEVADA
+            - ESTADIO_1
+            - ESTADIO_2
+            - CRISIS
+          description: Calculada a partir de las cifras, nunca tecleada.
+        enMeta:
+          type: boolean
+          description: true si la lectura alcanza la meta acordada.
+        proximoControl:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - fecha
+        - sistolica
+        - diastolica
+        - clasificacion
+        - enMeta
+        - proximoControl
+    ProgramaHipertensionResumenDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        pacienteId:
+          type: string
+          format: uuid
+        comunidadId:
+          type: string
+          format: uuid
+        fechaIngreso:
+          format: date-time
+          type: string
+        estado:
+          type: string
+          enum: &a6
+            - ACTIVO
+            - EGRESADO
+            - ABANDONO
+            - FALLECIDO
+            - TRASLADADO
+        metaSistolica:
+          type: number
+          example: 140
+        metaDiastolica:
+          type: number
+          example: 90
+        ultimoControl:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/UltimoControlHipertensionDto"
+      required:
+        - id
+        - pacienteId
+        - comunidadId
+        - fechaIngreso
+        - estado
+        - metaSistolica
+        - metaDiastolica
+        - ultimoControl
+    HipertensoAtrasadoDto:
+      type: object
+      properties:
+        programaId:
+          type: string
+          format: uuid
+        pacienteId:
+          type: string
+          format: uuid
+        comunidadId:
+          type: string
+          format: uuid
+        proximoControl:
+          format: date-time
+          type: string
+        diasDeAtraso:
+          type: number
+          description: Dias transcurridos desde la fecha en que debio venir.
+          example: 23
+      required:
+        - programaId
+        - pacienteId
+        - comunidadId
+        - proximoControl
+        - diasDeAtraso
+    ProgramaHipertensionDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        pacienteId:
+          type: string
+          format: uuid
+          description: Paciente del servicio usuarios. No es llave foranea.
+        comunidadId:
+          type: string
+          format: uuid
+        fechaIngreso:
+          format: date-time
+          type: string
+        estado:
+          type: string
+          enum: *a6
+        fechaEgreso:
+          type: string
+          format: date-time
+          nullable: true
+        motivoEgreso:
+          type: string
+          nullable: true
+          maxLength: 200
+        metaSistolica:
+          type: number
+          description: Meta acordada con el paciente, no un valor fijo del sistema.
+          example: 140
+        metaDiastolica:
+          type: number
+          example: 90
+        inscritoPor:
+          type: string
+          format: uuid
+        creadoEn:
+          format: date-time
+          type: string
+      required:
+        - id
+        - pacienteId
+        - comunidadId
+        - fechaIngreso
+        - estado
+        - fechaEgreso
+        - motivoEgreso
+        - metaSistolica
+        - metaDiastolica
+        - inscritoPor
+        - creadoEn
     InscribirHipertensionDto:
       type: object
       properties:
@@ -356,6 +1130,63 @@ components:
           default: 90
       required:
         - pacienteId
+    ControlHipertensionDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        programaId:
+          type: string
+          format: uuid
+        fecha:
+          format: date-time
+          type: string
+        sistolica:
+          type: number
+          example: 148
+        diastolica:
+          type: number
+          example: 94
+        clasificacion:
+          type: string
+          enum: *a7
+        enMeta:
+          type: boolean
+        pesoKg:
+          type: string
+          format: decimal
+          nullable: true
+          example: "72.50"
+        adherencia:
+          type: boolean
+          nullable: true
+          description: Si el paciente refiere tomar el tratamiento.
+        proximoControl:
+          type: string
+          format: date-time
+          nullable: true
+          description: Calculado segun la clasificacion.
+        registradoPor:
+          type: string
+          format: uuid
+        observaciones:
+          type: string
+          nullable: true
+          description: Descifradas. En la base son ilegibles.
+      required:
+        - id
+        - programaId
+        - fecha
+        - sistolica
+        - diastolica
+        - clasificacion
+        - enMeta
+        - pesoKg
+        - adherencia
+        - proximoControl
+        - registradoPor
+        - observaciones
     RegistrarControlHipertensionDto:
       type: object
       properties:
@@ -385,6 +1216,166 @@ components:
       required:
         - sistolica
         - diastolica
+    UltimoControlPrenatalDto:
+      type: object
+      properties:
+        fecha:
+          format: date-time
+          type: string
+        semanasGestacion:
+          type: number
+          example: 24
+        proximoControl:
+          type: string
+          format: date-time
+          nullable: true
+        alertas:
+          description: Senales de alarma detectadas por el sistema.
+          type: array
+          items:
+            type: string
+      required:
+        - fecha
+        - semanasGestacion
+        - proximoControl
+        - alertas
+    ProgramaEmbarazoResumenDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        pacienteId:
+          type: string
+          format: uuid
+        comunidadId:
+          type: string
+          format: uuid
+        fum:
+          format: date-time
+          type: string
+        fpp:
+          format: date-time
+          type: string
+        riesgo:
+          type: string
+          enum:
+            - BAJO
+            - ALTO
+        motivoRiesgo:
+          type: string
+          nullable: true
+        estado:
+          type: string
+          enum: &a8
+            - ACTIVO
+            - EGRESADO
+            - ABANDONO
+            - FALLECIDO
+            - TRASLADADO
+        numeroGestacion:
+          type: number
+          example: 3
+        semanasGestacion:
+          type: number
+          example: 24
+        ultimoControl:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/UltimoControlPrenatalDto"
+      required:
+        - id
+        - pacienteId
+        - comunidadId
+        - fum
+        - fpp
+        - riesgo
+        - motivoRiesgo
+        - estado
+        - numeroGestacion
+        - semanasGestacion
+        - ultimoControl
+    ProgramaEmbarazoDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        pacienteId:
+          type: string
+          format: uuid
+        comunidadId:
+          type: string
+          format: uuid
+        fum:
+          format: date-time
+          type: string
+          description: Fecha de ultima menstruacion.
+        fpp:
+          format: date-time
+          type: string
+          description: "Fecha probable de parto: FUM + 280 dias (regla de Naegele)."
+        numeroGestacion:
+          type: number
+          example: 3
+        partosPrevios:
+          type: number
+          example: 2
+        riesgo:
+          type: string
+          enum: &a9
+            - BAJO
+            - ALTO
+        motivoRiesgo:
+          type: string
+          nullable: true
+          maxLength: 300
+          description: Por que se clasifico como alto riesgo, para que el siguiente turno
+            sepa a que atenerse.
+        estado:
+          type: string
+          enum: *a8
+        resultado:
+          type: string
+          enum: &a10
+            - PARTO_NORMAL
+            - CESAREA
+            - ABORTO
+            - OBITO
+            - TRASLADO
+            - OTRO
+          nullable: true
+        fechaCierre:
+          type: string
+          format: date-time
+          nullable: true
+        inscritoPor:
+          type: string
+          format: uuid
+        creadoEn:
+          format: date-time
+          type: string
+        semanasGestacion:
+          type: number
+          description: Calculada al responder sobre el dia local, no almacenada.
+          example: 24
+      required:
+        - id
+        - pacienteId
+        - comunidadId
+        - fum
+        - fpp
+        - numeroGestacion
+        - partosPrevios
+        - riesgo
+        - motivoRiesgo
+        - estado
+        - resultado
+        - fechaCierre
+        - inscritoPor
+        - creadoEn
+        - semanasGestacion
     InscribirEmbarazoDto:
       type: object
       properties:
@@ -406,6 +1397,158 @@ components:
       required:
         - pacienteId
         - fum
+    EmbarazoInscritoDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        pacienteId:
+          type: string
+          format: uuid
+        comunidadId:
+          type: string
+          format: uuid
+        fum:
+          format: date-time
+          type: string
+          description: Fecha de ultima menstruacion.
+        fpp:
+          format: date-time
+          type: string
+          description: "Fecha probable de parto: FUM + 280 dias (regla de Naegele)."
+        numeroGestacion:
+          type: number
+          example: 3
+        partosPrevios:
+          type: number
+          example: 2
+        riesgo:
+          type: string
+          enum: *a9
+        motivoRiesgo:
+          type: string
+          nullable: true
+          maxLength: 300
+          description: Por que se clasifico como alto riesgo, para que el siguiente turno
+            sepa a que atenerse.
+        estado:
+          type: string
+          enum: *a8
+        resultado:
+          type: string
+          enum: *a10
+          nullable: true
+        fechaCierre:
+          type: string
+          format: date-time
+          nullable: true
+        inscritoPor:
+          type: string
+          format: uuid
+        creadoEn:
+          format: date-time
+          type: string
+        semanasGestacion:
+          type: number
+          description: Calculada al responder sobre el dia local, no almacenada.
+          example: 24
+        motivosRiesgo:
+          description: Vacio cuando el riesgo es bajo.
+          example:
+            - Edad menor de 18 anios
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - pacienteId
+        - comunidadId
+        - fum
+        - fpp
+        - numeroGestacion
+        - partosPrevios
+        - riesgo
+        - motivoRiesgo
+        - estado
+        - resultado
+        - fechaCierre
+        - inscritoPor
+        - creadoEn
+        - semanasGestacion
+        - motivosRiesgo
+    ControlPrenatalDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        programaId:
+          type: string
+          format: uuid
+        fecha:
+          format: date-time
+          type: string
+        semanasGestacion:
+          type: number
+          description: Calculadas a partir de la FUM y la fecha del control.
+          example: 24
+        pesoKg:
+          type: string
+          format: decimal
+          nullable: true
+          example: "58.30"
+        sistolica:
+          type: number
+          nullable: true
+        diastolica:
+          type: number
+          nullable: true
+        alturaUterinaCm:
+          type: string
+          format: decimal
+          nullable: true
+          description: Altura uterina en centimetros.
+          example: "24.0"
+        fcf:
+          type: number
+          nullable: true
+          description: Frecuencia cardiaca fetal, latidos por minuto.
+          example: 140
+        edema:
+          type: boolean
+          nullable: true
+        alertas:
+          description: Senales de alarma detectadas por el sistema en este control.
+          type: array
+          items:
+            type: string
+        proximoControl:
+          type: string
+          format: date-time
+          nullable: true
+        registradoPor:
+          type: string
+          format: uuid
+        observaciones:
+          type: string
+          nullable: true
+          description: Descifradas.
+      required:
+        - id
+        - programaId
+        - fecha
+        - semanasGestacion
+        - pesoKg
+        - sistolica
+        - diastolica
+        - alturaUterinaCm
+        - fcf
+        - edema
+        - alertas
+        - proximoControl
+        - registradoPor
+        - observaciones
     RegistrarControlPrenatalDto:
       type: object
       properties:
@@ -438,3 +1581,115 @@ components:
         fecha:
           format: date-time
           type: string
+    ProgramaEmbarazoBaseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        pacienteId:
+          type: string
+          format: uuid
+        comunidadId:
+          type: string
+          format: uuid
+        fum:
+          format: date-time
+          type: string
+          description: Fecha de ultima menstruacion.
+        fpp:
+          format: date-time
+          type: string
+          description: "Fecha probable de parto: FUM + 280 dias (regla de Naegele)."
+        numeroGestacion:
+          type: number
+          example: 3
+        partosPrevios:
+          type: number
+          example: 2
+        riesgo:
+          type: string
+          enum: *a9
+        motivoRiesgo:
+          type: string
+          nullable: true
+          maxLength: 300
+          description: Por que se clasifico como alto riesgo, para que el siguiente turno
+            sepa a que atenerse.
+        estado:
+          type: string
+          enum: *a8
+        resultado:
+          type: string
+          enum: *a10
+          nullable: true
+        fechaCierre:
+          type: string
+          format: date-time
+          nullable: true
+        inscritoPor:
+          type: string
+          format: uuid
+        creadoEn:
+          format: date-time
+          type: string
+      required:
+        - id
+        - pacienteId
+        - comunidadId
+        - fum
+        - fpp
+        - numeroGestacion
+        - partosPrevios
+        - riesgo
+        - motivoRiesgo
+        - estado
+        - resultado
+        - fechaCierre
+        - inscritoPor
+        - creadoEn
+    RespuestaErrorDto:
+      type: object
+      properties:
+        codigo:
+          type: string
+          description: Codigo estable. El cliente decide que hacer segun este valor, no
+            segun el mensaje.
+          enum:
+            - VALIDACION
+            - NO_AUTENTICADO
+            - SIN_PERMISO
+            - NO_ENCONTRADO
+            - CONFLICTO
+            - DEMASIADAS_PETICIONES
+            - ERROR_INTERNO
+          example: VALIDACION
+        mensaje:
+          type: string
+          description: Mensaje en espanol, apto para mostrarse tal cual al usuario.
+          example: La informacion enviada no es valida.
+        detalles:
+          description: Detalle por campo. Presente sobre todo en errores de validacion.
+          example:
+            - dpi debe tener 13 digitos
+          type: array
+          items:
+            type: string
+        trazaId:
+          type: string
+          description: Identificador de correlacion. Es lo que se busca en los logs para
+            esta peticion.
+          example: 7f3a1c2e-9b4d-4e21-8a55-0c1d2e3f4a5b
+        ruta:
+          type: string
+          example: /v1/pacientes
+        fecha:
+          type: string
+          format: date-time
+          example: 2026-08-26T15:04:05.000Z
+      required:
+        - codigo
+        - mensaje
+        - trazaId
+        - ruta
+        - fecha

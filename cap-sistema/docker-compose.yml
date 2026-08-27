@@ -12,7 +12,17 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres_local_dev
     ports:
-      - "5432:5432"
+      # 5433 en el anfitrion, 5432 dentro del contenedor.
+      #
+      # El 5432 suele estar tomado por otro PostgreSQL en la maquina de quien
+      # desarrolla —otro proyecto, o una instalacion del sistema— y un
+      # contenedor ajeno PAUSADO igual mantiene el puerto reservado, asi que el
+      # conflicto aparece incluso cuando parece que nada esta corriendo.
+      #
+      # Dentro de la red de Docker el puerto sigue siendo el 5432: esto solo
+      # afecta a quien se conecte desde fuera, que en desarrollo son los
+      # servicios y Prisma.
+      - "5433:5432"
     volumes:
       - postgres_datos:/var/lib/postgresql/data
       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro

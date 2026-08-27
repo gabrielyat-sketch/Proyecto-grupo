@@ -7,6 +7,16 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaludVivoDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       summary: El proceso esta vivo
       tags: &a1
         - salud
@@ -17,6 +27,19 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaludListoDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "503":
+          description: La base de datos no responde. El gateway debe dejar de enviar
+            trafico a esta instancia.
       summary: El servicio y sus dependencias responden
       tags: *a1
   /v1/medicamentos:
@@ -50,7 +73,44 @@ paths:
             type: number
       responses:
         "200":
-          description: ""
+          description: Listado paginado.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginaDto"
+                  - type: object
+                    required:
+                      - datos
+                    properties:
+                      datos:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/MedicamentoConExistenciaDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: &a2
         - bearer: []
       summary: Catalogo con la existencia total de cada medicamento
@@ -68,15 +128,70 @@ paths:
       responses:
         "201":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MedicamentoDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a2
+      summary: Da de alta un medicamento en el catalogo
       tags: *a3
   /v1/medicamentos/bajo-minimo:
     get:
+      description: "Sin paginar: son cientos, no miles. Un minimo en cero desactiva la
+        alerta."
       operationId: CatalogoController_bajoMinimo
       parameters: []
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MedicamentoBajoMinimoDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a2
       summary: Medicamentos por debajo de su existencia minima
       tags: *a3
@@ -92,6 +207,40 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MedicamentoDetalleDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a2
       summary: Detalle con sus lotes y el estado de vencimiento de cada uno
       tags: *a3
@@ -106,6 +255,40 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MedicamentoDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a2
       summary: Ajusta existencia minima, receta obligatoria o estado
       tags: *a3
@@ -127,6 +310,40 @@ paths:
       responses:
         "201":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoteDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: &a4
         - bearer: []
       summary: Ingresa un lote al inventario
@@ -138,43 +355,130 @@ paths:
       operationId: LotesController_porVencer
       parameters:
         - name: dias
-          required: true
+          required: false
           in: query
+          description: Ventana de alerta. Por defecto DIAS_ALERTA_VENCIMIENTO; el tope es
+            365.
           schema:
-            type: string
+            example: 90
+            type: number
         - name: pagina
-          required: true
+          required: false
           in: query
+          description: Empieza en 1. Por defecto 1.
           schema:
-            type: string
+            example: 1
+            type: number
         - name: tamano
-          required: true
+          required: false
           in: query
+          description: Por defecto 25. El servidor recorta cualquier valor mayor a 100.
           schema:
-            type: string
+            example: 25
+            type: number
       responses:
         "200":
-          description: ""
+          description: "Ordenados por vencimiento: primero el que vence antes."
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginaDto"
+                  - type: object
+                    required:
+                      - datos
+                    properties:
+                      datos:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/LotePorVencerDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a4
       summary: Lotes que vencen dentro de la ventana de alerta
       tags: *a5
   /v1/lotes/vencidos:
     get:
+      description: "El sistema no los da de baja solo: esa decision necesita un
+        responsable."
       operationId: LotesController_vencidos
       parameters:
         - name: pagina
-          required: true
+          required: false
           in: query
+          description: Empieza en 1. Por defecto 1.
           schema:
-            type: string
+            example: 1
+            type: number
         - name: tamano
-          required: true
+          required: false
           in: query
+          description: Por defecto 25. El servidor recorta cualquier valor mayor a 100.
           schema:
-            type: string
+            example: 25
+            type: number
       responses:
         "200":
-          description: ""
+          description: Listado paginado.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginaDto"
+                  - type: object
+                    required:
+                      - datos
+                    properties:
+                      datos:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/LoteVencidoDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a4
       summary: Lotes vencidos que aun figuran con existencia
       tags: *a5
@@ -190,6 +494,40 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoteDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a4
       summary: Da de baja lo que queda de un lote
       tags: *a5
@@ -198,28 +536,71 @@ paths:
       operationId: EntregasController_listar
       parameters:
         - name: pacienteId
-          required: true
+          required: false
           in: query
           schema:
+            format: uuid
             type: string
         - name: comunidadId
-          required: true
+          required: false
           in: query
           schema:
+            format: uuid
             type: string
         - name: pagina
-          required: true
+          required: false
           in: query
+          description: Empieza en 1. Por defecto 1.
           schema:
-            type: string
+            example: 1
+            type: number
         - name: tamano
-          required: true
+          required: false
           in: query
+          description: Por defecto 25. El servidor recorta cualquier valor mayor a 100.
           schema:
-            type: string
+            example: 25
+            type: number
       responses:
         "200":
-          description: ""
+          description: Listado paginado.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginaDto"
+                  - type: object
+                    required:
+                      - datos
+                    properties:
+                      datos:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/EntregaDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: &a6
         - bearer: []
       summary: Historial de entregas
@@ -244,6 +625,37 @@ paths:
       responses:
         "201":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntregaDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "409":
+          description: "Otra persona de farmacia se adelanto con el mismo lote. Nada se
+            descontó: reintente."
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a6
       summary: Registra una entrega a un paciente
       tags: *a7
@@ -259,35 +671,118 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntregaDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a6
+      summary: Detalle de una entrega
       tags: *a7
   /v1/inventario/movimientos:
     get:
       operationId: InventarioController_movimientos
       parameters:
         - name: loteId
-          required: true
+          required: false
           in: query
           schema:
+            format: uuid
             type: string
         - name: tipo
-          required: true
+          required: false
           in: query
           schema:
+            enum:
+              - INGRESO
+              - ENTREGA
+              - AJUSTE
+              - BAJA
+              - DEVOLUCION
             type: string
         - name: pagina
-          required: true
+          required: false
           in: query
+          description: Empieza en 1. Por defecto 1.
           schema:
-            type: string
+            example: 1
+            type: number
         - name: tamano
-          required: true
+          required: false
           in: query
+          description: Por defecto 25. El servidor recorta cualquier valor mayor a 100.
           schema:
-            type: string
+            example: 25
+            type: number
       responses:
         "200":
-          description: ""
+          description: Libro mayor. Es lo que se revisa cuando el conteo fisico no cuadra.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginaDto"
+                  - type: object
+                    required:
+                      - datos
+                    properties:
+                      datos:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/MovimientoInventarioDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
       security:
         - bearer: []
       summary: Movimientos de inventario, lo mas reciente primero
@@ -314,6 +809,241 @@ components:
       bearerFormat: JWT
       type: http
   schemas:
+    SaludVivoDto:
+      type: object
+      properties:
+        estado:
+          type: string
+          enum:
+            - vivo
+          example: vivo
+        fecha:
+          type: string
+          format: date-time
+      required:
+        - estado
+        - fecha
+    SaludListoDto:
+      type: object
+      properties:
+        estado:
+          type: string
+          enum:
+            - listo
+          example: listo
+        baseDatos:
+          type: string
+          description: "'ok' cuando la base responde. Si no, el endpoint devuelve 503 en
+            vez de este cuerpo."
+          example: ok
+      required:
+        - estado
+        - baseDatos
+    PaginaDto:
+      type: object
+      properties:
+        pagina:
+          type: number
+          description: Pagina devuelta, empezando en 1.
+          example: 1
+        tamano:
+          type: number
+          description: Registros por pagina. El servidor recorta cualquier valor mayor al
+            maximo.
+          maximum: 100
+          example: 25
+        total:
+          type: number
+          description: Total de registros que cumplen el filtro.
+          example: 137
+        totalPaginas:
+          type: number
+          description: Total de paginas. Nunca es menor que 1.
+          example: 6
+      required:
+        - pagina
+        - tamano
+        - total
+        - totalPaginas
+    MedicamentoConExistenciaDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        codigo:
+          type: string
+          example: AMOX500
+        nombreGenerico:
+          type: string
+        nombreComercial:
+          type: string
+          nullable: true
+        presentacion:
+          type: string
+          nullable: true
+        concentracion:
+          type: string
+          nullable: true
+        unidad:
+          type: string
+          enum: &a8
+            - TABLETA
+            - CAPSULA
+            - JARABE_ML
+            - AMPOLLA
+            - FRASCO
+            - SOBRE
+            - UNIDAD
+            - GRAMO
+        requiereReceta:
+          type: boolean
+        activo:
+          type: boolean
+        stockMinimo:
+          type: number
+          example: 50
+        existencia:
+          type: number
+          description: Suma de los lotes DISPONIBLES.
+          example: 320
+        bajoMinimo:
+          type: boolean
+          description: "false cuando el minimo es cero: la alerta esta desactivada."
+      required:
+        - id
+        - codigo
+        - nombreGenerico
+        - nombreComercial
+        - presentacion
+        - concentracion
+        - unidad
+        - requiereReceta
+        - activo
+        - stockMinimo
+        - existencia
+        - bajoMinimo
+    MedicamentoBajoMinimoDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        codigo:
+          type: string
+          example: AMOX500
+        nombreGenerico:
+          type: string
+        unidad:
+          type: string
+          enum: *a8
+        stockMinimo:
+          type: number
+          example: 50
+        existencia:
+          type: number
+          example: 12
+      required:
+        - id
+        - codigo
+        - nombreGenerico
+        - unidad
+        - stockMinimo
+        - existencia
+    LoteDelMedicamentoDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        numeroLote:
+          type: string
+          description: Numero impreso en la caja por el fabricante.
+          example: L-4471
+        fechaVencimiento:
+          format: date-time
+          type: string
+        cantidadDisponible:
+          type: number
+          example: 120
+        estado:
+          type: string
+          enum: &a9
+            - DISPONIBLE
+            - AGOTADO
+            - VENCIDO
+            - DADO_DE_BAJA
+        vencimiento:
+          type: string
+          enum: &a10
+            - VIGENTE
+            - POR_VENCER
+            - VENCIDO
+          description: Calculado contra el dia de hoy en Purulha y la ventana de alerta
+            configurada.
+      required:
+        - id
+        - numeroLote
+        - fechaVencimiento
+        - cantidadDisponible
+        - estado
+        - vencimiento
+    MedicamentoDetalleDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        codigo:
+          type: string
+          example: AMOX500
+        nombreGenerico:
+          type: string
+        nombreComercial:
+          type: string
+          nullable: true
+        presentacion:
+          type: string
+          nullable: true
+        concentracion:
+          type: string
+          nullable: true
+        unidad:
+          type: string
+          enum: *a8
+        requiereReceta:
+          type: boolean
+        activo:
+          type: boolean
+        stockMinimo:
+          type: number
+          example: 50
+        existencia:
+          type: number
+          description: Suma de los lotes DISPONIBLES.
+          example: 320
+        bajoMinimo:
+          type: boolean
+          description: "false cuando el minimo es cero: la alerta esta desactivada."
+        lotes:
+          description: "Ordenados por vencimiento: primero el que vence antes."
+          type: array
+          items:
+            $ref: "#/components/schemas/LoteDelMedicamentoDto"
+      required:
+        - id
+        - codigo
+        - nombreGenerico
+        - nombreComercial
+        - presentacion
+        - concentracion
+        - unidad
+        - requiereReceta
+        - activo
+        - stockMinimo
+        - existencia
+        - bajoMinimo
+        - lotes
     CrearMedicamentoDto:
       type: object
       properties:
@@ -355,6 +1085,60 @@ components:
         - codigo
         - nombreGenerico
         - unidad
+    MedicamentoDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        codigo:
+          type: string
+          description: Codigo interno del CAP, siempre en mayusculas.
+          example: AMOX500
+        nombreGenerico:
+          type: string
+          example: Amoxicilina
+        nombreComercial:
+          type: string
+          nullable: true
+        presentacion:
+          type: string
+          nullable: true
+          example: Caja de 20
+        concentracion:
+          type: string
+          nullable: true
+          example: 500 mg
+        unidad:
+          type: string
+          enum: *a8
+        stockMinimo:
+          type: number
+          description: Un minimo en CERO desactiva la alerta de existencia.
+          example: 50
+        requiereReceta:
+          type: boolean
+        activo:
+          type: boolean
+        creadoEn:
+          format: date-time
+          type: string
+        actualizadoEn:
+          format: date-time
+          type: string
+      required:
+        - id
+        - codigo
+        - nombreGenerico
+        - nombreComercial
+        - presentacion
+        - concentracion
+        - unidad
+        - stockMinimo
+        - requiereReceta
+        - activo
+        - creadoEn
+        - actualizadoEn
     IngresarLoteDto:
       type: object
       properties:
@@ -377,6 +1161,196 @@ components:
         - numeroLote
         - fechaVencimiento
         - cantidad
+    LoteDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        medicamentoId:
+          type: string
+          format: uuid
+        numeroLote:
+          type: string
+          example: L-4471
+        fechaVencimiento:
+          format: date-time
+          type: string
+        fechaIngreso:
+          format: date-time
+          type: string
+        proveedor:
+          type: string
+          nullable: true
+        cantidadInicial:
+          type: number
+          example: 500
+        cantidadDisponible:
+          type: number
+          description: Existencia actual. Desnormalizada a proposito; el libro mayor la
+            explica.
+          example: 320
+        estado:
+          type: string
+          enum: *a9
+        motivoBaja:
+          type: string
+          nullable: true
+          maxLength: 200
+        creadoEn:
+          format: date-time
+          type: string
+      required:
+        - id
+        - medicamentoId
+        - numeroLote
+        - fechaVencimiento
+        - fechaIngreso
+        - proveedor
+        - cantidadInicial
+        - cantidadDisponible
+        - estado
+        - motivoBaja
+        - creadoEn
+    MedicamentoDelLoteDto:
+      type: object
+      properties:
+        codigo:
+          type: string
+          example: AMOX500
+        nombreGenerico:
+          type: string
+        unidad:
+          type: string
+          enum: *a8
+      required:
+        - codigo
+        - nombreGenerico
+        - unidad
+    LotePorVencerDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        numeroLote:
+          type: string
+          example: L-4471
+        medicamento:
+          $ref: "#/components/schemas/MedicamentoDelLoteDto"
+        fechaVencimiento:
+          format: date-time
+          type: string
+        cantidadDisponible:
+          type: number
+          example: 120
+        diasParaVencer:
+          type: number
+          description: Cero significa que vence HOY, y hoy todavia se puede entregar.
+          example: 34
+        vencimiento:
+          type: string
+          enum: *a10
+      required:
+        - id
+        - numeroLote
+        - medicamento
+        - fechaVencimiento
+        - cantidadDisponible
+        - diasParaVencer
+        - vencimiento
+    LoteVencidoDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        numeroLote:
+          type: string
+          example: L-4471
+        medicamento:
+          $ref: "#/components/schemas/MedicamentoDelLoteDto"
+        fechaVencimiento:
+          format: date-time
+          type: string
+        cantidadDisponible:
+          type: number
+          example: 45
+        diasVencido:
+          type: number
+          description: Dias transcurridos desde el vencimiento.
+          example: 12
+      required:
+        - id
+        - numeroLote
+        - medicamento
+        - fechaVencimiento
+        - cantidadDisponible
+        - diasVencido
+    MedicamentoEntregadoDto:
+      type: object
+      properties:
+        codigo:
+          type: string
+          example: AMOX500
+        nombre:
+          type: string
+          example: Amoxicilina
+        unidad:
+          type: string
+          enum: *a8
+        numeroLote:
+          type: string
+          description: Lote del que salio. Lo eligio el sistema por FEFO.
+          example: L-4471
+        fechaVencimiento:
+          format: date-time
+          type: string
+        cantidad:
+          type: number
+          example: 20
+      required:
+        - codigo
+        - nombre
+        - unidad
+        - numeroLote
+        - fechaVencimiento
+        - cantidad
+    EntregaDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        pacienteId:
+          type: string
+          format: uuid
+        comunidadId:
+          type: string
+          format: uuid
+          description: Copiada del paciente al momento de la entrega.
+        fecha:
+          format: date-time
+          type: string
+        registradoPor:
+          type: string
+          format: uuid
+        observaciones:
+          type: string
+          nullable: true
+          maxLength: 500
+        medicamentos:
+          type: array
+          items:
+            $ref: "#/components/schemas/MedicamentoEntregadoDto"
+      required:
+        - id
+        - pacienteId
+        - comunidadId
+        - fecha
+        - registradoPor
+        - observaciones
+        - medicamentos
     LineaEntregaDto:
       type: object
       properties:
@@ -404,3 +1378,112 @@ components:
       required:
         - pacienteId
         - lineas
+    MedicamentoDelMovimientoDto:
+      type: object
+      properties:
+        codigo:
+          type: string
+          example: AMOX500
+        nombreGenerico:
+          type: string
+      required:
+        - codigo
+        - nombreGenerico
+    MovimientoInventarioDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        fecha:
+          format: date-time
+          type: string
+        tipo:
+          type: string
+          enum:
+            - INGRESO
+            - ENTREGA
+            - AJUSTE
+            - BAJA
+            - DEVOLUCION
+        cantidad:
+          type: number
+          description: NEGATIVA cuando la existencia baja (entrega, baja).
+          example: -20
+        cantidadResultante:
+          type: number
+          description: Existencia del lote despues de aplicar este movimiento.
+          example: 300
+        motivo:
+          type: string
+          nullable: true
+          maxLength: 200
+        registradoPor:
+          type: string
+          format: uuid
+        entregaId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Presente solo en movimientos de ENTREGA.
+        numeroLote:
+          type: string
+          example: L-4471
+        medicamento:
+          $ref: "#/components/schemas/MedicamentoDelMovimientoDto"
+      required:
+        - id
+        - fecha
+        - tipo
+        - cantidad
+        - cantidadResultante
+        - motivo
+        - registradoPor
+        - entregaId
+        - numeroLote
+        - medicamento
+    RespuestaErrorDto:
+      type: object
+      properties:
+        codigo:
+          type: string
+          description: Codigo estable. El cliente decide que hacer segun este valor, no
+            segun el mensaje.
+          enum:
+            - VALIDACION
+            - NO_AUTENTICADO
+            - SIN_PERMISO
+            - NO_ENCONTRADO
+            - CONFLICTO
+            - DEMASIADAS_PETICIONES
+            - ERROR_INTERNO
+          example: VALIDACION
+        mensaje:
+          type: string
+          description: Mensaje en espanol, apto para mostrarse tal cual al usuario.
+          example: La informacion enviada no es valida.
+        detalles:
+          description: Detalle por campo. Presente sobre todo en errores de validacion.
+          example:
+            - dpi debe tener 13 digitos
+          type: array
+          items:
+            type: string
+        trazaId:
+          type: string
+          description: Identificador de correlacion. Es lo que se busca en los logs para
+            esta peticion.
+          example: 7f3a1c2e-9b4d-4e21-8a55-0c1d2e3f4a5b
+        ruta:
+          type: string
+          example: /v1/pacientes
+        fecha:
+          type: string
+          format: date-time
+          example: 2026-08-26T15:04:05.000Z
+      required:
+        - codigo
+        - mensaje
+        - trazaId
+        - ruta
+        - fecha

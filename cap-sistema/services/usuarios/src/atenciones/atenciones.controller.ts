@@ -1,8 +1,9 @@
 import { Body, Controller, Get, Param, Post, Query, Req } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Rol, Roles, Usuario } from '@cap/shared';
+import { ApiBearerAuth, ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiParametrosPagina, ApiPaginaDe, type Pagina, Rol, Roles, Usuario } from '@cap/shared';
 import { AtencionesService } from './atenciones.service';
 import { RegistrarAtencionDto } from './dto/registrar-atencion.dto';
+import { AtencionDto } from './dto/respuestas.dto';
 
 /**
  * Historial clinico. Acceso MAS RESTRINGIDO que el de pacientes.
@@ -22,23 +23,26 @@ export class AtencionesController {
 
   @Get()
   @ApiOperation({ summary: 'Historial del expediente, lo mas reciente primero' })
+  @ApiPaginaDe(AtencionDto, 'Atenciones con los campos clinicos ya descifrados.')
+  @ApiParametrosPagina()
   listar(
     @Param('expedienteId') expedienteId: string,
     @Query('pagina') pagina?: string,
     @Query('tamano') tamano?: string,
-  ) {
+  ): Promise<Pagina<AtencionDto>> {
     return this.servicio.listar(expedienteId, { pagina: Number(pagina), tamano: Number(tamano) });
   }
 
   @Post()
   @Roles(Rol.MEDICO, Rol.ENFERMERIA)
   @ApiOperation({ summary: 'Registra una atencion en el expediente' })
+  @ApiCreatedResponse({ type: AtencionDto })
   registrar(
     @Param('expedienteId') expedienteId: string,
     @Body() dto: RegistrarAtencionDto,
     @Usuario('id') usuarioId: string,
     @Req() req: { trazaId?: string },
-  ) {
+  ): Promise<AtencionDto> {
     return this.servicio.registrar(expedienteId, dto, usuarioId, req.trazaId);
   }
 }
