@@ -961,6 +961,116 @@ paths:
       security: *a12
       summary: Una ficha registrada, con el texto descifrado y el catalogo resuelto
       tags: *a13
+  /v1/pacientes/{pacienteId}/antecedentes:
+    get:
+      description: Devuelve solo lo respondido. Un antecedente ausente significa que
+        no se ha preguntado, que no es lo mismo que "no".
+      operationId: AntecedentesController_obtener
+      parameters:
+        - name: pacienteId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AntecedentesPacienteDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: &a14
+        - bearer: []
+      summary: Antecedentes ya registrados de un paciente
+      tags: &a15
+        - antecedentes
+    patch:
+      description: "Actualizacion PARCIAL: lo que no viene en la peticion se conserva.
+        Por eso es PATCH y no PUT: si guardar reemplazara el conjunto completo,
+        llenar media hoja borraria lo que otro turno ya habia preguntado."
+      operationId: AntecedentesController_guardar
+      parameters:
+        - name: pacienteId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuardarAntecedentesDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AntecedentesPacienteDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a14
+      summary: Guarda o actualiza las respuestas enviadas
+      tags: *a15
 info:
   title: Servicio usuarios - CAP Purulha
   description: >-
@@ -1868,7 +1978,7 @@ components:
       properties:
         tipoFicha:
           type: string
-          enum: &a14
+          enum: &a16
             - ADULTO
             - NEONATO
             - NINEZ
@@ -2127,7 +2237,7 @@ components:
           format: uuid
         tipoFicha:
           type: string
-          enum: *a14
+          enum: *a16
           nullable: true
         fecha:
           format: date-time
@@ -2244,6 +2354,240 @@ components:
         - signosPeligro
         - problemas
         - medicamentos
+    AntecedenteRegistradoDto:
+      type: object
+      properties:
+        antecedenteId:
+          type: string
+          format: uuid
+        codigo:
+          type: string
+          example: MED_DIABETES
+        texto:
+          type: string
+        grupo:
+          type: string
+          enum:
+            - MEDICO
+            - FAMILIAR
+            - HABITO
+        respuesta:
+          type: string
+          enum:
+            - SI
+            - NO
+            - NO_APLICA
+        detalle:
+          type: string
+          nullable: true
+        fecha:
+          type: string
+          format: date-time
+          nullable: true
+        numero:
+          type: number
+          nullable: true
+        actualizadoEn:
+          format: date-time
+          type: string
+      required:
+        - antecedenteId
+        - codigo
+        - texto
+        - grupo
+        - respuesta
+        - detalle
+        - fecha
+        - numero
+        - actualizadoEn
+    AntecedentesObstetricosDto:
+      type: object
+      properties:
+        fur:
+          type: string
+          format: date-time
+          nullable: true
+        gestas:
+          type: number
+          nullable: true
+        partos:
+          type: number
+          nullable: true
+        abortos:
+          type: number
+          nullable: true
+        abortosConsecutivos:
+          type: boolean
+          nullable: true
+        legradosLiu:
+          type: number
+          nullable: true
+        cesareas:
+          type: number
+          nullable: true
+        nacidosVivos:
+          type: number
+          nullable: true
+        nacidosMuertos:
+          type: number
+          nullable: true
+        hijosVivos:
+          type: number
+          nullable: true
+        hijosMuertos:
+          type: number
+          nullable: true
+        embarazosMultiples:
+          type: boolean
+          nullable: true
+        fechaUltimoParto:
+          type: string
+          format: date-time
+          nullable: true
+        prematurosAntes8Meses:
+          type: number
+          nullable: true
+        preeclampsia:
+          type: boolean
+          nullable: true
+        tamizajeCervix:
+          type: string
+          nullable: true
+          description: Papanicolau o IVAA.
+        tamizajeFecha:
+          type: string
+          format: date-time
+          nullable: true
+        tamizajeNormal:
+          type: boolean
+          nullable: true
+        usaPlanificacion:
+          type: boolean
+          nullable: true
+        metodoPlanificacion:
+          type: string
+          nullable: true
+        tipoSangre:
+          type: string
+          nullable: true
+          example: O
+        rhPositivo:
+          type: boolean
+          nullable: true
+    AntecedentesPacienteDto:
+      type: object
+      properties:
+        pacienteId:
+          type: string
+          format: uuid
+        marcados:
+          type: array
+          items:
+            $ref: "#/components/schemas/AntecedenteRegistradoDto"
+        obstetricos:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/AntecedentesObstetricosDto"
+      required:
+        - pacienteId
+        - marcados
+        - obstetricos
+    GuardarAntecedenteDto:
+      type: object
+      properties:
+        antecedenteId:
+          type: string
+          format: uuid
+        respuesta:
+          type: string
+          enum:
+            - SI
+            - NO
+            - NO_APLICA
+          description: NO_APLICA solo se acepta en los antecedentes que lo permiten; el
+            papel no ofrece esa casilla en todos.
+        detalle:
+          type: string
+          description: 'El "cual" del papel: que medicamento, que cancer.'
+        fecha:
+          format: date-time
+          type: string
+          description: Fecha de la ultima dosis, de la ultima citologia.
+        numero:
+          type: number
+          description: Numero de dosis, cigarrillos al dia.
+          example: 3
+      required:
+        - antecedenteId
+        - respuesta
+    GuardarObstetricosDto:
+      type: object
+      properties:
+        fur:
+          format: date-time
+          type: string
+          description: Fecha de ultima menstruacion.
+        gestas:
+          type: number
+        partos:
+          type: number
+        abortos:
+          type: number
+        abortosConsecutivos:
+          type: boolean
+        legradosLiu:
+          type: number
+          description: Legrados intrauterinos.
+        cesareas:
+          type: number
+        nacidosVivos:
+          type: number
+        nacidosMuertos:
+          type: number
+        hijosVivos:
+          type: number
+        hijosMuertos:
+          type: number
+        embarazosMultiples:
+          type: boolean
+        fechaUltimoParto:
+          format: date-time
+          type: string
+        prematurosAntes8Meses:
+          type: number
+          description: Ninos nacidos antes de los 8 meses.
+        preeclampsia:
+          type: boolean
+        tamizajeCervix:
+          type: string
+          description: Papanicolau o IVAA.
+          example: PAPANICOLAU
+        tamizajeFecha:
+          format: date-time
+          type: string
+        tamizajeNormal:
+          type: boolean
+        usaPlanificacion:
+          type: boolean
+        metodoPlanificacion:
+          type: string
+          example: Inyección
+        tipoSangre:
+          type: string
+          example: O
+        rhPositivo:
+          type: boolean
+          description: true para RH (+), false para RH (-).
+    GuardarAntecedentesDto:
+      type: object
+      properties:
+        marcados:
+          type: array
+          items:
+            $ref: "#/components/schemas/GuardarAntecedenteDto"
+        obstetricos:
+          $ref: "#/components/schemas/GuardarObstetricosDto"
     RespuestaErrorDto:
       type: object
       properties:

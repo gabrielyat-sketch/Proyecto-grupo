@@ -85,8 +85,14 @@ describe('Fichas clinicas (e2e)', () => {
   });
 
   afterAll(async () => {
+    // El expediente NO cae en cascada al borrar el paciente, y es correcto: un
+    // expediente clinico no debe desaparecer porque alguien borre una fila de
+    // paciente. Hay que quitarlo antes, en orden.
     for (const id of creados) {
-      await prisma.paciente.delete({ where: { id } }).catch(() => undefined);
+      await prisma.atencion.deleteMany({ where: { expediente: { pacienteId: id } } });
+      await prisma.registroDigitalizacion.deleteMany({ where: { expediente: { pacienteId: id } } });
+      await prisma.expediente.deleteMany({ where: { pacienteId: id } });
+      await prisma.paciente.deleteMany({ where: { id } });
     }
     await app.close();
   });

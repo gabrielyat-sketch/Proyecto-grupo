@@ -265,6 +265,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/pacientes/{pacienteId}/antecedentes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Antecedentes ya registrados de un paciente
+         * @description Devuelve solo lo respondido. Un antecedente ausente significa que no se ha preguntado, que no es lo mismo que "no".
+         */
+        get: operations["AntecedentesController_obtener"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Guarda o actualiza las respuestas enviadas
+         * @description Actualizacion PARCIAL: lo que no viene en la peticion se conserva. Por eso es PATCH y no PUT: si guardar reemplazara el conjunto completo, llenar media hoja borraria lo que otro turno ya habia preguntado.
+         */
+        patch: operations["AntecedentesController_guardar"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -883,6 +907,122 @@ export interface components {
             signosPeligro: components["schemas"]["SignoPeligroFichaDto"][];
             problemas: components["schemas"]["ProblemaFichaRegistradoDto"][];
             medicamentos: components["schemas"]["MedicamentoFichaDto"][];
+        };
+        AntecedenteRegistradoDto: {
+            /** Format: uuid */
+            antecedenteId: string;
+            /** @example MED_DIABETES */
+            codigo: string;
+            texto: string;
+            /** @enum {string} */
+            grupo: "MEDICO" | "FAMILIAR" | "HABITO";
+            /** @enum {string} */
+            respuesta: "SI" | "NO" | "NO_APLICA";
+            detalle: string | null;
+            /** Format: date-time */
+            fecha: string | null;
+            numero: number | null;
+            /** Format: date-time */
+            actualizadoEn: string;
+        };
+        AntecedentesObstetricosDto: {
+            /** Format: date-time */
+            fur?: string | null;
+            gestas?: number | null;
+            partos?: number | null;
+            abortos?: number | null;
+            abortosConsecutivos?: boolean | null;
+            legradosLiu?: number | null;
+            cesareas?: number | null;
+            nacidosVivos?: number | null;
+            nacidosMuertos?: number | null;
+            hijosVivos?: number | null;
+            hijosMuertos?: number | null;
+            embarazosMultiples?: boolean | null;
+            /** Format: date-time */
+            fechaUltimoParto?: string | null;
+            prematurosAntes8Meses?: number | null;
+            preeclampsia?: boolean | null;
+            /** @description Papanicolau o IVAA. */
+            tamizajeCervix?: string | null;
+            /** Format: date-time */
+            tamizajeFecha?: string | null;
+            tamizajeNormal?: boolean | null;
+            usaPlanificacion?: boolean | null;
+            metodoPlanificacion?: string | null;
+            /** @example O */
+            tipoSangre?: string | null;
+            rhPositivo?: boolean | null;
+        };
+        AntecedentesPacienteDto: {
+            /** Format: uuid */
+            pacienteId: string;
+            marcados: components["schemas"]["AntecedenteRegistradoDto"][];
+            obstetricos: components["schemas"]["AntecedentesObstetricosDto"] | null;
+        };
+        GuardarAntecedenteDto: {
+            /** Format: uuid */
+            antecedenteId: string;
+            /**
+             * @description NO_APLICA solo se acepta en los antecedentes que lo permiten; el papel no ofrece esa casilla en todos.
+             * @enum {string}
+             */
+            respuesta: "SI" | "NO" | "NO_APLICA";
+            /** @description El "cual" del papel: que medicamento, que cancer. */
+            detalle?: string;
+            /**
+             * Format: date-time
+             * @description Fecha de la ultima dosis, de la ultima citologia.
+             */
+            fecha?: string;
+            /**
+             * @description Numero de dosis, cigarrillos al dia.
+             * @example 3
+             */
+            numero?: number;
+        };
+        GuardarObstetricosDto: {
+            /**
+             * Format: date-time
+             * @description Fecha de ultima menstruacion.
+             */
+            fur?: string;
+            gestas?: number;
+            partos?: number;
+            abortos?: number;
+            abortosConsecutivos?: boolean;
+            /** @description Legrados intrauterinos. */
+            legradosLiu?: number;
+            cesareas?: number;
+            nacidosVivos?: number;
+            nacidosMuertos?: number;
+            hijosVivos?: number;
+            hijosMuertos?: number;
+            embarazosMultiples?: boolean;
+            /** Format: date-time */
+            fechaUltimoParto?: string;
+            /** @description Ninos nacidos antes de los 8 meses. */
+            prematurosAntes8Meses?: number;
+            preeclampsia?: boolean;
+            /**
+             * @description Papanicolau o IVAA.
+             * @example PAPANICOLAU
+             */
+            tamizajeCervix?: string;
+            /** Format: date-time */
+            tamizajeFecha?: string;
+            tamizajeNormal?: boolean;
+            usaPlanificacion?: boolean;
+            /** @example Inyección */
+            metodoPlanificacion?: string;
+            /** @example O */
+            tipoSangre?: string;
+            /** @description true para RH (+), false para RH (-). */
+            rhPositivo?: boolean;
+        };
+        GuardarAntecedentesDto: {
+            marcados?: components["schemas"]["GuardarAntecedenteDto"][];
+            obstetricos?: components["schemas"]["GuardarObstetricosDto"];
         };
         RespuestaErrorDto: {
             /**
@@ -2025,6 +2165,142 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FichaDto"];
+                };
+            };
+            /** @description La informacion enviada no es valida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El recurso solicitado no existe. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
+    AntecedentesController_obtener: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pacienteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AntecedentesPacienteDto"];
+                };
+            };
+            /** @description La informacion enviada no es valida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El recurso solicitado no existe. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
+    AntecedentesController_guardar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pacienteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GuardarAntecedentesDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AntecedentesPacienteDto"];
                 };
             };
             /** @description La informacion enviada no es valida. */
