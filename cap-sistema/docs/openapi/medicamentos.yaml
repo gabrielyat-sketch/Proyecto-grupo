@@ -488,6 +488,66 @@ paths:
       security: *a4
       summary: Lotes vencidos que aun figuran con existencia
       tags: *a5
+  /v1/lotes/{id}/ajuste:
+    patch:
+      description: Se envia lo CONTADO, no la diferencia. El servidor calcula el
+        desvio y lo deja en el libro mayor como movimiento de AJUSTE.
+      operationId: LotesController_ajustar
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AjustarLoteDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoteDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "409":
+          description: "La existencia se movio mientras se contaba: hubo una entrega o un
+            ingreso. Nada se ajusto, vuelva a contar."
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a4
+      summary: Ajusta la existencia de un lote a lo que se conto en el estante
+      tags: *a5
   /v1/lotes/{id}/baja:
     patch:
       operationId: LotesController_darDeBaja
@@ -1314,6 +1374,29 @@ components:
         - fechaVencimiento
         - cantidadDisponible
         - diasVencido
+    AjustarLoteDto:
+      type: object
+      properties:
+        cantidadContada:
+          type: number
+          description: Las unidades que hay fisicamente en el estante.
+          example: 95
+          minimum: 0
+        cantidadEnSistema:
+          type: number
+          description: La existencia que mostraba el sistema al empezar a contar.
+          example: 100
+          minimum: 0
+        motivo:
+          type: string
+          description: Por que no coincide. Un descuadre sin explicacion no sirve de nada.
+          example: "Conteo fisico del 28/08/2026: aparecieron 5 cajas mal ubicadas."
+          minLength: 3
+          maxLength: 200
+      required:
+        - cantidadContada
+        - cantidadEnSistema
+        - motivo
     DarDeBajaLoteDto:
       type: object
       properties:

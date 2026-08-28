@@ -11,6 +11,7 @@ export type LoteVencido = components['schemas']['LoteVencidoDto'];
 export type CrearMedicamento = components['schemas']['CrearMedicamentoDto'];
 export type ActualizarMedicamento = components['schemas']['ActualizarMedicamentoDto'];
 export type IngresarLote = components['schemas']['IngresarLoteDto'];
+export type AjustarLote = components['schemas']['AjustarLoteDto'];
 
 /** Forma de las respuestas paginadas del servicio. */
 export interface Pagina<T> {
@@ -135,6 +136,27 @@ export async function listarVencidos(pagina: number): Promise<Pagina<LoteVencido
   return data as Pagina<LoteVencido>;
 }
 
+/**
+ * Ajusta la existencia de un lote a lo que se conto en el estante.
+ *
+ * Se manda lo CONTADO, no la diferencia, y ademas la existencia que el sistema
+ * mostraba al empezar: con ella el servidor detecta si alguien entrego o
+ * ingreso mientras se contaba, y pide volver a contar en vez de aceptar un
+ * numero que ya es viejo.
+ */
+export async function ajustarLote(
+  id: string,
+  cuerpo: AjustarLote,
+): Promise<components['schemas']['LoteDto']> {
+  const ruta = '/v1/lotes/{id}/ajuste';
+  const { data, error, response } = await apiMedicamentos.PATCH(ruta, {
+    params: { path: { id } },
+    body: cuerpo,
+  });
+  if (error || !data) fallarApi(error, ruta, response);
+  return data;
+}
+
 export async function darDeBajaLote(
   id: string,
   motivo: string,
@@ -230,6 +252,20 @@ export function vencidoHace(dias: number): string {
   if (dias < 60) return 'Hace ' + dias + ' dias';
   const meses = Math.round(dias / 30);
   return 'Hace ' + meses + ' meses';
+}
+
+/**
+ * El desvío entre lo contado y lo que dice el sistema, dicho en palabras.
+ *
+ * "Faltan 5" y "Sobran 12" se entienden solos; un número con signo obliga a
+ * interpretar de qué lado está el error, y quien acaba de contar un estante
+ * entero no debería tener que hacerlo.
+ */
+export function desvioEnPalabras(contado: number, enSistema: number, unidad: string): string {
+  const diferencia = contado - enSistema;
+  if (diferencia === 0) return 'Coincide con el sistema';
+  if (diferencia < 0) return 'Faltan ' + conUnidad(-diferencia, unidad);
+  return 'Sobran ' + conUnidad(diferencia, unidad);
 }
 
 /**

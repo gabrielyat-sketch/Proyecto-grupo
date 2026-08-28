@@ -1,9 +1,9 @@
 # Diseño: Farmacia — inventario, lotes y vencimientos
 
 Primera entrega del módulo de Farmacia (Etapa 8). Cubre el catálogo, las
-existencias por lote y las tres alertas. **La entrega de medicamentos a
-pacientes no está aquí**: es la segunda entrega, y es la parte crítica porque
-toca inventario de verdad.
+existencias por lote, las tres alertas y el ajuste por conteo físico. **La
+entrega de medicamentos a pacientes no está aquí**: es la segunda entrega, y es
+la parte crítica porque toca inventario de verdad.
 
 ---
 
@@ -104,6 +104,49 @@ de alta el correcto.
 Desactivar no borra: saca el medicamento del catálogo y le impide recibir lotes
 nuevos, pero conserva todo su historial.
 
+### El ajuste por conteo físico no borra el error: lo explica
+
+El estante y el sistema se separan tarde o temprano — una caja mal ubicada, una
+entrega que no se registró, un frasco roto que nadie anotó. Hasta que existió el
+ajuste, la única salida era **dar de baja el lote entero**: obligaba a inventar
+un motivo y borraba de golpe existencia que sí estaba.
+
+Tres decisiones sostienen la pantalla:
+
+**Se escribe lo contado, no la diferencia.** Quien recorre el estante cuenta
+unidades: "hay 95". Pedirle la diferencia lo obliga a restar de cabeza y a
+acertar el signo, y equivocarse ahí deja el inventario peor de como estaba. El
+desvío lo calcula el servidor y lo guarda con su signo en el libro mayor.
+
+**El desvío se dice en palabras mientras se escribe:** "Faltan 5 tabletas",
+"Sobran 12 tabletas". Un número con signo obliga a interpretar de qué lado está
+el error, y quien acaba de contar un estante entero no debería tener que
+hacerlo.
+
+**Un conteo que cuadra no se acepta.** Devuelve 400 y la pantalla ni siquiera
+deja enviarlo: un movimiento de ajuste con diferencia cero solo ensucia el libro
+mayor sin explicar nada.
+
+El ajuste se ofrece también en un lote **agotado** —si aparece una caja que se
+creía gastada, hay que poder devolverla al inventario— y contar cero lo deja
+`AGOTADO`, no dado de baja: son cosas distintas. Lo único que queda fuera es un
+lote dado de baja, que ya no es inventario.
+
+### El conteo lleva control optimista, y aquí hace falta de verdad
+
+El ajuste fija un valor **absoluto**, así que no sirve el descuento condicional
+(`WHERE cantidad_disponible >= x`) que protege a las entregas.
+
+Si entre el momento en que se leyó la existencia y el momento de guardar alguien
+entregó diez tabletas, escribir el conteo **pisaría esa entrega** y la existencia
+quedaría mal sin que nadie lo note — que es exactamente el error que el módulo
+tiene que evitar.
+
+Por eso el cuerpo lleva `cantidadEnSistema`: la existencia que se mostraba al
+empezar a contar. El `UPDATE` la comprueba en la misma sentencia, y si no
+coincide devuelve **409** sin tocar nada. La pantalla lo explica y **no
+reintenta sola**: reintentar volvería a mandar un conteo que ya es viejo.
+
 ### La baja de un lote pide un motivo, y lo guarda entero
 
 El sistema **no da de baja nada por su cuenta**, ni siquiera un lote vencido:
@@ -135,7 +178,7 @@ dibuja, para no ofrecer botones que el servidor va a negar con un 403.
 | Ver por vencer / vencidos | ✓ | ✓ | — | — | ✓ | — |
 | Ver bajo mínimo | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | Dar de alta y editar medicamentos | ✓ | — | — | — | ✓ | — |
-| Ingresar lotes y dar de baja | ✓ | — | — | — | ✓ | — |
+| Ingresar lotes, ajustar por conteo y dar de baja | ✓ | — | — | — | ✓ | — |
 
 **El médico consulta existencias** porque si no sabe qué hay, receta lo que no
 hay. **No ve las alertas de vencimiento**: el estante no es asunto suyo, y el
@@ -182,6 +225,7 @@ límite.
 |---|---|
 | `services/medicamentos/src/catalogo/dto/actualizar-medicamento.dto.ts` | Los tres campos editables, validados |
 | `services/medicamentos/src/lotes/dto/dar-de-baja.dto.ts` | El motivo de la baja, obligatorio y acotado |
+| `services/medicamentos/src/lotes/dto/ajustar-lote.dto.ts` | El conteo físico y su control optimista |
 | `web/src/modulos/farmacia/servicio-farmacia.ts` | Llamadas al servicio y cómo se presenta cada dato |
 | `web/src/modulos/farmacia/PaginaFarmacia.tsx` | Las cuatro pestañas y sus contadores |
 | `web/src/modulos/farmacia/PanelCatalogo.tsx` | Búsqueda y tabla del catálogo |
@@ -190,7 +234,8 @@ límite.
 | `web/src/modulos/farmacia/DialogoMedicamento.tsx` | Alta y edición |
 | `web/src/modulos/farmacia/DialogoIngresarLote.tsx` | Ingreso de lote |
 | `web/src/modulos/farmacia/DialogoBaja.tsx` | Baja de lote con motivo |
-| `web/src/modulos/farmacia/farmacia.spec.tsx` | 34 pruebas de pantalla |
+| `web/src/modulos/farmacia/DialogoAjuste.tsx` | Conteo físico con el desvío en palabras |
+| `web/src/modulos/farmacia/farmacia.spec.tsx` | 45 pruebas de pantalla |
 
 ## Archivos modificados
 
@@ -199,7 +244,8 @@ límite.
 | `services/medicamentos/src/catalogo/catalogo.controller.ts` | El `PATCH` usa el DTO |
 | `services/medicamentos/src/catalogo/catalogo.service.ts` | `data` armado campo por campo |
 | `services/medicamentos/src/lotes/lotes.controller.ts` | La baja usa el DTO |
-| `services/medicamentos/src/lotes/lotes.service.ts` | Sin recorte silencioso del motivo |
+| `services/medicamentos/src/lotes/lotes.service.ts` | Sin recorte silencioso del motivo, y el ajuste |
+| `services/medicamentos/src/eventos/outbox.service.ts` | Evento `lote.ajustado` |
 | `services/medicamentos/test/medicamentos.e2e-spec.ts` | +9 pruebas |
 | `docs/openapi/medicamentos.yaml` | Regenerado: los dos `PATCH` ya publican cuerpo |
 | `web/src/api/generado/medicamentos.ts` | Regenerado |
@@ -216,6 +262,8 @@ límite.
 - Sin lotes por vencer, sin lotes vencidos, nada bajo mínimo — los tres lo dicen
   con un mensaje, en vez de mostrar una tabla vacía.
 - Mínimo en cero: se muestra como sin alerta, no como cero.
+- Conteo que cuadra con el sistema, y conteo que choca con una entrega
+  simultánea (409): los dos se explican y ninguno ajusta nada.
 - Error de red o del servidor en cualquiera de las consultas.
 
 ## Accesibilidad y captura por teclado
@@ -231,8 +279,8 @@ límite.
 
 ```
 npm test -w @cap/medicamentos          36 unitarias
-npm run test:e2e -w @cap/medicamentos  44 e2e (antes 35)
-npx vitest run src/modulos/farmacia    34 de pantalla
+npm run test:e2e -w @cap/medicamentos  56 e2e (antes 35)
+npx vitest run src/modulos/farmacia    45 de pantalla  (desde web/, no desde la raiz)
 tsc --noEmit                           limpio en medicamentos y en web
 ```
 
@@ -257,12 +305,13 @@ Preguntas reales para el CAP. No están respondidas.
 4. **¿Qué se hace físicamente con un lote vencido?** ¿Se destruye en el CAP, se
    devuelve al almacén departamental, hace falta un acta? De la respuesta
    depende si la baja necesita más campos que el motivo.
-5. **No hay ajuste de inventario por conteo físico.** El enum
-   `TipoMovimiento` tiene `AJUSTE` y `DEVOLUCION`, pero **ningún endpoint los
-   produce**: solo existen `INGRESO`, `ENTREGA` y `BAJA`. Cuando el conteo del
-   estante no cuadre con el sistema —y va a pasar— hoy la única salida es dar de
-   baja el lote entero, que registra un motivo falso. Hay que decidir si se
-   construye el ajuste y quién lo autoriza.
+5. **El ajuste por conteo físico ya existe, pero no está decidido quién lo
+   autoriza.** Hoy lo hace cualquiera con rol de Farmacia, sin segunda firma y
+   sin acta. Si el CAP exige que un conteo lo respalde alguien más, el sistema
+   todavía no lo refleja. Queda además `DEVOLUCION` en el enum `TipoMovimiento`
+   sin ningún endpoint que lo produzca: hay que preguntar si el CAP devuelve
+   medicamento al almacén departamental, y si eso debe salir del inventario como
+   devolución y no como baja.
 6. **¿La existencia mínima la fija el CAP o viene del MSPAS?** Hoy la escribe
    quien da de alta el medicamento, sin ninguna referencia.
 

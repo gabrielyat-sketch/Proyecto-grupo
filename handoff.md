@@ -57,7 +57,7 @@ línea tendrá que traerse `develop` antes de que se pueda fusionar.
 
 ### Pruebas
 
-**688 verdes**: 450 unitarias + 238 e2e. `tsc --noEmit` limpio en todo el
+**711 verdes**: 461 unitarias + 250 e2e. `tsc --noEmit` limpio en todo el
 monorepo, y el panel ya termina con **código de salida 0** (ver §4). Se corren
 así:
 
@@ -78,7 +78,7 @@ for s in auth usuarios programas medicamentos; do npm run test:e2e -w @cap/$s; d
 | **Antecedentes** del paciente (sección VII) | Completo |
 | **Digitalización** (RF-08): avance por comunidad, cola, transcripción | Completo |
 | **Expedientes**: búsqueda por número, historial, ficha desplegable | Completo |
-| **Farmacia**: catálogo, lotes, vencimientos, bajo mínimo, ingreso y baja | Completo, sin fusionar |
+| **Farmacia**: catálogo, lotes, vencimientos, bajo mínimo, ingreso, baja y conteo físico | Completo, sin fusionar |
 
 ### Qué falta (backend construido, sin pantalla)
 
@@ -147,7 +147,7 @@ cap-sistema/
 | `modulos/fichas` | 10 | 2,614 | 917 |
 | `modulos/digitalizacion` | 6 | 949 | 395 |
 | `modulos/recepcion` | 5 | 858 | 399 |
-| `modulos/farmacia` | 8 | 1,788 | 612 |
+| `modulos/farmacia` | 9 | 2,023 | 795 |
 | `modulos/expedientes` | 4 | 790 | 402 |
 | `modulos/espera` | 2 | 334 | 222 |
 
@@ -234,6 +234,10 @@ diga "passed".
 
 **Cuidado con el directorio al correr vitest.** Desde la raíz del monorepo
 recoge las specs de todos los paquetes y fallan todas. Se corre desde `web/`.
+Vuelve a pasar con facilidad, y el síntoma engaña: el error que sale es
+`ReferenceError: beforeEach is not defined`, que parece un problema del archivo
+de pruebas. Mira la primera línea de la salida de vitest: dice desde qué carpeta
+arrancó.
 
 **Los selectores ambiguos son el error más común.** Un texto que aparece en dos
 sitios legítimos —el porcentaje global y el de "todas las comunidades", o el
@@ -341,8 +345,17 @@ de `develop`, así que tendrá que traérselo antes.
 ### El siguiente módulo: Farmacia, segunda entrega
 
 La primera entrega ya está: catálogo, existencias por lote, las tres alertas,
-ingreso de lote y baja con motivo. Está en `feature/web-farmacia`, con su diseño
-en `docs/diseno-farmacia.md`.
+ingreso de lote, baja con motivo y **ajuste por conteo físico**. Está en
+`feature/web-farmacia`, con su diseño en `docs/diseno-farmacia.md`.
+
+El ajuste resolvió el hueco que quedaba en el modelo: `AJUSTE` existía en el
+enum `TipoMovimiento` y ningún endpoint lo producía, así que un descuadre del
+estante solo podía arreglarse dando de baja el lote entero con un motivo falso.
+Ahora se escribe **lo contado** —no la diferencia— y el desvío queda explicado
+en el libro mayor. Lleva control optimista: el cuerpo incluye la existencia que
+el sistema mostraba al empezar a contar, y si alguien entregó mientras tanto el
+servidor responde 409 sin tocar nada. Sin eso, guardar un conteo pisaría esa
+entrega en silencio.
 
 Lo que queda es **la entrega de medicamentos**, `POST /v1/entregas`. Es la
 pantalla crítica del módulo: toca inventario de verdad, no puede registrar dos
@@ -400,7 +413,11 @@ De Farmacia, en `docs/diseno-farmacia.md`:
   primera persona que entre tiene que teclear cientos de medicamentos.
 - ¿Noventa días es la ventana de alerta de vencimiento correcta? Es el valor por
   defecto de `DIAS_ALERTA_VENCIMIENTO` y nadie del CAP lo ha confirmado.
-- **¿Quién puede dar de baja un lote?** Hoy cualquiera con rol de Farmacia, sin
-  segunda firma. Y qué se hace físicamente con lo vencido: ¿se destruye en el
-  CAP, se devuelve al almacén departamental, hace falta un acta?
+- **¿Quién puede dar de baja un lote, y quién puede ajustar por conteo?** Hoy
+  cualquiera con rol de Farmacia, sin segunda firma ni acta. Y qué se hace
+  físicamente con lo vencido: ¿se destruye en el CAP, se devuelve al almacén
+  departamental, hace falta un acta?
+- **¿El CAP devuelve medicamento al almacén departamental?** `DEVOLUCION` sigue
+  en el enum `TipoMovimiento` sin ningún endpoint que lo produzca. Si eso pasa
+  de verdad, debería salir del inventario como devolución y no como baja.
 - ¿La existencia mínima la fija el CAP o viene del MSPAS?

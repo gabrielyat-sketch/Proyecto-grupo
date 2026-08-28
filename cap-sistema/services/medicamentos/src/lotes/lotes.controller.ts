@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
@@ -11,6 +12,7 @@ import { ApiParametrosPagina, ApiPaginaDe, type Pagina, Rol, Roles, Usuario } fr
 import { LotesService } from './lotes.service';
 import { IngresarLoteDto } from './dto/ingresar-lote.dto';
 import { DarDeBajaLoteDto } from './dto/dar-de-baja.dto';
+import { AjustarLoteDto } from './dto/ajustar-lote.dto';
 import { LoteDto, LotePorVencerDto, LoteVencidoDto } from './dto/respuestas.dto';
 
 @ApiTags('lotes')
@@ -71,6 +73,27 @@ export class LotesController {
     @Query('tamano') tamano?: string,
   ): Promise<Pagina<LoteVencidoDto>> {
     return this.servicio.vencidos({ pagina: Number(pagina), tamano: Number(tamano) });
+  }
+
+  @Patch('lotes/:id/ajuste')
+  @Roles(Rol.FARMACIA, Rol.ADMINISTRADOR)
+  @ApiOperation({
+    summary: 'Ajusta la existencia de un lote a lo que se conto en el estante',
+    description:
+      'Se envia lo CONTADO, no la diferencia. El servidor calcula el desvio y lo deja en el libro mayor como movimiento de AJUSTE.',
+  })
+  @ApiOkResponse({ type: LoteDto })
+  @ApiConflictResponse({
+    description:
+      'La existencia se movio mientras se contaba: hubo una entrega o un ingreso. Nada se ajusto, vuelva a contar.',
+  })
+  ajustar(
+    @Param('id') id: string,
+    @Body() dto: AjustarLoteDto,
+    @Usuario('id') usuarioId: string,
+    @Req() req: { trazaId?: string },
+  ): Promise<LoteDto> {
+    return this.servicio.ajustar(id, dto, usuarioId, req.trazaId);
   }
 
   @Patch('lotes/:id/baja')

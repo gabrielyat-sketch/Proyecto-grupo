@@ -2,7 +2,13 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App, clienteConsultas } from '../../App';
 import { almacenSesion, type Perfil } from '../../api';
-import { conUnidad, faltanPara, fechaCorta, vencidoHace } from './servicio-farmacia';
+import {
+  conUnidad,
+  desvioEnPalabras,
+  faltanPara,
+  fechaCorta,
+  vencidoHace,
+} from './servicio-farmacia';
 
 const FARMACIA: Perfil = {
   id: 'u-3',
@@ -120,12 +126,15 @@ function servidor({
   porVencer = [LOTE_POR_VENCER] as unknown[],
   vencidos = [LOTE_VENCIDO] as unknown[],
   bajoMinimo = BAJO_MINIMO as unknown[],
+  ajusteChoca = false,
 }: {
   catalogo?: unknown[];
   detalle?: unknown;
   porVencer?: unknown[];
   vencidos?: unknown[];
   bajoMinimo?: unknown[];
+  /** Simula que alguien entrego mientras se contaba: el servidor da 409. */
+  ajusteChoca?: boolean;
 } = {}) {
   vi.stubGlobal(
     'fetch',
@@ -140,6 +149,21 @@ function servidor({
       if (ruta.endsWith('/v1/medicamentos/bajo-minimo')) return json(bajoMinimo);
       if (ruta.endsWith('/v1/lotes/por-vencer')) return json(paginaDe(porVencer));
       if (ruta.endsWith('/v1/lotes/vencidos')) return json(paginaDe(vencidos));
+      if (/\/v1\/lotes\/[^/]+\/ajuste$/.test(ruta)) {
+        return ajusteChoca
+          ? json(
+              {
+                codigo: 'CONFLICTO',
+                mensaje:
+                  'La existencia cambio mientras se contaba: hubo una entrega o un ingreso. Vuelva a contar.',
+                trazaId: 'x',
+                ruta,
+                fecha: '2026-08-28T00:00:00.000Z',
+              },
+              409,
+            )
+          : json({ id: 'l-1', cantidadDisponible: 95, estado: 'DISPONIBLE' });
+      }
       if (/\/v1\/lotes\/[^/]+\/baja$/.test(ruta)) return json({ id: 'l-8', estado: 'DADO_DE_BAJA' });
       if (/\/v1\/medicamentos\/[^/]+\/lotes$/.test(ruta)) return json({ id: 'l-nuevo' });
       if (ruta.endsWith('/v1/medicamentos')) {
@@ -536,6 +560,165 @@ describe('un medicamento y sus lotes', () => {
     await screen.findByText('L-4471');
     expect(screen.queryByRole('button', { name: /Ingresar lote/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Dar de baja' })).not.toBeInTheDocument();
+  });
+});
+
+// ═══════════════════ ajuste por conteo fisico ═══════════════════
+
+describe('ajuste por conteo fisico', () => {
+  /** Abre el dialogo de conteo del primer lote del medicamento. */
+  async function abrirConteo(usuario: ReturnType<typeof userEvent.setup>) {
+    abrir(FARMACIA, '/farmacia/m-1');
+    await screen.findByText('L-4471');
+    const fila = screen.getByText('L-4471').closest('tr') as HTMLElement;
+    await usuario.click(within(fila).getByRole('button', { name: 'Contar' }));
+    return screen.getByRole('dialog');
+  }
+
+  it('el desvio se dice en palabras: un numero con signo hay que interpretarlo', () => {
+    expect(desvioEnPalabras(95, 100, 'TABLETA')).toBe('Faltan 5 tabletas');
+    expect(desvioEnPalabras(112, 100, 'TABLETA')).toBe('Sobran 12 tabletas');
+    expect(desvioEnPalabras(50, 50, 'SOBRE')).toBe('Coincide con el sistema');
+  });
+
+  it('dice lo que el sistema tiene antes de empezar a contar', async () => {
+    servidor();
+    const usuario = userEvent.setup();
+    const dialogo = await abrirConteo(usuario);
+
+    expect(within(dialogo).getByText(/El sistema dice/)).toHaveTextContent('120 tabletas');
+  });
+
+  /**
+   * Se escribe lo CONTADO, no la diferencia. Quien recorre el estante cuenta
+   * unidades; pedirle la diferencia lo obliga a restar de cabeza y a acertar
+   * el signo.
+   */
+  it('avisa cuanto falta mientras se escribe el conteo', async () => {
+    servidor();
+    const usuario = userEvent.setup();
+    const dialogo = await abrirConteo(usuario);
+
+    await usuario.type(within(dialogo).getByLabelText(/Cantidad contada/), '113');
+
+    expect(within(dialogo).getByText('Faltan 7 tabletas')).toBeInTheDocument();
+  });
+
+  it('y cuanto sobra cuando aparece medicamento de mas', async () => {
+    servidor();
+    const usuario = userEvent.setup();
+    const dialogo = await abrirConteo(usuario);
+
+    await usuario.type(within(dialogo).getByLabelText(/Cantidad contada/), '125');
+
+    expect(within(dialogo).getByText('Sobran 5 tabletas')).toBeInTheDocument();
+  });
+
+  it('un conteo que cuadra no deja ajustar: seria un movimiento vacio', async () => {
+    servidor();
+    const usuario = userEvent.setup();
+    const dialogo = await abrirConteo(usuario);
+
+    await usuario.type(within(dialogo).getByLabelText(/Cantidad contada/), '120');
+    await usuario.type(within(dialogo).getByLabelText(/Motivo del ajuste/), 'Conteo mensual.');
+
+    expect(within(dialogo).getByText(/cuadra con el sistema/)).toBeInTheDocument();
+    expect(within(dialogo).getByRole('button', { name: 'Ajustar existencia' })).toBeDisabled();
+  });
+
+  it('exige el motivo: un descuadre sin explicar no sirve de nada', async () => {
+    servidor();
+    const usuario = userEvent.setup();
+    const dialogo = await abrirConteo(usuario);
+
+    await usuario.type(within(dialogo).getByLabelText(/Cantidad contada/), '95');
+    const enviar = within(dialogo).getByRole('button', { name: 'Ajustar existencia' });
+    expect(enviar).toBeDisabled();
+
+    await usuario.type(within(dialogo).getByLabelText(/Motivo del ajuste/), 'Cajas mal ubicadas.');
+    expect(enviar).toBeEnabled();
+  });
+
+  /**
+   * El servidor necesita la existencia que se mostraba al empezar para poder
+   * detectar que alguien entrego mientras se contaba.
+   */
+  it('manda lo contado y la existencia que mostraba el sistema', async () => {
+    servidor();
+    const usuario = userEvent.setup();
+    const dialogo = await abrirConteo(usuario);
+
+    await usuario.type(within(dialogo).getByLabelText(/Cantidad contada/), '95');
+    await usuario.type(
+      within(dialogo).getByLabelText(/Motivo del ajuste/),
+      'Conteo fisico del 28/08/2026.',
+    );
+    await usuario.click(within(dialogo).getByRole('button', { name: 'Ajustar existencia' }));
+
+    await waitFor(() => {
+      expect(cuerpos).toContainEqual({
+        cantidadContada: 95,
+        cantidadEnSistema: 120,
+        motivo: 'Conteo fisico del 28/08/2026.',
+      });
+    });
+  });
+
+  it('si alguien entrego mientras se contaba, lo explica y no reintenta solo', async () => {
+    servidor({ ajusteChoca: true });
+    const usuario = userEvent.setup();
+    const dialogo = await abrirConteo(usuario);
+
+    await usuario.type(within(dialogo).getByLabelText(/Cantidad contada/), '95');
+    await usuario.type(within(dialogo).getByLabelText(/Motivo del ajuste/), 'Conteo fisico.');
+    await usuario.click(within(dialogo).getByRole('button', { name: 'Ajustar existencia' }));
+
+    expect(await screen.findByText(/cambio mientras contaba/)).toBeInTheDocument();
+    // Un solo intento: reintentar solo volveria a mandar un conteo ya viejo.
+    const ajustes = peticiones.filter((p) => p.url.includes('/ajuste'));
+    expect(ajustes).toHaveLength(1);
+  });
+
+  /**
+   * Si aparece una caja que se creia gastada hay que poder devolverla al
+   * inventario, asi que el conteo tambien se ofrece en un lote agotado.
+   */
+  it('un lote agotado tambien se puede contar', async () => {
+    servidor({
+      detalle: {
+        ...DETALLE,
+        lotes: [{ ...DETALLE.lotes[0], cantidadDisponible: 0, estado: 'AGOTADO' }],
+      },
+    });
+    abrir(FARMACIA, '/farmacia/m-1');
+
+    await screen.findByText('L-4471');
+    const fila = screen.getByText('L-4471').closest('tr') as HTMLElement;
+    expect(within(fila).getByRole('button', { name: 'Contar' })).toBeInTheDocument();
+    // Pero no se da de baja lo que ya no tiene existencia.
+    expect(within(fila).queryByRole('button', { name: 'Dar de baja' })).not.toBeInTheDocument();
+  });
+
+  it('un lote dado de baja ya no es inventario: no se cuenta', async () => {
+    servidor({
+      detalle: {
+        ...DETALLE,
+        lotes: [{ ...DETALLE.lotes[0], cantidadDisponible: 0, estado: 'DADO_DE_BAJA' }],
+      },
+    });
+    abrir(FARMACIA, '/farmacia/m-1');
+
+    await screen.findByText('L-4471');
+    const fila = screen.getByText('L-4471').closest('tr') as HTMLElement;
+    expect(within(fila).queryByRole('button', { name: 'Contar' })).not.toBeInTheDocument();
+  });
+
+  it('el medico no ajusta inventario', async () => {
+    servidor();
+    abrir(MEDICO, '/farmacia/m-1');
+
+    await screen.findByText('L-4471');
+    expect(screen.queryByRole('button', { name: 'Contar' })).not.toBeInTheDocument();
   });
 });
 

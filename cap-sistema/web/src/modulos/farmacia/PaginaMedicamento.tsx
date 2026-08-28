@@ -27,6 +27,8 @@ import { usarSesion } from '../sesion/contexto';
 import { DialogoEditarMedicamento } from './DialogoMedicamento';
 import { DialogoIngresarLote } from './DialogoIngresarLote';
 import { DialogoBaja, type LoteParaBaja } from './DialogoBaja';
+import { DialogoAjuste } from './DialogoAjuste';
+import type { LoteDelMedicamento, MedicamentoDetalle } from './servicio-farmacia';
 import {
   conUnidad,
   ETIQUETA_ESTADO_LOTE,
@@ -48,6 +50,28 @@ const ETIQUETA_VENCIMIENTO: Record<string, string> = {
   POR_VENCER: 'Por vencer',
   VENCIDO: 'Vencido',
 };
+
+/**
+ * Lo que los diálogos de conteo y de baja necesitan saber del lote.
+ *
+ * El lote del detalle no trae el nombre del medicamento —está en el encabezado,
+ * no repetido en cada fila— así que se compone aquí.
+ */
+function paraDialogo(
+  lote: LoteDelMedicamento,
+  medicamento: MedicamentoDetalle,
+): LoteParaBaja {
+  return {
+    id: lote.id,
+    numeroLote: lote.numeroLote,
+    fechaVencimiento: lote.fechaVencimiento as unknown as string,
+    cantidadDisponible: lote.cantidadDisponible,
+    medicamento: {
+      nombreGenerico: medicamento.nombreGenerico,
+      unidad: medicamento.unidad,
+    },
+  };
+}
 
 /** Un dato del encabezado: rótulo arriba, valor abajo. */
 function Dato({ rotulo, valor }: { rotulo: string; valor: string }) {
@@ -78,6 +102,7 @@ export function PaginaMedicamento() {
   const [editando, setEditando] = useState(false);
   const [ingresando, setIngresando] = useState(false);
   const [bajando, setBajando] = useState<LoteParaBaja | null>(null);
+  const [contando, setContando] = useState<LoteParaBaja | null>(null);
 
   const medicamento = useQuery({
     queryKey: ['medicamento', medicamentoId],
@@ -248,27 +273,33 @@ export function PaginaMedicamento() {
                   </TableCell>
                   {administra ? (
                     <TableCell>
-                      {l.cantidadDisponible > 0 && l.estado === 'DISPONIBLE' ? (
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          color="warning"
-                          onClick={() =>
-                            setBajando({
-                              id: l.id,
-                              numeroLote: l.numeroLote,
-                              fechaVencimiento: l.fechaVencimiento as unknown as string,
-                              cantidadDisponible: l.cantidadDisponible,
-                              medicamento: {
-                                nombreGenerico: m.nombreGenerico,
-                                unidad: m.unidad,
-                              },
-                            })
-                          }
-                        >
-                          Dar de baja
-                        </Button>
-                      ) : null}
+                      <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
+                        {/*
+                          El ajuste se ofrece tambien en un lote agotado: si
+                          aparece una caja que se creia gastada, hay que poder
+                          devolverla al inventario. Lo unico que queda fuera es
+                          un lote dado de baja, que ya no es inventario.
+                        */}
+                        {l.estado !== 'DADO_DE_BAJA' ? (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => setContando(paraDialogo(l, m))}
+                          >
+                            Contar
+                          </Button>
+                        ) : null}
+                        {l.cantidadDisponible > 0 && l.estado === 'DISPONIBLE' ? (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="warning"
+                            onClick={() => setBajando(paraDialogo(l, m))}
+                          >
+                            Dar de baja
+                          </Button>
+                        ) : null}
+                      </Stack>
                     </TableCell>
                   ) : null}
                 </TableRow>
@@ -287,6 +318,9 @@ export function PaginaMedicamento() {
       ) : null}
       {bajando ? (
         <DialogoBaja key={bajando.id} lote={bajando} onCerrar={() => setBajando(null)} />
+      ) : null}
+      {contando ? (
+        <DialogoAjuste key={contando.id} lote={contando} onCerrar={() => setContando(null)} />
       ) : null}
     </Box>
   );

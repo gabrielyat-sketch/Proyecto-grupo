@@ -151,6 +151,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/lotes/{id}/ajuste": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Ajusta la existencia de un lote a lo que se conto en el estante
+         * @description Se envia lo CONTADO, no la diferencia. El servidor calcula el desvio y lo deja en el libro mayor como movimiento de AJUSTE.
+         */
+        patch: operations["LotesController_ajustar"];
+        trace?: never;
+    };
     "/v1/lotes/{id}/baja": {
         parameters: {
             query?: never;
@@ -492,6 +512,23 @@ export interface components {
              * @example 12
              */
             diasVencido: number;
+        };
+        AjustarLoteDto: {
+            /**
+             * @description Las unidades que hay fisicamente en el estante.
+             * @example 95
+             */
+            cantidadContada: number;
+            /**
+             * @description La existencia que mostraba el sistema al empezar a contar.
+             * @example 100
+             */
+            cantidadEnSistema: number;
+            /**
+             * @description Por que no coincide. Un descuadre sin explicacion no sirve de nada.
+             * @example Conteo fisico del 28/08/2026: aparecieron 5 cajas mal ubicadas.
+             */
+            motivo: string;
         };
         DarDeBajaLoteDto: {
             /** @example Vencido el 2026-07-31, retirado del estante y destruido segun acta 14-2026. */
@@ -1172,6 +1209,83 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RespuestaErrorDto"];
                 };
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
+    LotesController_ajustar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AjustarLoteDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoteDto"];
+                };
+            };
+            /** @description La informacion enviada no es valida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El recurso solicitado no existe. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description La existencia se movio mientras se contaba: hubo una entrega o un ingreso. Nada se ajusto, vuelva a contar. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
             500: {
