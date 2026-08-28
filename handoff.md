@@ -43,9 +43,17 @@ una matriz de riesgos. **Léela antes de tomar cualquier decisión estructural.*
 
 ```
 develop  a80277e   ← Etapas 1-6, la 5 entera, Farmacia (PR #8) y Administracion (PR #10)
-   └── feature/ficha-neonato              SIN FUSIONAR, la segunda de las cuatro fichas
+   └── feature/ficha-neonato              SIN FUSIONAR, 3 commits
    └── feature/servicio-trazabilidad      PR #3 abierto, sin corregir
 ```
+
+**`feature/ficha-neonato`** lleva tres cosas, no solo la ficha:
+
+| | |
+|---|---|
+| `96a2e08` | Ficha de menor de 28 días: backend y catálogo |
+| `b4ee06f` | La pantalla de esa ficha |
+| `4ed4eb4` | El sistema elige la ficha por edad, y tres campos nuevos en recepción |
 
 **La Etapa 8 esta cerrada y fusionada.** Farmacia entera —catalogo, lotes,
 alertas, ingreso, baja, conteo fisico y entrega con FEFO— entro en `develop` con
@@ -58,7 +66,7 @@ línea tendrá que traerse `develop` antes de que se pueda fusionar.
 
 ### Pruebas
 
-**829 verdes**: 552 unitarias + 277 e2e. `tsc --noEmit` limpio en todo el
+**849 verdes**: 561 unitarias + 288 e2e. `tsc --noEmit` limpio en todo el
 monorepo, y el panel ya termina con **código de salida 0** (ver §4). Se corren
 así:
 
@@ -77,6 +85,8 @@ for s in auth usuarios programas medicamentos; do npm run test:e2e -w @cap/$s; d
 | **Sala de espera**: marcar llegada, atender, sacar sin ficha, cierre de rezagadas | Completo |
 | **Ficha de adultos**: 10 secciones, ~200 campos, matriz de 14 problemas | Completo |
 | **Ficha de menor de 28 dias**: 27 signos en tres bloques, parto, consejeria con fechas | Completo, sin fusionar |
+| **Elección de ficha por edad**: el botón lleva a la hoja que corresponde | Completo, sin fusionar |
+| **Recepción**: barrio/caserío/aldea, migrante, alergias a medicamentos | Completo, sin fusionar |
 | **Antecedentes** del paciente (sección VII) | Completo |
 | **Digitalización** (RF-08): avance por comunidad, cola, transcripción | Completo |
 | **Expedientes**: búsqueda por número, historial, ficha desplegable | Completo |
@@ -151,9 +161,9 @@ cap-sistema/
 
 | Módulo | Archivos | Líneas | Pruebas |
 |---|---|---|---|
-| `modulos/fichas` | 12 | 3,778 | 1,348 |
+| `modulos/fichas` | 13 | 3,879 | 1,426 |
 | `modulos/digitalizacion` | 6 | 949 | 395 |
-| `modulos/recepcion` | 5 | 858 | 399 |
+| `modulos/recepcion` | 5 | 1,108 | 399 |
 | `modulos/farmacia` | 14 | 3,000 | 1,377 |
 | `modulos/administracion` | 4 | 1,020 | 640 |
 | `modulos/expedientes` | 4 | 790 | 402 |
@@ -296,6 +306,28 @@ comunidad propia para la prueba en vez de buscar entre 8,000 registros.
 **Un paciente registrado sin marcar "viene de papel" nace `COMPLETO`.** Si la
 prueba espera encontrarlo en la cola de digitalización, tiene que crearlo con
 `digitalizado: true`.
+
+### La sesión y las pruebas
+
+**La sesión vive SOLO en memoria, y recargar la página echa al usuario.** Es
+deliberado —`api/sesion-almacen.ts` lo explica: un token en `localStorage` lo
+lee cualquier script inyectado, y en un sistema con datos clínicos eso entrega
+expedientes enteros—. La consecuencia práctica: **nunca le pidas a nadie que
+pegue una dirección en la barra del navegador**, porque eso es una recarga.
+Todo lo que haya que probar necesita un botón que lleve hasta ahí. La solución
+definitiva es la cookie HttpOnly que pide la arquitectura §10.1, y sigue
+pendiente.
+
+**Una prueba e2e que crea pacientes tiene que registrarlos para la limpieza.**
+El archivo `usuarios.e2e-spec.ts` borra al terminar solo los ids de la lista
+`creados`, que llena el ayudante `crearPaciente`. Haciendo el `POST` a mano, los
+pacientes sobreviven y el borrado de la comunidad de prueba falla por la llave
+foránea: **160 pruebas en verde y la suite en rojo**, con el error real
+enterrado en un volcado de Prisma de miles de caracteres. Usa el ayudante.
+
+**Y no crees comunidades en las pruebas.** Una comunidad con pacientes no se
+puede borrar —la llave foránea lo impide, y está bien que lo impida—. Usa las
+que ya existen con un `findFirst`.
 
 ### Las fichas del MSPAS
 
@@ -443,6 +475,19 @@ de `develop`, así que tendrá que traérselo antes.
 entera está en `develop`; Administración, en `feature/web-administracion`, con
 sus diseños en `docs/diseno-farmacia.md` y `docs/diseno-administracion.md`.
 
+Lo último que se hizo, y que conviene conocer antes de seguir:
+
+- **El sistema elige la ficha por la fecha de nacimiento.** Hasta 28 días,
+  neonato; hasta los 10 años, niñez; de ahí en adelante, adultos. El botón
+  "Abrir ficha" de Recepción lleva a la que toca y, cuando esa hoja aún no
+  tiene pantalla —niñez—, lo dice en vez de abrir la equivocada. Está en
+  `web/src/modulos/fichas/ficha-por-edad.ts`. La prenatal queda fuera: depende
+  del embarazo, no de la edad.
+- **Recepción pregunta tres cosas más**: barrio/caserío/aldea (tabla
+  `lugar_poblado` por comunidad), población migrante con su lugar de origen, y
+  **alergias a medicamentos**. Las alergias tienen TRES estados —`null` es "no
+  se preguntó", que no es lo mismo que "no tiene"— y el texto va cifrado.
+
 **Lactancia y niñez** es la siguiente, y la más compleja de las cuatro: cuatro
 páginas con esquema de vacunación (~100 celdas del papel, que en digital son una
 lista de dosis aplicadas), micronutrientes, y la gráfica de peso para edad — que
@@ -494,6 +539,16 @@ Están repartidas en los documentos de diseño. Las que más pesan:
 - El tipo de sangre está impreso dentro del bloque gineco-obstétrico, así que un
   paciente hombre no tiene dónde anotarlo. La pantalla respeta el papel.
 - Las seis preguntas al final de `docs/campos-de-fichas.md`.
+
+De Recepción, y son urgentes porque ya hay pantalla esperándolas:
+
+- **¿Cuáles son los barrios, caseríos y aldeas de cada comunidad?** Los que hay
+  sembrados **me los inventé yo** para que el desplegable tuviera contenido. Se
+  corrigen editando `services/usuarios/prisma/lugares-poblados.ts` y volviendo a
+  correr `npm run lugares -w @cap/usuarios`.
+- **¿Quién pregunta por las alergias, y cuándo?** Hoy lo hace Recepción al
+  registrar al paciente. Si el CAP lo hace en la consulta, el campo está en el
+  sitio equivocado.
 
 De Farmacia, en `docs/diseno-farmacia.md`:
 
