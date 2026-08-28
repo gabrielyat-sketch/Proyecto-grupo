@@ -58,7 +58,7 @@ línea tendrá que traerse `develop` antes de que se pueda fusionar.
 
 ### Pruebas
 
-**782 verdes**: 524 unitarias + 258 e2e. `tsc --noEmit` limpio en todo el
+**791 verdes**: 529 unitarias + 262 e2e. `tsc --noEmit` limpio en todo el
 monorepo, y el panel ya termina con **código de salida 0** (ver §4). Se corren
 así:
 
@@ -74,7 +74,7 @@ for s in auth usuarios programas medicamentos; do npm run test:e2e -w @cap/$s; d
 |---|---|
 | Acceso, MFA TOTP, cambio de contraseña obligatorio, cierre por inactividad | Completo |
 | Recepción: búsqueda por nombre y DPI, alta de pacientes | Completo |
-| **Sala de espera**: marcar llegada, atender, sacar sin ficha | Completo |
+| **Sala de espera**: marcar llegada, atender, sacar sin ficha, cierre de rezagadas | Completo |
 | **Ficha de adultos**: 10 secciones, ~200 campos, matriz de 14 problemas | Completo |
 | **Antecedentes** del paciente (sección VII) | Completo |
 | **Digitalización** (RF-08): avance por comunidad, cola, transcripción | Completo |
@@ -164,6 +164,14 @@ cap-sistema/
   temperatura son `string` en las respuestas.
 - **Las fechas se mandan como `aaaa-mm-dd` sin convertir a `Date`.** Guatemala es
   UTC-6 y construir un `Date` mueve la fecha al día anterior.
+- **Para filtrar "lo de hoy" en el servidor, `inicioDelDiaLocal()` de
+  `@cap/shared`.** Nunca `setHours(0,0,0,0)`: eso toma la zona horaria del
+  proceso, que en tu máquina es Guatemala y en el contenedor de producción es
+  UTC. Funciona en las pruebas y falla desplegado, corriendo la frontera del
+  día seis horas. Y no la confundas con `fechaDelDia`: una devuelve la
+  medianoche UTC del día local —para comparar días entre sí— y la otra la
+  medianoche local como instante, que es lo único comparable contra una columna
+  de marca de tiempo.
 - **Nunca se aplica una migración sin confirmación explícita de Dennis.**
 - **`npm run lint` no funciona en ningún paquete**: no existe ningún
   `eslint.config.*` en el repositorio. En los servicios, `lint` es `tsc --noEmit`.
@@ -290,6 +298,20 @@ o `@ApiQuery({ required: false })`, el contrato publica los parámetros como
 obligatorios.
 
 ### Defectos que aparecieron y por qué nadie los había visto
+
+**Dos criterios que miran lo mismo y no coinciden dejan datos atrapados.** La
+sala de espera lo tuvo durante semanas: `enEspera()` listaba solo las visitas de
+HOY, pero `marcarLlegada()` y el índice único de la base miraban si había
+CUALQUIER visita `ESPERANDO`, sin fecha. Una visita que nadie cerró al terminar
+el día se volvía **invisible** —no salía en la lista, así que no se podía
+retirar desde ninguna pantalla— y **bloqueaba al paciente para siempre**. Lo
+encontró Dennis probando, no las pruebas.
+
+**Y las pruebas no lo vieron por un detalle de una sola palabra.** Había una
+prueba de "una llegada de AYER no aparece hoy" y pasaba, pero creaba la visita
+vieja con estado `ATENDIDA`: comprobaba que las cerradas no se arrastran, no que
+las abiertas bloquean. **Cuando escribas la prueba de un caso límite, comprueba
+que el dato que montas está en el estado que de verdad causa el problema.**
 
 Todos estaban en código que **nunca se había usado desde una pantalla**:
 

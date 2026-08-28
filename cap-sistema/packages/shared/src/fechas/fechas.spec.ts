@@ -1,4 +1,10 @@
-import { DESFASE_GUATEMALA_HORAS, diasEntre, fechaDelDia, sumarDias } from './fechas';
+import {
+  DESFASE_GUATEMALA_HORAS,
+  diasEntre,
+  fechaDelDia,
+  inicioDelDiaLocal,
+  sumarDias,
+} from './fechas';
 
 const utc = (a: number, m: number, d: number) => new Date(Date.UTC(a, m - 1, d));
 /** Instante UTC que corresponde a una hora local de Purulhá. */
@@ -31,6 +37,47 @@ describe('fechaDelDia', () => {
 
   it('funciona cruzando el cambio de anio', () => {
     expect(fechaDelDia(enPurulha(2026, 12, 31, 22))).toEqual(utc(2026, 12, 31));
+  });
+});
+
+describe('inicioDelDiaLocal', () => {
+  /**
+   * Es el complemento de fechaDelDia y son cosas distintas: una devuelve la
+   * medianoche UTC del dia local —para comparar dias entre si— y la otra la
+   * medianoche LOCAL como instante, que es lo unico comparable contra una
+   * columna de marca de tiempo. Confundirlas corre la frontera del dia seis
+   * horas.
+   */
+  it('devuelve la medianoche de Purulha, no la de UTC', () => {
+    expect(inicioDelDiaLocal(enPurulha(2026, 8, 25, 14))).toEqual(enPurulha(2026, 8, 25, 0));
+  });
+
+  it('no es lo mismo que fechaDelDia: van seis horas de diferencia', () => {
+    const instante = enPurulha(2026, 8, 25, 14);
+    const diferencia = inicioDelDiaLocal(instante).getTime() - fechaDelDia(instante).getTime();
+    expect(diferencia).toBe(6 * 3_600_000);
+  });
+
+  /**
+   * El caso que rompio la sala de espera: una visita de las 19:46 del 27
+   * quedaba con marca 01:46 UTC del 28, y con la medianoche equivocada
+   * parecia de hoy.
+   */
+  it('una llegada de anoche queda ANTES del inicio de hoy', () => {
+    const anoche = enPurulha(2026, 8, 27, 19); // 01:00 UTC del 28
+    const hoy = inicioDelDiaLocal(enPurulha(2026, 8, 28, 12));
+    expect(anoche.getTime()).toBeLessThan(hoy.getTime());
+  });
+
+  it('una llegada de esta manana queda DESPUES', () => {
+    const estaManana = enPurulha(2026, 8, 28, 8);
+    const hoy = inicioDelDiaLocal(enPurulha(2026, 8, 28, 12));
+    expect(estaManana.getTime()).toBeGreaterThanOrEqual(hoy.getTime());
+  });
+
+  it('a las 00:30 de Purulha el dia acaba de empezar', () => {
+    const madrugada = enPurulha(2026, 8, 28, 0.5);
+    expect(madrugada.getTime()).toBeGreaterThanOrEqual(inicioDelDiaLocal(madrugada).getTime());
   });
 });
 
