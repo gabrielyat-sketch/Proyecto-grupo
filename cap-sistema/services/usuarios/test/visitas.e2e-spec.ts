@@ -211,6 +211,124 @@ describe('Sala de espera (e2e)', () => {
       await prisma.visita.delete({ where: { id: vieja.id } });
     });
 
+    /**
+     * ───────────────────────────────────────────────────────────────────
+     *  LA VISITA QUE NADIE CERRO AL TERMINAR EL DIA
+     *
+     *  El CAP cierra a las cinco y la gente se va; nadie recorre la lista
+     *  sacando uno por uno a los que no llegaron a pasar. Esas visitas se
+     *  quedaban ESPERANDO para siempre, y como `enEspera` solo lista las de
+     *  hoy, eran INVISIBLES: no se podian retirar desde ninguna pantalla y el
+     *  paciente no volvia a poder entrar a la sala de espera nunca mas.
+     *
+     *  La prueba de "una llegada de AYER no aparece hoy" no lo detectaba
+     *  porque creaba la visita vieja ya cerrada, con estado ATENDIDA.
+     * ───────────────────────────────────────────────────────────────────
+     */
+    it('una visita ESPERANDO de ayer no deja bloqueado al paciente', async () => {
+      // El paciente de las pruebas lo comparten varios casos, y el indice unico
+      // parcial solo admite UNA visita ESPERANDO por paciente. Sin esto, el
+      // resultado dependeria del orden en que corran.
+      await prisma.visita.deleteMany({ where: { pacienteId, estado: 'ESPERANDO' } });
+      const anoche = new Date(Date.now() - 20 * 60 * 60 * 1000);
+      const vieja = await prisma.visita.create({
+        data: {
+          pacienteId,
+          registradaPor: 'e2e',
+          llegadaEn: anoche,
+          estado: 'ESPERANDO',
+        },
+      });
+
+      // Antes esto respondia 409 con el id de una visita que nadie podia ver.
+      const r = await request(http())
+        .post('/v1/visitas')
+        .set(como(Rol.RECEPCION))
+        .send({ pacienteId })
+        .expect(201);
+
+      expect(r.body.id).not.toBe(vieja.id);
+
+      const cerrada = await prisma.visita.findUnique({ where: { id: vieja.id } });
+      expect(cerrada!.estado).toBe('RETIRADA');
+      expect(cerrada!.motivoRetiro).toMatch(/al terminar el dia/i);
+
+      await prisma.visita.delete({ where: { id: r.body.id as string } });
+      await prisma.visita.delete({ where: { id: vieja.id } });
+    });
+
+    it('consultar la sala cierra las que quedaron abiertas de otros dias', async () => {
+      // El paciente de las pruebas lo comparten varios casos, y el indice unico
+      // parcial solo admite UNA visita ESPERANDO por paciente. Sin esto, el
+      // resultado dependeria del orden en que corran.
+      await prisma.visita.deleteMany({ where: { pacienteId, estado: 'ESPERANDO' } });
+      const anteayer = new Date(Date.now() - 44 * 60 * 60 * 1000);
+      const vieja = await prisma.visita.create({
+        data: {
+          pacienteId,
+          registradaPor: 'e2e',
+          llegadaEn: anteayer,
+          estado: 'ESPERANDO',
+        },
+      });
+
+      await request(http()).get('/v1/visitas/espera').set(como(Rol.ENFERMERIA)).expect(200);
+
+      const cerrada = await prisma.visita.findUnique({ where: { id: vieja.id } });
+      expect(cerrada!.estado).toBe('RETIRADA');
+      expect(cerrada!.cerradaEn).not.toBeNull();
+
+      await prisma.visita.delete({ where: { id: vieja.id } });
+    });
+
+    /**
+     * El barrido no puede llevarse por delante a quien esta esperando ahora
+     * mismo: seria peor que el problema que resuelve.
+     */
+    it('el barrido NO toca a quien llego hoy', async () => {
+      // El paciente de las pruebas lo comparten varios casos, y el indice unico
+      // parcial solo admite UNA visita ESPERANDO por paciente. Sin esto, el
+      // resultado dependeria del orden en que corran.
+      await prisma.visita.deleteMany({ where: { pacienteId, estado: 'ESPERANDO' } });
+      const r = await request(http())
+        .post('/v1/visitas')
+        .set(como(Rol.RECEPCION))
+        .send({ pacienteId })
+        .expect(201);
+
+      await request(http()).get('/v1/visitas/espera').set(como(Rol.ENFERMERIA)).expect(200);
+
+      const sigue = await prisma.visita.findUnique({ where: { id: r.body.id as string } });
+      expect(sigue!.estado).toBe('ESPERANDO');
+
+      await prisma.visita.delete({ where: { id: r.body.id as string } });
+    });
+
+    /**
+     * Una visita cerrada de ayer ya estaba bien: el barrido no debe reescribir
+     * su motivo ni su fecha de cierre, que explican lo que de verdad paso.
+     */
+    it('el barrido no reescribe las que ya estaban cerradas', async () => {
+      const ayer = new Date(Date.now() - 30 * 60 * 60 * 1000);
+      const atendida = await prisma.visita.create({
+        data: {
+          pacienteId,
+          registradaPor: 'e2e',
+          llegadaEn: ayer,
+          estado: 'ATENDIDA',
+          cerradaEn: ayer,
+        },
+      });
+
+      await request(http()).get('/v1/visitas/espera').set(como(Rol.ENFERMERIA)).expect(200);
+
+      const sigue = await prisma.visita.findUnique({ where: { id: atendida.id } });
+      expect(sigue!.estado).toBe('ATENDIDA');
+      expect(sigue!.motivoRetiro).toBeNull();
+
+      await prisma.visita.delete({ where: { id: atendida.id } });
+    });
+
     it('Farmacia no ve la sala: dice quien vino al medico y a que', async () => {
       await request(http()).get('/v1/visitas/espera').set(como(Rol.FARMACIA)).expect(403);
     });
@@ -218,6 +336,17 @@ describe('Sala de espera (e2e)', () => {
 
   describe('cerrar la visita', () => {
     it('guardar la ficha la cierra sola, sin un paso mas', async () => {
+      // Se asegura su propia visita en vez de heredar la que dejaba una prueba
+      // anterior. Depender del orden hacia que cualquier caso nuevo que
+      // limpiara la sala rompiera esta, por un motivo que no tiene nada que
+      // ver con lo que comprueba.
+      await prisma.visita.deleteMany({ where: { pacienteId, estado: 'ESPERANDO' } });
+      await request(http())
+        .post('/v1/visitas')
+        .set(como(Rol.RECEPCION))
+        .send({ pacienteId })
+        .expect(201);
+
       // Pedirle a la enfermera un paso extra justo cuando ya termino y va por
       // el siguiente es pedirle que se le olvide.
       await request(http())

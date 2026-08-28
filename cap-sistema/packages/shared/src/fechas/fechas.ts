@@ -35,6 +35,25 @@ export function fechaDelDia(instante: Date): Date {
  * Suma días sobre una FECHA (sin hora). Trabaja con los componentes UTC, así
  * que no se corre por husos ni por horario de verano.
  */
+/**
+ * El instante en que empezó HOY en Purulhá.
+ *
+ * Es el complemento de `fechaDelDia`, y hace falta para filtrar registros por
+ * "lo de hoy". `fechaDelDia` devuelve la medianoche **UTC** del día local, que
+ * sirve para comparar días entre sí; esto devuelve la medianoche **local**
+ * como instante, que es lo único que se puede comparar contra una columna de
+ * marca de tiempo.
+ *
+ * Confundir las dos corre la frontera del día seis horas. Y usar
+ * `setHours(0,0,0,0)` en su lugar tampoco vale: eso toma la zona horaria del
+ * proceso, que en la máquina de un desarrollador es la de Guatemala y en el
+ * contenedor de producción es UTC. Funcionaría en las pruebas y fallaría
+ * desplegado, que es la peor de las combinaciones.
+ */
+export function inicioDelDiaLocal(instante: Date = new Date()): Date {
+  return new Date(fechaDelDia(instante).getTime() - DESFASE_GUATEMALA_HORAS * 3_600_000);
+}
+
 export function sumarDias(fecha: Date, dias: number): Date {
   return new Date(aUtc(fecha) + dias * 86_400_000);
 }

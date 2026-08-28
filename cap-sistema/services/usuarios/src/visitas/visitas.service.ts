@@ -1,5 +1,5 @@
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { ServicioCifrado } from '@cap/shared';
+import { ServicioCifrado, inicioDelDiaLocal } from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { SERVICIO_CIFRADO } from '../comun/cifrado.module';
 import { MarcarLlegadaDto } from './dto/visitas.dto';
@@ -11,6 +11,41 @@ export class VisitasService {
     private readonly prisma: PrismaService,
     @Inject(SERVICIO_CIFRADO) private readonly cifrado: ServicioCifrado,
   ) {}
+
+  /**
+   * Las visitas que quedaron abiertas de dias anteriores, cerradas.
+   *
+   * El CAP cierra a las cinco y la gente se va; nadie recorre la lista
+   * sacando uno por uno a los que no llegaron a pasar. Esas visitas se quedan
+   * ESPERANDO para siempre, y eso rompia dos cosas a la vez:
+   *
+   *  - El paciente quedaba BLOQUEADO. `marcarLlegada` rechaza a quien ya tiene
+   *    una visita abierta —y el indice unico parcial de la base tambien—, pero
+   *    `enEspera` solo lista las de hoy. La visita vieja era invisible y no se
+   *    podia retirar desde ninguna pantalla: ese paciente no volvia a poder
+   *    entrar a la sala de espera NUNCA.
+   *  - Los indicadores de la Etapa 10 contarian como "esperando" a gente que
+   *    se fue hace semanas.
+   *
+   * Se cierran como RETIRADA, que es lo que de verdad paso: se fueron sin que
+   * los atendieran. El motivo lo dice para que nadie lo confunda con un retiro
+   * que alguien anoto a mano.
+   */
+  private async cerrarLasDeDiasAnteriores(pacienteId?: string): Promise<number> {
+    const { count } = await this.prisma.visita.updateMany({
+      where: {
+        estado: 'ESPERANDO',
+        llegadaEn: { lt: inicioDelDiaLocal() },
+        ...(pacienteId ? { pacienteId } : {}),
+      },
+      data: {
+        estado: 'RETIRADA',
+        cerradaEn: new Date(),
+        motivoRetiro: 'Cerrada por el sistema: quedo abierta al terminar el dia.',
+      },
+    });
+    return count;
+  }
 
   /**
    * Alguien llego al CAP y espera.
@@ -25,6 +60,11 @@ export class VisitasService {
       select: { id: true, fallecido: true },
     });
     if (!paciente) throw new NotFoundException('No existe ese paciente.');
+
+    // Primero se cierra la visita que este paciente pudiera arrastrar de otro
+    // dia. Si no, la comprobacion de abajo lo rechazaria por una visita que
+    // nadie puede ver ni retirar, y se quedaria fuera del sistema para siempre.
+    await this.cerrarLasDeDiasAnteriores(dto.pacienteId);
 
     const abierta = await this.prisma.visita.findFirst({
       where: { pacienteId: dto.pacienteId, estado: 'ESPERANDO' },
@@ -63,11 +103,13 @@ export class VisitasService {
    * hora sentado.
    */
   async enEspera(): Promise<VisitaEnEsperaDto[]> {
-    const inicioDelDia = new Date();
-    inicioDelDia.setHours(0, 0, 0, 0);
+    // Barrido perezoso: aqui es donde se descubre que hay rezagadas, porque
+    // es la pantalla que se abre todas las mananas. No hace falta un proceso
+    // nocturno para algo que se resuelve al primer vistazo del dia.
+    await this.cerrarLasDeDiasAnteriores();
 
     const visitas = await this.prisma.visita.findMany({
-      where: { estado: 'ESPERANDO', llegadaEn: { gte: inicioDelDia } },
+      where: { estado: 'ESPERANDO', llegadaEn: { gte: inicioDelDiaLocal() } },
       orderBy: { llegadaEn: 'asc' },
       select: {
         id: true,
