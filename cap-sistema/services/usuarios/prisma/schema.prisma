@@ -111,6 +111,7 @@ model Comunidad {
 
   grupos    GrupoFamiliar[]
   pacientes Paciente[]
+  lugares   LugarPoblado[]
 
   @@index([activa])
   @@map("comunidad")
@@ -118,6 +119,53 @@ model Comunidad {
 
 /// Grupo familiar. El CAP organiza la atencion por familia, no solo por
 /// individuo: los programas de desnutricion y embarazo se siguen en ese nivel.
+/// Qué clase de lugar poblado es. Los nombres son los que usa el CAP.
+///
+/// Se deja como enum y no como texto libre para que "Barrio El Centro" y
+/// "barrio el centro" no acaben siendo dos lugares distintos en los reportes.
+/// Añadir un tipo nuevo es un cambio de una línea aquí.
+enum TipoLugar {
+  BARRIO
+  CASERIO
+  ALDEA
+  /// Finca, colonia, sector: lo que no cabe en los tres anteriores.
+  OTRO
+}
+
+/// Un barrio, caserío o aldea dentro de una comunidad.
+///
+/// La comunidad sola no basta para encontrar a nadie. "Purulhá Centro" son
+/// varios barrios, y quien va a buscar a un paciente a su casa —o quien
+/// organiza una jornada— necesita saber cuál.
+///
+/// Va como tabla y no como texto libre en el paciente por dos motivos: para
+/// que el personal elija de una lista en vez de teclear el mismo barrio de
+/// cinco formas distintas, y para poder contar pacientes por lugar sin
+/// depender de cómo lo escribió cada quien.
+///
+/// El catálogo lo mantiene Administración; el CAP irá añadiendo lugares según
+/// aparezcan, que es como funciona en la práctica.
+model LugarPoblado {
+  id          String    @id @default(uuid())
+  comunidadId String    @map("comunidad_id")
+  nombre      String    @db.VarChar(120)
+  tipo        TipoLugar @default(BARRIO)
+  /// Un lugar que ya no se usa se desactiva, no se borra: los pacientes
+  /// registrados ahí siguen apuntando a él.
+  activo Boolean @default(true)
+
+  creadoEn DateTime @default(now()) @map("creado_en")
+
+  comunidad Comunidad  @relation(fields: [comunidadId], references: [id])
+  pacientes Paciente[]
+
+  /// El mismo nombre puede repetirse entre comunidades —hay un "El Centro" en
+  /// varias— pero no dentro de una.
+  @@unique([comunidadId, nombre])
+  @@index([comunidadId, activo])
+  @@map("lugar_poblado")
+}
+
 model GrupoFamiliar {
   id          String  @id @default(uuid())
   /// Codigo del grupo familiar segun el registro del CAP.
@@ -189,6 +237,26 @@ model Paciente {
   /// ninez es quien acompana al paciente.
   responsable String? @db.VarChar(160)
 
+  /// Barrio, caserio o aldea dentro de la comunidad. Opcional: los pacientes
+  /// registrados antes de que existiera el catalogo no lo tienen, y forzarlo
+  /// habria obligado a inventar un lugar para cien mil personas.
+  lugarId String? @map("lugar_id")
+
+  // ─── Alergias a medicamentos ───────────────────────────────────────────
+  //
+  // Es el dato que evita recetar algo que puede matar a alguien, asi que se
+  // pregunta en RECEPCION —antes de la consulta— y no dentro de la ficha.
+  //
+  // Son TRES estados, no dos. `null` es "no se ha preguntado", que NO es lo
+  // mismo que "no tiene": a quien no se le pregunto hay que preguntarle, y a
+  // quien dijo que no, no. Un booleano solo tendria dos estados y perderia esa
+  // diferencia, que es justo la que importa antes de recetar.
+  //
+  tieneAlergias Boolean? @map("tiene_alergias")
+
+  /// A que es alergico. Cifrado: es informacion clinica.
+  alergiasCifrado Bytes? @map("alergias_cifrado")
+
   fallecido Boolean @default(false)
 
   /// Apellidos y nombres juntos, en minusculas y sin tildes.
@@ -204,6 +272,7 @@ model Paciente {
   actualizadoEn DateTime @updatedAt @map("actualizado_en")
 
   comunidad     Comunidad      @relation(fields: [comunidadId], references: [id])
+  lugar         LugarPoblado?  @relation(fields: [lugarId], references: [id])
   grupoFamiliar GrupoFamiliar? @relation(fields: [grupoFamiliarId], references: [id])
   expediente    Expediente?
 

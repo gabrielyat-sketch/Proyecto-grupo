@@ -6,6 +6,7 @@ import {
   IsEnum,
   IsOptional,
   IsString,
+  IsUUID,
   Length,
   Matches,
   MaxDate,
@@ -87,4 +88,45 @@ export class CrearPacienteDto {
   @IsOptional()
   @IsBoolean()
   digitalizado?: boolean;
+
+  /**
+   * Barrio, caserio o aldea dentro de la comunidad.
+   *
+   * Opcional: hay comunidades cuyos lugares el CAP todavia no ha declarado, y
+   * exigirlo impediria registrar a un paciente por un catalogo incompleto.
+   */
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  lugarId?: string;
+
+  /** Para quien no es de Purulha. La ficha oficial lo pregunta. */
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  migrante?: boolean;
+
+  @ApiPropertyOptional({ maxLength: 160, description: 'De donde viene, si es migrante.' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 160)
+  lugarOrigen?: string;
+
+  /**
+   * Si es alergico a algun medicamento.
+   *
+   * TRES estados, no dos: sin enviarlo queda en "no se ha preguntado", que NO
+   * es lo mismo que "no tiene". A quien no se le pregunto hay que preguntarle
+   * antes de recetar; a quien dijo que no, no.
+   */
+  @ApiPropertyOptional({ description: 'Omitirlo significa que no se ha preguntado.' })
+  @IsOptional()
+  @IsBoolean()
+  tieneAlergias?: boolean;
+
+  @ApiPropertyOptional({ maxLength: 500, description: 'A que medicamentos es alergico.' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 500)
+  alergias?: string;
 }

@@ -59,6 +59,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/comunidades/{id}/lugares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Barrios, caserios y aldeas de una comunidad
+         * @description Vacio si el CAP todavia no ha declarado los lugares de esa comunidad. Sin paginar: son unos pocos y el formulario de alta necesita la lista entera.
+         */
+        get: operations["ComunidadesController_lugares"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/pacientes": {
         parameters: {
             query?: never;
@@ -426,6 +446,14 @@ export interface components {
             /** @description Una comunidad inactiva ya no aparece al registrar pacientes. */
             activa: boolean;
         };
+        LugarResumenDto: {
+            /** Format: uuid */
+            id: string;
+            /** @example Barrio El Centro */
+            nombre: string;
+            /** @enum {string} */
+            tipo: "BARRIO" | "CASERIO" | "ALDEA" | "OTRO";
+        };
         CrearComunidadDto: {
             /** @example Chilasco */
             nombre: string;
@@ -533,6 +561,14 @@ export interface components {
             fallecido: boolean;
             comunidad: components["schemas"]["ComunidadResumenDto"];
             grupoFamiliar: components["schemas"]["GrupoResumenDto"] | null;
+            lugar: components["schemas"]["LugarResumenDto"] | null;
+            /** @description Si viene de fuera de Purulha. */
+            migrante: boolean;
+            lugarOrigen: string | null;
+            /** @description null significa que NO se ha preguntado, que no es lo mismo que no tener. */
+            tieneAlergias: boolean | null;
+            /** @description A que medicamentos. */
+            alergias: string | null;
             expediente: components["schemas"]["ExpedienteDePacienteDto"] | null;
         };
         CrearPacienteDto: {
@@ -565,6 +601,16 @@ export interface components {
             numeroExpediente?: string;
             /** @description Marca el expediente como proveniente de papel (RF-08). */
             digitalizado?: boolean;
+            /** Format: uuid */
+            lugarId?: string;
+            /** @default false */
+            migrante: boolean;
+            /** @description De donde viene, si es migrante. */
+            lugarOrigen?: string;
+            /** @description Omitirlo significa que no se ha preguntado. */
+            tieneAlergias?: boolean;
+            /** @description A que medicamentos es alergico. */
+            alergias?: string;
         };
         PacienteCreadoDto: {
             /** Format: uuid */
@@ -1525,6 +1571,72 @@ export interface operations {
             };
             /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
+    ComunidadesController_lugares: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LugarResumenDto"][];
+                };
+            };
+            /** @description La informacion enviada no es valida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El recurso solicitado no existe. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

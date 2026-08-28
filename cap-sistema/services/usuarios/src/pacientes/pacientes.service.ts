@@ -125,6 +125,7 @@ export class PacientesService {
       where: { id },
       include: {
         comunidad: { select: { id: true, nombre: true } },
+        lugar: { select: { id: true, nombre: true, tipo: true } },
         grupoFamiliar: { select: { id: true, codigo: true } },
         expediente: { select: { id: true, numeroCifrado: true, aperturaEn: true } },
       },
@@ -143,6 +144,13 @@ export class PacientesService {
       telefono: p.telefono,
       fallecido: p.fallecido,
       comunidad: p.comunidad,
+      lugar: p.lugar,
+      migrante: p.migrante,
+      lugarOrigen: p.lugarOrigen,
+      tieneAlergias: p.tieneAlergias,
+      alergias: p.alergiasCifrado
+        ? this.cifrado.descifrar(Buffer.from(p.alergiasCifrado))
+        : null,
       grupoFamiliar: p.grupoFamiliar,
       expediente: p.expediente
         ? {
@@ -162,6 +170,20 @@ export class PacientesService {
   async crear(dto: CrearPacienteDto, usuarioId: string, trazaId?: string) {
     if (!(await this.prisma.comunidad.findUnique({ where: { id: dto.comunidadId } }))) {
       throw new BadRequestException('La comunidad indicada no existe.');
+    }
+
+    // El lugar tiene que ser de ESA comunidad. Sin esto se podria registrar a
+    // alguien en el "Barrio El Centro" de otro municipio, y el listado por
+    // lugar dejaria de significar nada.
+    if (dto.lugarId) {
+      const lugar = await this.prisma.lugarPoblado.findUnique({
+        where: { id: dto.lugarId },
+        select: { comunidadId: true },
+      });
+      if (!lugar) throw new BadRequestException('El lugar indicado no existe.');
+      if (lugar.comunidadId !== dto.comunidadId) {
+        throw new BadRequestException('Ese lugar no pertenece a la comunidad indicada.');
+      }
     }
 
     const dpiIndice = dto.dpi ? this.cifrado.indiceCiego(dto.dpi) : null;
@@ -208,6 +230,15 @@ export class PacientesService {
           comunidadId: dto.comunidadId,
           grupoFamiliarId: dto.grupoFamiliarId,
           telefono: dto.telefono?.trim(),
+          lugarId: dto.lugarId,
+          migrante: dto.migrante ?? false,
+          lugarOrigen: dto.lugarOrigen?.trim(),
+          // Sin enviarlo queda en null: "no se ha preguntado", que no es lo
+          // mismo que "no tiene".
+          tieneAlergias: dto.tieneAlergias,
+          alergiasCifrado: dto.alergias?.trim()
+            ? new Uint8Array(this.cifrado.cifrar(dto.alergias.trim()))
+            : null,
         },
       });
 

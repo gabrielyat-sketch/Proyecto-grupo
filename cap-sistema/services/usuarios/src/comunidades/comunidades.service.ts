@@ -35,4 +35,25 @@ export class ComunidadesService {
     if (!c) throw new NotFoundException('No existe esa comunidad.');
     return c;
   }
+
+  /**
+   * Los barrios, caserios y aldeas de una comunidad.
+   *
+   * Sin paginar, igual que las comunidades: son unos pocos por comunidad y el
+   * formulario de alta necesita la lista entera para su selector.
+   *
+   * Devuelve vacio cuando esa comunidad todavia no tiene lugares declarados.
+   * No es un error: es que nadie del CAP ha dicho todavia cuales son.
+   */
+  async lugaresDe(comunidadId: string) {
+    if (!(await this.prisma.comunidad.findUnique({ where: { id: comunidadId } }))) {
+      throw new NotFoundException('No existe esa comunidad.');
+    }
+
+    return this.prisma.lugarPoblado.findMany({
+      where: { comunidadId, activo: true },
+      orderBy: [{ tipo: 'asc' }, { nombre: 'asc' }],
+      select: { id: true, nombre: true, tipo: true },
+    });
+  }
 }

@@ -13,11 +13,13 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { ETIQUETA_IDIOMA, type PaginaPacientes } from './servicio-pacientes';
 import { usarSesion } from '../sesion/contexto';
 import { puedeEntrar } from '../../navegacion/menu';
+import { fichaParaPaciente } from '../fichas/ficha-por-edad';
 import type { PacienteResumen } from './servicio-pacientes';
 
 const fecha = (valor: string | Date) =>
@@ -31,6 +33,59 @@ const fecha = (valor: string | Date) =>
  * solo al abrir la ficha de una persona concreta. El backend tampoco los envia
  * en este endpoint, asi que la restriccion esta en las dos capas.
  */
+/**
+ * El botón que abre la ficha, con la hoja que le corresponde al paciente.
+ *
+ * Antes llevaba siempre a la de adultos. Llenar la ficha equivocada no es un
+ * error cosmético: cada hoja del MSPAS pregunta cosas distintas, y lo que se
+ * capture en la que no toca no tiene respaldo en ningún papel firmado.
+ *
+ * La edad sale de la fecha de nacimiento, que recepción ya pide al registrar.
+ * Cuando la hoja que toca existe en el papel pero su pantalla todavía no está
+ * construida, el botón lo DICE en vez de ofrecer la equivocada.
+ */
+function BotonFicha({ paciente }: { paciente: PacienteResumen }) {
+  const ficha = fichaParaPaciente(
+    paciente.fechaNacimiento as unknown as string,
+    paciente.id,
+  );
+
+  if (!ficha.ruta) {
+    return (
+      <Tooltip
+        title={
+          'Le corresponde la ficha de ' +
+          ficha.nombre +
+          ' (' +
+          ficha.motivo.toLowerCase() +
+          '), que todavía no está construida en el sistema.'
+        }
+      >
+        {/* El span deja que el tooltip funcione sobre un botón deshabilitado. */}
+        <span>
+          <Button size="small" variant="outlined" disabled>
+            Ficha de {ficha.nombre.toLowerCase()}
+          </Button>
+        </span>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <Tooltip title={ficha.nombre + ' · ' + ficha.motivo}>
+      <Button
+        component={EnlaceRuta}
+        to={ficha.ruta}
+        size="small"
+        variant="outlined"
+        disabled={paciente.fallecido}
+      >
+        Abrir ficha
+      </Button>
+    </Tooltip>
+  );
+}
+
 export function TablaPacientes({
   resultados,
   onPagina,
@@ -121,17 +176,7 @@ export function TablaPacientes({
                           Marcar llegada
                         </Button>
                       ) : null}
-                      {puedeAtender ? (
-                        <Button
-                          component={EnlaceRuta}
-                          to={'/pacientes/' + p.id + '/ficha'}
-                          size="small"
-                          variant="outlined"
-                          disabled={p.fallecido}
-                        >
-                          Abrir ficha
-                        </Button>
-                      ) : null}
+                      {puedeAtender ? <BotonFicha paciente={p} /> : null}
                     </Stack>
                   </TableCell>
                 ) : null}

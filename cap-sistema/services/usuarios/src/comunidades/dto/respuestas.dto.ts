@@ -22,3 +22,21 @@ export class ComunidadDto extends ComunidadResumenDto {
   @ApiProperty({ description: 'Una comunidad inactiva ya no aparece al registrar pacientes.' })
   activa!: boolean;
 }
+
+/**
+ * Un barrio, caserio o aldea dentro de una comunidad.
+ *
+ * La comunidad sola no basta para encontrar a nadie: "Purulha Centro" son
+ * varios barrios, y quien va a buscar a un paciente a su casa necesita saber
+ * cual.
+ */
+export class LugarResumenDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ example: 'Barrio El Centro' })
+  nombre!: string;
+
+  @ApiProperty({ enum: ['BARRIO', 'CASERIO', 'ALDEA', 'OTRO'] })
+  tipo!: string;
+}

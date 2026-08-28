@@ -135,6 +135,60 @@ paths:
       security: *a2
       summary: Registra una comunidad
       tags: *a3
+  /v1/comunidades/{id}/lugares:
+    get:
+      description: "Vacio si el CAP todavia no ha declarado los lugares de esa
+        comunidad. Sin paginar: son unos pocos y el formulario de alta necesita
+        la lista entera."
+      operationId: ComunidadesController_lugares
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LugarResumenDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a2
+      summary: Barrios, caserios y aldeas de una comunidad
+      tags: *a3
   /v1/pacientes:
     get:
       description: La busqueda por DPI se resuelve con el indice ciego sobre el campo
@@ -1412,6 +1466,26 @@ components:
         - nombre
         - distante
         - activa
+    LugarResumenDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+          example: Barrio El Centro
+        tipo:
+          type: string
+          enum:
+            - BARRIO
+            - CASERIO
+            - ALDEA
+            - OTRO
+      required:
+        - id
+        - nombre
+        - tipo
     CrearComunidadDto:
       type: object
       properties:
@@ -1593,6 +1667,26 @@ components:
           type: object
           allOf:
             - $ref: "#/components/schemas/GrupoResumenDto"
+        lugar:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/LugarResumenDto"
+        migrante:
+          type: boolean
+          description: Si viene de fuera de Purulha.
+        lugarOrigen:
+          type: string
+          nullable: true
+        tieneAlergias:
+          type: boolean
+          nullable: true
+          description: null significa que NO se ha preguntado, que no es lo mismo que no
+            tener.
+        alergias:
+          type: string
+          nullable: true
+          description: A que medicamentos.
         expediente:
           nullable: true
           type: object
@@ -1611,6 +1705,11 @@ components:
         - fallecido
         - comunidad
         - grupoFamiliar
+        - lugar
+        - migrante
+        - lugarOrigen
+        - tieneAlergias
+        - alergias
         - expediente
     CrearPacienteDto:
       type: object
@@ -1657,6 +1756,23 @@ components:
         digitalizado:
           type: boolean
           description: Marca el expediente como proveniente de papel (RF-08).
+        lugarId:
+          type: string
+          format: uuid
+        migrante:
+          type: boolean
+          default: false
+        lugarOrigen:
+          type: string
+          maxLength: 160
+          description: De donde viene, si es migrante.
+        tieneAlergias:
+          type: boolean
+          description: Omitirlo significa que no se ha preguntado.
+        alergias:
+          type: string
+          maxLength: 500
+          description: A que medicamentos es alergico.
       required:
         - nombres
         - apellidos
