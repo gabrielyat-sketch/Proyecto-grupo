@@ -17,6 +17,9 @@ import { PaginaDigitalizacion } from './modulos/digitalizacion/PaginaDigitalizac
 import { PaginaSalaEspera } from './modulos/espera/PaginaSalaEspera';
 import { PaginaExpedientes } from './modulos/expedientes/PaginaExpedientes';
 import { PaginaExpediente } from './modulos/expedientes/PaginaExpediente';
+import { PaginaFarmacia } from './modulos/farmacia/PaginaFarmacia';
+import { PaginaMedicamento } from './modulos/farmacia/PaginaMedicamento';
+import { PaginaEntrega } from './modulos/farmacia/PaginaEntrega';
 import { MENU } from './navegacion/menu';
 
 /**
@@ -125,6 +128,40 @@ export function App() {
               />
 
               <Route
+                path="/farmacia"
+                element={
+                  <RutaPorRol ruta="/farmacia">
+                    <PaginaFarmacia />
+                  </RutaPorRol>
+                }
+              />
+              {/*
+                El despacho va ANTES de /farmacia/:medicamentoId: la ruta
+                declarada primero gana, y si no, "entrega" se leeria como el id
+                de un medicamento.
+              */}
+              <Route
+                path="/farmacia/entrega"
+                element={
+                  <RutaPorRol ruta="/farmacia/entrega">
+                    <PaginaEntrega />
+                  </RutaPorRol>
+                }
+              />
+              {/*
+                El detalle de un medicamento no esta en el menu: se llega a el
+                desde el catalogo, con el medicamento ya elegido.
+              */}
+              <Route
+                path="/farmacia/:medicamentoId"
+                element={
+                  <RutaPorRol ruta="/farmacia/medicamento">
+                    <PaginaMedicamento />
+                  </RutaPorRol>
+                }
+              />
+
+              <Route
                 path="/digitalizacion"
                 element={
                   <RutaPorRol ruta="/digitalizacion">
@@ -153,6 +190,7 @@ export function App() {
               {MENU.filter((m) => m.ruta !== '/recepcion' &&
                 m.ruta !== '/digitalizacion' &&
                 m.ruta !== '/espera' &&
+                m.ruta !== '/farmacia' &&
                 m.ruta !== '/expedientes').map(({ ruta, etiqueta, descripcion }) => (
                 <Route
                   key={ruta}

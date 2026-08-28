@@ -111,12 +111,13 @@ export const MENU: readonly ElementoMenu[] = [
   {
     ruta: '/farmacia',
     descripcion:
-      'Inventario por lotes, alertas de vencimiento y entrega de medicamentos con seleccion FEFO. El backend ya esta construido (Etapa 8).',
+      'Inventario por lotes, alertas de vencimiento y entrega de medicamentos con seleccion FEFO (Etapa 8).',
     etiqueta: 'Farmacia',
     icono: MedicationIcon,
     // El medico consulta existencias: si no sabe que hay, receta lo que no hay.
+    // Lo que NO ve es la alerta de vencimientos: esa es de farmacia, y el
+    // propio controlador la guarda para Farmacia, Administrador y Director.
     roles: ['ADMINISTRADOR', 'DIRECTOR', 'FARMACIA', 'MEDICO', 'ENFERMERIA'],
-    pendiente: true,
   },
   {
     ruta: '/reportes',
@@ -169,6 +170,14 @@ const RUTAS_FUERA_DEL_MENU: Record<string, readonly Rol[]> = {
   // BUSCARLO —por eso /recepcion es de los seis roles— pero solo recepcion y
   // administracion lo registran, que es lo que dice el controlador.
   '/recepcion/nuevo': ['RECEPCION', 'ADMINISTRADOR'],
+  // Un medicamento concreto. Entran los mismos cinco roles que a Farmacia: lo
+  // que cambia por rol es que se puede HACER dentro —solo Farmacia y
+  // Administracion ingresan lotes o dan de baja— no si se puede abrir.
+  '/farmacia/medicamento': ['ADMINISTRADOR', 'DIRECTOR', 'FARMACIA', 'MEDICO', 'ENFERMERIA'],
+  // El despacho de medicamentos. Se llega desde Farmacia, con el boton de
+  // arriba. Los roles son los del POST /v1/entregas: el medico consulta el
+  // historial pero no despacha.
+  '/farmacia/entrega': ['FARMACIA', 'ADMINISTRADOR'],
 };
 
 /** Opciones visibles para un rol. Vacio si el rol no se reconoce. */

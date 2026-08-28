@@ -5,6 +5,7 @@ import { ENTORNO, Entorno } from '../config/entorno';
 import { bajoMinimo, clasificarVencimiento } from '../dominio/inventario';
 import { CrearMedicamentoDto } from './dto/crear-medicamento.dto';
 import { ConsultarMedicamentosDto } from './dto/consultar-medicamentos.dto';
+import { ActualizarMedicamentoDto } from './dto/actualizar-medicamento.dto';
 import {
   MedicamentoBajoMinimoDto,
   MedicamentoConExistenciaDto,
@@ -155,14 +156,27 @@ export class CatalogoService {
     });
   }
 
-  async actualizar(
-    id: string,
-    datos: { stockMinimo?: number; activo?: boolean; requiereReceta?: boolean },
-  ): Promise<MedicamentoDto> {
+  /**
+   * Ajusta la existencia minima, la receta obligatoria o el estado.
+   *
+   * Los tres campos se copian uno por uno en vez de pasar el objeto recibido
+   * a Prisma. El DTO ya deja fuera cualquier otra cosa, pero un `data` armado
+   * a mano no puede convertirse en escritura de campos arbitrarios el dia que
+   * alguien afloje la validacion sin darse cuenta de que este `update` estaba
+   * confiando en ella.
+   */
+  async actualizar(id: string, dto: ActualizarMedicamentoDto): Promise<MedicamentoDto> {
     if (!(await this.prisma.medicamento.findUnique({ where: { id }, select: { id: true } }))) {
       throw new NotFoundException('No existe ese medicamento.');
     }
-    return this.prisma.medicamento.update({ where: { id }, data: datos });
+    return this.prisma.medicamento.update({
+      where: { id },
+      data: {
+        ...(dto.stockMinimo === undefined ? {} : { stockMinimo: dto.stockMinimo }),
+        ...(dto.activo === undefined ? {} : { activo: dto.activo }),
+        ...(dto.requiereReceta === undefined ? {} : { requiereReceta: dto.requiereReceta }),
+      },
+    });
   }
 
   /**
