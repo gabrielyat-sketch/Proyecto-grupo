@@ -607,6 +607,58 @@ describe('Fichas clinicas (e2e)', () => {
         .expect(400);
     });
 
+    /**
+     * Las llaves foraneas existen, asi que la base aceptaria un tema de otra
+     * ficha y el error solo aparecería al leerla, con los datos ya escritos.
+     */
+    it('no acepta un tema de consejeria que no sea de esta ficha', async () => {
+      // El catalogo de adultos no tiene temas, asi que se usa uno inexistente:
+      // el efecto que se comprueba es el mismo, que no llegue a la base.
+      await request(http())
+        .post('/v1/expedientes/' + expedienteId + '/fichas')
+        .set(como(Rol.MEDICO))
+        .send({
+          tipoFicha: 'NEONATO',
+          motivo: 'Control',
+          consejeriaTemas: [{ temaId: '00000000-0000-4000-8000-000000000000' }],
+        })
+        .expect(400);
+    });
+
+    /**
+     * consejeria_en_atencion tiene clave compuesta por atencion y tema: el
+     * duplicado reventaria contra la restriccion y saldria como un 500.
+     */
+    it('un tema de consejeria repetido da 400, no un error del servidor', async () => {
+      const tema = catalogoNeonato.temasConsejeria[0].id;
+      const r = await request(http())
+        .post('/v1/expedientes/' + expedienteId + '/fichas')
+        .set(como(Rol.MEDICO))
+        .send({
+          tipoFicha: 'NEONATO',
+          motivo: 'Control',
+          consejeriaTemas: [{ temaId: tema }, { temaId: tema, brindada: false }],
+        })
+        .expect(400);
+      expect(r.body.mensaje).toMatch(/repetido/i);
+    });
+
+    it('un problema repetido tambien da 400', async () => {
+      const problema = catalogoNeonato.problemas[0].id;
+      await request(http())
+        .post('/v1/expedientes/' + expedienteId + '/fichas')
+        .set(como(Rol.MEDICO))
+        .send({
+          tipoFicha: 'NEONATO',
+          motivo: 'Control',
+          problemas: [
+            { problemaId: problema, presente: true },
+            { problemaId: problema, presente: false },
+          ],
+        })
+        .expect(400);
+    });
+
     it('la ficha de neonato aparece en el historial como tal', async () => {
       const creada = await request(http())
         .post('/v1/expedientes/' + expedienteId + '/fichas')

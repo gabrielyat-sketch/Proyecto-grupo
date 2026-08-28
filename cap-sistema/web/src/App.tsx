@@ -13,6 +13,7 @@ import { EnConstruccion } from './rutas/EnConstruccion';
 import { PaginaRecepcion } from './modulos/recepcion/PaginaRecepcion';
 import { PaginaNuevoPaciente } from './modulos/recepcion/PaginaNuevoPaciente';
 import { PaginaFicha } from './modulos/fichas/PaginaFicha';
+import { PaginaFichaNeonato } from './modulos/fichas/neonato/PaginaFichaNeonato';
 import { PaginaDigitalizacion } from './modulos/digitalizacion/PaginaDigitalizacion';
 import { PaginaSalaEspera } from './modulos/espera/PaginaSalaEspera';
 import { PaginaExpedientes } from './modulos/expedientes/PaginaExpedientes';
@@ -180,6 +181,14 @@ export function App() {
                 element={
                   <RutaPorRol ruta="/ficha">
                     <PaginaFicha />
+                  </RutaPorRol>
+                }
+              />
+              <Route
+                path="/pacientes/:pacienteId/ficha-neonato"
+                element={
+                  <RutaPorRol ruta="/ficha-neonato">
+                    <PaginaFichaNeonato />
                   </RutaPorRol>
                 }
               />

@@ -357,6 +357,38 @@ export class FichasService {
   private async validarContraCatalogo(dto: CrearFichaDto): Promise<void> {
     const signosPeligro = (dto.signosPeligro ?? []).map((s) => s.signoId);
     const problemas = (dto.problemas ?? []).map((p) => p.problemaId);
+    const temas = (dto.consejeriaTemas ?? []).map((c) => c.temaId);
+
+    // ── Nada repetido ────────────────────────────────────────────────────
+    //
+    // Las tres tablas tienen clave compuesta por atencion, asi que mandar el
+    // mismo elemento dos veces reventaria contra la restriccion y saldria como
+    // un 500. Un cuerpo mal armado es culpa de quien lo manda: 400.
+    for (const [nombre, ids] of [
+      ['signo de peligro', signosPeligro],
+      ['problema', problemas],
+      ['tema de consejeria', temas],
+    ] as const) {
+      if (new Set(ids).size !== ids.length) {
+        throw new BadRequestException('Hay un ' + nombre + ' repetido en la ficha.');
+      }
+    }
+
+    // ── Los temas de consejeria son de ESTA ficha ────────────────────────
+    //
+    // Mismo motivo que los problemas: las llaves foraneas existen, asi que la
+    // base aceptaria un tema de la ficha de ninez dentro de una de neonato y el
+    // error solo aparecería al leerla, con los datos ya escritos.
+    if (temas.length > 0) {
+      const validos = await this.prisma.temaConsejeria.count({
+        where: { id: { in: temas }, tipoFicha: dto.tipoFicha },
+      });
+      if (validos !== temas.length) {
+        throw new BadRequestException(
+          'Algun tema de consejeria no pertenece a la ficha ' + dto.tipoFicha + '.',
+        );
+      }
+    }
 
     if (signosPeligro.length > 0) {
       const validos = await this.prisma.signoPeligro.count({
