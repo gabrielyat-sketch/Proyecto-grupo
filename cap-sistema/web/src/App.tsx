@@ -20,6 +20,7 @@ import { PaginaExpediente } from './modulos/expedientes/PaginaExpediente';
 import { PaginaFarmacia } from './modulos/farmacia/PaginaFarmacia';
 import { PaginaMedicamento } from './modulos/farmacia/PaginaMedicamento';
 import { PaginaEntrega } from './modulos/farmacia/PaginaEntrega';
+import { PaginaAdministracion } from './modulos/administracion/PaginaAdministracion';
 import { MENU } from './navegacion/menu';
 
 /**
@@ -187,10 +188,20 @@ export function App() {
                 puede haber una opcion sin pantalla ni una pantalla que el rol
                 no tenga permitida.
               */}
+              <Route
+                path="/administracion"
+                element={
+                  <RutaPorRol ruta="/administracion">
+                    <PaginaAdministracion />
+                  </RutaPorRol>
+                }
+              />
+
               {MENU.filter((m) => m.ruta !== '/recepcion' &&
                 m.ruta !== '/digitalizacion' &&
                 m.ruta !== '/espera' &&
                 m.ruta !== '/farmacia' &&
+                m.ruta !== '/administracion' &&
                 m.ruta !== '/expedientes').map(({ ruta, etiqueta, descripcion }) => (
                 <Route
                   key={ruta}

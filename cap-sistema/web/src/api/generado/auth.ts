@@ -400,6 +400,13 @@ export interface components {
             contrasenaActual: string;
             contrasenaNueva: string;
         };
+        ActivarMfaDto: {
+            /**
+             * @description Los seis digitos de la aplicacion.
+             * @example 123456
+             */
+            codigo: string;
+        };
         PaginaDto: {
             /**
              * @description Pagina devuelta, empezando en 1.
@@ -1010,7 +1017,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActivarMfaDto"];
+            };
+        };
         responses: {
             /** @description Segundo factor activado. */
             204: {
@@ -1018,6 +1029,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description La informacion enviada no es valida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
             };
             /** @description Falta el token, expiro o no es valido. */
             401: {

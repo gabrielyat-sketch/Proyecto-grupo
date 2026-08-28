@@ -353,9 +353,21 @@ paths:
     post:
       operationId: AutenticacionController_activarMfa
       parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActivarMfaDto"
       responses:
         "204":
           description: Segundo factor activado.
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
         "401":
           description: Falta el token, expiro o no es valido.
           content:
@@ -888,6 +900,15 @@ components:
       required:
         - contrasenaActual
         - contrasenaNueva
+    ActivarMfaDto:
+      type: object
+      properties:
+        codigo:
+          type: string
+          example: "123456"
+          description: Los seis digitos de la aplicacion.
+      required:
+        - codigo
     PaginaDto:
       type: object
       properties:
