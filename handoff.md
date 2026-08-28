@@ -1,7 +1,7 @@
 # Handoff — Plataforma Inteligente CAP Purulhá
 
-Escrito el 27 de agosto de 2026, al final de una sesión larga de trabajo. Para
-quien retome esto: yo mismo en otra sesión, Dennis, o Ramiro.
+Actualizado el 28 de agosto de 2026. Para quien retome esto: yo mismo en otra
+sesión, Dennis, o Ramiro.
 
 ---
 
@@ -42,15 +42,24 @@ una matriz de riesgos. **Léela antes de tomar cualquier decisión estructural.*
 ### Rama y fusiones
 
 ```
-develop  7a7d65d   ← Etapas 1-6, 8, y toda la Etapa 5
-   └── feature/web-expedientes  60a5df9   SIN FUSIONAR, listo para PR
-   └── feature/servicio-trazabilidad      PR #3 abierto, con un defecto señalado
+develop  34ac0f9   ← Etapas 1-6, 8, toda la Etapa 5, y expedientes (PR #7)
+   └── feature/web-farmacia               SIN FUSIONAR, empujada, pendiente de PR
+   └── feature/servicio-trazabilidad      PR #3 abierto, sin corregir
 ```
+
+**`feature/web-farmacia`** lleva la primera entrega de Farmacia y dos
+correcciones de infraestructura. Está empujada; falta abrir el PR.
+
+**El PR #3 de Ramiro no se ha tocado.** Sigue en `5117204`, la línea 8 de
+`test/bitacora.e2e-spec.ts` sigue mal, y además la rama ya **va por detrás de
+`develop`**: le faltan expedientes y este propio handoff. Cuando corrija la
+línea tendrá que traerse `develop` antes de que se pueda fusionar.
 
 ### Pruebas
 
-**645 verdes**: 416 unitarias + 229 e2e. `tsc --noEmit` limpio en todo el
-monorepo. Se corren así:
+**688 verdes**: 450 unitarias + 238 e2e. `tsc --noEmit` limpio en todo el
+monorepo, y el panel ya termina con **código de salida 0** (ver §4). Se corren
+así:
 
 ```
 cd cap-sistema
@@ -68,13 +77,14 @@ for s in auth usuarios programas medicamentos; do npm run test:e2e -w @cap/$s; d
 | **Ficha de adultos**: 10 secciones, ~200 campos, matriz de 14 problemas | Completo |
 | **Antecedentes** del paciente (sección VII) | Completo |
 | **Digitalización** (RF-08): avance por comunidad, cola, transcripción | Completo |
-| **Expedientes**: búsqueda por número, historial, ficha desplegable | Completo, sin fusionar |
+| **Expedientes**: búsqueda por número, historial, ficha desplegable | Completo |
+| **Farmacia**: catálogo, lotes, vencimientos, bajo mínimo, ingreso y baja | Completo, sin fusionar |
 
 ### Qué falta (backend construido, sin pantalla)
 
 | Módulo | Endpoints listos | Peso |
 |---|---|---|
-| **Farmacia** (Etapa 8) | 14 | Grande: catálogo, lotes, entrega FEFO, alertas |
+| **Farmacia**: la entrega | 3 | La pantalla crítica: `POST /v1/entregas`, FEFO |
 | **Programas** (Etapas 6-7) | — | Grande: hipertensión, embarazo, desnutrición |
 | **Administración** | 5 | Mediano: cuentas del personal |
 | Auditoría (Etapa 9) | — | Depende del PR #3 de Ramiro |
@@ -109,6 +119,7 @@ El modelo y la pantalla de adultos son el molde; es trabajo largo pero mecánico
 | `cap-sistema/docs/diseno-digitalizacion.md` | El modo de digitalización (RF-08) |
 | `cap-sistema/docs/diseno-sala-espera.md` | La sala de espera |
 | `cap-sistema/docs/diseno-expedientes.md` | La consulta del expediente |
+| `cap-sistema/docs/diseno-farmacia.md` | El inventario, los lotes y las alertas |
 
 Cada uno termina con una sección **"Información pendiente"** — preguntas reales
 para el CAP que están sin responder. No las inventes.
@@ -136,6 +147,7 @@ cap-sistema/
 | `modulos/fichas` | 10 | 2,614 | 917 |
 | `modulos/digitalizacion` | 6 | 949 | 395 |
 | `modulos/recepcion` | 5 | 858 | 399 |
+| `modulos/farmacia` | 8 | 1,788 | 612 |
 | `modulos/expedientes` | 4 | 790 | 402 |
 | `modulos/espera` | 2 | 334 | 222 |
 
@@ -204,6 +216,15 @@ La ficha clínica satura la CPU y, como los archivos corren en paralelo, empujab
 por encima del límite de 5 s a pruebas de otras pantallas. No es lentitud del
 panel: jsdom dibuja ese formulario mucho más despacio que un navegador.
 
+**Una suite entera en verde puede salir con código 1.** Pasó durante semanas
+sin que nadie lo viera: jsdom no implementa `scrollIntoView`, y las dos
+pantallas que la usan la llaman dentro del manejador de un clic. React reporta
+eso como excepción **no capturada**, no como fallo de la prueba: las aserciones
+se cumplían, vitest decía "221 passed", y lo único que delataba el problema era
+el código de salida. En CI eso es rojo sin un solo test fallado. Ya está
+sustituida en `web/vitest.setup.ts`. **Mira siempre el código de salida, no solo
+el conteo de "passed".**
+
 **Corre `tsc` DESPUÉS de escribir las pruebas, no antes.** Un import sin usar en
 un `.spec` solo aparece cuando se comprueba el proyecto entero.
 
@@ -261,8 +282,21 @@ Todos estaban en código que **nunca se había usado desde una pantalla**:
 - El botón "Registrar paciente" se le ofrecía a los seis roles, pero el servidor
   solo deja dar de alta a dos.
 
-**Espera encontrar más al construir Farmacia.** Es el módulo más grande que
-todavía no tiene pantalla.
+Al construir Farmacia aparecieron dos más, y los dos por **la misma causa
+raíz**, que conviene buscar en el resto del sistema:
+
+**Un `@Body()` tipado con un objeto suelto de TypeScript no se valida.** Sin una
+clase, el `ValidationPipe` no tiene metatype que inspeccionar, así que
+`whitelist` y `forbidNonWhitelisted` **no se aplican** y el cuerpo llega entero
+al servicio. En `PATCH /v1/medicamentos/{id}` eso terminaba en
+`prisma.update({ data })` con lo que mandara el cliente: escritura de campos
+arbitrarios del modelo. Y hay un segundo efecto que se nota antes: el contrato
+OpenAPI sale con `requestBody: never`, así que **el panel no puede llamar al
+endpoint** aunque quiera. Si una pantalla no logra mandar un cuerpo, mira el DTO
+antes que el cliente.
+
+**Espera encontrar más.** El criterio que los ha delatado a todos es el mismo:
+código que nunca se ejercitó desde una pantalla ni desde una prueba.
 
 ### Errores de criterio, no de código
 
@@ -286,8 +320,9 @@ arreglaba: lo tapaba.
 
 ### Inmediato
 
-**1. Abrir y fusionar el PR de `feature/web-expedientes`.**
-Un commit (`60a5df9`), todo verde. Es lo único pendiente de lo ya construido.
+**1. Abrir y fusionar el PR de `feature/web-farmacia`.**
+Empujada y verde. Lleva la primera entrega de Farmacia, la corrección de los dos
+`PATCH` sin DTO y el arreglo de `scrollIntoView`.
 
 **2. Ramiro tiene que corregir una línea del PR #3.**
 Ya está comentado en la línea exacta, con la corrección aplicable de un clic:
@@ -300,27 +335,28 @@ services/trazabilidad/test/bitacora.e2e-spec.ts:8
 
 Sus 15 pruebas e2e no compilan sin eso. En su máquina sí compila porque la
 carpeta vieja `prisma/generado` sigue ahí, ignorada por git. **Cuando lo corrija,
-revisar y fusionar el PR #3**, que cierra la Etapa 9.
+revisar y fusionar el PR #3**, que cierra la Etapa 9. Ojo: su rama va por detrás
+de `develop`, así que tendrá que traérselo antes.
 
-### El siguiente módulo: Farmacia (Etapa 8)
+### El siguiente módulo: Farmacia, segunda entrega
 
-Es lo que Dennis eligió mirar. Backend: **14 endpoints en 4 módulos**, 5 modelos,
-2,401 líneas. Es la superficie más grande que queda.
+La primera entrega ya está: catálogo, existencias por lote, las tres alertas,
+ingreso de lote y baja con motivo. Está en `feature/web-farmacia`, con su diseño
+en `docs/diseno-farmacia.md`.
 
-**Hacerlo en dos entregas:**
+Lo que queda es **la entrega de medicamentos**, `POST /v1/entregas`. Es la
+pantalla crítica del módulo: toca inventario de verdad, no puede registrar dos
+veces, y un error deja el stock mal contado.
 
-*Primera — lo mecánico:*
-- Catálogo de medicamentos: listado, alta, edición.
-- Existencias por lote, con fechas de vencimiento.
-- Alertas: `GET /v1/lotes/por-vencer`, `GET /v1/lotes/vencidos`,
-  `GET /v1/medicamentos/bajo-minimo`.
-
-*Segunda — la entrega:*
-- `POST /v1/entregas`. Es la pantalla crítica: toca inventario de verdad, no
-  puede registrar dos veces, y un error deja el stock mal contado.
 - **Ojo con el doble envío.** El cliente de API renueva el token ANTES de enviar,
   nunca reintenta tras un 401, justamente para que un `POST /v1/entregas` no se
   registre dos veces. No rompas esa regla.
+- El servidor elige los lotes por FEFO. Si algún medicamento no alcanza, **no se
+  entrega nada**: la pantalla tiene que decir cuánto falta, no entregar de menos
+  en silencio.
+- Dos personas de farmacia entregando a la vez del mismo lote dan un 409. Es
+  correcto y nada se descontó; la pantalla debe pedir reintentar, no reintentar
+  sola.
 
 **Antes de construir, preguntar al CAP:** si se entrega con receta o sin ella, si
 se puede entregar a alguien que no es el paciente, y qué pasa cuando no hay
@@ -356,3 +392,15 @@ Están repartidas en los documentos de diseño. Las que más pesan:
 - El tipo de sangre está impreso dentro del bloque gineco-obstétrico, así que un
   paciente hombre no tiene dónde anotarlo. La pantalla respeta el papel.
 - Las seis preguntas al final de `docs/campos-de-fichas.md`.
+
+De Farmacia, en `docs/diseno-farmacia.md`:
+
+- **El catálogo nace vacío.** ¿De dónde sale la lista inicial: el listado básico
+  del MSPAS, un inventario propio del CAP, un archivo que ya tienen? Sin eso, la
+  primera persona que entre tiene que teclear cientos de medicamentos.
+- ¿Noventa días es la ventana de alerta de vencimiento correcta? Es el valor por
+  defecto de `DIAS_ALERTA_VENCIMIENTO` y nadie del CAP lo ha confirmado.
+- **¿Quién puede dar de baja un lote?** Hoy cualquiera con rol de Farmacia, sin
+  segunda firma. Y qué se hace físicamente con lo vencido: ¿se destruye en el
+  CAP, se devuelve al almacén departamental, hace falta un acta?
+- ¿La existencia mínima la fija el CAP o viene del MSPAS?
