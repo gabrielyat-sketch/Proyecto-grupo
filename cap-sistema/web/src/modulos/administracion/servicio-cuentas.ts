@@ -5,6 +5,7 @@ import { ROLES, type Rol } from '../../navegacion/menu';
 export type Cuenta = components['schemas']['CuentaDto'];
 export type CuentaCreada = components['schemas']['CuentaCreadaDto'];
 export type ContrasenaRestablecida = components['schemas']['ContrasenaRestablecidaDto'];
+export type MfaReiniciado = components['schemas']['MfaReiniciadoDto'];
 export type CrearCuenta = components['schemas']['CrearUsuarioDto'];
 export type ActualizarCuenta = components['schemas']['ActualizarUsuarioDto'];
 
@@ -68,6 +69,21 @@ export async function actualizarCuenta(id: string, cuerpo: ActualizarCuenta): Pr
  */
 export async function restablecerContrasena(id: string): Promise<ContrasenaRestablecida> {
   const ruta = '/v1/usuarios/{id}/restablecer-contrasena';
+  const { data, error, response } = await apiAuth.POST(ruta, { params: { path: { id } } });
+  if (error || !data) fallarApi(error, ruta, response);
+  return data;
+}
+
+/**
+ * Borra el segundo factor de una cuenta para que se configure de nuevo.
+ *
+ * Es la salida cuando alguien pierde el teléfono con la aplicación de
+ * autenticación y ya gastó o perdió sus códigos de respaldo. No hay ningún
+ * secreto que mostrar: el nuevo lo genera la propia persona en su siguiente
+ * acceso, con el mismo flujo del primer día.
+ */
+export async function reiniciarMfa(id: string): Promise<MfaReiniciado> {
+  const ruta = '/v1/usuarios/{id}/reiniciar-mfa';
   const { data, error, response } = await apiAuth.POST(ruta, { params: { path: { id } } });
   if (error || !data) fallarApi(error, ruta, response);
   return data;

@@ -37,6 +37,7 @@ import {
   EXIGEN_MFA,
   LISTA_ROLES,
   listarCuentas,
+  reiniciarMfa,
   restablecerContrasena,
   ultimoAccesoEnPalabras,
   type Cuenta,
@@ -67,6 +68,8 @@ export function PaginaAdministracion() {
   const [alta, setAlta] = useState(false);
   const [editando, setEditando] = useState<Cuenta | null>(null);
   const [confirmando, setConfirmando] = useState<Cuenta | null>(null);
+  const [reiniciando, setReiniciando] = useState<Cuenta | null>(null);
+  const [avisoMfa, setAvisoMfa] = useState<string | null>(null);
   const [temporal, setTemporal] = useState<Temporal | null>(null);
   const campo = useRef<HTMLInputElement>(null);
 
@@ -91,6 +94,23 @@ export function PaginaAdministracion() {
         contrasena: respuesta.contrasenaTemporal,
         titulo: 'Contrasena restablecida',
       });
+    },
+  });
+
+  const mfa = useMutation({
+    mutationFn: (cuenta: Cuenta) => reiniciarMfa(cuenta.id),
+    onSuccess: (respuesta) => {
+      void consultas.invalidateQueries({ queryKey: ['cuentas'] });
+      setReiniciando(null);
+      setAvisoMfa(
+        respuesta.exigeSegundoFactor
+          ? 'Segundo factor reiniciado para ' +
+              respuesta.usuario +
+              '. Su rol lo exige, asi que el sistema le pedira configurarlo de nuevo en su proximo acceso y le dara codigos de respaldo nuevos.'
+          : 'Segundo factor reiniciado para ' +
+              respuesta.usuario +
+              '. Su rol no lo exige: entrara sin el hasta que decida volver a configurarlo.',
+      );
     },
   });
 
@@ -161,6 +181,13 @@ export function PaginaAdministracion() {
 
       {cuentas.isError ? <AvisoError error={cuentas.error} /> : null}
       {restablecer.isError ? <AvisoError error={restablecer.error} /> : null}
+      {mfa.isError ? <AvisoError error={mfa.error} /> : null}
+
+      {avisoMfa ? (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setAvisoMfa(null)}>
+          {avisoMfa}
+        </Alert>
+      ) : null}
 
       {cuentas.isPending ? (
         <Stack sx={{ alignItems: 'center', py: 4 }}>
@@ -215,8 +242,16 @@ export function PaginaAdministracion() {
                       <TableCell>
                         <Stack direction="row" sx={{ gap: 0.5, alignItems: 'center' }}>
                           {ETIQUETA_ROL[c.rol] ?? c.rol}
-                          {EXIGEN_MFA.includes(c.rol) ? (
-                            <Chip size="small" variant="outlined" label="2FA" />
+                          {/*
+                            Se distingue el segundo factor CONFIGURADO del que
+                            solo esta exigido por el rol: una cuenta
+                            administrativa recien creada exige 2FA y todavia no
+                            lo tiene, y son dos situaciones distintas.
+                          */}
+                          {c.mfaActivo ? (
+                            <Chip size="small" color="success" variant="outlined" label="2FA" />
+                          ) : EXIGEN_MFA.includes(c.rol) ? (
+                            <Chip size="small" variant="outlined" label="2FA pendiente" />
                           ) : null}
                         </Stack>
                       </TableCell>
@@ -226,6 +261,15 @@ export function PaginaAdministracion() {
                             <Chip size="small" color="default" label="Desactivada" />
                           ) : null}
                           {/*
+                            El bloqueo por intentos fallidos era invisible: la
+                            cuenta se veia igual que cualquier otra, y habia que
+                            restablecer la contrasena a ciegas porque alguien lo
+                            pedia por telefono.
+                          */}
+                          {c.bloqueada ? (
+                            <Chip size="small" color="error" label="Bloqueada" />
+                          ) : null}
+                          {/*
                             "Contrasena sin cambiar" es el dato que dice que
                             alguien todavia no ha entrado con la temporal que se
                             le entrego, o que se le acaba de restablecer.
@@ -233,7 +277,7 @@ export function PaginaAdministracion() {
                           {c.debeCambiarContrasena ? (
                             <Chip size="small" color="warning" label="Contrasena sin cambiar" />
                           ) : null}
-                          {c.activo && !c.debeCambiarContrasena ? (
+                          {c.activo && !c.debeCambiarContrasena && !c.bloqueada ? (
                             <Typography variant="body2" color="text.secondary">
                               —
                             </Typography>
@@ -256,6 +300,22 @@ export function PaginaAdministracion() {
                           >
                             Restablecer contrasena
                           </Button>
+                          {/*
+                            Solo si de verdad tiene algo que reiniciar. En una
+                            cuenta sin segundo factor el servidor responde 400,
+                            y ofrecer el boton seria prometer una accion que no
+                            existe para ese caso.
+                          */}
+                          {c.mfaActivo ? (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="warning"
+                              onClick={() => setReiniciando(c)}
+                            >
+                              Reiniciar 2FA
+                            </Button>
+                          ) : null}
                         </Stack>
                       </TableCell>
                     </TableRow>
@@ -325,6 +385,40 @@ export function PaginaAdministracion() {
               onClick={() => restablecer.mutate(confirmando)}
             >
               {restablecer.isPending ? 'Restableciendo...' : 'Restablecer'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      ) : null}
+
+      {reiniciando ? (
+        <Dialog open onClose={() => setReiniciando(null)} fullWidth maxWidth="xs">
+          <DialogTitle>Reiniciar el segundo factor de {reiniciando.usuario}</DialogTitle>
+          <DialogContent>
+            <Stack sx={{ gap: 2 }}>
+              <DialogContentText>
+                Para cuando alguien pierde el telefono con la aplicacion de autenticacion y ya no
+                le quedan codigos de respaldo.
+              </DialogContentText>
+              <Alert severity="warning">
+                Se borra su configuracion actual y sus codigos de respaldo, y su sesion se cierra.
+                La proxima vez que entre configurara el segundo factor desde cero, como el primer
+                dia.
+              </Alert>
+              <DialogContentText>
+                Asegurese de que es esa persona quien lo pide, y no alguien haciendose pasar por
+                ella.
+              </DialogContentText>
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setReiniciando(null)}>Cancelar</Button>
+            <Button
+              variant="contained"
+              color="warning"
+              disabled={mfa.isPending}
+              onClick={() => mfa.mutate(reiniciando)}
+            >
+              {mfa.isPending ? 'Reiniciando...' : 'Reiniciar'}
             </Button>
           </DialogActions>
         </Dialog>

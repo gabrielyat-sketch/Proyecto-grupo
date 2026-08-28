@@ -21,6 +21,9 @@ const cuenta = (extra: Record<string, unknown> = {}) => ({
   rol: 'ENFERMERIA',
   activo: true,
   debeCambiarContrasena: false,
+  mfaActivo: false,
+  bloqueada: false,
+  bloqueadoHasta: null,
   ultimoAcceso: '2026-08-27T14:00:00.000Z',
   creadoEn: '2026-01-10T10:00:00.000Z',
   ...extra,
@@ -56,7 +59,13 @@ function json(cuerpo: unknown, estado = 200) {
 function servidor({
   cuentas = [cuenta()] as unknown[],
   usuarioRepetido = false,
-}: { cuentas?: unknown[]; usuarioRepetido?: boolean } = {}) {
+  exigeSegundoFactor = true,
+}: {
+  cuentas?: unknown[];
+  usuarioRepetido?: boolean;
+  /** Si el rol de la cuenta reiniciada exige segundo factor. */
+  exigeSegundoFactor?: boolean;
+} = {}) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (p: Request) => {
@@ -68,6 +77,9 @@ function servidor({
       const url = new URL(p.url, 'http://local');
       const ruta = url.pathname;
 
+      if (ruta.endsWith('/reiniciar-mfa')) {
+        return json({ usuario: 'mcaal', exigeSegundoFactor }, 201);
+      }
       if (ruta.endsWith('/restablecer-contrasena')) {
         return json({ usuario: 'mcaal', contrasenaTemporal: 'Kp7mQx2vTn9Rda' }, 201);
       }
@@ -164,18 +176,6 @@ describe('lista de cuentas', () => {
     expect(await screen.findByText('Caal Xol, Maria')).toBeInTheDocument();
     expect(screen.getByText('mcaal')).toBeInTheDocument();
     expect(screen.getByText('Enfermeria')).toBeInTheDocument();
-  });
-
-  it('marca los roles que exigen segundo factor', async () => {
-    servidor({ cuentas: [cuenta({ rol: 'DIRECTOR' }), cuenta({ id: 'c-2', rol: 'RECEPCION' })] });
-    abrir(ADMIN);
-    await esperarPanel();
-
-    const filas = await screen.findAllByRole('row');
-    const director = filas.find((f) => within(f).queryByText('Director'));
-    const recepcion = filas.find((f) => within(f).queryByText('Recepcion'));
-    expect(within(director as HTMLElement).getByText('2FA')).toBeInTheDocument();
-    expect(within(recepcion as HTMLElement).queryByText('2FA')).not.toBeInTheDocument();
   });
 
   /**
@@ -466,6 +466,146 @@ describe('restablecer la contrasena', () => {
 
     const envios = peticiones.filter((p) => p.url.includes('restablecer'));
     expect(envios).toHaveLength(0);
+  });
+});
+
+// ══════════════════ lo que la lista deja ver ══════════════════
+
+describe('el estado de una cuenta', () => {
+  /**
+   * El bloqueo por intentos fallidos era invisible: la cuenta se veia igual que
+   * cualquier otra, y habia que restablecer la contrasena a ciegas porque
+   * alguien lo pedia por telefono.
+   */
+  it('muestra las cuentas bloqueadas por intentos fallidos', async () => {
+    servidor({ cuentas: [cuenta({ bloqueada: true })] });
+    abrir(ADMIN);
+    await esperarPanel();
+
+    expect(await screen.findByText('Bloqueada')).toBeInTheDocument();
+  });
+
+  it('una cuenta sin problemas no muestra ninguna marca de estado', async () => {
+    servidor();
+    abrir(ADMIN);
+    await esperarPanel();
+
+    await screen.findByText('mcaal');
+    expect(screen.queryByText('Bloqueada')).not.toBeInTheDocument();
+    expect(screen.queryByText('Desactivada')).not.toBeInTheDocument();
+  });
+
+  /**
+   * Una cuenta administrativa recien creada exige 2FA y todavia no lo tiene:
+   * son dos situaciones distintas y antes se veian iguales.
+   */
+  it('distingue el segundo factor configurado del que solo esta exigido', async () => {
+    servidor({
+      cuentas: [
+        cuenta({ id: 'c-1', usuario: 'conmfa', rol: 'DIRECTOR', mfaActivo: true }),
+        cuenta({ id: 'c-2', usuario: 'sinmfa', rol: 'ADMINISTRADOR', mfaActivo: false }),
+      ],
+    });
+    abrir(ADMIN);
+    await esperarPanel();
+
+    const con = (await screen.findByText('conmfa')).closest('tr') as HTMLElement;
+    const sin = (await screen.findByText('sinmfa')).closest('tr') as HTMLElement;
+    expect(within(con).getByText('2FA')).toBeInTheDocument();
+    expect(within(sin).getByText('2FA pendiente')).toBeInTheDocument();
+  });
+
+  it('un rol que no exige segundo factor no lleva ninguna marca', async () => {
+    servidor({ cuentas: [cuenta({ rol: 'RECEPCION', mfaActivo: false })] });
+    abrir(ADMIN);
+    await esperarPanel();
+
+    await screen.findByText('mcaal');
+    expect(screen.queryByText(/^2FA/)).not.toBeInTheDocument();
+  });
+});
+
+// ═══════════════ reiniciar el segundo factor ═══════════════
+
+describe('reiniciar el segundo factor', () => {
+  /**
+   * Sin esto, quien perdiera el telefono con la aplicacion de autenticacion
+   * quedaba fuera del sistema de forma permanente en cuanto se le acabaran los
+   * codigos de respaldo.
+   */
+  it('se ofrece en las cuentas que lo tienen configurado', async () => {
+    servidor({ cuentas: [cuenta({ mfaActivo: true })] });
+    abrir(ADMIN);
+    await esperarPanel();
+
+    expect(await screen.findByRole('button', { name: 'Reiniciar 2FA' })).toBeInTheDocument();
+  });
+
+  /**
+   * En una cuenta sin segundo factor el servidor responde 400: ofrecer el boton
+   * seria prometer una accion que no existe para ese caso.
+   */
+  it('NO se ofrece en una cuenta que no lo tiene', async () => {
+    servidor({ cuentas: [cuenta({ mfaActivo: false, rol: 'DIRECTOR' })] });
+    abrir(ADMIN);
+    await esperarPanel();
+
+    await screen.findByText('mcaal');
+    expect(screen.queryByRole('button', { name: 'Reiniciar 2FA' })).not.toBeInTheDocument();
+  });
+
+  it('explica lo que se borra antes de hacerlo', async () => {
+    servidor({ cuentas: [cuenta({ mfaActivo: true })] });
+    const usuario = userEvent.setup();
+    abrir(ADMIN);
+    await esperarPanel();
+    await usuario.click(await screen.findByRole('button', { name: 'Reiniciar 2FA' }));
+
+    expect(screen.getByText(/codigos de respaldo, y su sesion se cierra/)).toBeInTheDocument();
+  });
+
+  /** Reiniciar el 2FA de alguien por telefono es un vector de suplantacion. */
+  it('avisa de que hay que confirmar quien lo esta pidiendo', async () => {
+    servidor({ cuentas: [cuenta({ mfaActivo: true })] });
+    const usuario = userEvent.setup();
+    abrir(ADMIN);
+    await esperarPanel();
+    await usuario.click(await screen.findByRole('button', { name: 'Reiniciar 2FA' }));
+
+    expect(screen.getByText(/haciendose pasar por ella/)).toBeInTheDocument();
+  });
+
+  it('al confirmar dice que el sistema se lo volvera a pedir si su rol lo exige', async () => {
+    servidor({ cuentas: [cuenta({ mfaActivo: true, rol: 'DIRECTOR' })] });
+    const usuario = userEvent.setup();
+    abrir(ADMIN);
+    await esperarPanel();
+    await usuario.click(await screen.findByRole('button', { name: 'Reiniciar 2FA' }));
+    await usuario.click(screen.getByRole('button', { name: 'Reiniciar' }));
+
+    expect(await screen.findByText(/le pedira configurarlo de nuevo/)).toBeInTheDocument();
+  });
+
+  it('y que entrara sin el cuando su rol no lo exige', async () => {
+    servidor({ cuentas: [cuenta({ mfaActivo: true, rol: 'MEDICO' })], exigeSegundoFactor: false });
+    const usuario = userEvent.setup();
+    abrir(ADMIN);
+    await esperarPanel();
+    await usuario.click(await screen.findByRole('button', { name: 'Reiniciar 2FA' }));
+    await usuario.click(screen.getByRole('button', { name: 'Reiniciar' }));
+
+    expect(await screen.findByText(/entrara sin el hasta que decida/)).toBeInTheDocument();
+  });
+
+  it('cancelar no manda nada al servidor', async () => {
+    servidor({ cuentas: [cuenta({ mfaActivo: true })] });
+    const usuario = userEvent.setup();
+    abrir(ADMIN);
+    await esperarPanel();
+    await usuario.click(await screen.findByRole('button', { name: 'Reiniciar 2FA' }));
+    await usuario.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+    expect(peticiones.filter((p) => p.url.includes('reiniciar-mfa'))).toHaveLength(0);
   });
 });
 

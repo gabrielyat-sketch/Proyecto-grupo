@@ -58,7 +58,7 @@ línea tendrá que traerse `develop` antes de que se pueda fusionar.
 
 ### Pruebas
 
-**764 verdes**: 514 unitarias + 250 e2e. `tsc --noEmit` limpio en todo el
+**782 verdes**: 524 unitarias + 258 e2e. `tsc --noEmit` limpio en todo el
 monorepo, y el panel ya termina con **código de salida 0** (ver §4). Se corren
 así:
 
@@ -80,7 +80,7 @@ for s in auth usuarios programas medicamentos; do npm run test:e2e -w @cap/$s; d
 | **Digitalización** (RF-08): avance por comunidad, cola, transcripción | Completo |
 | **Expedientes**: búsqueda por número, historial, ficha desplegable | Completo |
 | **Farmacia**: catálogo, lotes, alertas, ingreso, baja, conteo físico y entrega con FEFO | Completo |
-| **Administración**: cuentas, roles, restablecer contraseña | Completo, sin fusionar |
+| **Administración**: cuentas, roles, restablecer contraseña, reiniciar 2FA | Completo, sin fusionar |
 
 ### Qué falta (backend construido, sin pantalla)
 
@@ -149,7 +149,7 @@ cap-sistema/
 | `modulos/digitalizacion` | 6 | 949 | 395 |
 | `modulos/recepcion` | 5 | 858 | 399 |
 | `modulos/farmacia` | 14 | 3,000 | 1,377 |
-| `modulos/administracion` | 4 | 910 | 500 |
+| `modulos/administracion` | 4 | 1,020 | 640 |
 | `modulos/expedientes` | 4 | 790 | 402 |
 | `modulos/espera` | 2 | 334 | 222 |
 
@@ -326,10 +326,8 @@ contrato.** Con eso, el cliente tipado del panel exige pasar la cabecera a mano
 —cuando el middleware ya la pone en cada petición— y el endpoint es
 sencillamente imposible de llamar desde el contrato generado. La autenticación
 ya está declarada con `@ApiBearerAuth()`. Se corrige leyendo el token del
-`Request`. `POST /v1/entregas` ya está arreglado; **quedan dos iguales sin
-tocar** en `programas`: `embarazo.controller.ts:85` e
-`hipertension.controller.ts:78`. Quien construya esas pantallas se va a topar
-con lo mismo.
+`Request`. **Los tres del sistema ya están arreglados**: `POST /v1/entregas` y
+los dos de `programas`.
 
 **Espera encontrar más.** El criterio que los ha delatado a todos es el mismo:
 código que nunca se ejercitó desde una pantalla ni desde una prueba.
@@ -381,16 +379,15 @@ entera está en `develop`; Administración, en `feature/web-administracion`, con
 sus diseños en `docs/diseno-farmacia.md` y `docs/diseno-administracion.md`.
 
 Lo que sigue es **Programas**, el último backend grande sin pantalla:
-hipertensión, embarazo y desnutrición infantil. **Antes de empezar hay que
-corregir sus dos `@Headers('authorization')`** —`embarazo.controller.ts:85` e
-`hipertension.controller.ts:78`— o el panel no podrá llamar a esos endpoints (§4).
+hipertensión, embarazo y desnutrición infantil. Sus dos
+`@Headers('authorization')` **ya están corregidos**, así que arranca sin
+tropezar con ellos.
 
 **Lo que Farmacia y Administración todavía necesitan no es código, son
 respuestas.** El catálogo de medicamentos nace vacío: sin sembrarlo, el módulo
-no sirve por muy construido que esté. Y Administración deja un hueco serio: **no
-se puede reiniciar el segundo factor de otra persona**. Quien pierda el teléfono
-y los códigos de respaldo queda fuera del sistema de forma permanente, y afecta
-justo a los dos roles con MFA obligatorio.
+no sirve por muy construido que esté. Y en Administración queda una pregunta de
+procedimiento, no técnica: **cómo se verifica a quien pide por teléfono que le
+reinicien el segundo factor**. El sistema no puede comprobar esa identidad.
 
 ### Después
 
@@ -398,7 +395,9 @@ En este orden, y por esta razón:
 
 1. **Las otras tres fichas** — largo pero mecánico; el molde ya existe.
 2. **Reportes** (Etapa 10) — hay que construir el servicio entero.
-3. **Auditoría** (Etapa 9) — depende de que Ramiro corrija el PR #3.
+3. **Auditoría** (Etapa 9) — depende de que Ramiro corrija el PR #3. Es lo que
+   falta para que las acciones administrativas —crear cuentas, cambiar roles,
+   restablecer contraseñas, reiniciar segundos factores— dejen traza.
 
 ### La forma de trabajar que Dennis pidió
 
@@ -439,8 +438,9 @@ De Farmacia, en `docs/diseno-farmacia.md`:
 - **¿Quién será el administrador del CAP, y habrá más de uno?** Hoy hay una sola
   cuenta con ese rol. Si esa persona se va o pierde su segundo factor, nadie más
   puede crear cuentas.
-- **¿Qué se hace si alguien pierde su segundo factor?** Hoy no hay forma de
-  reiniciarlo: solo quedan los códigos de respaldo del sobre cerrado.
+- **¿Cómo se verifica a quien pide que le reinicien el segundo factor?** El
+  Administrador ya puede hacerlo, pero el sistema no puede comprobar que quien
+  llama es esa persona. Hace falta un procedimiento acordado con el CAP.
 - **¿Se entrega con receta o sin ella?** El catálogo marca qué medicamentos la
   requieren y la pantalla lo dice, pero no la exige ni la registra.
 - **¿Se le puede entregar a alguien que no es el paciente?** Hoy sí, y quien

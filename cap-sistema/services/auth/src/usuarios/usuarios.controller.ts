@@ -5,7 +5,12 @@ import { UsuariosService } from './usuarios.service';
 import { CrearUsuarioDto } from './dto/crear-usuario.dto';
 import { ActualizarUsuarioDto } from './dto/actualizar-usuario.dto';
 import { ConsultarUsuariosDto } from './dto/consultar-usuarios.dto';
-import { ContrasenaRestablecidaDto, CuentaCreadaDto, CuentaDto } from './dto/respuestas.dto';
+import {
+  ContrasenaRestablecidaDto,
+  CuentaCreadaDto,
+  CuentaDto,
+  MfaReiniciadoDto,
+} from './dto/respuestas.dto';
 
 /**
  * Gestion de cuentas. Todo el modulo es exclusivo del Administrador.
@@ -51,6 +56,17 @@ export class UsuariosController {
     @Usuario('id') idQuienEdita: string,
   ): Promise<CuentaDto> {
     return this.servicio.actualizar(id, dto, idQuienEdita);
+  }
+
+  @Post(':id/reiniciar-mfa')
+  @ApiOperation({
+    summary: 'Borra el segundo factor para que la persona lo configure de nuevo',
+    description:
+      'Para quien perdio el telefono con la aplicacion de autenticacion. Borra tambien sus codigos de respaldo y cierra sus sesiones. No devuelve ningun secreto: el nuevo lo genera la propia persona al entrar.',
+  })
+  @ApiCreatedResponse({ type: MfaReiniciadoDto })
+  reiniciarMfa(@Param('id') id: string): Promise<MfaReiniciadoDto> {
+    return this.servicio.reiniciarMfa(id);
   }
 
   @Post(':id/restablecer-contrasena')

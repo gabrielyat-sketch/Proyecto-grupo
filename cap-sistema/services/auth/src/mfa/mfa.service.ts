@@ -103,6 +103,33 @@ export class MfaService {
     return this.consumirCodigoRespaldo(usuarioId, limpio);
   }
 
+  /**
+   * Borra el segundo factor de una cuenta para que se configure de nuevo.
+   *
+   * Es la salida cuando alguien pierde el telefono con la aplicacion de
+   * autenticacion. Sin esto quedaba fuera del sistema de forma permanente en
+   * cuanto se le acabaran los codigos de respaldo, y afecta justo a los dos
+   * roles que tienen el segundo factor obligatorio.
+   *
+   * No hay que inventar ningun flujo de recuperacion: al borrar la
+   * configuracion, el proximo acceso vuelve a caer en `configuracionPendiente`
+   * y la persona configura el segundo factor desde cero como el primer dia.
+   *
+   * Los codigos de respaldo se borran tambien. Dejarlos vivos permitiria entrar
+   * con los papeles viejos despues de un reinicio pedido justamente porque
+   * esos papeles se perdieron.
+   */
+  async reiniciar(usuarioId: string): Promise<boolean> {
+    const config = await this.prisma.configuracionMfa.findUnique({ where: { usuarioId } });
+    if (!config) return false;
+
+    await this.prisma.$transaction([
+      this.prisma.codigoRespaldo.deleteMany({ where: { usuarioId } }),
+      this.prisma.configuracionMfa.delete({ where: { usuarioId } }),
+    ]);
+    return true;
+  }
+
   /** Genera codigos nuevos e invalida los anteriores. Se devuelven una sola vez. */
   async regenerarCodigosRespaldo(usuarioId: string): Promise<string[]> {
     await this.prisma.codigoRespaldo.deleteMany({ where: { usuarioId } });

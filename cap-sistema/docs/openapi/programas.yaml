@@ -124,12 +124,7 @@ paths:
         - programa-hipertension
     post:
       operationId: HipertensionController_inscribir
-      parameters:
-        - name: authorization
-          required: true
-          in: header
-          schema:
-            type: string
+      parameters: []
       requestBody:
         required: true
         content:
@@ -549,12 +544,7 @@ paths:
       description: La FPP y la clasificacion de riesgo las calcula el sistema a partir
         de la FUM.
       operationId: EmbarazoController_inscribir
-      parameters:
-        - name: authorization
-          required: true
-          in: header
-          schema:
-            type: string
+      parameters: []
       requestBody:
         required: true
         content:

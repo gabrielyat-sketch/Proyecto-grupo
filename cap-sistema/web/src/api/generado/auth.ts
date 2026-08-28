@@ -259,6 +259,26 @@ export interface paths {
         patch: operations["UsuariosController_actualizar"];
         trace?: never;
     };
+    "/v1/usuarios/{id}/reiniciar-mfa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Borra el segundo factor para que la persona lo configure de nuevo
+         * @description Para quien perdio el telefono con la aplicacion de autenticacion. Borra tambien sus codigos de respaldo y cierra sus sesiones. No devuelve ningun secreto: el nuevo lo genera la propia persona al entrar.
+         */
+        post: operations["UsuariosController_reiniciarMfa"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/usuarios/{id}/restablecer-contrasena": {
         parameters: {
             query?: never;
@@ -442,6 +462,15 @@ export interface components {
             /** @description Una cuenta desactivada no puede iniciar sesion. */
             activo: boolean;
             debeCambiarContrasena: boolean;
+            /** @description true si el segundo factor esta configurado y activo. Nunca se expone el secreto. */
+            mfaActivo: boolean;
+            /** @description true si la cuenta esta bloqueada AHORA por intentos fallidos. */
+            bloqueada: boolean;
+            /**
+             * Format: date-time
+             * @description Hasta cuando dura el bloqueo. Puede ser una fecha ya pasada.
+             */
+            bloqueadoHasta: string | null;
             /**
              * Format: date-time
              * @description null si la cuenta nunca ha entrado.
@@ -473,6 +502,15 @@ export interface components {
             /** @description Una cuenta desactivada no puede iniciar sesion. */
             activo: boolean;
             debeCambiarContrasena: boolean;
+            /** @description true si el segundo factor esta configurado y activo. Nunca se expone el secreto. */
+            mfaActivo: boolean;
+            /** @description true si la cuenta esta bloqueada AHORA por intentos fallidos. */
+            bloqueada: boolean;
+            /**
+             * Format: date-time
+             * @description Hasta cuando dura el bloqueo. Puede ser una fecha ya pasada.
+             */
+            bloqueadoHasta: string | null;
             /**
              * Format: date-time
              * @description null si la cuenta nunca ha entrado.
@@ -489,6 +527,12 @@ export interface components {
             /** @enum {string} */
             rol?: "ADMINISTRADOR" | "DIRECTOR" | "MEDICO" | "ENFERMERIA" | "FARMACIA" | "RECEPCION";
             activo?: boolean;
+        };
+        MfaReiniciadoDto: {
+            /** @description Cuenta a la que se le reinicio el segundo factor. */
+            usuario: string;
+            /** @description true si su rol lo exige: el sistema se lo volvera a pedir al entrar. Si es false, entrara sin el hasta que decida configurarlo. */
+            exigeSegundoFactor: boolean;
         };
         ContrasenaRestablecidaDto: {
             /** @description Nombre de usuario al que corresponde la contrasena nueva. */
@@ -1278,6 +1322,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CuentaDto"];
+                };
+            };
+            /** @description La informacion enviada no es valida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El recurso solicitado no existe. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
+    UsuariosController_reiniciarMfa: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MfaReiniciadoDto"];
                 };
             };
             /** @description La informacion enviada no es valida. */

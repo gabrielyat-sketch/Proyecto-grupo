@@ -618,6 +618,58 @@ paths:
       security: *a3
       summary: Actualiza datos, rol o estado de una cuenta
       tags: *a4
+  /v1/usuarios/{id}/reiniciar-mfa:
+    post:
+      description: "Para quien perdio el telefono con la aplicacion de autenticacion.
+        Borra tambien sus codigos de respaldo y cierra sus sesiones. No devuelve
+        ningun secreto: el nuevo lo genera la propia persona al entrar."
+      operationId: UsuariosController_reiniciarMfa
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "201":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MfaReiniciadoDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a3
+      summary: Borra el segundo factor para que la persona lo configure de nuevo
+      tags: *a4
   /v1/usuarios/{id}/restablecer-contrasena:
     post:
       operationId: UsuariosController_restablecer
@@ -958,6 +1010,18 @@ components:
           description: Una cuenta desactivada no puede iniciar sesion.
         debeCambiarContrasena:
           type: boolean
+        mfaActivo:
+          type: boolean
+          description: true si el segundo factor esta configurado y activo. Nunca se
+            expone el secreto.
+        bloqueada:
+          type: boolean
+          description: true si la cuenta esta bloqueada AHORA por intentos fallidos.
+        bloqueadoHasta:
+          type: string
+          format: date-time
+          nullable: true
+          description: Hasta cuando dura el bloqueo. Puede ser una fecha ya pasada.
         ultimoAcceso:
           type: string
           format: date-time
@@ -974,6 +1038,9 @@ components:
         - rol
         - activo
         - debeCambiarContrasena
+        - mfaActivo
+        - bloqueada
+        - bloqueadoHasta
         - ultimoAcceso
         - creadoEn
     CrearUsuarioDto:
@@ -1025,6 +1092,18 @@ components:
           description: Una cuenta desactivada no puede iniciar sesion.
         debeCambiarContrasena:
           type: boolean
+        mfaActivo:
+          type: boolean
+          description: true si el segundo factor esta configurado y activo. Nunca se
+            expone el secreto.
+        bloqueada:
+          type: boolean
+          description: true si la cuenta esta bloqueada AHORA por intentos fallidos.
+        bloqueadoHasta:
+          type: string
+          format: date-time
+          nullable: true
+          description: Hasta cuando dura el bloqueo. Puede ser una fecha ya pasada.
         ultimoAcceso:
           type: string
           format: date-time
@@ -1044,6 +1123,9 @@ components:
         - rol
         - activo
         - debeCambiarContrasena
+        - mfaActivo
+        - bloqueada
+        - bloqueadoHasta
         - ultimoAcceso
         - creadoEn
         - contrasenaTemporal
@@ -1065,6 +1147,19 @@ components:
             - RECEPCION
         activo:
           type: boolean
+    MfaReiniciadoDto:
+      type: object
+      properties:
+        usuario:
+          type: string
+          description: Cuenta a la que se le reinicio el segundo factor.
+        exigeSegundoFactor:
+          type: boolean
+          description: "true si su rol lo exige: el sistema se lo volvera a pedir al
+            entrar. Si es false, entrara sin el hasta que decida configurarlo."
+      required:
+        - usuario
+        - exigeSegundoFactor
     ContrasenaRestablecidaDto:
       type: object
       properties:
