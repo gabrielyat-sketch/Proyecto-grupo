@@ -892,12 +892,21 @@ export interface components {
             /** @description Lo que se subraya en CLASIFICAR. */
             diagnosticos: components["schemas"]["DiagnosticoCatalogoDto"][];
         };
+        TemaConsejeriaCatalogoDto: {
+            /** Format: uuid */
+            id: string;
+            orden: number;
+            /** @example Técnica de amamantamiento */
+            texto: string;
+        };
         CatalogoFichaDto: {
             /** @enum {string} */
             tipoFicha: "ADULTO" | "NEONATO" | "NINEZ" | "PRENATAL";
             signosPeligro: components["schemas"]["SignoPeligroCatalogoDto"][];
             antecedentes: components["schemas"]["AntecedenteCatalogoDto"][];
             problemas: components["schemas"]["ProblemaCatalogoDto"][];
+            /** @description Vacio en las fichas donde la consejeria es un texto libre, como la de adultos. */
+            temasConsejeria: components["schemas"]["TemaConsejeriaCatalogoDto"][];
         };
         SignoPeligroEvaluadoDto: {
             /** Format: uuid */
@@ -925,6 +934,47 @@ export interface components {
             dosis?: string;
             /** @example 7 */
             dias?: number;
+        };
+        ConsejeriaBrindadaDto: {
+            /** Format: uuid */
+            temaId: string;
+            /** @default true */
+            brindada: boolean;
+            /**
+             * Format: date
+             * @example 2026-09-15
+             */
+            fechaReconsulta?: string;
+        };
+        DatosNeonatoDto: {
+            nombreMadre?: string;
+            pesoLibras?: number;
+            /** @description Dieciseis onzas son una libra. */
+            pesoOnzas?: number;
+            /** @example 11.5 */
+            perimetroBraquialCm?: number;
+            /**
+             * @description Circunferencia cefalica.
+             * @example 34.5
+             */
+            circunferenciaCefalicaCm?: number;
+            pesoNacerLibras?: number;
+            pesoNacerOnzas?: number;
+            lloroAlNacer?: boolean;
+            nacioCianotico?: boolean;
+            horasTrabajoParto?: number;
+            /** @enum {string} */
+            quienAtendioParto?: "MD" | "EP" | "AE" | "CT" | "OTRO";
+            quienAtendioPartoOtro?: string;
+            rupturaPrematuraMembranas?: boolean;
+            trabajoPartoPrematuro?: boolean;
+            partoProlongado?: boolean;
+            /** @enum {string} */
+            tipoParto?: "NORMAL" | "CESAREA" | "FORCEPS" | "PODALICA";
+            bcg?: boolean;
+            tdMadre?: boolean;
+            tdMadreDosis?: number;
+            lactanciaMaternaExclusiva?: boolean;
         };
         CrearFichaDto: {
             /** @enum {string} */
@@ -982,6 +1032,8 @@ export interface components {
             diagnostico?: string;
             tratamiento?: string;
             notas?: string;
+            consejeriaTemas?: components["schemas"]["ConsejeriaBrindadaDto"][];
+            neonato?: components["schemas"]["DatosNeonatoDto"];
         };
         FichaCreadaDto: {
             /** Format: uuid */
@@ -1014,6 +1066,40 @@ export interface components {
             nombre: string;
             dosis: string | null;
             dias: number | null;
+        };
+        ConsejeriaFichaDto: {
+            /** Format: uuid */
+            temaId: string;
+            texto: string;
+            brindada: boolean;
+            /** Format: date */
+            fechaReconsulta: string | null;
+        };
+        FichaNeonatoDto: {
+            nombreMadre: string | null;
+            pesoLibras: number | null;
+            pesoOnzas: number | null;
+            /** @description Decimal en texto. */
+            perimetroBraquialCm: string | null;
+            /** @description Circunferencia cefalica. Decimal en texto. */
+            circunferenciaCefalicaCm: string | null;
+            pesoNacerLibras: number | null;
+            pesoNacerOnzas: number | null;
+            lloroAlNacer: boolean | null;
+            nacioCianotico: boolean | null;
+            horasTrabajoParto: number | null;
+            /** @enum {string|null} */
+            quienAtendioParto: "MD" | "EP" | "AE" | "CT" | "OTRO" | null;
+            quienAtendioPartoOtro: string | null;
+            rupturaPrematuraMembranas: boolean | null;
+            trabajoPartoPrematuro: boolean | null;
+            partoProlongado: boolean | null;
+            /** @enum {string|null} */
+            tipoParto: "NORMAL" | "CESAREA" | "FORCEPS" | "PODALICA" | null;
+            bcg: boolean | null;
+            tdMadre: boolean | null;
+            tdMadreDosis: number | null;
+            lactanciaMaternaExclusiva: boolean | null;
         };
         FichaDto: {
             /** Format: uuid */
@@ -1064,6 +1150,10 @@ export interface components {
             signosPeligro: components["schemas"]["SignoPeligroFichaDto"][];
             problemas: components["schemas"]["ProblemaFichaRegistradoDto"][];
             medicamentos: components["schemas"]["MedicamentoFichaDto"][];
+            /** @description La tabla de consejeria. Vacia en las fichas con consejeria de texto libre. */
+            consejeriaTemas: components["schemas"]["ConsejeriaFichaDto"][];
+            /** @description Solo en las fichas de menor de 28 dias. */
+            neonato: components["schemas"]["FichaNeonatoDto"] | null;
         };
         AntecedenteRegistradoDto: {
             /** Format: uuid */

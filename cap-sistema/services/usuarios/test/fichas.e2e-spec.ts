@@ -130,7 +130,41 @@ describe('Fichas clinicas (e2e)', () => {
     });
 
     it('una ficha sin catalogo cargado lo dice, no devuelve vacio', async () => {
-      await request(http()).get('/v1/fichas/catalogo/NEONATO').set(como(Rol.MEDICO)).expect(404);
+      // Antes usaba NEONATO. Dejo de servir en cuanto esa ficha tuvo catalogo:
+      // hay que probarlo con una que siga sin sembrarse, y cambiarlo otra vez
+      // cuando le toque el turno a ninez.
+      await request(http()).get('/v1/fichas/catalogo/NINEZ').set(como(Rol.MEDICO)).expect(404);
+    });
+
+    it('el catalogo de menor de 28 dias trae sus 27 signos de peligro', async () => {
+      // Son tres bloques distintos del papel —20 de enfermedad grave, 3 de
+      // infeccion y 4 de malformaciones— y los tres se capturan igual.
+      const r = await request(http())
+        .get('/v1/fichas/catalogo/NEONATO')
+        .set(como(Rol.MEDICO))
+        .expect(200);
+
+      expect(r.body.signosPeligro).toHaveLength(27);
+      expect(r.body.signosPeligro[0].texto).toBe('No respira');
+      expect(r.body.problemas).toHaveLength(10);
+    });
+
+    /**
+     * En la ficha de adultos la consejeria es un texto libre; en esta son seis
+     * temas impresos con su fecha de reconsulta.
+     */
+    it('el catalogo de neonato trae sus temas de consejeria y el de adultos no', async () => {
+      const neonato = await request(http())
+        .get('/v1/fichas/catalogo/NEONATO')
+        .set(como(Rol.MEDICO))
+        .expect(200);
+      expect(neonato.body.temasConsejeria).toHaveLength(6);
+
+      const adulto = await request(http())
+        .get('/v1/fichas/catalogo/ADULTO')
+        .set(como(Rol.MEDICO))
+        .expect(200);
+      expect(adulto.body.temasConsejeria).toHaveLength(0);
     });
 
     it('Recepcion no entra al catalogo clinico', async () => {
@@ -346,6 +380,247 @@ describe('Fichas clinicas (e2e)', () => {
         .set(como(Rol.MEDICO))
         .send({ tipoFicha: 'ADULTO', motivo: 'Prueba' })
         .expect(404);
+    });
+  });
+
+  /**
+   * ─────────────────────────────────────────────────────────────────────
+   *  LA FICHA DE MENOR DE 28 DIAS
+   *
+   *  Comparte casi todo con la de adultos —signos de peligro, problemas,
+   *  medicamentos— y se separa en tres cosas: el peso va en libras y onzas,
+   *  trae antecedentes del PARTO con valor propio, y su consejeria son seis
+   *  temas con fecha de reconsulta en vez de un texto libre.
+   * ─────────────────────────────────────────────────────────────────────
+   */
+  describe('ficha de menor de 28 dias', () => {
+    let catalogoNeonato: {
+      signosPeligro: { id: string; texto: string }[];
+      problemas: { id: string; nombre: string; signos: { id: string }[]; diagnosticos: { id: string }[] }[];
+      temasConsejeria: { id: string; texto: string }[];
+    };
+
+    beforeAll(async () => {
+      const r = await request(http())
+        .get('/v1/fichas/catalogo/NEONATO')
+        .set(como(Rol.MEDICO))
+        .expect(200);
+      catalogoNeonato = r.body;
+    });
+
+    it('guarda el peso en libras y onzas, tal como lo pide el formulario', async () => {
+      const creada = await request(http())
+        .post('/v1/expedientes/' + expedienteId + '/fichas')
+        .set(como(Rol.MEDICO))
+        .send({
+          tipoFicha: 'NEONATO',
+          motivo: 'Control del recien nacido',
+          neonato: {
+            nombreMadre: 'Juana Caal Xol',
+            pesoLibras: 6,
+            pesoOnzas: 4,
+            perimetroBraquialCm: 11.5,
+            circunferenciaCefalicaCm: 34.5,
+          },
+        })
+        .expect(201);
+
+      const ficha = await request(http())
+        .get('/v1/fichas/' + creada.body.id)
+        .set(como(Rol.MEDICO))
+        .expect(200);
+
+      expect(ficha.body.neonato.pesoLibras).toBe(6);
+      expect(ficha.body.neonato.pesoOnzas).toBe(4);
+      // Decimal de Prisma viaja como TEXTO en JSON, no como numero.
+      expect(ficha.body.neonato.perimetroBraquialCm).toBe('11.5');
+      expect(ficha.body.neonato.circunferenciaCefalicaCm).toBe('34.5');
+    });
+
+    /**
+     * Dieciseis onzas son una libra. Aceptarlas dejaria dos formas de escribir
+     * el mismo peso, y el signo de peligro "pesa menos de 5 libras 8 onzas"
+     * dejaria de poder evaluarse comparando.
+     */
+    it('rechaza dieciseis onzas: eso ya es una libra', async () => {
+      await request(http())
+        .post('/v1/expedientes/' + expedienteId + '/fichas')
+        .set(como(Rol.MEDICO))
+        .send({
+          tipoFicha: 'NEONATO',
+          motivo: 'Control',
+          neonato: { pesoLibras: 6, pesoOnzas: 16 },
+        })
+        .expect(400);
+    });
+
+    it('el nombre de la madre NO es legible con un SELECT directo', async () => {
+      const creada = await request(http())
+        .post('/v1/expedientes/' + expedienteId + '/fichas')
+        .set(como(Rol.MEDICO))
+        .send({
+          tipoFicha: 'NEONATO',
+          motivo: 'Control',
+          neonato: { nombreMadre: 'Petrona Xoná Isem' },
+        })
+        .expect(201);
+
+      const fila = await prisma.fichaNeonato.findUnique({
+        where: { atencionId: creada.body.id as string },
+      });
+      const crudo = Buffer.from(fila!.nombreMadreCifrado!).toString('utf8');
+      expect(crudo).not.toContain('Petrona');
+    });
+
+    it('guarda los antecedentes del parto con su valor, no como casillas', async () => {
+      const creada = await request(http())
+        .post('/v1/expedientes/' + expedienteId + '/fichas')
+        .set(como(Rol.MEDICO))
+        .send({
+          tipoFicha: 'NEONATO',
+          motivo: 'Primera consulta',
+          neonato: {
+            pesoNacerLibras: 5,
+            pesoNacerOnzas: 8,
+            lloroAlNacer: true,
+            nacioCianotico: false,
+            horasTrabajoParto: 9,
+            quienAtendioParto: 'CT',
+            tipoParto: 'NORMAL',
+            rupturaPrematuraMembranas: true,
+            bcg: true,
+            tdMadre: true,
+            tdMadreDosis: 2,
+            lactanciaMaternaExclusiva: true,
+          },
+        })
+        .expect(201);
+
+      const ficha = await request(http())
+        .get('/v1/fichas/' + creada.body.id)
+        .set(como(Rol.MEDICO))
+        .expect(200);
+
+      const n = ficha.body.neonato;
+      expect(n.horasTrabajoParto).toBe(9);
+      expect(n.quienAtendioParto).toBe('CT');
+      expect(n.tipoParto).toBe('NORMAL');
+      expect(n.rupturaPrematuraMembranas).toBe(true);
+      expect(n.tdMadreDosis).toBe(2);
+    });
+
+    it('rechaza a quien atendio el parto si no es una de las siglas del papel', async () => {
+      await request(http())
+        .post('/v1/expedientes/' + expedienteId + '/fichas')
+        .set(como(Rol.MEDICO))
+        .send({
+          tipoFicha: 'NEONATO',
+          motivo: 'Control',
+          neonato: { quienAtendioParto: 'PARTERA' },
+        })
+        .expect(400);
+    });
+
+    it('guarda la consejeria por temas, con su fecha de reconsulta', async () => {
+      const creada = await request(http())
+        .post('/v1/expedientes/' + expedienteId + '/fichas')
+        .set(como(Rol.MEDICO))
+        .send({
+          tipoFicha: 'NEONATO',
+          motivo: 'Control',
+          consejeriaTemas: [
+            { temaId: catalogoNeonato.temasConsejeria[0].id, fechaReconsulta: '2026-09-15' },
+            { temaId: catalogoNeonato.temasConsejeria[1].id, brindada: false },
+          ],
+        })
+        .expect(201);
+
+      const ficha = await request(http())
+        .get('/v1/fichas/' + creada.body.id)
+        .set(como(Rol.MEDICO))
+        .expect(200);
+
+      expect(ficha.body.consejeriaTemas).toHaveLength(2);
+      const primero = ficha.body.consejeriaTemas[0];
+      expect(primero.texto).toBe('Técnica de amamantamiento');
+      expect(primero.brindada).toBe(true);
+      // La fecha vuelve tal cual: sin convertir a Date no se corre un dia.
+      expect(primero.fechaReconsulta).toBe('2026-09-15');
+      expect(ficha.body.consejeriaTemas[1].brindada).toBe(false);
+    });
+
+    it('rechaza una fecha de reconsulta que no venga como aaaa-mm-dd', async () => {
+      await request(http())
+        .post('/v1/expedientes/' + expedienteId + '/fichas')
+        .set(como(Rol.MEDICO))
+        .send({
+          tipoFicha: 'NEONATO',
+          motivo: 'Control',
+          consejeriaTemas: [
+            { temaId: catalogoNeonato.temasConsejeria[0].id, fechaReconsulta: '15/09/2026' },
+          ],
+        })
+        .expect(400);
+    });
+
+    /**
+     * Escribirla dejaria una fila huerfana que ninguna pantalla va a leer: la
+     * ficha de adultos no tiene donde mostrar el peso al nacer.
+     */
+    it('los datos de neonato NO se guardan en una ficha de adultos', async () => {
+      const creada = await request(http())
+        .post('/v1/expedientes/' + expedienteId + '/fichas')
+        .set(como(Rol.MEDICO))
+        .send({
+          tipoFicha: 'ADULTO',
+          motivo: 'Dolor de cabeza',
+          neonato: { pesoLibras: 6, pesoOnzas: 4 },
+        })
+        .expect(201);
+
+      const fila = await prisma.fichaNeonato.findUnique({
+        where: { atencionId: creada.body.id as string },
+      });
+      expect(fila).toBeNull();
+
+      const ficha = await request(http())
+        .get('/v1/fichas/' + creada.body.id)
+        .set(como(Rol.MEDICO))
+        .expect(200);
+      expect(ficha.body.neonato).toBeNull();
+    });
+
+    /**
+     * El catalogo esta segmentado por ficha y las llaves foraneas existen, asi
+     * que la base aceptaria la mezcla: el error solo aparecería al leerla, con
+     * los datos ya escritos.
+     */
+    it('no acepta un problema de la ficha de adultos en una de neonato', async () => {
+      await request(http())
+        .post('/v1/expedientes/' + expedienteId + '/fichas')
+        .set(como(Rol.MEDICO))
+        .send({
+          tipoFicha: 'NEONATO',
+          motivo: 'Control',
+          problemas: [{ problemaId: catalogo.problemas[0].id, presente: true }],
+        })
+        .expect(400);
+    });
+
+    it('la ficha de neonato aparece en el historial como tal', async () => {
+      const creada = await request(http())
+        .post('/v1/expedientes/' + expedienteId + '/fichas')
+        .set(como(Rol.MEDICO))
+        .send({ tipoFicha: 'NEONATO', motivo: 'Control de los ocho dias' })
+        .expect(201);
+
+      const historial = await request(http())
+        .get('/v1/expedientes/' + expedienteId + '/atenciones')
+        .set(como(Rol.MEDICO))
+        .expect(200);
+
+      const fila = historial.body.datos.find((a: { id: string }) => a.id === creada.body.id);
+      expect(fila.tipoFicha).toBe('NEONATO');
     });
   });
 

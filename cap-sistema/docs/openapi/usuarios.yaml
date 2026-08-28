@@ -2342,6 +2342,21 @@ components:
         - nombre
         - signos
         - diagnosticos
+    TemaConsejeriaCatalogoDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orden:
+          type: number
+        texto:
+          type: string
+          example: Técnica de amamantamiento
+      required:
+        - id
+        - orden
+        - texto
     CatalogoFichaDto:
       type: object
       properties:
@@ -2364,11 +2379,18 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ProblemaCatalogoDto"
+        temasConsejeria:
+          description: Vacio en las fichas donde la consejeria es un texto libre, como la
+            de adultos.
+          type: array
+          items:
+            $ref: "#/components/schemas/TemaConsejeriaCatalogoDto"
       required:
         - tipoFicha
         - signosPeligro
         - antecedentes
         - problemas
+        - temasConsejeria
     SignoPeligroEvaluadoDto:
       type: object
       properties:
@@ -2425,6 +2447,93 @@ components:
           example: 7
       required:
         - nombre
+    ConsejeriaBrindadaDto:
+      type: object
+      properties:
+        temaId:
+          type: string
+          format: uuid
+        brindada:
+          type: boolean
+          default: true
+        fechaReconsulta:
+          type: string
+          example: 2026-09-15
+          format: date
+      required:
+        - temaId
+    DatosNeonatoDto:
+      type: object
+      properties:
+        nombreMadre:
+          type: string
+          maxLength: 240
+        pesoLibras:
+          type: number
+          minimum: 0
+          maximum: 40
+        pesoOnzas:
+          type: number
+          minimum: 0
+          maximum: 15
+          description: Dieciseis onzas son una libra.
+        perimetroBraquialCm:
+          type: number
+          example: 11.5
+        circunferenciaCefalicaCm:
+          type: number
+          example: 34.5
+          description: Circunferencia cefalica.
+        pesoNacerLibras:
+          type: number
+          minimum: 0
+          maximum: 40
+        pesoNacerOnzas:
+          type: number
+          minimum: 0
+          maximum: 15
+        lloroAlNacer:
+          type: boolean
+        nacioCianotico:
+          type: boolean
+        horasTrabajoParto:
+          type: number
+          minimum: 0
+          maximum: 200
+        quienAtendioParto:
+          type: string
+          enum:
+            - MD
+            - EP
+            - AE
+            - CT
+            - OTRO
+        quienAtendioPartoOtro:
+          type: string
+          maxLength: 120
+        rupturaPrematuraMembranas:
+          type: boolean
+        trabajoPartoPrematuro:
+          type: boolean
+        partoProlongado:
+          type: boolean
+        tipoParto:
+          type: string
+          enum:
+            - NORMAL
+            - CESAREA
+            - FORCEPS
+            - PODALICA
+        bcg:
+          type: boolean
+        tdMadre:
+          type: boolean
+        tdMadreDosis:
+          type: number
+          minimum: 0
+          maximum: 10
+        lactanciaMaternaExclusiva:
+          type: boolean
     CrearFichaDto:
       type: object
       properties:
@@ -2509,6 +2618,12 @@ components:
           type: string
         notas:
           type: string
+        consejeriaTemas:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConsejeriaBrindadaDto"
+        neonato:
+          $ref: "#/components/schemas/DatosNeonatoDto"
       required:
         - tipoFicha
         - motivo
@@ -2595,6 +2710,122 @@ components:
         - nombre
         - dosis
         - dias
+    ConsejeriaFichaDto:
+      type: object
+      properties:
+        temaId:
+          type: string
+          format: uuid
+        texto:
+          type: string
+        brindada:
+          type: boolean
+        fechaReconsulta:
+          type: string
+          format: date
+          nullable: true
+      required:
+        - temaId
+        - texto
+        - brindada
+        - fechaReconsulta
+    FichaNeonatoDto:
+      type: object
+      properties:
+        nombreMadre:
+          type: string
+          nullable: true
+        pesoLibras:
+          type: number
+          nullable: true
+        pesoOnzas:
+          type: number
+          nullable: true
+        perimetroBraquialCm:
+          type: string
+          nullable: true
+          description: Decimal en texto.
+        circunferenciaCefalicaCm:
+          type: string
+          nullable: true
+          description: Circunferencia cefalica. Decimal en texto.
+        pesoNacerLibras:
+          type: number
+          nullable: true
+        pesoNacerOnzas:
+          type: number
+          nullable: true
+        lloroAlNacer:
+          type: boolean
+          nullable: true
+        nacioCianotico:
+          type: boolean
+          nullable: true
+        horasTrabajoParto:
+          type: number
+          nullable: true
+        quienAtendioParto:
+          type: string
+          nullable: true
+          enum:
+            - MD
+            - EP
+            - AE
+            - CT
+            - OTRO
+        quienAtendioPartoOtro:
+          type: string
+          nullable: true
+        rupturaPrematuraMembranas:
+          type: boolean
+          nullable: true
+        trabajoPartoPrematuro:
+          type: boolean
+          nullable: true
+        partoProlongado:
+          type: boolean
+          nullable: true
+        tipoParto:
+          type: string
+          nullable: true
+          enum:
+            - NORMAL
+            - CESAREA
+            - FORCEPS
+            - PODALICA
+        bcg:
+          type: boolean
+          nullable: true
+        tdMadre:
+          type: boolean
+          nullable: true
+        tdMadreDosis:
+          type: number
+          nullable: true
+        lactanciaMaternaExclusiva:
+          type: boolean
+          nullable: true
+      required:
+        - nombreMadre
+        - pesoLibras
+        - pesoOnzas
+        - perimetroBraquialCm
+        - circunferenciaCefalicaCm
+        - pesoNacerLibras
+        - pesoNacerOnzas
+        - lloroAlNacer
+        - nacioCianotico
+        - horasTrabajoParto
+        - quienAtendioParto
+        - quienAtendioPartoOtro
+        - rupturaPrematuraMembranas
+        - trabajoPartoPrematuro
+        - partoProlongado
+        - tipoParto
+        - bcg
+        - tdMadre
+        - tdMadreDosis
+        - lactanciaMaternaExclusiva
     FichaDto:
       type: object
       properties:
@@ -2694,6 +2925,18 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MedicamentoFichaDto"
+        consejeriaTemas:
+          description: La tabla de consejeria. Vacia en las fichas con consejeria de texto
+            libre.
+          type: array
+          items:
+            $ref: "#/components/schemas/ConsejeriaFichaDto"
+        neonato:
+          nullable: true
+          description: Solo en las fichas de menor de 28 dias.
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/FichaNeonatoDto"
       required:
         - id
         - expedienteId
@@ -2723,6 +2966,8 @@ components:
         - signosPeligro
         - problemas
         - medicamentos
+        - consejeriaTemas
+        - neonato
     AntecedenteRegistradoDto:
       type: object
       properties:

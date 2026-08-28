@@ -72,6 +72,27 @@ enum RespuestaAntecedente {
   NO_APLICA
 }
 
+/// Quien atendio el parto. Las siglas son las del formulario del MSPAS.
+enum QuienAtendioParto {
+  /// Medico.
+  MD
+  /// Enfermera profesional.
+  EP
+  /// Auxiliar de enfermeria.
+  AE
+  /// Comadrona tradicional.
+  CT
+  OTRO
+}
+
+enum TipoParto {
+  NORMAL
+  CESAREA
+  /// Distocico = forceps.
+  FORCEPS
+  PODALICA
+}
+
 enum EstadoDigitalizacion {
   PENDIENTE
   EN_PROCESO
@@ -301,7 +322,10 @@ model Atencion {
   signosPeligro SignoPeligroAtencion[]
   problemas     ProblemaAtencion[]
   medicamentos  MedicamentoIndicado[]
+  consejeria    ConsejeriaEnAtencion[]
   visita        Visita?
+  /// Solo en las atenciones con tipoFicha NEONATO.
+  fichaNeonato  FichaNeonato?
 
   expediente Expediente @relation(fields: [expedienteId], references: [id])
 
@@ -657,6 +681,131 @@ model MedicamentoIndicado {
 }
 
 /// Estado de una visita a la sala de espera.
+/// Un tema de consejeria del catalogo, por ficha.
+///
+/// En la ficha de adultos la consejeria es un texto libre, y basta. En la de
+/// menor de 28 dias es una TABLA: seis temas impresos, cada uno con su casilla
+/// y su fecha de reconsulta. La de ninez trae cuatro y la prenatal nueve.
+///
+/// Se modela como catalogo y no como columnas porque los temas cambian entre
+/// fichas y el MSPAS revisa estos formatos: anadir un tema no deberia ser una
+/// migracion. Es el mismo criterio que los signos de peligro y los problemas.
+model TemaConsejeria {
+  id        String    @id @default(uuid())
+  tipoFicha TipoFicha @map("tipo_ficha")
+  orden     Int
+  texto     String    @db.VarChar(300)
+  activo    Boolean   @default(true)
+
+  marcados ConsejeriaEnAtencion[]
+
+  @@unique([tipoFicha, orden])
+  @@map("tema_consejeria")
+}
+
+/// Un tema de consejeria dado en una atencion, con su fecha de reconsulta.
+///
+/// La fecha NO se cifra: no dice nada de la persona por si sola y alimenta el
+/// indicador de reconsultas pendientes, que tendria que descifrar miles de
+/// filas para contar.
+model ConsejeriaEnAtencion {
+  atencionId String    @map("atencion_id")
+  temaId     String    @map("tema_id")
+  brindada   Boolean   @default(true)
+  /// Cuando debe volver por este tema. La columna "FECHA RECONSULTA".
+  fechaReconsulta DateTime? @map("fecha_reconsulta") @db.Date
+
+  atencion Atencion       @relation(fields: [atencionId], references: [id], onDelete: Cascade)
+  tema     TemaConsejeria @relation(fields: [temaId], references: [id])
+
+  @@id([atencionId, temaId])
+  @@index([temaId, brindada])
+  @@map("consejeria_en_atencion")
+}
+
+/// Lo que solo tiene la ficha de menor de 28 dias.
+///
+/// Va en su propia tabla y no como columnas de `Atencion` por la misma razon
+/// que `RegistroDigitalizacion`: `atencion` se lee en el historial del
+/// expediente, que es la consulta mas frecuente del sistema despues de la
+/// busqueda de paciente. Estos campos solo se miran al abrir ESTA ficha, y
+/// mantener la fila caliente angosta importa cuando hay cien mil expedientes.
+///
+/// Es tambien el molde de `FichaNinez` y `FichaPrenatal`, que van a tener el
+/// mismo problema.
+model FichaNeonato {
+  atencionId String @id @map("atencion_id")
+
+  // ─── Datos generales (seccion 2) ───────────────────────────────────────
+  //
+  // En esta ficha el paciente es el nino pero casi todos los datos son de la
+  // madre. Su nombre es un dato personal de alguien que puede no ser paciente
+  // del CAP, asi que se cifra igual que los del expediente.
+  //
+  nombreMadreCifrado Bytes? @map("nombre_madre_cifrado")
+
+  // ─── Examen fisico (seccion 5) ─────────────────────────────────────────
+  //
+  // El peso se guarda EN LIBRAS Y ONZAS, como lo pide el formulario. No se
+  // convierte a kilos al capturar: el papel dice "Peso: ___ Lb ___ Onz" y uno
+  // de los signos de peligro es, literalmente, "Pesa menos de 5 libras 8
+  // onzas". Guardar kilos obligaria a convertir en cada lectura para poder
+  // compararlo con el papel, y a redondear un dato que el personal escribio
+  // exacto.
+  //
+  // `Atencion.pesoKg` queda para las demas fichas. Cuando los indicadores
+  // necesiten comparar el peso de un neonato con el de un lactante, la
+  // conversion se hace al leer, que es donde se sabe para que se compara.
+  //
+  pesoLibras Int? @map("peso_libras")
+  pesoOnzas  Int? @map("peso_onzas")
+
+  /// Perimetro braquial en centimetros. Tamizaje nutricional.
+  perimetroBraquialCm Decimal? @map("perimetro_braquial_cm") @db.Decimal(4, 1)
+  /// Circunferencia cefalica en centimetros. El papel la abrevia "CC".
+  circunferenciaCefalicaCm Decimal? @map("circunferencia_cefalica_cm") @db.Decimal(4, 1)
+
+  // ─── Antecedentes del parto (seccion 4) ────────────────────────────────
+  //
+  // No van como antecedentes del catalogo porque no son casillas de SI/NO:
+  // tienen valor propio. "3 horas de trabajo de parto" no cabe en una casilla
+  // que solo sabe decir si o no.
+  //
+  pesoNacerLibras Int? @map("peso_nacer_libras")
+  pesoNacerOnzas  Int? @map("peso_nacer_onzas")
+
+  lloroAlNacer   Boolean? @map("lloro_al_nacer")
+  nacioCianotico Boolean? @map("nacio_cianotico")
+  /// Cuantas horas duro el trabajo de parto.
+  horasTrabajoParto Int? @map("horas_trabajo_parto")
+
+  quienAtendioParto     QuienAtendioParto? @map("quien_atendio_parto")
+  /// Solo cuando quien atendio el parto es OTRO.
+  quienAtendioPartoOtro String?            @map("quien_atendio_parto_otro") @db.VarChar(120)
+
+  // Complicaciones durante el embarazo. Tres casillas independientes en el
+  // papel: pueden marcarse varias a la vez.
+  rupturaPrematuraMembranas Boolean? @map("ruptura_prematura_membranas")
+  trabajoPartoPrematuro     Boolean? @map("trabajo_parto_prematuro")
+  partoProlongado           Boolean? @map("parto_prolongado")
+
+  tipoParto TipoParto? @map("tipo_parto")
+
+  /// Vacuna BCG aplicada al recien nacido.
+  bcg Boolean?
+  /// Td aplicada a la MADRE, con su numero de dosis.
+  tdMadre      Boolean? @map("td_madre")
+  tdMadreDosis Int?     @map("td_madre_dosis")
+
+  /// Practicas de alimentacion. El papel: "Lactancia Materna Exclusiva SI
+  /// bien, NO = investigue y oriente".
+  lactanciaMaternaExclusiva Boolean? @map("lactancia_materna_exclusiva")
+
+  atencion Atencion @relation(fields: [atencionId], references: [id], onDelete: Cascade)
+
+  @@map("ficha_neonato")
+}
+
 enum EstadoVisita {
   ESPERANDO
   ATENDIDA
