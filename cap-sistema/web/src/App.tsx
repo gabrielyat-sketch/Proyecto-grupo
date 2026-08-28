@@ -15,6 +15,8 @@ import { PaginaNuevoPaciente } from './modulos/recepcion/PaginaNuevoPaciente';
 import { PaginaFicha } from './modulos/fichas/PaginaFicha';
 import { PaginaDigitalizacion } from './modulos/digitalizacion/PaginaDigitalizacion';
 import { PaginaSalaEspera } from './modulos/espera/PaginaSalaEspera';
+import { PaginaExpedientes } from './modulos/expedientes/PaginaExpedientes';
+import { PaginaExpediente } from './modulos/expedientes/PaginaExpediente';
 import { MENU } from './navegacion/menu';
 
 /**
@@ -97,6 +99,23 @@ export function App() {
                 }
               />
               <Route
+                path="/expedientes"
+                element={
+                  <RutaPorRol ruta="/expedientes">
+                    <PaginaExpedientes />
+                  </RutaPorRol>
+                }
+              />
+              <Route
+                path="/pacientes/:pacienteId/expediente"
+                element={
+                  <RutaPorRol ruta="/expediente">
+                    <PaginaExpediente />
+                  </RutaPorRol>
+                }
+              />
+
+              <Route
                 path="/espera"
                 element={
                   <RutaPorRol ruta="/espera">
@@ -131,7 +150,10 @@ export function App() {
                 puede haber una opcion sin pantalla ni una pantalla que el rol
                 no tenga permitida.
               */}
-              {MENU.filter((m) => m.ruta !== '/recepcion' && m.ruta !== '/digitalizacion' && m.ruta !== '/espera').map(({ ruta, etiqueta, descripcion }) => (
+              {MENU.filter((m) => m.ruta !== '/recepcion' &&
+                m.ruta !== '/digitalizacion' &&
+                m.ruta !== '/espera' &&
+                m.ruta !== '/expedientes').map(({ ruta, etiqueta, descripcion }) => (
                 <Route
                   key={ruta}
                   path={ruta}

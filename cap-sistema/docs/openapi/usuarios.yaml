@@ -1930,6 +1930,15 @@ components:
         digitalizada:
           type: boolean
           description: true si proviene de transcribir una atencion en papel.
+        tipoFicha:
+          type: string
+          enum:
+            - ADULTO
+            - NEONATO
+            - NINEZ
+            - PRENATAL
+          nullable: true
+          description: null cuando la atencion no se capturo con una ficha oficial.
         motivo:
           type: string
           nullable: true
@@ -1971,6 +1980,7 @@ components:
         - fecha
         - registradaPor
         - digitalizada
+        - tipoFicha
         - motivo
         - diagnostico
         - tratamiento

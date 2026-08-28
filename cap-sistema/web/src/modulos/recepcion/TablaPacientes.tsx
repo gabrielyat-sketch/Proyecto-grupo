@@ -2,6 +2,7 @@ import { Link as EnlaceRuta } from 'react-router-dom';
 import {
   Box,
   Button,
+  Link,
   Chip,
   Pagination,
   Paper,
@@ -90,7 +91,22 @@ export function TablaPacientes({
                 <TableCell>{p.comunidad?.nombre}</TableCell>
                 <TableCell>{ETIQUETA_IDIOMA[p.idioma] ?? p.idioma}</TableCell>
                 <TableCell sx={{ fontFamily: 'monospace' }}>
-                  {p.expediente?.numero ?? '-'}
+                  {/*
+                    El numero es el enlace al expediente. Es donde la mano va a
+                    buscarlo: quien quiere ver el historial de alguien mira su
+                    numero, no una columna de botones al final de la fila.
+                  */}
+                  {p.expediente ? (
+                    <Link
+                      component={EnlaceRuta}
+                      to={'/pacientes/' + p.id + '/expediente'}
+                      sx={{ fontFamily: 'monospace' }}
+                    >
+                      {p.expediente.numero}
+                    </Link>
+                  ) : (
+                    '-'
+                  )}
                 </TableCell>
                 {onLlegada || puedeAtender ? (
                   <TableCell>

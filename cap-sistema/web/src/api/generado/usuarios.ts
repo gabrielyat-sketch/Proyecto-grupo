@@ -688,6 +688,11 @@ export interface components {
             registradaPor: string;
             /** @description true si proviene de transcribir una atencion en papel. */
             digitalizada: boolean;
+            /**
+             * @description null cuando la atencion no se capturo con una ficha oficial.
+             * @enum {string|null}
+             */
+            tipoFicha: "ADULTO" | "NEONATO" | "NINEZ" | "PRENATAL" | null;
             /** @description Descifrado. En la base es ilegible. */
             motivo: string | null;
             diagnostico: string | null;

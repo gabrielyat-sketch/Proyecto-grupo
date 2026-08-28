@@ -22,6 +22,23 @@ export class AtencionDto {
   @ApiProperty({ description: 'true si proviene de transcribir una atencion en papel.' })
   digitalizada!: boolean;
 
+  /**
+   * Que ficha oficial se lleno, si se lleno alguna.
+   *
+   * `null` en las atenciones breves, que solo tienen motivo, diagnostico y
+   * tratamiento. Sin este campo el historial no puede saber cuales tienen
+   * detras una ficha completa —con sus problemas, signos y medicamentos— y
+   * ofrecer abrirla; todas se verian igual, y media consulta quedaria
+   * escondida.
+   */
+  @ApiProperty({
+    type: String,
+    enum: ['ADULTO', 'NEONATO', 'NINEZ', 'PRENATAL'],
+    nullable: true,
+    description: 'null cuando la atencion no se capturo con una ficha oficial.',
+  })
+  tipoFicha!: string | null;
+
   @ApiProperty({ type: String, nullable: true, description: 'Descifrado. En la base es ilegible.' })
   motivo!: string | null;
 

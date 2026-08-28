@@ -117,6 +117,7 @@ export class AtencionesService {
     fecha: Date;
     registradaPor: string;
     digitalizada: boolean;
+    tipoFicha: string | null;
     motivoCifrado: Uint8Array;
     diagnosticoCifrado: Uint8Array | null;
     tratamientoCifrado: Uint8Array | null;
@@ -136,6 +137,7 @@ export class AtencionesService {
       fecha: a.fecha,
       registradaPor: a.registradaPor,
       digitalizada: a.digitalizada,
+      tipoFicha: a.tipoFicha,
       motivo: abrir(a.motivoCifrado),
       diagnostico: abrir(a.diagnosticoCifrado),
       tratamiento: abrir(a.tratamientoCifrado),
