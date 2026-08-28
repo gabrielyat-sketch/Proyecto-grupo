@@ -194,10 +194,11 @@ export class LotesService {
     if (lote.estado === 'DADO_DE_BAJA') {
       throw new BadRequestException('Ese lote ya fue dado de baja.');
     }
-    if (!motivo?.trim()) {
-      throw new BadRequestException('Indique el motivo de la baja.');
-    }
 
+    // El motivo llega ya recortado y validado por DarDeBajaLoteDto: aqui no se
+    // vuelve a truncar. Truncar en silencio dejaba la baja justificada a media
+    // frase, y el motivo es lo unico que explica por que se destruyo
+    // medicamento.
     const cantidad = lote.cantidadDisponible;
 
     return this.prisma.$transaction(async (tx) => {
@@ -206,7 +207,7 @@ export class LotesService {
         data: {
           cantidadDisponible: 0,
           estado: 'DADO_DE_BAJA',
-          motivoBaja: motivo.trim().slice(0, 200),
+          motivoBaja: motivo,
         },
       });
 
@@ -217,7 +218,7 @@ export class LotesService {
             tipo: 'BAJA',
             cantidad: -cantidad,
             cantidadResultante: 0,
-            motivo: motivo.trim().slice(0, 200),
+            motivo,
             registradoPor: usuarioId,
           },
         });
@@ -231,7 +232,7 @@ export class LotesService {
           medicamentoId: lote.medicamentoId,
           codigo: lote.medicamento.codigo,
           cantidad,
-          motivo: motivo.trim().slice(0, 200),
+          motivo,
           registradoPor: usuarioId,
         },
         trazaId,

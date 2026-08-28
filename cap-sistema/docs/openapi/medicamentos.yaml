@@ -252,6 +252,12 @@ paths:
           in: path
           schema:
             type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActualizarMedicamentoDto"
       responses:
         "200":
           description: ""
@@ -491,6 +497,12 @@ paths:
           in: path
           schema:
             type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DarDeBajaLoteDto"
       responses:
         "200":
           description: ""
@@ -1139,6 +1151,21 @@ components:
         - activo
         - creadoEn
         - actualizadoEn
+    ActualizarMedicamentoDto:
+      type: object
+      properties:
+        stockMinimo:
+          type: number
+          description: Debajo de esta existencia total aparece en la alerta. Cero
+            desactiva la alerta.
+          example: 50
+          minimum: 0
+        activo:
+          type: boolean
+          description: Un medicamento desactivado no admite lotes nuevos y desaparece del
+            catalogo, pero conserva su historial.
+        requiereReceta:
+          type: boolean
     IngresarLoteDto:
       type: object
       properties:
@@ -1287,6 +1314,17 @@ components:
         - fechaVencimiento
         - cantidadDisponible
         - diasVencido
+    DarDeBajaLoteDto:
+      type: object
+      properties:
+        motivo:
+          type: string
+          example: Vencido el 2026-07-31, retirado del estante y destruido segun acta
+            14-2026.
+          minLength: 3
+          maxLength: 200
+      required:
+        - motivo
     MedicamentoEntregadoDto:
       type: object
       properties:

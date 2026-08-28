@@ -79,14 +79,18 @@ describe('layout con menu por rol', () => {
   });
 
   it('al pulsar una opcion se abre su pantalla', async () => {
-    entrarComo('FARMACIA');
+    // Se usa un modulo que TODAVIA esta pendiente. Antes esta prueba pulsaba
+    // Farmacia, y dejo de servir en cuanto Farmacia tuvo pantalla propia: la
+    // pantalla real consulta al servidor, y aqui no hay ninguno levantado. Lo
+    // que se comprueba es la navegacion del menu, no el modulo.
+    entrarComo('MEDICO');
     render(<App />);
 
     await waitFor(navegacion);
     // Acotado al menu: el inicio tambien pinta una tarjeta con el mismo nombre.
-    await userEvent.click(within(navegacion()).getByRole('link', { name: /Farmacia/i }));
+    await userEvent.click(within(navegacion()).getByRole('link', { name: /Programas/i }));
 
-    await waitFor(() => expect(window.location.pathname).toBe('/farmacia'));
+    await waitFor(() => expect(window.location.pathname).toBe('/programas'));
     expect(screen.getByText(/aun no esta construido/i)).toBeInTheDocument();
   });
 

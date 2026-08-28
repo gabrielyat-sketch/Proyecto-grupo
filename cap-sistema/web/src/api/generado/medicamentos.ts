@@ -401,6 +401,16 @@ export interface components {
             /** Format: date-time */
             actualizadoEn: string;
         };
+        ActualizarMedicamentoDto: {
+            /**
+             * @description Debajo de esta existencia total aparece en la alerta. Cero desactiva la alerta.
+             * @example 50
+             */
+            stockMinimo?: number;
+            /** @description Un medicamento desactivado no admite lotes nuevos y desaparece del catalogo, pero conserva su historial. */
+            activo?: boolean;
+            requiereReceta?: boolean;
+        };
         IngresarLoteDto: {
             /**
              * @description Numero impreso en la caja
@@ -482,6 +492,10 @@ export interface components {
              * @example 12
              */
             diasVencido: number;
+        };
+        DarDeBajaLoteDto: {
+            /** @example Vencido el 2026-07-31, retirado del estante y destruido segun acta 14-2026. */
+            motivo: string;
         };
         MedicamentoEntregadoDto: {
             /** @example AMOX500 */
@@ -911,7 +925,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActualizarMedicamentoDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -1175,7 +1193,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DarDeBajaLoteDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {

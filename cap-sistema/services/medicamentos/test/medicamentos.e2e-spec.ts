@@ -203,6 +203,116 @@ describe('Servicio medicamentos (e2e)', () => {
     });
   });
 
+  /**
+   * ─────────────────────────────────────────────────────────────────────
+   *  EDICION DEL MEDICAMENTO
+   *
+   *  Este endpoint no tenia ninguna prueba, y por eso nadie habia visto que
+   *  su cuerpo estaba escrito como un tipo suelto de TypeScript en vez de una
+   *  clase. Sin clase, el ValidationPipe no valida —no tiene metatype que
+   *  inspeccionar— y el objeto llegaba entero hasta `prisma.update`. Estas
+   *  pruebas fijan las dos mitades: que lo permitido se guarda y que lo demas
+   *  se rechaza en vez de escribirse.
+   * ─────────────────────────────────────────────────────────────────────
+   */
+  describe('edicion del medicamento', () => {
+    it('cambia la existencia minima', async () => {
+      const id = await crearMedicamento({ stockMinimo: 10 });
+
+      const r = await request(http())
+        .patch('/v1/medicamentos/' + id)
+        .set('Authorization', auth(Rol.FARMACIA))
+        .send({ stockMinimo: 80 })
+        .expect(200);
+
+      expect(r.body.stockMinimo).toBe(80);
+    });
+
+    it('desactivar deja el medicamento fuera del catalogo pero conserva su historial', async () => {
+      const id = await crearMedicamento();
+      await ingresarLote(id, 'L-DESACT', 300, 40);
+
+      await request(http())
+        .patch('/v1/medicamentos/' + id)
+        .set('Authorization', auth(Rol.FARMACIA))
+        .send({ activo: false })
+        .expect(200);
+
+      const visible = await request(http())
+        .get('/v1/medicamentos')
+        .set('Authorization', auth(Rol.FARMACIA))
+        .expect(200);
+      expect(visible.body.datos.some((m: { id: string }) => m.id === id)).toBe(false);
+
+      // El lote sigue ahi: desactivar no es borrar.
+      const detalle = await request(http())
+        .get('/v1/medicamentos/' + id)
+        .set('Authorization', auth(Rol.FARMACIA))
+        .expect(200);
+      expect(detalle.body.existencia).toBe(40);
+    });
+
+    it('NO deja reescribir el codigo ni el nombre: identifican al medicamento', async () => {
+      const id = await crearMedicamento({ nombreGenerico: 'Amoxicilina' });
+
+      await request(http())
+        .patch('/v1/medicamentos/' + id)
+        .set('Authorization', auth(Rol.FARMACIA))
+        .send({ codigo: 'SECUESTRADO', nombreGenerico: 'Otra cosa' })
+        .expect(400);
+
+      const sigue = await request(http())
+        .get('/v1/medicamentos/' + id)
+        .set('Authorization', auth(Rol.FARMACIA))
+        .expect(200);
+      expect(sigue.body.nombreGenerico).toBe('Amoxicilina');
+      expect(sigue.body.codigo).not.toBe('SECUESTRADO');
+    });
+
+    it('NO deja cambiar la unidad: los lotes ya se contaron en ella', async () => {
+      const id = await crearMedicamento({ unidad: 'TABLETA' });
+      await ingresarLote(id, 'L-UNIDAD', 300, 500);
+
+      await request(http())
+        .patch('/v1/medicamentos/' + id)
+        .set('Authorization', auth(Rol.FARMACIA))
+        .send({ unidad: 'FRASCO' })
+        .expect(400);
+
+      const sigue = await request(http())
+        .get('/v1/medicamentos/' + id)
+        .set('Authorization', auth(Rol.FARMACIA))
+        .expect(200);
+      expect(sigue.body.unidad).toBe('TABLETA');
+    });
+
+    it('rechaza una existencia minima negativa', async () => {
+      const id = await crearMedicamento();
+      await request(http())
+        .patch('/v1/medicamentos/' + id)
+        .set('Authorization', auth(Rol.FARMACIA))
+        .send({ stockMinimo: -5 })
+        .expect(400);
+    });
+
+    it('el medico consulta pero no edita el catalogo', async () => {
+      const id = await crearMedicamento();
+      await request(http())
+        .patch('/v1/medicamentos/' + id)
+        .set('Authorization', auth(Rol.MEDICO))
+        .send({ stockMinimo: 5 })
+        .expect(403);
+    });
+
+    it('devuelve 404 con un medicamento que no existe', async () => {
+      await request(http())
+        .patch('/v1/medicamentos/00000000-0000-4000-8000-000000000000')
+        .set('Authorization', auth(Rol.FARMACIA))
+        .send({ stockMinimo: 5 })
+        .expect(404);
+    });
+  });
+
   // ═══════════════════════ lotes ═══════════════════════
   describe('lotes', () => {
     it('rechaza ingresar un lote ya vencido', async () => {
@@ -309,6 +419,36 @@ describe('Servicio medicamentos (e2e)', () => {
         .set('Authorization', auth(Rol.FARMACIA))
         .send({ motivo: '  ' })
         .expect(400);
+    });
+
+    it('rechaza un motivo mas largo que la columna, en vez de recortarlo', async () => {
+      const id = await crearMedicamento();
+      const loteId = await ingresarLote(id, 'L-MOTIVOLARGO', 300, 10);
+      await request(http())
+        .patch('/v1/lotes/' + loteId + '/baja')
+        .set('Authorization', auth(Rol.FARMACIA))
+        .send({ motivo: 'x'.repeat(201) })
+        .expect(400);
+
+      // Y el lote sigue disponible: un motivo invalido no da de baja nada.
+      const lote = await prisma.lote.findUnique({ where: { id: loteId } });
+      expect(lote!.estado).toBe('DISPONIBLE');
+    });
+
+    it('guarda el motivo completo de la baja', async () => {
+      const id = await crearMedicamento();
+      const loteId = await ingresarLote(id, 'L-MOTIVOENTERO', 300, 10);
+      const motivo =
+        'Vencido el mes pasado, retirado del estante y destruido con acta 14-2026 firmada por el director del CAP.';
+
+      await request(http())
+        .patch('/v1/lotes/' + loteId + '/baja')
+        .set('Authorization', auth(Rol.FARMACIA))
+        .send({ motivo })
+        .expect(200);
+
+      const lote = await prisma.lote.findUnique({ where: { id: loteId } });
+      expect(lote!.motivoBaja).toBe(motivo);
     });
 
     it('no permite dar de baja dos veces', async () => {

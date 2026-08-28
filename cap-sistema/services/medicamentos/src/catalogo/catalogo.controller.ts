@@ -10,6 +10,7 @@ import { ApiPaginaDe, type Pagina, Rol, Roles } from '@cap/shared';
 import { CatalogoService } from './catalogo.service';
 import { CrearMedicamentoDto } from './dto/crear-medicamento.dto';
 import { ConsultarMedicamentosDto } from './dto/consultar-medicamentos.dto';
+import { ActualizarMedicamentoDto } from './dto/actualizar-medicamento.dto';
 import {
   MedicamentoBajoMinimoDto,
   MedicamentoConExistenciaDto,
@@ -79,7 +80,7 @@ export class CatalogoController {
   @ApiOkResponse({ type: MedicamentoDto })
   actualizar(
     @Param('id') id: string,
-    @Body() dto: { stockMinimo?: number; activo?: boolean; requiereReceta?: boolean },
+    @Body() dto: ActualizarMedicamentoDto,
   ): Promise<MedicamentoDto> {
     return this.servicio.actualizar(id, dto);
   }

@@ -10,6 +10,7 @@ import {
 import { ApiParametrosPagina, ApiPaginaDe, type Pagina, Rol, Roles, Usuario } from '@cap/shared';
 import { LotesService } from './lotes.service';
 import { IngresarLoteDto } from './dto/ingresar-lote.dto';
+import { DarDeBajaLoteDto } from './dto/dar-de-baja.dto';
 import { LoteDto, LotePorVencerDto, LoteVencidoDto } from './dto/respuestas.dto';
 
 @ApiTags('lotes')
@@ -78,10 +79,10 @@ export class LotesController {
   @ApiOkResponse({ type: LoteDto })
   darDeBaja(
     @Param('id') id: string,
-    @Body() dto: { motivo: string },
+    @Body() dto: DarDeBajaLoteDto,
     @Usuario('id') usuarioId: string,
     @Req() req: { trazaId?: string },
   ): Promise<LoteDto> {
-    return this.servicio.darDeBaja(id, dto?.motivo ?? '', usuarioId, req.trazaId);
+    return this.servicio.darDeBaja(id, dto.motivo, usuarioId, req.trazaId);
   }
 }
