@@ -174,6 +174,10 @@ const RUTAS_FUERA_DEL_MENU: Record<string, readonly Rol[]> = {
   // que cambia por rol es que se puede HACER dentro —solo Farmacia y
   // Administracion ingresan lotes o dan de baja— no si se puede abrir.
   '/farmacia/medicamento': ['ADMINISTRADOR', 'DIRECTOR', 'FARMACIA', 'MEDICO', 'ENFERMERIA'],
+  // El despacho de medicamentos. Se llega desde Farmacia, con el boton de
+  // arriba. Los roles son los del POST /v1/entregas: el medico consulta el
+  // historial pero no despacha.
+  '/farmacia/entrega': ['FARMACIA', 'ADMINISTRADOR'],
 };
 
 /** Opciones visibles para un rol. Vacio si el rol no se reconoce. */

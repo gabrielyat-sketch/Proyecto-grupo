@@ -682,12 +682,7 @@ paths:
       description: El sistema elige los lotes por FEFO (primero el que vence antes).
         Si algun medicamento no alcanza, NO se entrega nada.
       operationId: EntregasController_registrar
-      parameters:
-        - name: authorization
-          required: true
-          in: header
-          schema:
-            type: string
+      parameters: []
       requestBody:
         required: true
         content:

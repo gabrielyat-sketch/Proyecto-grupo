@@ -1,16 +1,21 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Badge, Box, Stack, Tab, Tabs, Typography } from '@mui/material';
+import { Link as EnlaceRuta } from 'react-router-dom';
+import { Badge, Box, Button, Stack, Tab, Tabs, Typography } from '@mui/material';
+import LocalPharmacyIcon from '@mui/icons-material/LocalPharmacy';
 import { usarSesion } from '../sesion/contexto';
 import { PanelCatalogo } from './PanelCatalogo';
 import { PanelBajoMinimo, PanelPorVencer, PanelVencidos } from './PanelAlertas';
+import { PanelEntregas } from './PanelEntregas';
 import {
   listarBajoMinimo,
   listarPorVencer,
   listarVencidos,
   puede,
+  PUEDE_ADMINISTRAR,
   PUEDE_VER_LOTES,
 } from './servicio-farmacia';
+import { PUEDE_VER_ENTREGAS } from './servicio-entregas';
 
 /**
  * Farmacia: el inventario del CAP.
@@ -34,6 +39,8 @@ export function PaginaFarmacia() {
   // pide cuando el rol no puede verlas; no es que las pida y esconda la
   // respuesta.
   const veLotes = puede(usuario?.rol, PUEDE_VER_LOTES);
+  const veEntregas = puede(usuario?.rol, PUEDE_VER_ENTREGAS);
+  const despacha = puede(usuario?.rol, PUEDE_ADMINISTRAR);
 
   const porVencer = useQuery({
     queryKey: ['por-vencer', 1],
@@ -60,19 +67,45 @@ export function PaginaFarmacia() {
         ]
       : []),
     { etiqueta: 'Bajo minimo', cuenta: bajoMinimo.data?.length ?? 0, color: 'warning' as const },
+    // Sin contador: las entregas del dia no son una alerta, y un numero al lado
+    // haria pensar que hay algo que atender.
+    ...(veEntregas ? [{ etiqueta: 'Entregas', cuenta: 0, color: 'primary' as const }] : []),
   ];
 
   const actual = pestanas[pestana]?.etiqueta ?? 'Catalogo';
 
   return (
     <Box>
-      <Stack sx={{ gap: 0.5, mb: 2 }}>
-        <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
-          Farmacia
-        </Typography>
-        <Typography color="text.secondary">
-          Existencias por lote, vencimientos y reabastecimiento.
-        </Typography>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        sx={{ gap: 2, mb: 2, justifyContent: 'space-between', alignItems: { sm: 'flex-start' } }}
+      >
+        <Stack sx={{ gap: 0.5 }}>
+          <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
+            Farmacia
+          </Typography>
+          <Typography color="text.secondary">
+            Existencias por lote, vencimientos y entrega de medicamentos.
+          </Typography>
+        </Stack>
+
+        {/*
+          El despacho es la accion del dia y va arriba, no escondida en una
+          pestana: quien abre Farmacia con un paciente enfrente viene a
+          entregar, no a mirar el inventario.
+        */}
+        {despacha ? (
+          <Button
+            component={EnlaceRuta}
+            to="/farmacia/entrega"
+            variant="contained"
+            size="large"
+            startIcon={<LocalPharmacyIcon />}
+            sx={{ flexShrink: 0 }}
+          >
+            Registrar entrega
+          </Button>
+        ) : null}
       </Stack>
 
       <Tabs
@@ -102,6 +135,7 @@ export function PaginaFarmacia() {
       {actual === 'Por vencer' ? <PanelPorVencer /> : null}
       {actual === 'Vencidos' ? <PanelVencidos /> : null}
       {actual === 'Bajo minimo' ? <PanelBajoMinimo /> : null}
+      {actual === 'Entregas' ? <PanelEntregas /> : null}
     </Box>
   );
 }

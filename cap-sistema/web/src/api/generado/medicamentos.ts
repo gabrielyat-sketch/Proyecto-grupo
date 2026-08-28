@@ -1436,9 +1436,7 @@ export interface operations {
     EntregasController_registrar: {
         parameters: {
             query?: never;
-            header: {
-                authorization: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };

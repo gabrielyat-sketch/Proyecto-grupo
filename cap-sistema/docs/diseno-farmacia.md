@@ -1,9 +1,9 @@
-# Diseño: Farmacia — inventario, lotes y vencimientos
+# Diseño: Farmacia — inventario, lotes y entrega de medicamentos
 
-Primera entrega del módulo de Farmacia (Etapa 8). Cubre el catálogo, las
-existencias por lote, las tres alertas y el ajuste por conteo físico. **La
-entrega de medicamentos a pacientes no está aquí**: es la segunda entrega, y es
-la parte crítica porque toca inventario de verdad.
+El módulo de Farmacia completo (Etapa 8): catálogo, existencias por lote, las
+tres alertas, el ajuste por conteo físico y **la entrega de medicamentos a
+pacientes**, que es la pantalla más delicada del sistema porque toca inventario
+de verdad y un error deja el stock mal contado.
 
 ---
 
@@ -27,7 +27,9 @@ usa el personal.
 | `/farmacia` · Por vencer | "¿Qué tengo que gastar antes de que se pierda?" |
 | `/farmacia` · Vencidos | "¿Qué hay que sacar del estante?" |
 | `/farmacia` · Bajo mínimo | "¿Qué le pido al almacén departamental?" |
+| `/farmacia` · Entregas | "¿Qué salió del inventario?" |
 | `/farmacia/:id` | "¿De qué lotes se compone esta existencia?" |
+| `/farmacia/entrega` | "Este paciente viene por su tratamiento" |
 
 ---
 
@@ -157,6 +159,97 @@ un lote vencido se entregue — la selección FEFO nunca lo toma.
 El motivo es obligatorio y tiene el tope de la columna, 200 caracteres, con el
 contador a la vista antes de enviar.
 
+---
+
+## La entrega de medicamentos
+
+### Es una pantalla propia, no una pestaña
+
+Las cuatro pestañas son vistas del inventario: responden *qué hay*. El despacho
+es una **acción** sobre un paciente concreto, con su propio estado a medio
+construir. Meterlo como quinta pestaña mezclaría mirar con hacer, y perdería la
+receta a medio escribir en cuanto alguien tocara otra pestaña.
+
+El botón de entrar va arriba del todo y en color: quien abre Farmacia con un
+paciente enfrente viene a entregar, no a mirar existencias.
+
+### Tres bloques numerados, no un asistente por pasos
+
+A quién · qué · confirmar. Numerados para que el orden se lea solo, pero los
+tres a la vista: un asistente de tres pantallas añade dos clics a la operación
+más repetida del día y esconde lo que ya se llevaba escrito.
+
+### El sistema elige los lotes, no la persona
+
+Por FEFO: primero el que vence antes. Dejar elegir el lote a mano garantiza que
+se despache siempre del primero de la lista y que el resto venza en el estante
+— el error que este módulo entero existe para evitar.
+
+El comprobante dice **después** de qué lote salió cada cosa, que es lo que hay
+que anotar si alguien pregunta.
+
+### No se envía dos veces
+
+Una entrega repetida descuenta el inventario dos veces por medicamento que salió
+una sola, y no hay forma de notarlo hasta que el conteo del estante no cuadre.
+
+- El botón se desactiva mientras la petición está en curso y pasa a decir
+  "Registrando…".
+- Al responder, la pantalla cambia al comprobante: no queda un botón activo
+  sobre una entrega ya registrada.
+- El cliente de API **no reintenta**: renueva el token *antes* de enviar, nunca
+  tras un 401, precisamente por este `POST`. Esa regla no se toca.
+
+### Es todo o nada, y se avisa antes
+
+Si un solo medicamento no alcanza, el servidor no entrega ninguno: una entrega a
+medias deja al paciente con parte del tratamiento y descuenta inventario por
+algo que no resolvió la receta.
+
+La pantalla intenta que eso no llegue a pasar. Al añadir un medicamento
+comprueba la existencia y no deja agregar más de lo que hay. Si aun así el
+servidor lo rechaza —porque otra persona despachó entretanto— muestra la lista
+exacta de lo que faltó, **conserva la receta escrita** para corregirla, y deja
+claro que el inventario no cambió.
+
+### La existencia que se comprueba NO es la del catálogo
+
+El campo `existencia` del catálogo suma todos los lotes en estado `DISPONIBLE`,
+**incluidos los vencidos**, y la selección FEFO nunca toma de un lote vencido.
+Un medicamento con 45 tabletas vencidas figura en el catálogo con existencia 45
+y no se puede entregar ni una.
+
+Por eso, al elegir un medicamento, la pantalla pide su detalle y suma solo los
+lotes vigentes. Es una consulta más por medicamento añadido —una receta son uno
+o dos, rara vez cinco— a cambio de no prometer existencia que no se puede
+despachar.
+
+**El backend no se cambió.** Que el catálogo muestre la existencia total es
+defendible: esas unidades están en el estante y hay que darlas de baja. Pero
+son dos números distintos y hoy solo hay nombre para uno.
+
+### El historial no dice a quién
+
+El servicio de medicamentos guarda el id del paciente y su comunidad, no sus
+datos personales. Resolver cien nombres contra el servicio de usuarios para
+pintar una tabla sería exponer identidad de pacientes en una pantalla que
+responde *qué salió del inventario*, no *a quién*. Para ver lo de una persona
+concreta se entra por su expediente.
+
+Cada fila es **una** entrega aunque lleve varios medicamentos: contarlas por
+medicamento inflaría el indicador de atenciones de farmacia que el CAP reporta
+al MSPAS.
+
+### La búsqueda del paciente es la de Recepción, entera
+
+Mismo componente de interpretación: una sola caja que decide sola si lo escrito
+es un DPI o un apellido. Es el mismo gesto —la persona está enfrente y trae lo
+que trae— y mantener dos búsquedas de pacientes distintas en el sistema
+garantizaría que una se quedara atrás. Tampoco muestra el DPI en la lista: el
+mostrador de farmacia también tiene gente alrededor.
+
+---
+
 ### La fecha de vencimiento no se convierte a `Date`
 
 Guatemala es UTC-6. `new Date('2027-08-31')` se interpreta como medianoche UTC,
@@ -179,6 +272,8 @@ dibuja, para no ofrecer botones que el servidor va a negar con un 403.
 | Ver bajo mínimo | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | Dar de alta y editar medicamentos | ✓ | — | — | — | ✓ | — |
 | Ingresar lotes, ajustar por conteo y dar de baja | ✓ | — | — | — | ✓ | — |
+| Ver el historial de entregas | ✓ | ✓ | ✓ | — | ✓ | — |
+| Registrar una entrega | ✓ | — | — | — | ✓ | — |
 
 **El médico consulta existencias** porque si no sabe qué hay, receta lo que no
 hay. **No ve las alertas de vencimiento**: el estante no es asunto suyo, y el
@@ -209,6 +304,25 @@ pantalla de edición era imposible de construir sin corregirlo primero.
 
 No tenía ninguna prueba. Ahora tiene siete.
 
+### `POST /v1/entregas` era imposible de llamar desde el contrato
+
+El controlador recibía el token con `@Headers('authorization')`. Con eso,
+Swagger publica `authorization` como un parámetro de cabecera **obligatorio**
+del endpoint, y el cliente tipado del panel exige pasarlo a mano — cuando el
+middleware ya lo pone en cada petición. La autenticación ya estaba declarada
+con `@ApiBearerAuth()`; volver a publicarla como parámetro no documentaba nada
+y hacía imposible llamar al endpoint desde el contrato generado.
+
+El servicio sí necesita el token, porque lo reenvía al de usuarios para validar
+el paciente (arquitectura §8.3). Ahora lo lee del `Request`, que no acaba en el
+contrato.
+
+**Quedan dos endpoints iguales sin corregir**, en `programas`:
+`embarazo.controller.ts:85` e `hipertension.controller.ts:78`. No se tocaron
+porque están fuera de este módulo, pero quien construya las pantallas de
+Programas (Etapas 6-7) se va a topar con lo mismo. Es el mismo cambio de dos
+líneas.
+
 ### `PATCH /v1/lotes/{id}/baja` recortaba el motivo en silencio
 
 Mismo patrón: cuerpo sin clase, sin validación. El servicio hacía
@@ -235,6 +349,12 @@ límite.
 | `web/src/modulos/farmacia/DialogoIngresarLote.tsx` | Ingreso de lote |
 | `web/src/modulos/farmacia/DialogoBaja.tsx` | Baja de lote con motivo |
 | `web/src/modulos/farmacia/DialogoAjuste.tsx` | Conteo físico con el desvío en palabras |
+| `web/src/modulos/farmacia/servicio-entregas.ts` | Llamadas de entrega y existencia entregable |
+| `web/src/modulos/farmacia/PaginaEntrega.tsx` | El despacho, en tres bloques |
+| `web/src/modulos/farmacia/SelectorPaciente.tsx` | A quién se le entrega |
+| `web/src/modulos/farmacia/SelectorMedicamentos.tsx` | Qué se le entrega |
+| `web/src/modulos/farmacia/PanelEntregas.tsx` | Historial de entregas |
+| `web/src/modulos/farmacia/entregas.spec.tsx` | 24 pruebas de pantalla |
 | `web/src/modulos/farmacia/farmacia.spec.tsx` | 45 pruebas de pantalla |
 
 ## Archivos modificados
@@ -246,6 +366,8 @@ límite.
 | `services/medicamentos/src/lotes/lotes.controller.ts` | La baja usa el DTO |
 | `services/medicamentos/src/lotes/lotes.service.ts` | Sin recorte silencioso del motivo, y el ajuste |
 | `services/medicamentos/src/eventos/outbox.service.ts` | Evento `lote.ajustado` |
+| `services/medicamentos/src/entregas/entregas.controller.ts` | El token sale del contrato |
+| `web/vitest.setup.ts` | `scrollIntoView` y el límite de los `findBy*` |
 | `services/medicamentos/test/medicamentos.e2e-spec.ts` | +9 pruebas |
 | `docs/openapi/medicamentos.yaml` | Regenerado: los dos `PATCH` ya publican cuerpo |
 | `web/src/api/generado/medicamentos.ts` | Regenerado |
@@ -264,6 +386,9 @@ límite.
 - Mínimo en cero: se muestra como sin alerta, no como cero.
 - Conteo que cuadra con el sistema, y conteo que choca con una entrega
   simultánea (409): los dos se explican y ninguno ajusta nada.
+- Entrega sin paciente, sin medicamentos, con más cantidad de la disponible, con
+  toda la existencia vencida, y rechazada por el servidor: en todos los casos la
+  receta escrita se conserva.
 - Error de red o del servidor en cualquiera de las consultas.
 
 ## Accesibilidad y captura por teclado
@@ -280,9 +405,14 @@ límite.
 ```
 npm test -w @cap/medicamentos          36 unitarias
 npm run test:e2e -w @cap/medicamentos  56 e2e (antes 35)
-npx vitest run src/modulos/farmacia    45 de pantalla  (desde web/, no desde la raiz)
+npx vitest run src/modulos/farmacia    69 de pantalla  (desde web/, no desde la raiz)
 tsc --noEmit                           limpio en medicamentos y en web
 ```
+
+La suite del panel se corrió **tres veces seguidas** tras añadir el módulo:
+256 verdes y salida 0 en las tres. Hacía falta porque los archivos nuevos
+empujaron la carga en paralelo lo suficiente para que `ficha.spec` empezara a
+fallar de forma consistente (ver más abajo).
 
 **No se verificó visualmente**: no hay navegador en este entorno.
 
@@ -314,19 +444,45 @@ Preguntas reales para el CAP. No están respondidas.
    devolución y no como baja.
 6. **¿La existencia mínima la fija el CAP o viene del MSPAS?** Hoy la escribe
    quien da de alta el medicamento, sin ninguna referencia.
+7. **¿Se entrega con receta o sin ella?** El catálogo marca qué medicamentos
+   requieren receta y la pantalla lo dice al añadirlos, pero **no la exige ni la
+   registra**: no hay campo para el número de receta ni para quién la firmó.
+8. **¿Se le puede entregar a alguien que no es el paciente?** Hoy sí, sin
+   distinguirlo: la entrega queda a nombre del paciente y quien recoge solo
+   puede anotarse en observaciones, en texto libre. Si eso importa, hace falta
+   un campo propio.
+9. **¿Qué se hace cuando no hay existencia suficiente?** Hoy la entrega se
+   rechaza entera y no queda constancia de que el paciente vino y se fue sin su
+   tratamiento. Un CAP con abastecimiento irregular probablemente necesite ese
+   dato — es justo lo que explica por qué un tratamiento no se completó.
 
 ---
 
+## Lo que salió del entorno de pruebas
+
+Dos correcciones en `web/vitest.setup.ts` que no son de Farmacia pero salieron
+construyéndola:
+
+**jsdom no implementa `scrollIntoView`.** El panel terminaba con código 1 aunque
+todas las pruebas pasaran: la llamada ocurre dentro del manejador de un clic, y
+React la reporta como excepción no capturada en vez de hacer fallar la prueba.
+En CI eso es rojo sin un solo test fallado. Venía de `1c3d301`.
+
+**El límite de los `findBy*` es independiente del de vitest.** `testTimeout`
+está en 20 s desde que se construyó la ficha clínica, por lo lento que jsdom la
+dibuja — pero los `findBy*` tienen su propio límite de un segundo y no lo
+heredan. Al añadir los dos archivos del módulo de farmacia, la competencia por
+la CPU bastó para cruzarlo y `ficha.spec` empezó a fallar **de forma
+consistente**, no intermitente. Subido a 5 s, que es la pieza que le faltaba a
+esa misma decisión.
+
 ## Próximo paso recomendado
 
-**La segunda entrega: `POST /v1/entregas`.** Es la pantalla crítica del módulo:
-toca inventario de verdad, no puede registrar dos veces, y un error deja el
-stock mal contado.
+El módulo de Farmacia está completo. Lo que falta no es código sino
+**respuestas**: las nueve preguntas de arriba, y sobre todo de dónde sale el
+catálogo inicial. Hoy nace vacío, y sin medicamentos sembrados el módulo entero
+no sirve de nada por muy construido que esté.
 
-Antes de construirla hay que preguntar al CAP si se entrega con receta o sin
-ella, si se puede entregar a alguien que no es el paciente, y qué pasa cuando no
-hay existencia suficiente.
-
-Y **no romper la regla del cliente de API**: renueva el token *antes* de enviar
-y nunca reintenta tras un 401, precisamente para que un `POST /v1/entregas` no
-se registre dos veces.
+Del resto del sistema, lo que más desbloquea es **Administración**: mientras no
+exista, crear una cuenta o restablecer una contraseña exige correr un comando en
+la terminal, y el CAP no va a hacer eso.

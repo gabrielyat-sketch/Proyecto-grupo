@@ -42,13 +42,16 @@ una matriz de riesgos. **Léela antes de tomar cualquier decisión estructural.*
 ### Rama y fusiones
 
 ```
-develop  34ac0f9   ← Etapas 1-6, 8, toda la Etapa 5, y expedientes (PR #7)
-   └── feature/web-farmacia               SIN FUSIONAR, empujada, pendiente de PR
+develop  34ac0f9   ← Etapas 1-6, toda la Etapa 5, y expedientes (PR #7)
+   └── feature/web-farmacia               SIN FUSIONAR, empujada
+        └── feature/web-farmacia-entregas SIN FUSIONAR, la Etapa 8 completa
    └── feature/servicio-trazabilidad      PR #3 abierto, sin corregir
 ```
 
-**`feature/web-farmacia`** lleva la primera entrega de Farmacia y dos
-correcciones de infraestructura. Está empujada; falta abrir el PR.
+**`feature/web-farmacia-entregas`** sale de `feature/web-farmacia`, no de
+`develop`: la entrega de medicamentos necesita el módulo de la primera entrega.
+Las dos juntas cierran la **Etapa 8 entera**. Si se fusionan por separado, va
+primero `feature/web-farmacia`.
 
 **El PR #3 de Ramiro no se ha tocado.** Sigue en `5117204`, la línea 8 de
 `test/bitacora.e2e-spec.ts` sigue mal, y además la rama ya **va por detrás de
@@ -57,7 +60,7 @@ línea tendrá que traerse `develop` antes de que se pueda fusionar.
 
 ### Pruebas
 
-**711 verdes**: 461 unitarias + 250 e2e. `tsc --noEmit` limpio en todo el
+**735 verdes**: 485 unitarias + 250 e2e. `tsc --noEmit` limpio en todo el
 monorepo, y el panel ya termina con **código de salida 0** (ver §4). Se corren
 así:
 
@@ -78,13 +81,12 @@ for s in auth usuarios programas medicamentos; do npm run test:e2e -w @cap/$s; d
 | **Antecedentes** del paciente (sección VII) | Completo |
 | **Digitalización** (RF-08): avance por comunidad, cola, transcripción | Completo |
 | **Expedientes**: búsqueda por número, historial, ficha desplegable | Completo |
-| **Farmacia**: catálogo, lotes, vencimientos, bajo mínimo, ingreso, baja y conteo físico | Completo, sin fusionar |
+| **Farmacia**: catálogo, lotes, alertas, ingreso, baja, conteo físico **y entrega con FEFO** | Completo, sin fusionar |
 
 ### Qué falta (backend construido, sin pantalla)
 
 | Módulo | Endpoints listos | Peso |
 |---|---|---|
-| **Farmacia**: la entrega | 3 | La pantalla crítica: `POST /v1/entregas`, FEFO |
 | **Programas** (Etapas 6-7) | — | Grande: hipertensión, embarazo, desnutrición |
 | **Administración** | 5 | Mediano: cuentas del personal |
 | Auditoría (Etapa 9) | — | Depende del PR #3 de Ramiro |
@@ -147,7 +149,7 @@ cap-sistema/
 | `modulos/fichas` | 10 | 2,614 | 917 |
 | `modulos/digitalizacion` | 6 | 949 | 395 |
 | `modulos/recepcion` | 5 | 858 | 399 |
-| `modulos/farmacia` | 9 | 2,023 | 795 |
+| `modulos/farmacia` | 14 | 3,000 | 1,377 |
 | `modulos/expedientes` | 4 | 790 | 402 |
 | `modulos/espera` | 2 | 334 | 222 |
 
@@ -210,6 +212,15 @@ actualizado. Hay que matar el proceso y volver a arrancarlo.
 `clienteConsultas.clear()` en `beforeEach`, una prueba lee los datos que dejó la
 anterior y falla por un motivo que no tiene que ver con lo que comprobaba. Costó
 un rato entenderlo porque las pruebas pasaban en aislamiento.
+
+**El límite de los `findBy*` NO es el de vitest, y son dos cosas distintas.**
+`testTimeout` está en 20 s; los `findBy*` de testing-library tienen el suyo
+propio, de un segundo por defecto, y no lo heredan. El síntoma es una prueba que
+pasa sola y falla en la suite completa. Pasó al añadir el módulo de farmacia:
+dos archivos más compitiendo por la CPU bastaron para que `ficha.spec` empezara
+a fallar **de forma consistente**, no intermitente. Está subido a 5 s en
+`vitest.setup.ts`. Si vuelve a aparecer al añadir pantallas, es ahí donde se
+mira, no en la prueba que falla.
 
 **El límite de tiempo global de vitest está en 20 s a propósito** (`vite.config.ts`).
 La ficha clínica satura la CPU y, como los archivos corren en paralelo, empujaba
@@ -299,6 +310,16 @@ OpenAPI sale con `requestBody: never`, así que **el panel no puede llamar al
 endpoint** aunque quiera. Si una pantalla no logra mandar un cuerpo, mira el DTO
 antes que el cliente.
 
+**`@Headers('authorization')` publica el token como parámetro obligatorio del
+contrato.** Con eso, el cliente tipado del panel exige pasar la cabecera a mano
+—cuando el middleware ya la pone en cada petición— y el endpoint es
+sencillamente imposible de llamar desde el contrato generado. La autenticación
+ya está declarada con `@ApiBearerAuth()`. Se corrige leyendo el token del
+`Request`. `POST /v1/entregas` ya está arreglado; **quedan dos iguales sin
+tocar** en `programas`: `embarazo.controller.ts:85` e
+`hipertension.controller.ts:78`. Quien construya esas pantallas se va a topar
+con lo mismo.
+
 **Espera encontrar más.** El criterio que los ha delatado a todos es el mismo:
 código que nunca se ejercitó desde una pantalla ni desde una prueba.
 
@@ -324,9 +345,11 @@ arreglaba: lo tapaba.
 
 ### Inmediato
 
-**1. Abrir y fusionar el PR de `feature/web-farmacia`.**
-Empujada y verde. Lleva la primera entrega de Farmacia, la corrección de los dos
-`PATCH` sin DTO y el arreglo de `scrollIntoView`.
+**1. Abrir y fusionar los PR de Farmacia, en este orden.**
+Primero `feature/web-farmacia` —la primera entrega, la corrección de los dos
+`PATCH` sin DTO y el arreglo de `scrollIntoView`— y luego
+`feature/web-farmacia-entregas`, que sale de la anterior y cierra la Etapa 8.
+Las dos verdes.
 
 **2. Ramiro tiene que corregir una línea del PR #3.**
 Ya está comentado en la línea exacta, con la corrección aplicable de un clic:
@@ -342,48 +365,34 @@ carpeta vieja `prisma/generado` sigue ahí, ignorada por git. **Cuando lo corrij
 revisar y fusionar el PR #3**, que cierra la Etapa 9. Ojo: su rama va por detrás
 de `develop`, así que tendrá que traérselo antes.
 
-### El siguiente módulo: Farmacia, segunda entrega
+### El siguiente módulo: Administración
 
-La primera entrega ya está: catálogo, existencias por lote, las tres alertas,
-ingreso de lote, baja con motivo y **ajuste por conteo físico**. Está en
-`feature/web-farmacia`, con su diseño en `docs/diseno-farmacia.md`.
+**La Etapa 8 está terminada.** Farmacia tiene catálogo, lotes, las tres
+alertas, ingreso, baja, ajuste por conteo físico y la entrega con selección
+FEFO. El diseño completo está en `docs/diseno-farmacia.md`.
 
-El ajuste resolvió el hueco que quedaba en el modelo: `AJUSTE` existía en el
-enum `TipoMovimiento` y ningún endpoint lo producía, así que un descuadre del
-estante solo podía arreglarse dando de baja el lote entero con un motivo falso.
-Ahora se escribe **lo contado** —no la diferencia— y el desvío queda explicado
-en el libro mayor. Lleva control optimista: el cuerpo incluye la existencia que
-el sistema mostraba al empezar a contar, y si alguien entregó mientras tanto el
-servidor responde 409 sin tocar nada. Sin eso, guardar un conteo pisaría esa
-entrega en silencio.
+Lo que sigue es **Administración**, y es lo que más desbloquea: mientras no
+exista, crear una cuenta o restablecer una contraseña exige correr un comando en
+la terminal, y el CAP no va a hacer eso. Se notó al probar Farmacia — la
+contraseña de `sgomez` se genera al azar y se imprime una sola vez; si se
+pierde, hoy no hay forma de recuperarla desde el sistema. Son 5 endpoints, es
+mediano, y sin él las pruebas con el personal de la Etapa 14 no se pueden hacer.
 
-Lo que queda es **la entrega de medicamentos**, `POST /v1/entregas`. Es la
-pantalla crítica del módulo: toca inventario de verdad, no puede registrar dos
-veces, y un error deja el stock mal contado.
-
-- **Ojo con el doble envío.** El cliente de API renueva el token ANTES de enviar,
-  nunca reintenta tras un 401, justamente para que un `POST /v1/entregas` no se
-  registre dos veces. No rompas esa regla.
-- El servidor elige los lotes por FEFO. Si algún medicamento no alcanza, **no se
-  entrega nada**: la pantalla tiene que decir cuánto falta, no entregar de menos
-  en silencio.
-- Dos personas de farmacia entregando a la vez del mismo lote dan un 409. Es
-  correcto y nada se descontó; la pantalla debe pedir reintentar, no reintentar
-  sola.
-
-**Antes de construir, preguntar al CAP:** si se entrega con receta o sin ella, si
-se puede entregar a alguien que no es el paciente, y qué pasa cuando no hay
-existencia.
+**Lo que Farmacia todavía necesita no es código, son respuestas.** El catálogo
+nace vacío: sin medicamentos sembrados el módulo entero no sirve por muy
+construido que esté. Y hay tres preguntas que la entrega dejó abiertas —receta,
+quién recoge, qué pasa cuando no hay existencia— en
+`docs/diseno-farmacia.md`.
 
 ### Después
 
 En este orden, y por esta razón:
 
-1. **Administración** — mientras no exista, crear una cuenta exige correr un
-   comando en la terminal. El CAP no va a hacer eso.
-2. **Programas** (Etapas 6-7) — backend listo desde hace tiempo, sin usar.
-3. **Las otras tres fichas** — largo pero mecánico; el molde ya existe.
-4. **Reportes** (Etapa 10) — hay que construir el servicio entero.
+1. **Programas** (Etapas 6-7) — backend listo desde hace tiempo, sin usar. Ojo:
+   sus dos endpoints con `@Headers('authorization')` hay que corregirlos antes,
+   o el panel no podrá llamarlos (ver §4).
+2. **Las otras tres fichas** — largo pero mecánico; el molde ya existe.
+3. **Reportes** (Etapa 10) — hay que construir el servicio entero.
 
 ### La forma de trabajar que Dennis pidió
 
@@ -421,3 +430,10 @@ De Farmacia, en `docs/diseno-farmacia.md`:
   en el enum `TipoMovimiento` sin ningún endpoint que lo produzca. Si eso pasa
   de verdad, debería salir del inventario como devolución y no como baja.
 - ¿La existencia mínima la fija el CAP o viene del MSPAS?
+- **¿Se entrega con receta o sin ella?** El catálogo marca qué medicamentos la
+  requieren y la pantalla lo dice, pero no la exige ni la registra.
+- **¿Se le puede entregar a alguien que no es el paciente?** Hoy sí, y quien
+  recoge solo puede anotarse en observaciones, en texto libre.
+- **¿Qué se hace cuando no hay existencia suficiente?** La entrega se rechaza
+  entera y no queda constancia de que el paciente vino y se fue sin su
+  tratamiento — que es justo lo que explica un tratamiento incompleto.

@@ -19,6 +19,7 @@ import { PaginaExpedientes } from './modulos/expedientes/PaginaExpedientes';
 import { PaginaExpediente } from './modulos/expedientes/PaginaExpediente';
 import { PaginaFarmacia } from './modulos/farmacia/PaginaFarmacia';
 import { PaginaMedicamento } from './modulos/farmacia/PaginaMedicamento';
+import { PaginaEntrega } from './modulos/farmacia/PaginaEntrega';
 import { MENU } from './navegacion/menu';
 
 /**
@@ -131,6 +132,19 @@ export function App() {
                 element={
                   <RutaPorRol ruta="/farmacia">
                     <PaginaFarmacia />
+                  </RutaPorRol>
+                }
+              />
+              {/*
+                El despacho va ANTES de /farmacia/:medicamentoId: la ruta
+                declarada primero gana, y si no, "entrega" se leeria como el id
+                de un medicamento.
+              */}
+              <Route
+                path="/farmacia/entrega"
+                element={
+                  <RutaPorRol ruta="/farmacia/entrega">
+                    <PaginaEntrega />
                   </RutaPorRol>
                 }
               />
