@@ -348,4 +348,38 @@ describe('Fichas clinicas (e2e)', () => {
         .expect(404);
     });
   });
+
+  describe('el historial distingue una ficha de una atencion breve', () => {
+    it('la ficha llega con su tipo, y la atencion breve con tipoFicha en null', async () => {
+      // Sin este campo el historial no podria saber cuales tienen detras una
+      // ficha completa —con sus problemas, signos y medicamentos— y ofrecer
+      // abrirla: todas se verian igual y media consulta quedaria escondida.
+      await request(http())
+        .post('/v1/expedientes/' + expedienteId + '/fichas')
+        .set(como(Rol.MEDICO))
+        .send({ tipoFicha: 'ADULTO', motivo: 'ZZHistorial ficha completa' })
+        .expect(201);
+
+      await request(http())
+        .post('/v1/expedientes/' + expedienteId + '/atenciones')
+        .set(como(Rol.MEDICO))
+        .send({ motivo: 'ZZHistorial atencion breve' })
+        .expect(201);
+
+      const r = await request(http())
+        .get('/v1/expedientes/' + expedienteId + '/atenciones?tamano=50')
+        .set(como(Rol.MEDICO))
+        .expect(200);
+
+      const ficha = r.body.datos.find(
+        (a: { motivo: string }) => a.motivo === 'ZZHistorial ficha completa',
+      );
+      const breve = r.body.datos.find(
+        (a: { motivo: string }) => a.motivo === 'ZZHistorial atencion breve',
+      );
+
+      expect(ficha.tipoFicha).toBe('ADULTO');
+      expect(breve.tipoFicha).toBeNull();
+    });
+  });
 });

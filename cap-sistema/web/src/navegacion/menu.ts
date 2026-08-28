@@ -82,9 +82,11 @@ export const MENU: readonly ElementoMenu[] = [
       'Consulta del expediente y su historial de atenciones. El acceso al historial clinico queda restringido al personal medico y de enfermeria.',
     etiqueta: 'Expedientes',
     icono: FolderSharedIcon,
-    // GET /v1/expedientes/buscar: los seis roles.
+    // Buscar por numero lo hace todo el personal: es la pregunta de quien tiene
+    // la carpeta en la mano. El HISTORIAL de adentro no —Recepcion y Farmacia
+    // ven los datos del paciente pero no sus diagnosticos— y esa restriccion la
+    // aplica la propia pantalla, igual que el servidor.
     roles: TODO_EL_PERSONAL,
-    pendiente: true,
   },
   {
     ruta: '/digitalizacion',
@@ -160,6 +162,9 @@ export const MENU: readonly ElementoMenu[] = [
  */
 const RUTAS_FUERA_DEL_MENU: Record<string, readonly Rol[]> = {
   '/ficha': ['MEDICO', 'ENFERMERIA'],
+  // El expediente de UN paciente. Entran los seis: lo que cambia por rol es
+  // cuanto se ve dentro, no si se puede abrir.
+  '/expediente': ['ADMINISTRADOR', 'DIRECTOR', 'MEDICO', 'ENFERMERIA', 'FARMACIA', 'RECEPCION'],
   // Dar de alta a un paciente es de Recepcion. Todo el personal puede
   // BUSCARLO —por eso /recepcion es de los seis roles— pero solo recepcion y
   // administracion lo registran, que es lo que dice el controlador.
