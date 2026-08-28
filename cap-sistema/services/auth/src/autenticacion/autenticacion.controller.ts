@@ -14,6 +14,7 @@ import { AutenticacionService } from './autenticacion.service';
 import { MfaService } from '../mfa/mfa.service';
 import { LoginDto } from './dto/login.dto';
 import { VerificarMfaDto } from './dto/verificar-mfa.dto';
+import { ActivarMfaDto } from './dto/activar-mfa.dto';
 import { RefrescarDto } from './dto/refrescar.dto';
 import { CambiarContrasenaDto } from './dto/cambiar-contrasena.dto';
 import { ConfigurarMfaInicialDto } from './dto/configurar-mfa-inicial.dto';
@@ -164,7 +165,7 @@ export class AutenticacionController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Confirma con un codigo real y activa el segundo factor' })
   @ApiNoContentResponse({ description: 'Segundo factor activado.' })
-  async activarMfa(@Usuario('id') id: string, @Body() dto: { codigo: string }): Promise<void> {
+  async activarMfa(@Usuario('id') id: string, @Body() dto: ActivarMfaDto): Promise<void> {
     await this.mfa.activar(id, dto.codigo);
   }
 }

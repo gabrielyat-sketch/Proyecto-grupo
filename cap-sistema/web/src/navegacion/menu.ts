@@ -140,12 +140,11 @@ export const MENU: readonly ElementoMenu[] = [
   {
     ruta: '/administracion',
     descripcion:
-      'Cuentas del personal, roles y segundo factor. Exclusivo del Administrador.',
+      'Cuentas del personal, roles y restablecimiento de contrasenas. Exclusivo del Administrador.',
     etiqueta: 'Administracion',
     icono: ManageAccountsIcon,
     // El modulo de cuentas es exclusivo del Administrador.
     roles: ['ADMINISTRADOR'],
-    pendiente: true,
   },
 ];
 

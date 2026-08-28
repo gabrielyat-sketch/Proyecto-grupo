@@ -4,6 +4,7 @@ import request from 'supertest';
 import { generateSync } from 'otplib';
 import { FiltroExcepciones, Rol } from '@cap/shared';
 import { AppModule } from '../src/app.module';
+import { MfaService } from '../src/mfa/mfa.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 /**
@@ -524,6 +525,195 @@ describe('Servicio auth (e2e)', () => {
         .post('/v1/auth/refrescar')
         .send({ tokenRefresco: login.body.tokenRefresco })
         .expect(401);
+    });
+
+    /**
+     * ───────────────────────────────────────────────────────────────────
+     *  REINICIO DEL SEGUNDO FACTOR
+     *
+     *  Sin esto, quien perdiera el telefono con la aplicacion de
+     *  autenticacion quedaba fuera del sistema de forma permanente en cuanto
+     *  se le acabaran los codigos de respaldo — y afecta justo a los dos roles
+     *  que lo tienen obligatorio.
+     * ───────────────────────────────────────────────────────────────────
+     */
+    it('reiniciar el segundo factor lo borra y obliga a configurarlo de nuevo', async () => {
+      const token = await tokenAdministrador();
+      const { usuario } = await crearCuenta('e2e_mfa_reinicio', Rol.DIRECTOR);
+
+      // Se le configura y activa el segundo factor a mano.
+      const mfa = app.get(MfaService);
+      await mfa.iniciarConfiguracion(usuario.id, usuario.usuario);
+      await prisma.configuracionMfa.update({
+        where: { usuarioId: usuario.id },
+        data: { activo: true, activadoEn: new Date() },
+      });
+      expect(await mfa.estaActivo(usuario.id)).toBe(true);
+
+      const r = await request(http())
+        .post('/v1/usuarios/' + usuario.id + '/reiniciar-mfa')
+        .set('Authorization', 'Bearer ' + token)
+        .expect(201);
+
+      expect(r.body.usuario).toBe('e2e_mfa_reinicio');
+      // Su rol lo exige, asi que el sistema se lo va a volver a pedir.
+      expect(r.body.exigeSegundoFactor).toBe(true);
+      expect(await mfa.estaActivo(usuario.id)).toBe(false);
+    });
+
+    /**
+     * Dejarlos vivos permitiria entrar con los papeles viejos despues de un
+     * reinicio pedido justamente porque esos papeles se perdieron.
+     */
+    it('el reinicio borra tambien los codigos de respaldo', async () => {
+      const token = await tokenAdministrador();
+      const { usuario } = await crearCuenta('e2e_mfa_codigos', Rol.ADMINISTRADOR);
+
+      const mfa = app.get(MfaService);
+      await mfa.iniciarConfiguracion(usuario.id, usuario.usuario);
+      expect(await prisma.codigoRespaldo.count({ where: { usuarioId: usuario.id } })).toBeGreaterThan(0);
+
+      await request(http())
+        .post('/v1/usuarios/' + usuario.id + '/reiniciar-mfa')
+        .set('Authorization', 'Bearer ' + token)
+        .expect(201);
+
+      expect(await prisma.codigoRespaldo.count({ where: { usuarioId: usuario.id } })).toBe(0);
+    });
+
+    it('el reinicio cierra las sesiones abiertas', async () => {
+      const token = await tokenAdministrador();
+      const { usuario, contrasena } = await crearCuenta('e2e_mfa_sesion', Rol.MEDICO);
+      const login = await request(http())
+        .post('/v1/auth/login')
+        .send({ usuario: 'e2e_mfa_sesion', contrasena })
+        .expect(200);
+
+      const mfa = app.get(MfaService);
+      await mfa.iniciarConfiguracion(usuario.id, usuario.usuario);
+
+      await request(http())
+        .post('/v1/usuarios/' + usuario.id + '/reiniciar-mfa')
+        .set('Authorization', 'Bearer ' + token)
+        .expect(201);
+
+      await request(http())
+        .post('/v1/auth/refrescar')
+        .send({ tokenRefresco: login.body.tokenRefresco })
+        .expect(401);
+    });
+
+    it('no se reinicia lo que no existe: una cuenta sin segundo factor da 400', async () => {
+      const token = await tokenAdministrador();
+      const { usuario } = await crearCuenta('e2e_mfa_sinnada', Rol.RECEPCION);
+
+      await request(http())
+        .post('/v1/usuarios/' + usuario.id + '/reiniciar-mfa')
+        .set('Authorization', 'Bearer ' + token)
+        .expect(400);
+    });
+
+    it('un rol que no es Administrador no reinicia el segundo factor de nadie', async () => {
+      const { usuario } = await crearCuenta('e2e_mfa_victima', Rol.MEDICO);
+      const { contrasena } = await crearCuenta('e2e_mfa_intruso', Rol.ENFERMERIA);
+      const login = await request(http())
+        .post('/v1/auth/login')
+        .send({ usuario: 'e2e_mfa_intruso', contrasena })
+        .expect(200);
+
+      await request(http())
+        .post('/v1/usuarios/' + usuario.id + '/reiniciar-mfa')
+        .set('Authorization', 'Bearer ' + login.body.tokenAcceso)
+        .expect(403);
+    });
+
+    /**
+     * ───────────────────────────────────────────────────────────────────
+     *  LO QUE LA LISTA TIENE QUE DEJAR VER
+     *
+     *  Sin estos campos, el Administrador no podia saber quien estaba
+     *  bloqueado ni quien tenia segundo factor: la lista se veia igual en
+     *  todos los casos.
+     * ───────────────────────────────────────────────────────────────────
+     */
+    it('la cuenta dice si tiene el segundo factor activo, sin exponer el secreto', async () => {
+      const token = await tokenAdministrador();
+      const { usuario } = await crearCuenta('e2e_ve_mfa', Rol.MEDICO);
+
+      const antes = await request(http())
+        .get('/v1/usuarios/' + usuario.id)
+        .set('Authorization', 'Bearer ' + token)
+        .expect(200);
+      expect(antes.body.mfaActivo).toBe(false);
+
+      const mfa = app.get(MfaService);
+      await mfa.iniciarConfiguracion(usuario.id, usuario.usuario);
+      await prisma.configuracionMfa.update({
+        where: { usuarioId: usuario.id },
+        data: { activo: true, activadoEn: new Date() },
+      });
+
+      const despues = await request(http())
+        .get('/v1/usuarios/' + usuario.id)
+        .set('Authorization', 'Bearer ' + token)
+        .expect(200);
+      expect(despues.body.mfaActivo).toBe(true);
+      expect(despues.body.secretoCifrado).toBeUndefined();
+      expect(despues.body.mfa).toBeUndefined();
+    });
+
+    /**
+     * `bloqueadoHasta` se queda con una fecha pasada cuando el bloqueo expira,
+     * asi que compararla con el reloj es lo unico que distingue "bloqueado"
+     * de "estuvo bloqueado la semana pasada".
+     */
+    it('la cuenta dice si esta bloqueada AHORA, no si lo estuvo alguna vez', async () => {
+      const token = await tokenAdministrador();
+      const { usuario } = await crearCuenta('e2e_bloqueada', Rol.RECEPCION);
+
+      const bloqueada = await prisma.usuario.update({
+        where: { id: usuario.id },
+        data: { bloqueadoHasta: new Date(Date.now() + 600_000) },
+      });
+      expect(bloqueada.bloqueadoHasta).not.toBeNull();
+
+      const r = await request(http())
+        .get('/v1/usuarios/' + usuario.id)
+        .set('Authorization', 'Bearer ' + token)
+        .expect(200);
+      expect(r.body.bloqueada).toBe(true);
+
+      // Un bloqueo ya vencido no cuenta.
+      await prisma.usuario.update({
+        where: { id: usuario.id },
+        data: { bloqueadoHasta: new Date(Date.now() - 600_000) },
+      });
+      const despues = await request(http())
+        .get('/v1/usuarios/' + usuario.id)
+        .set('Authorization', 'Bearer ' + token)
+        .expect(200);
+      expect(despues.body.bloqueada).toBe(false);
+    });
+
+    it('restablecer la contrasena desbloquea la cuenta', async () => {
+      const token = await tokenAdministrador();
+      const { usuario } = await crearCuenta('e2e_desbloqueo', Rol.RECEPCION);
+      await prisma.usuario.update({
+        where: { id: usuario.id },
+        data: { bloqueadoHasta: new Date(Date.now() + 600_000) },
+      });
+
+      await request(http())
+        .post('/v1/usuarios/' + usuario.id + '/restablecer-contrasena')
+        .set('Authorization', 'Bearer ' + token)
+        .expect(201);
+
+      const r = await request(http())
+        .get('/v1/usuarios/' + usuario.id)
+        .set('Authorization', 'Bearer ' + token)
+        .expect(200);
+      expect(r.body.bloqueada).toBe(false);
+      expect(r.body.bloqueadoHasta).toBeNull();
     });
 
     it('el listado esta paginado y no expone hashes', async () => {

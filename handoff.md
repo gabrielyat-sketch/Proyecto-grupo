@@ -42,16 +42,14 @@ una matriz de riesgos. **Léela antes de tomar cualquier decisión estructural.*
 ### Rama y fusiones
 
 ```
-develop  34ac0f9   ← Etapas 1-6, toda la Etapa 5, y expedientes (PR #7)
-   └── feature/web-farmacia               SIN FUSIONAR, empujada
-        └── feature/web-farmacia-entregas SIN FUSIONAR, la Etapa 8 completa
+develop  35846a9   ← Etapas 1-6, la 5 entera, expedientes (PR #7) y Farmacia (PR #8)
+   └── feature/web-administracion         SIN FUSIONAR, empujada
    └── feature/servicio-trazabilidad      PR #3 abierto, sin corregir
 ```
 
-**`feature/web-farmacia-entregas`** sale de `feature/web-farmacia`, no de
-`develop`: la entrega de medicamentos necesita el módulo de la primera entrega.
-Las dos juntas cierran la **Etapa 8 entera**. Si se fusionan por separado, va
-primero `feature/web-farmacia`.
+**La Etapa 8 esta cerrada y fusionada.** Farmacia entera —catalogo, lotes,
+alertas, ingreso, baja, conteo fisico y entrega con FEFO— entro en `develop` con
+el PR #8, en cuatro commits.
 
 **El PR #3 de Ramiro no se ha tocado.** Sigue en `5117204`, la línea 8 de
 `test/bitacora.e2e-spec.ts` sigue mal, y además la rama ya **va por detrás de
@@ -60,7 +58,7 @@ línea tendrá que traerse `develop` antes de que se pueda fusionar.
 
 ### Pruebas
 
-**735 verdes**: 485 unitarias + 250 e2e. `tsc --noEmit` limpio en todo el
+**782 verdes**: 524 unitarias + 258 e2e. `tsc --noEmit` limpio en todo el
 monorepo, y el panel ya termina con **código de salida 0** (ver §4). Se corren
 así:
 
@@ -81,14 +79,14 @@ for s in auth usuarios programas medicamentos; do npm run test:e2e -w @cap/$s; d
 | **Antecedentes** del paciente (sección VII) | Completo |
 | **Digitalización** (RF-08): avance por comunidad, cola, transcripción | Completo |
 | **Expedientes**: búsqueda por número, historial, ficha desplegable | Completo |
-| **Farmacia**: catálogo, lotes, alertas, ingreso, baja, conteo físico **y entrega con FEFO** | Completo, sin fusionar |
+| **Farmacia**: catálogo, lotes, alertas, ingreso, baja, conteo físico y entrega con FEFO | Completo |
+| **Administración**: cuentas, roles, restablecer contraseña, reiniciar 2FA | Completo, sin fusionar |
 
 ### Qué falta (backend construido, sin pantalla)
 
 | Módulo | Endpoints listos | Peso |
 |---|---|---|
 | **Programas** (Etapas 6-7) | — | Grande: hipertensión, embarazo, desnutrición |
-| **Administración** | 5 | Mediano: cuentas del personal |
 | Auditoría (Etapa 9) | — | Depende del PR #3 de Ramiro |
 | Reportes (Etapa 10) | **ninguno** | El servicio no existe |
 
@@ -121,7 +119,8 @@ El modelo y la pantalla de adultos son el molde; es trabajo largo pero mecánico
 | `cap-sistema/docs/diseno-digitalizacion.md` | El modo de digitalización (RF-08) |
 | `cap-sistema/docs/diseno-sala-espera.md` | La sala de espera |
 | `cap-sistema/docs/diseno-expedientes.md` | La consulta del expediente |
-| `cap-sistema/docs/diseno-farmacia.md` | El inventario, los lotes y las alertas |
+| `cap-sistema/docs/diseno-farmacia.md` | El inventario, los lotes, las alertas y la entrega |
+| `cap-sistema/docs/diseno-administracion.md` | Las cuentas del personal |
 
 Cada uno termina con una sección **"Información pendiente"** — preguntas reales
 para el CAP que están sin responder. No las inventes.
@@ -150,6 +149,7 @@ cap-sistema/
 | `modulos/digitalizacion` | 6 | 949 | 395 |
 | `modulos/recepcion` | 5 | 858 | 399 |
 | `modulos/farmacia` | 14 | 3,000 | 1,377 |
+| `modulos/administracion` | 4 | 1,020 | 640 |
 | `modulos/expedientes` | 4 | 790 | 402 |
 | `modulos/espera` | 2 | 334 | 222 |
 
@@ -271,6 +271,11 @@ prueba espera encontrarlo en la cola de digitalización, tiene que crearlo con
 
 ### Trampas de la librería
 
+**MUI 9 quitó `disableEscapeKeyDown` de `Dialog`.** No hace falta: el diálogo
+lo gobierna `open`, así que basta con NO pasarle `onClose` para que ni Escape ni
+el clic de fuera puedan cerrarlo. Se usa en la contraseña temporal de
+Administración, que no debe cerrarse por accidente.
+
 **MUI 9 quitó `TransitionProps` de `Dialog`.** Para inicializar el estado de un
 diálogo con el registro que se abre, móntalo con `key={id}` desde el padre.
 También quitó `alignItems`, `align` y `display` como props: van en `sx`.
@@ -310,15 +315,19 @@ OpenAPI sale con `requestBody: never`, así que **el panel no puede llamar al
 endpoint** aunque quiera. Si una pantalla no logra mandar un cuerpo, mira el DTO
 antes que el cliente.
 
+El **cuarto** aparecio en `POST /v1/auth/mfa/activar`, con la misma causa. El
+panel nunca lo habia llamado porque el acceso usa `mfa/activar-inicial`, que si
+tenia DTO. Ya corregido. **Busca este patron antes de construir cualquier
+pantalla nueva:** si un endpoint que necesitas no publica cuerpo en el contrato,
+mira su `@Body()`.
+
 **`@Headers('authorization')` publica el token como parámetro obligatorio del
 contrato.** Con eso, el cliente tipado del panel exige pasar la cabecera a mano
 —cuando el middleware ya la pone en cada petición— y el endpoint es
 sencillamente imposible de llamar desde el contrato generado. La autenticación
 ya está declarada con `@ApiBearerAuth()`. Se corrige leyendo el token del
-`Request`. `POST /v1/entregas` ya está arreglado; **quedan dos iguales sin
-tocar** en `programas`: `embarazo.controller.ts:85` e
-`hipertension.controller.ts:78`. Quien construya esas pantallas se va a topar
-con lo mismo.
+`Request`. **Los tres del sistema ya están arreglados**: `POST /v1/entregas` y
+los dos de `programas`.
 
 **Espera encontrar más.** El criterio que los ha delatado a todos es el mismo:
 código que nunca se ejercitó desde una pantalla ni desde una prueba.
@@ -345,11 +354,9 @@ arreglaba: lo tapaba.
 
 ### Inmediato
 
-**1. Abrir y fusionar los PR de Farmacia, en este orden.**
-Primero `feature/web-farmacia` —la primera entrega, la corrección de los dos
-`PATCH` sin DTO y el arreglo de `scrollIntoView`— y luego
-`feature/web-farmacia-entregas`, que sale de la anterior y cierra la Etapa 8.
-Las dos verdes.
+**1. Abrir y fusionar el PR de `feature/web-administracion`.**
+Empujada y verde. Lleva el módulo de cuentas y la corrección de
+`POST /v1/auth/mfa/activar`.
 
 **2. Ramiro tiene que corregir una línea del PR #3.**
 Ya está comentado en la línea exacta, con la corrección aplicable de un clic:
@@ -365,34 +372,32 @@ carpeta vieja `prisma/generado` sigue ahí, ignorada por git. **Cuando lo corrij
 revisar y fusionar el PR #3**, que cierra la Etapa 9. Ojo: su rama va por detrás
 de `develop`, así que tendrá que traérselo antes.
 
-### El siguiente módulo: Administración
+### El siguiente módulo: Programas (Etapas 6-7)
 
-**La Etapa 8 está terminada.** Farmacia tiene catálogo, lotes, las tres
-alertas, ingreso, baja, ajuste por conteo físico y la entrega con selección
-FEFO. El diseño completo está en `docs/diseno-farmacia.md`.
+**Las Etapas 8 y la administración de cuentas están terminadas.** Farmacia
+entera está en `develop`; Administración, en `feature/web-administracion`, con
+sus diseños en `docs/diseno-farmacia.md` y `docs/diseno-administracion.md`.
 
-Lo que sigue es **Administración**, y es lo que más desbloquea: mientras no
-exista, crear una cuenta o restablecer una contraseña exige correr un comando en
-la terminal, y el CAP no va a hacer eso. Se notó al probar Farmacia — la
-contraseña de `sgomez` se genera al azar y se imprime una sola vez; si se
-pierde, hoy no hay forma de recuperarla desde el sistema. Son 5 endpoints, es
-mediano, y sin él las pruebas con el personal de la Etapa 14 no se pueden hacer.
+Lo que sigue es **Programas**, el último backend grande sin pantalla:
+hipertensión, embarazo y desnutrición infantil. Sus dos
+`@Headers('authorization')` **ya están corregidos**, así que arranca sin
+tropezar con ellos.
 
-**Lo que Farmacia todavía necesita no es código, son respuestas.** El catálogo
-nace vacío: sin medicamentos sembrados el módulo entero no sirve por muy
-construido que esté. Y hay tres preguntas que la entrega dejó abiertas —receta,
-quién recoge, qué pasa cuando no hay existencia— en
-`docs/diseno-farmacia.md`.
+**Lo que Farmacia y Administración todavía necesitan no es código, son
+respuestas.** El catálogo de medicamentos nace vacío: sin sembrarlo, el módulo
+no sirve por muy construido que esté. Y en Administración queda una pregunta de
+procedimiento, no técnica: **cómo se verifica a quien pide por teléfono que le
+reinicien el segundo factor**. El sistema no puede comprobar esa identidad.
 
 ### Después
 
 En este orden, y por esta razón:
 
-1. **Programas** (Etapas 6-7) — backend listo desde hace tiempo, sin usar. Ojo:
-   sus dos endpoints con `@Headers('authorization')` hay que corregirlos antes,
-   o el panel no podrá llamarlos (ver §4).
-2. **Las otras tres fichas** — largo pero mecánico; el molde ya existe.
-3. **Reportes** (Etapa 10) — hay que construir el servicio entero.
+1. **Las otras tres fichas** — largo pero mecánico; el molde ya existe.
+2. **Reportes** (Etapa 10) — hay que construir el servicio entero.
+3. **Auditoría** (Etapa 9) — depende de que Ramiro corrija el PR #3. Es lo que
+   falta para que las acciones administrativas —crear cuentas, cambiar roles,
+   restablecer contraseñas, reiniciar segundos factores— dejen traza.
 
 ### La forma de trabajar que Dennis pidió
 
@@ -430,6 +435,12 @@ De Farmacia, en `docs/diseno-farmacia.md`:
   en el enum `TipoMovimiento` sin ningún endpoint que lo produzca. Si eso pasa
   de verdad, debería salir del inventario como devolución y no como baja.
 - ¿La existencia mínima la fija el CAP o viene del MSPAS?
+- **¿Quién será el administrador del CAP, y habrá más de uno?** Hoy hay una sola
+  cuenta con ese rol. Si esa persona se va o pierde su segundo factor, nadie más
+  puede crear cuentas.
+- **¿Cómo se verifica a quien pide que le reinicien el segundo factor?** El
+  Administrador ya puede hacerlo, pero el sistema no puede comprobar que quien
+  llama es esa persona. Hace falta un procedimiento acordado con el CAP.
 - **¿Se entrega con receta o sin ella?** El catálogo marca qué medicamentos la
   requieren y la pantalla lo dice, pero no la exige ni la registra.
 - **¿Se le puede entregar a alguien que no es el paciente?** Hoy sí, y quien
