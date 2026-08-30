@@ -42,10 +42,18 @@ una matriz de riesgos. **Léela antes de tomar cualquier decisión estructural.*
 ### Rama y fusiones
 
 ```
-develop  35846a9   ← Etapas 1-6, la 5 entera, expedientes (PR #7) y Farmacia (PR #8)
-   └── feature/web-administracion         SIN FUSIONAR, empujada
+develop  a80277e   ← Etapas 1-6, la 5 entera, Farmacia (PR #8) y Administracion (PR #10)
+   └── feature/ficha-neonato              SIN FUSIONAR, 3 commits
    └── feature/servicio-trazabilidad      PR #3 abierto, sin corregir
 ```
+
+**`feature/ficha-neonato`** lleva tres cosas, no solo la ficha:
+
+| | |
+|---|---|
+| `96a2e08` | Ficha de menor de 28 días: backend y catálogo |
+| `b4ee06f` | La pantalla de esa ficha |
+| `4ed4eb4` | El sistema elige la ficha por edad, y tres campos nuevos en recepción |
 
 **La Etapa 8 esta cerrada y fusionada.** Farmacia entera —catalogo, lotes,
 alertas, ingreso, baja, conteo fisico y entrega con FEFO— entro en `develop` con
@@ -58,7 +66,7 @@ línea tendrá que traerse `develop` antes de que se pueda fusionar.
 
 ### Pruebas
 
-**791 verdes**: 529 unitarias + 262 e2e. `tsc --noEmit` limpio en todo el
+**849 verdes**: 561 unitarias + 288 e2e. `tsc --noEmit` limpio en todo el
 monorepo, y el panel ya termina con **código de salida 0** (ver §4). Se corren
 así:
 
@@ -76,6 +84,9 @@ for s in auth usuarios programas medicamentos; do npm run test:e2e -w @cap/$s; d
 | Recepción: búsqueda por nombre y DPI, alta de pacientes | Completo |
 | **Sala de espera**: marcar llegada, atender, sacar sin ficha, cierre de rezagadas | Completo |
 | **Ficha de adultos**: 10 secciones, ~200 campos, matriz de 14 problemas | Completo |
+| **Ficha de menor de 28 dias**: 27 signos en tres bloques, parto, consejeria con fechas | Completo, sin fusionar |
+| **Elección de ficha por edad**: el botón lleva a la hoja que corresponde | Completo, sin fusionar |
+| **Recepción**: barrio/caserío/aldea, migrante, alergias a medicamentos | Completo, sin fusionar |
 | **Antecedentes** del paciente (sección VII) | Completo |
 | **Digitalización** (RF-08): avance por comunidad, cola, transcripción | Completo |
 | **Expedientes**: búsqueda por número, historial, ficha desplegable | Completo |
@@ -90,8 +101,12 @@ for s in auth usuarios programas medicamentos; do npm run test:e2e -w @cap/$s; d
 | Auditoría (Etapa 9) | — | Depende del PR #3 de Ramiro |
 | Reportes (Etapa 10) | **ninguno** | El servicio no existe |
 
-Las **otras tres fichas** (niñez, neonato, prenatal) no tienen catálogo sembrado.
-El modelo y la pantalla de adultos son el molde; es trabajo largo pero mecánico.
+Faltan **dos fichas**: niñez y prenatal. La de neonato ya está, y con ella el
+molde de "ficha que no es la de adultos": tabla propia 1-1 con `atencion`,
+consejería como catálogo, y componentes compartidos reutilizados.
+
+**Ojo: no es tan mecánico como parecía.** Leer el papel de verdad cambió tres
+cosas respecto al resumen de `campos-de-fichas.md`. Ver §4.
 
 ### El entorno
 
@@ -121,6 +136,7 @@ El modelo y la pantalla de adultos son el molde; es trabajo largo pero mecánico
 | `cap-sistema/docs/diseno-expedientes.md` | La consulta del expediente |
 | `cap-sistema/docs/diseno-farmacia.md` | El inventario, los lotes, las alertas y la entrega |
 | `cap-sistema/docs/diseno-administracion.md` | Las cuentas del personal |
+| `cap-sistema/docs/diseno-ficha-neonato.md` | La ficha de menor de 28 días |
 
 Cada uno termina con una sección **"Información pendiente"** — preguntas reales
 para el CAP que están sin responder. No las inventes.
@@ -145,9 +161,9 @@ cap-sistema/
 
 | Módulo | Archivos | Líneas | Pruebas |
 |---|---|---|---|
-| `modulos/fichas` | 10 | 2,614 | 917 |
+| `modulos/fichas` | 13 | 3,879 | 1,426 |
 | `modulos/digitalizacion` | 6 | 949 | 395 |
-| `modulos/recepcion` | 5 | 858 | 399 |
+| `modulos/recepcion` | 5 | 1,108 | 399 |
 | `modulos/farmacia` | 14 | 3,000 | 1,377 |
 | `modulos/administracion` | 4 | 1,020 | 640 |
 | `modulos/expedientes` | 4 | 790 | 402 |
@@ -173,6 +189,15 @@ cap-sistema/
   medianoche local como instante, que es lo único comparable contra una columna
   de marca de tiempo.
 - **Nunca se aplica una migración sin confirmación explícita de Dennis.**
+- **`prisma migrate dev` necesita `pg_trgm` en `template1`.** Crea una base
+  espejo para validar la migración, y esa base sale de `template1`: sin la
+  extensión falla antes de empezar, con un error que parece de la migración
+  vieja de búsqueda por nombre. Ya está instalada en el contenedor; si se
+  recrea, hay que repetirlo:
+  `docker exec cap-postgres psql -U postgres -d template1 -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"`
+- **Para regenerar el cliente de Prisma hay que parar el servicio.** El proceso
+  tiene bloqueado `query_engine-windows.dll.node` y `prisma generate` falla con
+  `EPERM`.
 - **`npm run lint` no funciona en ningún paquete**: no existe ningún
   `eslint.config.*` en el repositorio. En los servicios, `lint` es `tsc --noEmit`.
 
@@ -204,6 +229,11 @@ que `git credential fill` devuelve. Dos detalles que costaron intentos: hay que
 mandar `Content-Type: application/json` (sin él, GitHub responde 400 "malformed
 request"), y `commit_id` en una revisión necesita el **SHA completo**, no el
 corto.
+
+**`netstat | grep` miente sobre los puertos en esta máquina.** Da "libre" con los
+servicios en marcha. Lo fiable es
+`Get-NetTCPConnection -LocalPort 3002 -State Listen` en PowerShell, o mirar las
+líneas de comando con `Get-CimInstance Win32_Process -Filter "Name='node.exe'"`.
 
 **Los servicios que arranca el asistente en segundo plano mueren con la sesión.**
 Pasó: se cayeron auth, usuarios y Vite a la vez. Que los levante Dennis en sus
@@ -276,6 +306,51 @@ comunidad propia para la prueba en vez de buscar entre 8,000 registros.
 **Un paciente registrado sin marcar "viene de papel" nace `COMPLETO`.** Si la
 prueba espera encontrarlo en la cola de digitalización, tiene que crearlo con
 `digitalizado: true`.
+
+### La sesión y las pruebas
+
+**La sesión vive SOLO en memoria, y recargar la página echa al usuario.** Es
+deliberado —`api/sesion-almacen.ts` lo explica: un token en `localStorage` lo
+lee cualquier script inyectado, y en un sistema con datos clínicos eso entrega
+expedientes enteros—. La consecuencia práctica: **nunca le pidas a nadie que
+pegue una dirección en la barra del navegador**, porque eso es una recarga.
+Todo lo que haya que probar necesita un botón que lleve hasta ahí. La solución
+definitiva es la cookie HttpOnly que pide la arquitectura §10.1, y sigue
+pendiente.
+
+**Una prueba e2e que crea pacientes tiene que registrarlos para la limpieza.**
+El archivo `usuarios.e2e-spec.ts` borra al terminar solo los ids de la lista
+`creados`, que llena el ayudante `crearPaciente`. Haciendo el `POST` a mano, los
+pacientes sobreviven y el borrado de la comunidad de prueba falla por la llave
+foránea: **160 pruebas en verde y la suite en rojo**, con el error real
+enterrado en un volcado de Prisma de miles de caracteres. Usa el ayudante.
+
+**Y no crees comunidades en las pruebas.** Una comunidad con pacientes no se
+puede borrar —la llave foránea lo impide, y está bien que lo impida—. Usa las
+que ya existen con un `findFirst`.
+
+### Las fichas del MSPAS
+
+**Los PDF son escaneos: no tienen capa de texto.** `pdftotext` no extrae nada de
+ninguno de los cuatro. Hay que renderizarlos a imagen con `pdfplumber`
+(`page.to_image(resolution=200).save(...)`) y leerlos.
+
+**Y hay que leerlos, no fiarse del resumen.** `docs/campos-de-fichas.md` es un
+buen mapa, pero al abrir el formulario del neonato aparecieron tres cosas que no
+estaban: los signos de peligro son 27 y no 20 —en tres bloques con conductas
+distintas—, la fila de VIH-SIDA no tiene casillas SI/NO, y la consejería es una
+tabla con fecha de reconsulta, no un texto libre. **Contrasta siempre contra el
+PDF antes de sembrar un catálogo.**
+
+**El catálogo ya está preparado para las cuatro.** `SignoPeligro`,
+`ProblemaFicha`, `CatalogoAntecedente` y `TemaConsejeria` van por `TipoFicha`, y
+`GET /fichas/catalogo/:tipo` sirve cualquiera. Sembrar una ficha nueva es
+escribir un archivo como `catalogo-ficha-neonato.ts`, sin tocar el esquema. Lo
+que **sí** exige migración son los campos propios de cada ficha.
+
+**El catálogo de antecedentes es compartido entre fichas.** Si un antecedente no
+es del paciente sino de otra persona —los maternos del neonato— tiene que llevar
+prefijo (`MAT_`), o se mezclará con el del mismo nombre de otra ficha.
 
 ### Trampas de la librería
 
@@ -376,9 +451,9 @@ arreglaba: lo tapaba.
 
 ### Inmediato
 
-**1. Abrir y fusionar el PR de `feature/web-administracion`.**
-Empujada y verde. Lleva el módulo de cuentas y la corrección de
-`POST /v1/auth/mfa/activar`.
+**1. Abrir y fusionar el PR de `feature/ficha-neonato`.**
+Empujada y verde. Lleva la segunda ficha completa: catálogo, migración,
+endpoints y pantalla.
 
 **2. Ramiro tiene que corregir una línea del PR #3.**
 Ya está comentado en la línea exacta, con la corrección aplicable de un clic:
@@ -394,28 +469,51 @@ carpeta vieja `prisma/generado` sigue ahí, ignorada por git. **Cuando lo corrij
 revisar y fusionar el PR #3**, que cierra la Etapa 9. Ojo: su rama va por detrás
 de `develop`, así que tendrá que traérselo antes.
 
-### El siguiente módulo: Programas (Etapas 6-7)
+### El siguiente módulo: las dos fichas que faltan
 
 **Las Etapas 8 y la administración de cuentas están terminadas.** Farmacia
 entera está en `develop`; Administración, en `feature/web-administracion`, con
 sus diseños en `docs/diseno-farmacia.md` y `docs/diseno-administracion.md`.
 
-Lo que sigue es **Programas**, el último backend grande sin pantalla:
-hipertensión, embarazo y desnutrición infantil. Sus dos
-`@Headers('authorization')` **ya están corregidos**, así que arranca sin
-tropezar con ellos.
+Lo último que se hizo, y que conviene conocer antes de seguir:
 
-**Lo que Farmacia y Administración todavía necesitan no es código, son
-respuestas.** El catálogo de medicamentos nace vacío: sin sembrarlo, el módulo
-no sirve por muy construido que esté. Y en Administración queda una pregunta de
-procedimiento, no técnica: **cómo se verifica a quien pide por teléfono que le
-reinicien el segundo factor**. El sistema no puede comprobar esa identidad.
+- **El sistema elige la ficha por la fecha de nacimiento.** Hasta 28 días,
+  neonato; hasta los 10 años, niñez; de ahí en adelante, adultos. El botón
+  "Abrir ficha" de Recepción lleva a la que toca y, cuando esa hoja aún no
+  tiene pantalla —niñez—, lo dice en vez de abrir la equivocada. Está en
+  `web/src/modulos/fichas/ficha-por-edad.ts`. La prenatal queda fuera: depende
+  del embarazo, no de la edad.
+- **Recepción pregunta tres cosas más**: barrio/caserío/aldea (tabla
+  `lugar_poblado` por comunidad), población migrante con su lugar de origen, y
+  **alergias a medicamentos**. Las alergias tienen TRES estados —`null` es "no
+  se preguntó", que no es lo mismo que "no tiene"— y el texto va cifrado.
+
+**Lactancia y niñez** es la siguiente, y la más compleja de las cuatro: cuatro
+páginas con esquema de vacunación (~100 celdas del papel, que en digital son una
+lista de dosis aplicadas), micronutrientes, y la gráfica de peso para edad — que
+no se captura, se dibuja a partir de los pesos que el sistema ya tiene.
+
+**Prenatal y posparto** va después, y antes hay que decidir una cosa que no es
+técnica: **se solapa con el módulo Programas**, que ya lleva el embarazo con su
+FUR, su fecha probable de parto y sus alertas. O la ficha escribe en
+`ControlPrenatal` de `programas`, o el embarazo queda registrado en dos sitios
+que no se hablan. Depende de si el personal llena la ficha **y además** inscribe
+en el programa, o solo una de las dos: es una pregunta para el CAP.
+
+Después de las fichas queda **Programas** (pantallas de hipertensión y embarazo;
+desnutrición ni siquiera tiene backend) y **Reportes**, que hay que construir
+entero.
+
+**Lo que Farmacia y Administración necesitan no es código, son respuestas.** El
+catálogo de medicamentos nace vacío: sin sembrarlo, el módulo no sirve por muy
+construido que esté.
 
 ### Después
 
 En este orden, y por esta razón:
 
-1. **Las otras tres fichas** — largo pero mecánico; el molde ya existe.
+1. **Programas** (Etapas 6-7) — hipertensión y embarazo tienen backend listo;
+   desnutrición infantil **no existe todavía**, ni modelo ni endpoints.
 2. **Reportes** (Etapa 10) — hay que construir el servicio entero.
 3. **Auditoría** (Etapa 9) — depende de que Ramiro corrija el PR #3. Es lo que
    falta para que las acciones administrativas —crear cuentas, cambiar roles,
@@ -441,6 +539,16 @@ Están repartidas en los documentos de diseño. Las que más pesan:
 - El tipo de sangre está impreso dentro del bloque gineco-obstétrico, así que un
   paciente hombre no tiene dónde anotarlo. La pantalla respeta el papel.
 - Las seis preguntas al final de `docs/campos-de-fichas.md`.
+
+De Recepción, y son urgentes porque ya hay pantalla esperándolas:
+
+- **¿Cuáles son los barrios, caseríos y aldeas de cada comunidad?** Los que hay
+  sembrados **me los inventé yo** para que el desplegable tuviera contenido. Se
+  corrigen editando `services/usuarios/prisma/lugares-poblados.ts` y volviendo a
+  correr `npm run lugares -w @cap/usuarios`.
+- **¿Quién pregunta por las alergias, y cuándo?** Hoy lo hace Recepción al
+  registrar al paciente. Si el CAP lo hace en la consulta, el campo está en el
+  sitio equivocado.
 
 De Farmacia, en `docs/diseno-farmacia.md`:
 

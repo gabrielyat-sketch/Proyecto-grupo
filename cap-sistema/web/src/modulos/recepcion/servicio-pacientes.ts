@@ -5,6 +5,7 @@ import type { Criterio } from './busqueda';
 export type PacienteResumen = components['schemas']['PacienteResumenDto'];
 export type PacienteCreado = components['schemas']['PacienteCreadoDto'];
 export type Comunidad = components['schemas']['ComunidadDto'];
+export type Lugar = components['schemas']['LugarResumenDto'];
 export type NuevoPaciente = components['schemas']['CrearPacienteDto'];
 
 /**
@@ -61,3 +62,27 @@ export async function crearPaciente(paciente: NuevoPaciente): Promise<PacienteCr
   if (error || !data) fallarApi(error, '/v1/pacientes', response);
   return data;
 }
+
+/**
+ * Los barrios, caseríos y aldeas de una comunidad.
+ *
+ * Devuelve vacío cuando el CAP todavía no ha declarado los de esa comunidad.
+ * No es un error: es que nadie ha dicho aún cuáles son, y la pantalla lo dice
+ * en vez de mostrar un desplegable vacío sin explicación.
+ */
+export async function listarLugares(comunidadId: string): Promise<Lugar[]> {
+  const ruta = '/v1/comunidades/{id}/lugares';
+  const { data, error, response } = await apiUsuarios.GET(ruta, {
+    params: { path: { id: comunidadId } },
+  });
+  if (error || !data) fallarApi(error, ruta, response);
+  return data;
+}
+
+/** Cómo se dice cada tipo de lugar en la pantalla. */
+export const ETIQUETA_TIPO_LUGAR: Record<string, string> = {
+  BARRIO: 'Barrio',
+  CASERIO: 'Caserío',
+  ALDEA: 'Aldea',
+  OTRO: 'Otro',
+};

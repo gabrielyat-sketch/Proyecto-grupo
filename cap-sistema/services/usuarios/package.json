@@ -15,7 +15,9 @@
     "seed": "tsx prisma/seed.ts",
     "carga": "tsx prisma/carga-prueba.ts",
     "contrato": "ts-node --project tsconfig.json scripts/exportar-contrato.ts",
-    "catalogo": "ts-node --project tsconfig.json prisma/catalogo-ficha-adulto.ts"
+    "catalogo": "ts-node --project tsconfig.json prisma/catalogo-ficha-adulto.ts",
+    "catalogo:neonato": "ts-node --project tsconfig.json prisma/catalogo-ficha-neonato.ts",
+    "lugares": "ts-node --project tsconfig.json prisma/lugares-poblados.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.2.3",

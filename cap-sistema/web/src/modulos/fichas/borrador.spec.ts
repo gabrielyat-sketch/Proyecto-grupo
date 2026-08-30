@@ -67,6 +67,8 @@ const CATALOGO: CatalogoFicha = {
       ],
     },
   ],
+  // La ficha de adultos usa consejeria de texto libre, no temas.
+  temasConsejeria: [],
 };
 
 const nuevo = () => borradorVacio(CATALOGO);

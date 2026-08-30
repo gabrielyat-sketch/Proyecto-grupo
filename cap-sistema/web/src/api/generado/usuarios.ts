@@ -59,6 +59,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/comunidades/{id}/lugares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Barrios, caserios y aldeas de una comunidad
+         * @description Vacio si el CAP todavia no ha declarado los lugares de esa comunidad. Sin paginar: son unos pocos y el formulario de alta necesita la lista entera.
+         */
+        get: operations["ComunidadesController_lugares"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/pacientes": {
         parameters: {
             query?: never;
@@ -426,6 +446,14 @@ export interface components {
             /** @description Una comunidad inactiva ya no aparece al registrar pacientes. */
             activa: boolean;
         };
+        LugarResumenDto: {
+            /** Format: uuid */
+            id: string;
+            /** @example Barrio El Centro */
+            nombre: string;
+            /** @enum {string} */
+            tipo: "BARRIO" | "CASERIO" | "ALDEA" | "OTRO";
+        };
         CrearComunidadDto: {
             /** @example Chilasco */
             nombre: string;
@@ -533,6 +561,14 @@ export interface components {
             fallecido: boolean;
             comunidad: components["schemas"]["ComunidadResumenDto"];
             grupoFamiliar: components["schemas"]["GrupoResumenDto"] | null;
+            lugar: components["schemas"]["LugarResumenDto"] | null;
+            /** @description Si viene de fuera de Purulha. */
+            migrante: boolean;
+            lugarOrigen: string | null;
+            /** @description null significa que NO se ha preguntado, que no es lo mismo que no tener. */
+            tieneAlergias: boolean | null;
+            /** @description A que medicamentos. */
+            alergias: string | null;
             expediente: components["schemas"]["ExpedienteDePacienteDto"] | null;
         };
         CrearPacienteDto: {
@@ -565,6 +601,16 @@ export interface components {
             numeroExpediente?: string;
             /** @description Marca el expediente como proveniente de papel (RF-08). */
             digitalizado?: boolean;
+            /** Format: uuid */
+            lugarId?: string;
+            /** @default false */
+            migrante: boolean;
+            /** @description De donde viene, si es migrante. */
+            lugarOrigen?: string;
+            /** @description Omitirlo significa que no se ha preguntado. */
+            tieneAlergias?: boolean;
+            /** @description A que medicamentos es alergico. */
+            alergias?: string;
         };
         PacienteCreadoDto: {
             /** Format: uuid */
@@ -892,12 +938,21 @@ export interface components {
             /** @description Lo que se subraya en CLASIFICAR. */
             diagnosticos: components["schemas"]["DiagnosticoCatalogoDto"][];
         };
+        TemaConsejeriaCatalogoDto: {
+            /** Format: uuid */
+            id: string;
+            orden: number;
+            /** @example Técnica de amamantamiento */
+            texto: string;
+        };
         CatalogoFichaDto: {
             /** @enum {string} */
             tipoFicha: "ADULTO" | "NEONATO" | "NINEZ" | "PRENATAL";
             signosPeligro: components["schemas"]["SignoPeligroCatalogoDto"][];
             antecedentes: components["schemas"]["AntecedenteCatalogoDto"][];
             problemas: components["schemas"]["ProblemaCatalogoDto"][];
+            /** @description Vacio en las fichas donde la consejeria es un texto libre, como la de adultos. */
+            temasConsejeria: components["schemas"]["TemaConsejeriaCatalogoDto"][];
         };
         SignoPeligroEvaluadoDto: {
             /** Format: uuid */
@@ -925,6 +980,47 @@ export interface components {
             dosis?: string;
             /** @example 7 */
             dias?: number;
+        };
+        ConsejeriaBrindadaDto: {
+            /** Format: uuid */
+            temaId: string;
+            /** @default true */
+            brindada: boolean;
+            /**
+             * Format: date
+             * @example 2026-09-15
+             */
+            fechaReconsulta?: string;
+        };
+        DatosNeonatoDto: {
+            nombreMadre?: string;
+            pesoLibras?: number;
+            /** @description Dieciseis onzas son una libra. */
+            pesoOnzas?: number;
+            /** @example 11.5 */
+            perimetroBraquialCm?: number;
+            /**
+             * @description Circunferencia cefalica.
+             * @example 34.5
+             */
+            circunferenciaCefalicaCm?: number;
+            pesoNacerLibras?: number;
+            pesoNacerOnzas?: number;
+            lloroAlNacer?: boolean;
+            nacioCianotico?: boolean;
+            horasTrabajoParto?: number;
+            /** @enum {string} */
+            quienAtendioParto?: "MD" | "EP" | "AE" | "CT" | "OTRO";
+            quienAtendioPartoOtro?: string;
+            rupturaPrematuraMembranas?: boolean;
+            trabajoPartoPrematuro?: boolean;
+            partoProlongado?: boolean;
+            /** @enum {string} */
+            tipoParto?: "NORMAL" | "CESAREA" | "FORCEPS" | "PODALICA";
+            bcg?: boolean;
+            tdMadre?: boolean;
+            tdMadreDosis?: number;
+            lactanciaMaternaExclusiva?: boolean;
         };
         CrearFichaDto: {
             /** @enum {string} */
@@ -982,6 +1078,8 @@ export interface components {
             diagnostico?: string;
             tratamiento?: string;
             notas?: string;
+            consejeriaTemas?: components["schemas"]["ConsejeriaBrindadaDto"][];
+            neonato?: components["schemas"]["DatosNeonatoDto"];
         };
         FichaCreadaDto: {
             /** Format: uuid */
@@ -1014,6 +1112,40 @@ export interface components {
             nombre: string;
             dosis: string | null;
             dias: number | null;
+        };
+        ConsejeriaFichaDto: {
+            /** Format: uuid */
+            temaId: string;
+            texto: string;
+            brindada: boolean;
+            /** Format: date */
+            fechaReconsulta: string | null;
+        };
+        FichaNeonatoDto: {
+            nombreMadre: string | null;
+            pesoLibras: number | null;
+            pesoOnzas: number | null;
+            /** @description Decimal en texto. */
+            perimetroBraquialCm: string | null;
+            /** @description Circunferencia cefalica. Decimal en texto. */
+            circunferenciaCefalicaCm: string | null;
+            pesoNacerLibras: number | null;
+            pesoNacerOnzas: number | null;
+            lloroAlNacer: boolean | null;
+            nacioCianotico: boolean | null;
+            horasTrabajoParto: number | null;
+            /** @enum {string|null} */
+            quienAtendioParto: "MD" | "EP" | "AE" | "CT" | "OTRO" | null;
+            quienAtendioPartoOtro: string | null;
+            rupturaPrematuraMembranas: boolean | null;
+            trabajoPartoPrematuro: boolean | null;
+            partoProlongado: boolean | null;
+            /** @enum {string|null} */
+            tipoParto: "NORMAL" | "CESAREA" | "FORCEPS" | "PODALICA" | null;
+            bcg: boolean | null;
+            tdMadre: boolean | null;
+            tdMadreDosis: number | null;
+            lactanciaMaternaExclusiva: boolean | null;
         };
         FichaDto: {
             /** Format: uuid */
@@ -1064,6 +1196,10 @@ export interface components {
             signosPeligro: components["schemas"]["SignoPeligroFichaDto"][];
             problemas: components["schemas"]["ProblemaFichaRegistradoDto"][];
             medicamentos: components["schemas"]["MedicamentoFichaDto"][];
+            /** @description La tabla de consejeria. Vacia en las fichas con consejeria de texto libre. */
+            consejeriaTemas: components["schemas"]["ConsejeriaFichaDto"][];
+            /** @description Solo en las fichas de menor de 28 dias. */
+            neonato: components["schemas"]["FichaNeonatoDto"] | null;
         };
         AntecedenteRegistradoDto: {
             /** Format: uuid */
@@ -1435,6 +1571,72 @@ export interface operations {
             };
             /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
+    ComunidadesController_lugares: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LugarResumenDto"][];
+                };
+            };
+            /** @description La informacion enviada no es valida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El recurso solicitado no existe. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

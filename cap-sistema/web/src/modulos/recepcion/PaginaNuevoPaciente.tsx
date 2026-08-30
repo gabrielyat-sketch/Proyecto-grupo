@@ -19,7 +19,13 @@ import {
 } from '@mui/material';
 import { AvisoError } from '../../componentes/AvisoError';
 import { usarAtajo } from '../../navegacion/usarAtajo';
-import { crearPaciente, listarComunidades, type PacienteCreado } from './servicio-pacientes';
+import {
+  crearPaciente,
+  ETIQUETA_TIPO_LUGAR,
+  listarComunidades,
+  listarLugares,
+  type PacienteCreado,
+} from './servicio-pacientes';
 
 const IDIOMAS = [
   { valor: 'ESPANOL', etiqueta: 'Espanol' },
@@ -60,6 +66,23 @@ const esquema = z.object({
     ),
   numeroExpediente: z.string().trim().max(40),
   digitalizado: z.boolean(),
+
+  /**
+   * El barrio, caserío o aldea. Opcional porque hay comunidades cuyos lugares
+   * el CAP todavía no ha declarado, y exigirlo impediría registrar a alguien
+   * por un catálogo incompleto.
+   */
+  lugarId: z.string(),
+
+  migrante: z.boolean(),
+  lugarOrigen: z.string().trim().max(160),
+
+  /**
+   * Tres estados, no dos. '' es "no se preguntó", que NO es lo mismo que "no
+   * tiene": a quien no se le preguntó hay que preguntarle antes de recetar.
+   */
+  tieneAlergias: z.enum(['', 'SI', 'NO']),
+  alergias: z.string().trim().max(500),
 });
 
 type Campos = z.infer<typeof esquema>;
@@ -78,6 +101,8 @@ export function PaginaNuevoPaciente() {
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     reset,
     clearErrors,
     setFocus,
@@ -95,7 +120,25 @@ export function PaginaNuevoPaciente() {
       telefono: '',
       numeroExpediente: '',
       digitalizado: false,
+      lugarId: '',
+      migrante: false,
+      lugarOrigen: '',
+      tieneAlergias: '',
+      alergias: '',
     },
+  });
+
+  // La comunidad manda sobre los lugares: no tiene sentido ofrecer los barrios
+  // de Purulha Centro a alguien que vive en Chilasco.
+  const comunidadId = watch('comunidadId');
+  const migrante = watch('migrante');
+  const tieneAlergias = watch('tieneAlergias');
+
+  const lugares = useQuery({
+    queryKey: ['lugares', comunidadId],
+    queryFn: () => listarLugares(comunidadId),
+    enabled: comunidadId !== '',
+    staleTime: 30 * 60_000,
   });
 
   const alta = useMutation({
@@ -130,6 +173,15 @@ export function PaginaNuevoPaciente() {
       ...(campos.telefono ? { telefono: campos.telefono } : {}),
       ...(campos.numeroExpediente ? { numeroExpediente: campos.numeroExpediente } : {}),
       digitalizado: campos.digitalizado,
+      ...(campos.lugarId ? { lugarId: campos.lugarId } : {}),
+      migrante: campos.migrante,
+      ...(campos.lugarOrigen ? { lugarOrigen: campos.lugarOrigen } : {}),
+      // Sin respuesta no viaja el campo: en el servidor queda como "no se
+      // pregunto", que no es lo mismo que "no tiene".
+      ...(campos.tieneAlergias ? { tieneAlergias: campos.tieneAlergias === 'SI' } : {}),
+      ...(campos.tieneAlergias === 'SI' && campos.alergias
+        ? { alergias: campos.alergias }
+        : {}),
     } as never);
   }
 
@@ -275,6 +327,134 @@ export function PaginaNuevoPaciente() {
                 </MenuItem>
               ))}
             </TextField>
+          </Stack>
+
+          {/*
+            El barrio, caserío o aldea. La comunidad sola no basta para
+            encontrar a nadie: "Purulhá Centro" son varios barrios, y quien va
+            a buscar a un paciente a su casa necesita saber cuál.
+
+            La lista depende de la comunidad elegida: no tiene sentido ofrecer
+            los barrios de Purulhá Centro a alguien que vive en Chilasco.
+          */}
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+            <TextField
+              select
+              label="Barrio, caserío o aldea"
+              fullWidth
+              value={watch('lugarId')}
+              onChange={(e) => setValue('lugarId', e.target.value)}
+              disabled={comunidadId === '' || lugares.isPending}
+              helperText={
+                comunidadId === ''
+                  ? 'Elija primero la comunidad'
+                  : lugares.isPending
+                    ? 'Consultando...'
+                    : (lugares.data ?? []).length === 0
+                      ? 'Esa comunidad todavía no tiene lugares registrados en el sistema'
+                      : 'Opcional'
+              }
+            >
+              <MenuItem value="">Sin especificar</MenuItem>
+              {(lugares.data ?? []).map((l) => (
+                <MenuItem key={l.id} value={l.id}>
+                  {(ETIQUETA_TIPO_LUGAR[l.tipo] ?? l.tipo) + ': ' + l.nombre}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Stack>
+
+          <Divider />
+
+          {/*
+            Población migrante. Las cuatro fichas oficiales lo preguntan: al CAP
+            llega gente que no es de Purulhá, y saber de dónde viene importa
+            para el seguimiento y para lo que el CAP reporta al MSPAS.
+          */}
+          <Stack spacing={1}>
+            <Typography variant="subtitle2" color="text.secondary">
+              Procedencia
+            </Typography>
+            <Stack
+              direction={{ xs: 'column', md: 'row' }}
+              spacing={2}
+              sx={{ alignItems: { md: 'center' } }}
+            >
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={migrante}
+                    onChange={(e) => setValue('migrante', e.target.checked)}
+                  />
+                }
+                label="No es de Purulhá (población migrante)"
+              />
+              {migrante ? (
+                <TextField
+                  label="Lugar de origen"
+                  fullWidth
+                  error={Boolean(errors.lugarOrigen)}
+                  helperText={errors.lugarOrigen?.message ?? 'De dónde viene'}
+                  {...register('lugarOrigen')}
+                />
+              ) : null}
+            </Stack>
+          </Stack>
+
+          <Divider />
+
+          {/*
+            Alergias a medicamentos.
+
+            Se pregunta en RECEPCIÓN y no dentro de la ficha clínica: es el dato
+            que evita recetar algo que puede matar a alguien, y para entonces la
+            receta ya está escrita.
+
+            Son TRES estados, no dos. "No se preguntó" NO es lo mismo que "no
+            tiene": a quien no se le preguntó hay que preguntarle antes de
+            recetar, y a quien dijo que no, no. Un simple sí/no perdería esa
+            diferencia, que es justo la que importa.
+          */}
+          <Stack spacing={1}>
+            <Typography variant="subtitle2" color="text.secondary">
+              Alergias a medicamentos
+            </Typography>
+            <Stack
+              direction={{ xs: 'column', md: 'row' }}
+              spacing={2}
+              sx={{ alignItems: { md: 'flex-start' } }}
+            >
+              <TextField
+                select
+                label="¿Es alérgico a algún medicamento?"
+                sx={{ minWidth: 280 }}
+                value={tieneAlergias}
+                onChange={(e) => setValue('tieneAlergias', e.target.value as '' | 'SI' | 'NO')}
+                helperText="Dejarlo sin responder queda como «no se preguntó»"
+              >
+                <MenuItem value="">No se preguntó</MenuItem>
+                <MenuItem value="NO">No</MenuItem>
+                <MenuItem value="SI">Sí</MenuItem>
+              </TextField>
+              {tieneAlergias === 'SI' ? (
+                <TextField
+                  label="¿A cuáles?"
+                  fullWidth
+                  multiline
+                  minRows={2}
+                  error={Boolean(errors.alergias)}
+                  helperText={
+                    errors.alergias?.message ?? 'Se muestra al recetar y al entregar medicamentos'
+                  }
+                  {...register('alergias')}
+                />
+              ) : null}
+            </Stack>
+            {tieneAlergias === 'SI' ? (
+              <Alert severity="warning">
+                Esta información aparecerá cada vez que se le recete o entregue un medicamento.
+              </Alert>
+            ) : null}
           </Stack>
 
           <Divider />

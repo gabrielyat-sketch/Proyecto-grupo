@@ -82,6 +82,102 @@ export class AntecedenteCatalogoDto {
  * falta media hoja. Cuatro peticiones solo servirian para que la pantalla
  * apareciera por partes.
  */
+/** Un tema de consejeria brindado, con su fecha de reconsulta. */
+export class ConsejeriaFichaDto {
+  @ApiProperty({ format: 'uuid' })
+  temaId!: string;
+
+  @ApiProperty()
+  texto!: string;
+
+  @ApiProperty()
+  brindada!: boolean;
+
+  @ApiProperty({ type: String, format: 'date', nullable: true })
+  fechaReconsulta!: string | null;
+}
+
+/**
+ * Lo que solo trae la ficha de menor de 28 dias.
+ *
+ * El peso va en LIBRAS Y ONZAS, como el formulario. Uno de los signos de
+ * peligro impresos es "pesa menos de 5 libras 8 onzas": convertir a kilos
+ * obligaria a deshacer la conversion para poder compararlo con el papel.
+ */
+export class FichaNeonatoDto {
+  @ApiProperty({ type: String, nullable: true })
+  nombreMadre!: string | null;
+
+  @ApiProperty({ type: Number, nullable: true })
+  pesoLibras!: number | null;
+
+  @ApiProperty({ type: Number, nullable: true })
+  pesoOnzas!: number | null;
+
+  @ApiProperty({ type: String, nullable: true, description: 'Decimal en texto.' })
+  perimetroBraquialCm!: string | null;
+
+  @ApiProperty({ type: String, nullable: true, description: 'Circunferencia cefalica. Decimal en texto.' })
+  circunferenciaCefalicaCm!: string | null;
+
+  @ApiProperty({ type: Number, nullable: true })
+  pesoNacerLibras!: number | null;
+
+  @ApiProperty({ type: Number, nullable: true })
+  pesoNacerOnzas!: number | null;
+
+  @ApiProperty({ type: Boolean, nullable: true })
+  lloroAlNacer!: boolean | null;
+
+  @ApiProperty({ type: Boolean, nullable: true })
+  nacioCianotico!: boolean | null;
+
+  @ApiProperty({ type: Number, nullable: true })
+  horasTrabajoParto!: number | null;
+
+  @ApiProperty({ type: String, nullable: true, enum: ['MD', 'EP', 'AE', 'CT', 'OTRO'] })
+  quienAtendioParto!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  quienAtendioPartoOtro!: string | null;
+
+  @ApiProperty({ type: Boolean, nullable: true })
+  rupturaPrematuraMembranas!: boolean | null;
+
+  @ApiProperty({ type: Boolean, nullable: true })
+  trabajoPartoPrematuro!: boolean | null;
+
+  @ApiProperty({ type: Boolean, nullable: true })
+  partoProlongado!: boolean | null;
+
+  @ApiProperty({ type: String, nullable: true, enum: ['NORMAL', 'CESAREA', 'FORCEPS', 'PODALICA'] })
+  tipoParto!: string | null;
+
+  @ApiProperty({ type: Boolean, nullable: true })
+  bcg!: boolean | null;
+
+  @ApiProperty({ type: Boolean, nullable: true })
+  tdMadre!: boolean | null;
+
+  @ApiProperty({ type: Number, nullable: true })
+  tdMadreDosis!: number | null;
+
+  @ApiProperty({ type: Boolean, nullable: true })
+  lactanciaMaternaExclusiva!: boolean | null;
+}
+
+/** Un tema de la tabla de consejeria del pie de la ficha. */
+export class TemaConsejeriaCatalogoDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty()
+  orden!: number;
+
+  @ApiProperty({ example: 'Técnica de amamantamiento' })
+  texto!: string;
+}
+
 export class CatalogoFichaDto {
   @ApiProperty({ enum: TIPOS })
   tipoFicha!: string;
@@ -94,6 +190,13 @@ export class CatalogoFichaDto {
 
   @ApiProperty({ type: [ProblemaCatalogoDto] })
   problemas!: ProblemaCatalogoDto[];
+
+  @ApiProperty({
+    type: [TemaConsejeriaCatalogoDto],
+    description:
+      'Vacio en las fichas donde la consejeria es un texto libre, como la de adultos.',
+  })
+  temasConsejeria!: TemaConsejeriaCatalogoDto[];
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -246,6 +349,19 @@ export class FichaDto {
 
   @ApiProperty({ type: [MedicamentoFichaDto] })
   medicamentos!: MedicamentoFichaDto[];
+
+  @ApiProperty({
+    type: [ConsejeriaFichaDto],
+    description: 'La tabla de consejeria. Vacia en las fichas con consejeria de texto libre.',
+  })
+  consejeriaTemas!: ConsejeriaFichaDto[];
+
+  @ApiProperty({
+    type: FichaNeonatoDto,
+    nullable: true,
+    description: 'Solo en las fichas de menor de 28 dias.',
+  })
+  neonato!: FichaNeonatoDto | null;
 }
 
 export class FichaCreadaDto {
