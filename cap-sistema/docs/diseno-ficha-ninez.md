@@ -1,6 +1,6 @@
 # Diseño: ficha clínica del lactante y niñez
 
-Estado: **etapa A construida.** Las etapas B y C están diseñadas y sin empezar.
+Estado: **etapas A y B construidas.** La C —la gráfica de peso— está diseñada y sin empezar.
 
 Rama: `feature/ficha-ninez`.
 
@@ -31,7 +31,9 @@ la de neonato. Es una diferencia de la hoja impresa, no un error del escaneo.
 Dicen qué dosis aplican a qué vacuna: Hepatitis y BCG solo tienen primera dosis;
 DPT **solo** los dos refuerzos, no las tres primeras; Rotavirus y Pentavalente,
 tres dosis y ningún refuerzo. Ofrecer las cinco casillas para las diez vacunas
-sería ofrecer 50 dosis donde el esquema tiene 27.
+sería ofrecer 50 dosis donde el papel deja **31**: dieciséis con su edad
+impresa, y quince de Neumococo, Hb y Otras, que el formulario imprime llenables
+pero sin esquema.
 
 **5. El desparasitante no empieza a los 6 meses.** Sus tres primeras celdas están
 sombreadas: arranca a los 2 años. La vitamina A sí empieza en el tramo de 6 m a
@@ -196,9 +198,40 @@ clínico igual que el diagnóstico.
 Con eso, la matriz de problemas, el encabezado y la lista de medicamentos se
 reutilizan tal cual.
 
-**Etapa B — el carnet (página 1 y micronutrientes).**
-Vacunas, micronutrientes, padres y datos del hogar. Es donde está la migración
-grande y donde el sistema empieza a decir *qué le falta* a cada niño.
+**Etapa B — el carnet (página 1 y micronutrientes). ✅ Construida.**
+Vacunas, micronutrientes, padres y datos del hogar, en su propia pantalla y con
+su propio endpoint: `/v1/pacientes/:id/carnet`. Va aparte de `/fichas` porque
+una ficha es una CONSULTA y esto es del niño; meterlo dentro obligaría a abrir
+una atención para anotar una vacuna que se puso en otra visita.
+
+Ocho tablas nuevas y cuatro enums, todo aditivo: ni un `DROP` ni un `ALTER`
+sobre lo que ya existía.
+
+**El grupo familiar se crea al vuelo.** Al ir a construirlo apareció el dato que
+decidió el modelo: el grupo familiar estaba **a cero** —0 grupos y 0 pacientes
+asignados sobre 100,007 registros—. Colgar ahí los datos del hogar es correcto
+en el papel e inservible en la práctica: la sección habría nacido muerta,
+esperando a un módulo de grupos familiares que nadie ha construido. Así que la
+ficha crea el grupo al guardar si el niño no tiene uno. El modelo queda bueno y
+la sección sirve desde el primer día; cuando recepción pueda enlazar hermanos,
+el dato ya está en el sitio correcto y no hay que moverlo.
+
+**Cada casilla se guarda sola, sin botón al final.** En el papel se escribe una
+fecha en una celda y ya está. Obligar a recorrer la hoja entera para grabar una
+dosis sería peor que el papel. Los campos de texto guardan al salir de ellos, no
+en cada tecla: una petición por letra.
+
+**Una fecha en `null` borra la dosis.** Es como se corrige una casilla mal
+anotada, que en el papel se hace tachando y aquí no tendría otra forma. Vale la
+pena decirlo porque el resto del sistema no lo permite: hoy una atención mal
+capturada no se puede corregir, y esa sigue siendo la pregunta abierta que más
+pesa.
+
+**El sistema dice lo que falta**, que es lo único que hace aquí y el papel no
+puede. Cuenta solo las dosis con edad recomendada legible que el niño ya pasó;
+las de SPR —que el papel imprime como «meses», sin número— y las de Neumococo,
+Hb y Otras no se cuentan. Inventarles una edad convertiría un hueco del
+formulario en un aviso falso.
 
 **Etapa C — la gráfica.**
 Peso para edad con sus bandas y el aviso de crecimiento. Depende de que haya
@@ -246,14 +279,15 @@ imprimir un dato plausible en una ficha oficial. Se corrigen en
 
 ---
 
-## Lo que necesita tu confirmación para seguir
+## Lo que queda
 
-1. **La migración de la etapa B**, que sí es grande: cinco o seis tablas para
-   vacunas, micronutrientes, padres y hogar. La de la etapa A fueron dos
-   columnas opcionales y está aplicada.
-2. **Los datos del hogar en el grupo familiar.** Es la decisión correcta y no es
-   gratis: hoy el grupo familiar existe pero casi no se usa, y esto lo convierte
-   en algo que recepción tendrá que llenar de verdad.
+Las dos migraciones están aplicadas y las dos decisiones, tomadas. Queda la
+etapa C, que no lleva migración: la gráfica se dibuja con los pesos que el
+sistema ya guarda.
+
+Lo que sí hace falta antes de la C son **los valores de referencia de las
+curvas**. Las del papel son un escaneo, y de una foto no se puede dibujar una
+gráfica correcta.
 
 ---
 

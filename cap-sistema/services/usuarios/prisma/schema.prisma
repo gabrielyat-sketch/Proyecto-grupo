@@ -176,6 +176,8 @@ model GrupoFamiliar {
 
   comunidad Comunidad  @relation(fields: [comunidadId], references: [id])
   pacientes Paciente[]
+  /// El agua y las excretas de la casa. Los pide la ficha del lactante y ninez.
+  hogar     DatosDelHogar?
 
   creadoEn DateTime @default(now()) @map("creado_en")
 
@@ -279,6 +281,12 @@ model Paciente {
   antecedentes            AntecedentePaciente[]
   antecedentesObstetricos AntecedentesObstetricos?
   visitas                 Visita[]
+
+  // El carnet del lactante y la ninez: lo que se llena a lo largo de anos y
+  // no pertenece a ninguna consulta en concreto.
+  vacunas         VacunaAplicada[]
+  micronutrientes MicronutrienteEntregado[]
+  datosNinez      DatosNinezPaciente?
 
   /// Orden alfabetico del listado: (apellidos, nombres) es como estan las
   /// carpetas de papel del archivo.
@@ -890,6 +898,262 @@ model FichaNeonato {
   atencion Atencion @relation(fields: [atencionId], references: [id], onDelete: Cascade)
 
   @@map("ficha_neonato")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  El carnet del lactante y la ninez (paginas 1 y 2 de su ficha)
+//
+//  Nada de esto cuelga de `atencion`, y esa es la decision que gobierna todo
+//  el bloque. Las dos primeras paginas de esa ficha NO son de la consulta:
+//  son del nino y se llenan a lo largo de anos. Un nino de cuatro anos tiene
+//  dosis puestas en diez visitas distintas, y guardarlas por atencion las
+//  perderia o las obligaria a recapturarse cada vez.
+//
+//  Es el mismo reparto que ya hace `AntecedentePaciente`: lo que sigue siendo
+//  cierto en la siguiente visita pertenece al paciente, no a la consulta.
+//
+//  Ver `docs/diseno-ficha-ninez.md`.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Una vacuna del esquema que la ficha imprime.
+///
+/// Es catalogo y no un enum porque los esquemas nacionales cambian: el MSPAS
+/// puede anadir una vacuna sin que nadie despliegue codigo. Las filas viejas
+/// se retiran con `activo`, nunca se borran: las dosis ya puestas siguen
+/// apuntando a ellas.
+model CatalogoVacuna {
+  id     String  @id @default(uuid())
+  /// El orden en que la tabla del papel las imprime.
+  orden  Int     @unique
+  nombre String  @db.VarChar(80)
+  activo Boolean @default(true)
+
+  dosis     DosisRecomendada[]
+  aplicadas VacunaAplicada[]
+
+  @@map("catalogo_vacuna")
+}
+
+/// Que dosis aplica a que vacuna, y a que edad se recomienda.
+///
+/// En el papel esto son las celdas SOMBREADAS de la tabla, y no son adorno:
+/// dicen que casillas se pueden llenar. Hepatitis y BCG solo tienen primera
+/// dosis; DPT solo los dos refuerzos, no las tres primeras. Sin esta tabla la
+/// pantalla ofreceria cincuenta dosis donde el esquema tiene veintisiete, y
+/// alguien acabaria anotando una tercera dosis de BCG que no existe.
+model DosisRecomendada {
+  id       String @id @default(uuid())
+  vacunaId String @map("vacuna_id")
+  /// 1 a 5: Primero, Segundo, Tercero, Refuerzo, Refuerzo.
+  orden    Int
+  /// Como lo dice el papel: "RN", "2 meses", "18 meses", "4 anos". Null en las
+  /// filas que el formulario imprime con la edad en blanco.
+  edadRecomendada String? @map("edad_recomendada") @db.VarChar(40)
+
+  vacuna CatalogoVacuna @relation(fields: [vacunaId], references: [id], onDelete: Cascade)
+
+  @@unique([vacunaId, orden])
+  @@map("dosis_recomendada")
+}
+
+/// Una dosis puesta. UNA fila por casilla llena del papel.
+model VacunaAplicada {
+  id         String @id @default(uuid())
+  pacienteId String @map("paciente_id")
+  vacunaId   String @map("vacuna_id")
+  /// Cual de las cinco columnas del papel.
+  orden      Int
+
+  /// La fecha, sin hora: el papel pide dia y la hora no significa nada aqui.
+  ///
+  /// La EDAD que el formulario pide al lado NO se guarda. En papel hay que
+  /// escribirla porque no se puede restar; aqui sale de esta fecha menos la de
+  /// nacimiento. Guardarla seria guardar dos veces el mismo dato y darle al
+  /// sistema la ocasion de contradecirse.
+  fecha DateTime @db.Date
+
+  registradoPor String   @map("registrado_por")
+  actualizadoEn DateTime @updatedAt @map("actualizado_en")
+
+  paciente Paciente       @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+  vacuna   CatalogoVacuna @relation(fields: [vacunaId], references: [id])
+
+  /// Una dosis, una vez. Sin esto, dos capturas de la misma casilla dejarian
+  /// al nino con dos primeras dosis de BCG en fechas distintas y ningun
+  /// reporte de cobertura podria decidir cual vale.
+  @@unique([pacienteId, vacunaId, orden])
+  @@index([vacunaId, fecha])
+  @@map("vacuna_aplicada")
+}
+
+/// Los tramos de edad de las dos tablas de micronutrientes.
+///
+/// Son los del papel, y no se pueden calcular: "6 m < 1 ano" no es un rango
+/// redondo de meses sino la franja que el formulario imprime.
+enum TramoEdad {
+  /// 6 meses a menos de 1 ano.
+  M6_A_A1
+  /// 1 a menos de 2 anos.
+  A1_A_A2
+  A2_A_A3
+  A3_A_A4
+  A4_A_A5
+}
+
+/// Vitamina A, desparasitante, sulfato ferroso y acido folico.
+model CatalogoMicronutriente {
+  id     String  @id @default(uuid())
+  orden  Int     @unique
+  nombre String  @db.VarChar(80)
+  activo Boolean @default(true)
+
+  esperadas EntregaEsperada[]
+  entregas  MicronutrienteEntregado[]
+
+  @@map("catalogo_micronutriente")
+}
+
+/// Cuantas entregas van en cada tramo, por producto.
+///
+/// Tampoco es uniforme, y tambien son celdas sombreadas: el desparasitante
+/// empieza a los DOS anos —sus tres primeras casillas estan tachadas— y la
+/// vitamina A tiene una sola dosis en el primer tramo y dos en los demas.
+model EntregaEsperada {
+  id               String    @id @default(uuid())
+  micronutrienteId String    @map("micronutriente_id")
+  tramo            TramoEdad
+  /// 1 a 4, segun el producto.
+  orden            Int
+
+  micronutriente CatalogoMicronutriente @relation(fields: [micronutrienteId], references: [id], onDelete: Cascade)
+
+  @@unique([micronutrienteId, tramo, orden])
+  @@map("entrega_esperada")
+}
+
+/// Una entrega hecha. UNA fila por casilla llena del papel.
+model MicronutrienteEntregado {
+  id               String    @id @default(uuid())
+  pacienteId       String    @map("paciente_id")
+  micronutrienteId String    @map("micronutriente_id")
+  tramo            TramoEdad
+  orden            Int
+  fecha            DateTime  @db.Date
+
+  registradoPor String   @map("registrado_por")
+  actualizadoEn DateTime @updatedAt @map("actualizado_en")
+
+  paciente       Paciente               @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+  micronutriente CatalogoMicronutriente @relation(fields: [micronutrienteId], references: [id])
+
+  @@unique([pacienteId, micronutrienteId, tramo, orden])
+  @@index([micronutrienteId, fecha])
+  @@map("micronutriente_entregado")
+}
+
+/// El nivel de escolaridad de la madre, tal como lo imprime el papel.
+enum EscolaridadMadre {
+  NINGUNO
+  /// 1.o a 3.o primaria.
+  PRIMARIA_1_3
+  /// 4.o a 6.o primaria.
+  PRIMARIA_4_6
+  MEDIA
+  SUPERIOR
+}
+
+/// De donde sale el agua de la casa.
+enum AbastecimientoAgua {
+  CHORRO_INTRADOMICILIAR
+  CHORRO_PUBLICO
+  POZO
+  RIO
+  OTRO
+}
+
+/// Donde van las excretas.
+enum DisposicionExcretas {
+  INODORO
+  LETRINA
+  AIRE_LIBRE
+}
+
+/// Lo que la pagina 1 pregunta del nino y de sus padres.
+///
+/// Una fila por paciente, no por consulta: la ocupacion de la madre y el lugar
+/// de nacimiento del nino siguen siendo ciertos en la siguiente visita.
+///
+/// Los nombres y las ocupaciones van CIFRADOS. Son datos personales de gente
+/// que ni siquiera es el paciente, y nunca se buscan por contenido.
+model DatosNinezPaciente {
+  pacienteId String @id @map("paciente_id")
+
+  /// "Lugar de nacimiento" de la seccion 3.
+  lugarNacimiento String? @map("lugar_nacimiento") @db.VarChar(160)
+  /// "Nombre de persona que acompana al nino(a)". El problema 14 de la hoja de
+  /// consulta pregunta justo por ella.
+  acompananteNombreCifrado Bytes? @map("acompanante_nombre_cifrado")
+
+  // ─── La madre ──────────────────────────────────────────────────────────
+  madreNombreCifrado    Bytes?            @map("madre_nombre_cifrado")
+  madreEdad             Int?              @map("madre_edad")
+  madreOcupacionCifrado Bytes?            @map("madre_ocupacion_cifrado")
+  madreSabeLeer         Boolean?          @map("madre_sabe_leer")
+  madreEscolaridad      EscolaridadMadre? @map("madre_escolaridad")
+
+  // ─── El padre ──────────────────────────────────────────────────────────
+  //
+  // El papel NO le pregunta la escolaridad al padre, solo a la madre. No es
+  // un olvido de la transcripcion: la hoja impresa es asi.
+  //
+  padreNombreCifrado    Bytes?   @map("padre_nombre_cifrado")
+  padreEdad             Int?     @map("padre_edad")
+  padreOcupacionCifrado Bytes?   @map("padre_ocupacion_cifrado")
+  padreSabeLeer         Boolean? @map("padre_sabe_leer")
+
+  // ─── Numero de hijos ───────────────────────────────────────────────────
+  //
+  // Sin cifrar: son cuentas, y "cuantos hijos muertos" es justo el dato que
+  // los indicadores de mortalidad infantil necesitan agregar.
+  //
+  hijosTotal   Int? @map("hijos_total")
+  hijosVivos   Int? @map("hijos_vivos")
+  hijosMuertos Int? @map("hijos_muertos")
+
+  registradoPor String   @map("registrado_por")
+  actualizadoEn DateTime @updatedAt @map("actualizado_en")
+
+  paciente Paciente @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+
+  @@map("datos_ninez_paciente")
+}
+
+/// El agua y las excretas de la casa.
+///
+/// Cuelga del GRUPO FAMILIAR y no del nino, porque no son datos suyos: son de
+/// la casa. Repetirlos en cada hermano garantiza que un dia uno diga "letrina"
+/// y el otro "inodoro", y nadie pueda decidir cual vale.
+///
+/// El grupo familiar estaba a cero —ni un solo paciente asignado— cuando se
+/// construyo esto, asi que la ficha lo CREA al vuelo si el nino no tiene uno.
+/// Sin eso la seccion habria nacido muerta, esperando a un modulo de grupos
+/// familiares que todavia no existe. Cuando recepcion pueda enlazar hermanos,
+/// el dato ya esta en el sitio bueno y no hay que moverlo.
+model DatosDelHogar {
+  grupoFamiliarId String @id @map("grupo_familiar_id")
+
+  agua AbastecimientoAgua?
+  /// El "otro" del papel, cuando el agua no es de ninguna de las cuatro.
+  aguaOtro String? @map("agua_otro") @db.VarChar(120)
+
+  excretas DisposicionExcretas?
+
+  registradoPor String   @map("registrado_por")
+  actualizadoEn DateTime @updatedAt @map("actualizado_en")
+
+  grupoFamiliar GrupoFamiliar @relation(fields: [grupoFamiliarId], references: [id], onDelete: Cascade)
+
+  @@map("datos_del_hogar")
 }
 
 enum EstadoVisita {

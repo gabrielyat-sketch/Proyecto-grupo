@@ -166,6 +166,10 @@ const RUTAS_FUERA_DEL_MENU: Record<string, readonly Rol[]> = {
   // mismo POST de fichas el que la guarda.
   '/ficha-neonato': ['MEDICO', 'ENFERMERIA'],
   '/ficha-ninez': ['MEDICO', 'ENFERMERIA'],
+  // El carnet del lactante y ninez: vacunas, micronutrientes, padres y casa.
+  // NO es una consulta, es del nino, pero se lee dentro del expediente y por
+  // eso entran los mismos que a la ficha.
+  '/carnet': ['MEDICO', 'ENFERMERIA'],
   // El expediente de UN paciente. Entran los seis: lo que cambia por rol es
   // cuanto se ve dentro, no si se puede abrir.
   '/expediente': ['ADMINISTRADOR', 'DIRECTOR', 'MEDICO', 'ENFERMERIA', 'FARMACIA', 'RECEPCION'],

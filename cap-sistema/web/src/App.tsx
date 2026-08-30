@@ -15,6 +15,7 @@ import { PaginaNuevoPaciente } from './modulos/recepcion/PaginaNuevoPaciente';
 import { PaginaFicha } from './modulos/fichas/PaginaFicha';
 import { PaginaFichaNeonato } from './modulos/fichas/neonato/PaginaFichaNeonato';
 import { PaginaFichaNinez } from './modulos/fichas/ninez/PaginaFichaNinez';
+import { PaginaCarnetNinez } from './modulos/fichas/ninez/PaginaCarnetNinez';
 import { PaginaDigitalizacion } from './modulos/digitalizacion/PaginaDigitalizacion';
 import { PaginaSalaEspera } from './modulos/espera/PaginaSalaEspera';
 import { PaginaExpedientes } from './modulos/expedientes/PaginaExpedientes';
@@ -198,6 +199,14 @@ export function App() {
                 element={
                   <RutaPorRol ruta="/ficha-ninez">
                     <PaginaFichaNinez />
+                  </RutaPorRol>
+                }
+              />
+              <Route
+                path="/pacientes/:pacienteId/carnet"
+                element={
+                  <RutaPorRol ruta="/carnet">
+                    <PaginaCarnetNinez />
                   </RutaPorRol>
                 }
               />

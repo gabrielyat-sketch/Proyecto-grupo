@@ -1136,6 +1136,154 @@ paths:
       security: *a12
       summary: Una ficha registrada, con el texto descifrado y el catalogo resuelto
       tags: *a13
+  /v1/carnet/catalogo:
+    get:
+      description: "Solo las casillas que el papel deja llenables. Las sombreadas no
+        vienen: Hepatitis y BCG tienen una sola dosis, DPT solo los dos
+        refuerzos, y el desparasitante no empieza hasta los dos anos."
+      operationId: CarnetController_catalogo
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogoCarnetDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: &a14
+        - bearer: []
+      summary: El esquema de vacunacion y los micronutrientes del formulario
+      tags: &a15
+        - carnet
+  /v1/pacientes/{pacienteId}/carnet:
+    get:
+      description: "La edad de cada dosis viene calculada contra la fecha de
+        nacimiento. No se guarda: en el papel hay que escribirla porque no se
+        puede restar."
+      operationId: CarnetController_obtener
+      parameters:
+        - name: pacienteId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CarnetDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a14
+      summary: "El carnet de un nino: dosis puestas, entregas hechas, padres y hogar"
+      tags: *a15
+    patch:
+      description: "Todo es opcional y lo que no viene no se toca: la pagina 1 se
+        llena a lo largo de anos y casi nunca se toca entera. Una dosis con
+        fecha null se BORRA, que es como se corrige una casilla mal anotada. El
+        agua y las excretas van al grupo familiar del nino, y si no tiene uno el
+        sistema se lo crea."
+      operationId: CarnetController_guardar
+      parameters:
+        - name: pacienteId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuardarCarnetDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CarnetDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a14
+      summary: Anota o corrige el carnet
+      tags: *a15
   /v1/pacientes/{pacienteId}/antecedentes:
     get:
       description: Devuelve solo lo respondido. Un antecedente ausente significa que
@@ -1184,10 +1332,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RespuestaErrorDto"
-      security: &a14
+      security: &a16
         - bearer: []
       summary: Antecedentes ya registrados de un paciente
-      tags: &a15
+      tags: &a17
         - antecedentes
     patch:
       description: "Actualizacion PARCIAL: lo que no viene en la peticion se conserva.
@@ -1243,9 +1391,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RespuestaErrorDto"
-      security: *a14
+      security: *a16
       summary: Guarda o actualiza las respuestas enviadas
-      tags: *a15
+      tags: *a17
   /v1/visitas:
     post:
       description: "Es lo unico que el sistema no puede deducir solo: un paciente
@@ -1292,10 +1440,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RespuestaErrorDto"
-      security: &a16
+      security: &a18
         - bearer: []
       summary: Marca que un paciente llego y espera ser atendido
-      tags: &a17
+      tags: &a19
         - visitas
   /v1/visitas/espera:
     get:
@@ -1330,9 +1478,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RespuestaErrorDto"
-      security: *a16
+      security: *a18
       summary: Quienes esperan ahora, por orden de llegada
-      tags: *a17
+      tags: *a19
   /v1/visitas/{id}/retiro:
     patch:
       description: 'El motivo es obligatorio: "se fue" no le sirve a nadie dentro de
@@ -1387,9 +1535,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RespuestaErrorDto"
-      security: *a16
+      security: *a18
       summary: Saca de la sala a alguien que se fue sin atencion
-      tags: *a17
+      tags: *a19
 info:
   title: Servicio usuarios - CAP Purulha
   description: >-
@@ -2485,7 +2633,7 @@ components:
       properties:
         tipoFicha:
           type: string
-          enum: &a18
+          enum: &a20
             - ADULTO
             - NEONATO
             - NINEZ
@@ -2971,7 +3119,7 @@ components:
           format: uuid
         tipoFicha:
           type: string
-          enum: *a18
+          enum: *a20
           nullable: true
         fecha:
           format: date-time
@@ -3102,6 +3250,409 @@ components:
         - medicamentos
         - consejeriaTemas
         - neonato
+    DosisRecomendadaDto:
+      type: object
+      properties:
+        orden:
+          type: number
+          description: Cuál de las cinco columnas del papel.
+          example: 1
+        edadRecomendada:
+          type: string
+          nullable: true
+          description: La edad que el formulario imprime para esa dosis. null en
+            Neumococo, Hb y Otras, que el papel deja llenables pero sin esquema.
+          example: 2 meses
+      required:
+        - orden
+        - edadRecomendada
+    VacunaCatalogoDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orden:
+          type: number
+        nombre:
+          type: string
+          example: Pentavalente
+        dosis:
+          description: "SOLO las dosis que aplican. Las casillas sombreadas del papel no
+            vienen: ofrecerlas dejaría anotar una tercera dosis de BCG, que no
+            existe."
+          type: array
+          items:
+            $ref: "#/components/schemas/DosisRecomendadaDto"
+      required:
+        - id
+        - orden
+        - nombre
+        - dosis
+    EntregaEsperadaDto:
+      type: object
+      properties:
+        tramo:
+          type: string
+          enum:
+            - M6_A_A1
+            - A1_A_A2
+            - A2_A_A3
+            - A3_A_A4
+            - A4_A_A5
+        orden:
+          type: number
+          example: 1
+      required:
+        - tramo
+        - orden
+    MicronutrienteCatalogoDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orden:
+          type: number
+        nombre:
+          type: string
+          example: Sulfato Ferroso
+        esperadas:
+          description: "Cuántas entregas van en cada tramo. No es uniforme: el
+            desparasitante no empieza hasta los dos años."
+          type: array
+          items:
+            $ref: "#/components/schemas/EntregaEsperadaDto"
+      required:
+        - id
+        - orden
+        - nombre
+        - esperadas
+    CatalogoCarnetDto:
+      type: object
+      properties:
+        vacunas:
+          type: array
+          items:
+            $ref: "#/components/schemas/VacunaCatalogoDto"
+        micronutrientes:
+          type: array
+          items:
+            $ref: "#/components/schemas/MicronutrienteCatalogoDto"
+      required:
+        - vacunas
+        - micronutrientes
+    VacunaAplicadaDto:
+      type: object
+      properties:
+        vacunaId:
+          type: string
+          format: uuid
+        orden:
+          type: number
+        fecha:
+          type: string
+          example: 2024-05-12
+          description: Como aaaa-mm-dd.
+        edadEnMeses:
+          type: number
+          nullable: true
+          description: "Edad en meses cumplidos el día de la dosis. NO se guarda: se
+            calcula contra la fecha de nacimiento. Es null si el paciente no la
+            tiene registrada."
+          example: 4
+      required:
+        - vacunaId
+        - orden
+        - fecha
+        - edadEnMeses
+    MicronutrienteEntregadoDto:
+      type: object
+      properties:
+        micronutrienteId:
+          type: string
+          format: uuid
+        tramo:
+          type: string
+          enum:
+            - M6_A_A1
+            - A1_A_A2
+            - A2_A_A3
+            - A3_A_A4
+            - A4_A_A5
+        orden:
+          type: number
+        fecha:
+          type: string
+          example: 2024-05-12
+      required:
+        - micronutrienteId
+        - tramo
+        - orden
+        - fecha
+    DatosNinezDto:
+      type: object
+      properties:
+        lugarNacimiento:
+          type: string
+          nullable: true
+        acompananteNombre:
+          type: string
+          nullable: true
+        madreNombre:
+          type: string
+          nullable: true
+        madreEdad:
+          type: number
+          nullable: true
+        madreOcupacion:
+          type: string
+          nullable: true
+        madreSabeLeer:
+          type: boolean
+          nullable: true
+        madreEscolaridad:
+          type: string
+          enum:
+            - NINGUNO
+            - PRIMARIA_1_3
+            - PRIMARIA_4_6
+            - MEDIA
+            - SUPERIOR
+          nullable: true
+        padreNombre:
+          type: string
+          nullable: true
+        padreEdad:
+          type: number
+          nullable: true
+        padreOcupacion:
+          type: string
+          nullable: true
+        padreSabeLeer:
+          type: boolean
+          nullable: true
+        hijosTotal:
+          type: number
+          nullable: true
+        hijosVivos:
+          type: number
+          nullable: true
+        hijosMuertos:
+          type: number
+          nullable: true
+      required:
+        - lugarNacimiento
+        - acompananteNombre
+        - madreNombre
+        - madreEdad
+        - madreOcupacion
+        - madreSabeLeer
+        - madreEscolaridad
+        - padreNombre
+        - padreEdad
+        - padreOcupacion
+        - padreSabeLeer
+        - hijosTotal
+        - hijosVivos
+        - hijosMuertos
+    HogarDto:
+      type: object
+      properties:
+        agua:
+          type: string
+          enum:
+            - CHORRO_INTRADOMICILIAR
+            - CHORRO_PUBLICO
+            - POZO
+            - RIO
+            - OTRO
+          nullable: true
+        aguaOtro:
+          type: string
+          nullable: true
+        excretas:
+          type: string
+          enum:
+            - INODORO
+            - LETRINA
+            - AIRE_LIBRE
+          nullable: true
+      required:
+        - agua
+        - aguaOtro
+        - excretas
+    CarnetDto:
+      type: object
+      properties:
+        pacienteId:
+          type: string
+          format: uuid
+        edadEnMeses:
+          type: number
+          nullable: true
+          description: Edad del paciente en meses cumplidos hoy. Decide qué tramos de
+            micronutrientes tocan.
+        vacunas:
+          type: array
+          items:
+            $ref: "#/components/schemas/VacunaAplicadaDto"
+        micronutrientes:
+          type: array
+          items:
+            $ref: "#/components/schemas/MicronutrienteEntregadoDto"
+        datos:
+          nullable: true
+          description: null cuando nadie ha llenado todavía la página 1 de este niño.
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/DatosNinezDto"
+        hogar:
+          nullable: true
+          description: "El agua y las excretas de la casa. Vienen del grupo familiar, no
+            del niño: los hermanos comparten uno solo."
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/HogarDto"
+      required:
+        - pacienteId
+        - edadEnMeses
+        - vacunas
+        - micronutrientes
+        - datos
+        - hogar
+    GuardarDatosNinezDto:
+      type: object
+      properties:
+        lugarNacimiento:
+          type: string
+          maxLength: 160
+        acompananteNombre:
+          type: string
+          maxLength: 160
+        madreNombre:
+          type: string
+          maxLength: 160
+        madreEdad:
+          type: number
+          minimum: 10
+          maximum: 70
+        madreOcupacion:
+          type: string
+          maxLength: 120
+        madreSabeLeer:
+          type: boolean
+        madreEscolaridad:
+          type: string
+          enum:
+            - NINGUNO
+            - PRIMARIA_1_3
+            - PRIMARIA_4_6
+            - MEDIA
+            - SUPERIOR
+        padreNombre:
+          type: string
+          maxLength: 160
+        padreEdad:
+          type: number
+          minimum: 10
+          maximum: 99
+        padreOcupacion:
+          type: string
+          maxLength: 120
+        padreSabeLeer:
+          type: boolean
+        hijosTotal:
+          type: number
+          minimum: 0
+          maximum: 30
+        hijosVivos:
+          type: number
+          minimum: 0
+          maximum: 30
+        hijosMuertos:
+          type: number
+          minimum: 0
+          maximum: 30
+    GuardarHogarDto:
+      type: object
+      properties:
+        agua:
+          type: string
+          enum:
+            - CHORRO_INTRADOMICILIAR
+            - CHORRO_PUBLICO
+            - POZO
+            - RIO
+            - OTRO
+        aguaOtro:
+          type: string
+          maxLength: 120
+        excretas:
+          type: string
+          enum:
+            - INODORO
+            - LETRINA
+            - AIRE_LIBRE
+    GuardarVacunaDto:
+      type: object
+      properties:
+        vacunaId:
+          type: string
+          format: uuid
+        orden:
+          type: number
+          minimum: 1
+          maximum: 5
+        fecha:
+          type: string
+          nullable: true
+          description: Como aaaa-mm-dd. null borra la dosis anotada.
+          example: 2024-05-12
+      required:
+        - vacunaId
+        - orden
+    GuardarMicronutrienteDto:
+      type: object
+      properties:
+        micronutrienteId:
+          type: string
+          format: uuid
+        tramo:
+          type: string
+          enum:
+            - M6_A_A1
+            - A1_A_A2
+            - A2_A_A3
+            - A3_A_A4
+            - A4_A_A5
+        orden:
+          type: number
+          minimum: 1
+          maximum: 4
+        fecha:
+          type: string
+          nullable: true
+          example: 2024-05-12
+      required:
+        - micronutrienteId
+        - tramo
+        - orden
+    GuardarCarnetDto:
+      type: object
+      properties:
+        datos:
+          $ref: "#/components/schemas/GuardarDatosNinezDto"
+        hogar:
+          $ref: "#/components/schemas/GuardarHogarDto"
+        vacunas:
+          type: array
+          items:
+            $ref: "#/components/schemas/GuardarVacunaDto"
+        micronutrientes:
+          type: array
+          items:
+            $ref: "#/components/schemas/GuardarMicronutrienteDto"
     AntecedenteRegistradoDto:
       type: object
       properties:
