@@ -1,8 +1,7 @@
-import { Box, Button, IconButton, Stack, TextField, Tooltip, Typography } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import DeleteIcon from '@mui/icons-material/DeleteOutlined';
+import { Stack, TextField, Typography } from '@mui/material';
 import type { FilaMedicamento } from './borrador';
 import { BloqueFicha } from './SeccionFicha';
+import { ListaMedicamentos } from './ListaMedicamentos';
 
 /**
  * La columna de conducta del formulario: lo que se indica al paciente.
@@ -35,72 +34,10 @@ export function SeccionPlan({
     valor: string,
   ) => void;
 }) {
-  const cambiar = (i: number, campo: keyof FilaMedicamento, valor: string) => {
-    const copia = medicamentos.map((m, j) => (i === j ? { ...m, [campo]: valor } : m));
-    onMedicamentos(copia);
-  };
-
-  const agregar = () =>
-    onMedicamentos([...medicamentos, { nombre: '', dosis: '', dias: '' }]);
-
-  const quitar = (i: number) => {
-    const restantes = medicamentos.filter((_m, j) => j !== i);
-    // Siempre queda una fila: sin ninguna, recetar obligaria a pulsar "agregar"
-    // primero, que es un paso de mas en el caso mas comun.
-    onMedicamentos(restantes.length ? restantes : [{ nombre: '', dosis: '', dias: '' }]);
-  };
-
   return (
     <Stack sx={{ gap: 2 }}>
       <BloqueFicha titulo="Medicamentos indicados">
-        <Stack sx={{ gap: 1 }}>
-          {medicamentos.map((m, i) => (
-            <Stack
-              key={i}
-              direction={{ xs: 'column', md: 'row' }}
-              sx={{ gap: 1.5, alignItems: { md: 'flex-start' } }}
-            >
-              <TextField
-                label={'Medicamento ' + (i + 1)}
-                size="small"
-                value={m.nombre}
-                onChange={(e) => cambiar(i, 'nombre', e.target.value)}
-                sx={{ flex: 2 }}
-              />
-              <TextField
-                label="Dosis"
-                size="small"
-                value={m.dosis}
-                onChange={(e) => cambiar(i, 'dosis', e.target.value)}
-                sx={{ flex: 2 }}
-                placeholder="1 tableta cada 8 horas"
-              />
-              <TextField
-                label="Dias"
-                size="small"
-                inputMode="numeric"
-                value={m.dias}
-                onChange={(e) => cambiar(i, 'dias', e.target.value)}
-                sx={{ flex: 1 }}
-              />
-              <Tooltip title="Quitar esta linea">
-                <IconButton
-                  aria-label={'Quitar el medicamento ' + (i + 1)}
-                  onClick={() => quitar(i)}
-                  sx={{ mt: { md: 0.25 } }}
-                >
-                  <DeleteIcon />
-                </IconButton>
-              </Tooltip>
-            </Stack>
-          ))}
-
-          <Box>
-            <Button startIcon={<AddIcon />} onClick={agregar} size="small" disabled={medicamentos.length >= 20}>
-              Agregar medicamento
-            </Button>
-          </Box>
-        </Stack>
+        <ListaMedicamentos medicamentos={medicamentos} onCambio={onMedicamentos} />
       </BloqueFicha>
 
       <BloqueFicha titulo="Diagnostico y tratamiento en palabras">

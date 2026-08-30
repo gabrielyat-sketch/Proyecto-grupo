@@ -49,15 +49,26 @@ describe('qué ficha le toca a cada paciente', () => {
     expect(fichaParaPaciente('2026-07-30', 'p-1', HOY).tipo).toBe('NINEZ');
   });
 
-  /**
-   * La hoja existe en el papel pero su pantalla no está construida. Se dice,
-   * en vez de ofrecer la de adultos y que alguien la llene sin darse cuenta.
-   */
-  it('un niño va a la de niñez, que todavía no tiene pantalla', () => {
+  it('un niño va a la hoja del lactante y niñez', () => {
     const f = fichaParaPaciente('2020-03-10', 'p-1', HOY);
     expect(f.tipo).toBe('NINEZ');
-    expect(f.ruta).toBeNull();
+    expect(f.ruta).toBe('/pacientes/p-1/ficha-ninez');
     expect(f.nombre).toBe('Lactancia y niñez');
+  });
+
+  /**
+   * Queda una sola hoja sin pantalla: la prenatal. Y esa no entra aqui porque
+   * no depende de la edad sino de que la paciente este embarazada, que es algo
+   * que el sistema no sabe hasta que alguien se lo dice.
+   *
+   * `ruta` en null sigue siendo parte del contrato: cuando el CAP anada una
+   * hoja nueva del MSPAS, la pantalla tiene que poder decir cual toca antes de
+   * que exista donde llenarla.
+   */
+  it('ninguna de las tres hojas por edad se queda sin pantalla', () => {
+    for (const nacimiento of ['2026-08-20', '2020-03-10', '1985-01-02']) {
+      expect(fichaParaPaciente(nacimiento, 'p-1', HOY).ruta).not.toBeNull();
+    }
   });
 
   it('a los diez años empieza la ficha de adultos', () => {

@@ -37,6 +37,12 @@ export interface FilaProblema {
   diagnosticoIds: string[];
   otroDiagnostico: string;
   conducta: string;
+  /**
+   * Lo escrito en la raya que algunos problemas llevan impresa al lado: "cuanto
+   * tiempo hace", "cuantas veces por dia". Solo la ficha del lactante y ninez
+   * tiene filas asi; en las demas queda siempre vacia y no se dibuja.
+   */
+  anotacion: string;
 }
 
 export interface FilaMedicamento {
@@ -194,6 +200,7 @@ export function borradorVacio(catalogo: CatalogoFicha): Borrador {
       diagnosticoIds: [],
       otroDiagnostico: '',
       conducta: '',
+      anotacion: '',
     };
   }
 
@@ -356,6 +363,7 @@ export function cuerpoDeFicha(borrador: Borrador, tipoFicha: TipoFicha): NuevaFi
       ...(p.diagnosticoIds.length ? { diagnosticoIds: p.diagnosticoIds } : {}),
       ...(texto(p.otroDiagnostico) ? { otroDiagnostico: texto(p.otroDiagnostico) } : {}),
       ...(texto(p.conducta) ? { conducta: texto(p.conducta) } : {}),
+      ...(texto(p.anotacion) ? { anotacion: texto(p.anotacion) } : {}),
     }));
 
   const medicamentos = borrador.medicamentos

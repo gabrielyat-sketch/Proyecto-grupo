@@ -110,6 +110,21 @@ export function MatrizProblemas({
                 </Stack>
 
                 <Stack direction={{ xs: 'column', md: 'row' }} sx={{ gap: 2, mt: 2 }}>
+                  {/*
+                    La raya que el papel imprime al lado de las casillas de
+                    algunas filas: "cuanto tiempo hace" en tos, diarrea y
+                    fiebre, "cuantas veces por dia" en nutricion. La etiqueta
+                    viene del catalogo, no de aqui: es texto del formulario, y
+                    una revision del MSPAS puede cambiarla sin tocar codigo.
+                  */}
+                  {p.etiquetaAnotacion ? (
+                    <TextField
+                      label={p.etiquetaAnotacion}
+                      size="small"
+                      value={fila.anotacion}
+                      onChange={(e) => onCambio(p.id, { ...fila, anotacion: e.target.value })}
+                    />
+                  ) : null}
                   {pideOtro ? (
                     <TextField
                       label="Cual"

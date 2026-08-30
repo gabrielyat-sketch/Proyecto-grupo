@@ -130,10 +130,56 @@ describe('Fichas clinicas (e2e)', () => {
     });
 
     it('una ficha sin catalogo cargado lo dice, no devuelve vacio', async () => {
-      // Antes usaba NEONATO. Dejo de servir en cuanto esa ficha tuvo catalogo:
-      // hay que probarlo con una que siga sin sembrarse, y cambiarlo otra vez
-      // cuando le toque el turno a ninez.
-      await request(http()).get('/v1/fichas/catalogo/NINEZ').set(como(Rol.MEDICO)).expect(404);
+      // Ha ido cambiando: primero NEONATO, despues NINEZ, y las dos dejaron de
+      // servir en cuanto tuvieron catalogo. Queda PRENATAL, la ultima sin
+      // sembrar. Cuando le toque su turno, esta prueba se queda sin hoja con
+      // que probarlo y habra que sembrar una de mentira y borrarla.
+      await request(http()).get('/v1/fichas/catalogo/PRENATAL').set(como(Rol.MEDICO)).expect(404);
+    });
+
+    /**
+     * La hoja del lactante y ninez es la unica de las cuatro que pone los
+     * signos de peligro ARRIBA DEL TODO, antes de identificar el servicio, y
+     * la unica cuya matriz trae rayas impresas al lado de algunas filas.
+     */
+    it('el catalogo del lactante y ninez trae sus cuatro signos y sus catorce problemas', async () => {
+      const r = await request(http())
+        .get('/v1/fichas/catalogo/NINEZ')
+        .set(como(Rol.MEDICO))
+        .expect(200);
+
+      expect(r.body.signosPeligro).toHaveLength(4);
+      expect(r.body.signosPeligro[0].texto).toBe('No puede beber o tomar el pecho');
+      expect(r.body.problemas).toHaveLength(14);
+      expect(r.body.problemas[0].nombre).toBe('Tos o dificultad para respirar');
+      expect(r.body.temasConsejeria).toHaveLength(4);
+    });
+
+    it('publica la raya impresa de los cuatro problemas que la llevan', async () => {
+      const r = await request(http())
+        .get('/v1/fichas/catalogo/NINEZ')
+        .set(como(Rol.MEDICO))
+        .expect(200);
+
+      const conRaya = r.body.problemas.filter(
+        (p: { etiquetaAnotacion: string | null }) => p.etiquetaAnotacion !== null,
+      );
+      expect(conRaya).toHaveLength(4);
+      expect(conRaya.map((p: { nombre: string }) => p.nombre)).toEqual([
+        'Tos o dificultad para respirar',
+        'Diarrea',
+        'Fiebre (temperatura axilar de 38°C o mayor, sin otra causa)',
+        'Nutrición',
+      ]);
+      expect(conRaya[0].etiquetaAnotacion).toBe('Cuánto tiempo hace');
+
+      // Los otros diez no la traen, y el contrato lo dice con null y no
+      // omitiendo el campo: un campo ausente y uno vacio se leen igual desde
+      // el panel, y aqui significan cosas distintas.
+      const sinRaya = r.body.problemas.filter(
+        (p: { etiquetaAnotacion: string | null }) => p.etiquetaAnotacion === null,
+      );
+      expect(sinRaya).toHaveLength(10);
     });
 
     it('el catalogo de menor de 28 dias trae sus 27 signos de peligro', async () => {
@@ -673,6 +719,110 @@ describe('Fichas clinicas (e2e)', () => {
 
       const fila = historial.body.datos.find((a: { id: string }) => a.id === creada.body.id);
       expect(fila.tipoFicha).toBe('NEONATO');
+    });
+
+    /**
+     * La raya impresa —"cuanto tiempo hace", "cuantas veces por dia"— entra
+     * cifrada y tiene que volver legible. Es dato clinico: "hace tres dias con
+     * fiebre" dice tanto como el diagnostico.
+     */
+    it('la anotacion de un problema se guarda y vuelve legible', async () => {
+      const cat = await request(http())
+        .get('/v1/fichas/catalogo/NINEZ')
+        .set(como(Rol.MEDICO))
+        .expect(200);
+
+      const tos = cat.body.problemas[0];
+      expect(tos.etiquetaAnotacion).toBe('Cuánto tiempo hace');
+
+      const creada = await request(http())
+        .post('/v1/expedientes/' + expedienteId + '/fichas')
+        .set(como(Rol.MEDICO))
+        .send({
+          tipoFicha: 'NINEZ',
+          motivo: 'Tos',
+          problemas: [
+            {
+              problemaId: tos.id,
+              presente: true,
+              signoIds: [tos.signos[0].id],
+              anotacion: 'Tres dias',
+            },
+          ],
+        })
+        .expect(201);
+
+      const detalle = await request(http())
+        .get('/v1/fichas/' + creada.body.id)
+        .set(como(Rol.MEDICO))
+        .expect(200);
+
+      const fila = detalle.body.problemas.find(
+        (x: { problemaId: string }) => x.problemaId === tos.id,
+      );
+      expect(fila.anotacion).toBe('Tres dias');
+
+      // Y en la base vive cifrada, no en claro.
+      const enBase = await prisma.problemaAtencion.findFirst({
+        where: { atencionId: creada.body.id, problemaId: tos.id },
+        select: { anotacionCifrado: true },
+      });
+      const crudo = Buffer.from(enBase!.anotacionCifrado ?? []).toString('utf8');
+      expect(crudo.length).toBeGreaterThan(0);
+      expect(crudo).not.toContain('Tres dias');
+    });
+
+    it('un problema sin raya impresa deja la anotacion en null', async () => {
+      const cat = await request(http())
+        .get('/v1/fichas/catalogo/NINEZ')
+        .set(como(Rol.MEDICO))
+        .expect(200);
+
+      const vacunacion = cat.body.problemas.find(
+        (p: { nombre: string }) => p.nombre === 'Vacunación',
+      );
+      expect(vacunacion.etiquetaAnotacion).toBeNull();
+
+      const creada = await request(http())
+        .post('/v1/expedientes/' + expedienteId + '/fichas')
+        .set(como(Rol.MEDICO))
+        .send({
+          tipoFicha: 'NINEZ',
+          motivo: 'Control de vacunas',
+          problemas: [{ problemaId: vacunacion.id, presente: true }],
+        })
+        .expect(201);
+
+      const detalle = await request(http())
+        .get('/v1/fichas/' + creada.body.id)
+        .set(como(Rol.MEDICO))
+        .expect(200);
+
+      expect(detalle.body.problemas[0].anotacion).toBeNull();
+    });
+
+    /**
+     * Los problemas van por tipo de ficha. Mandar uno de la hoja de adultos en
+     * una de ninez tiene que fallar: si pasara, el indicador que cuenta
+     * neumonias en menores contaria consultas de adultos.
+     */
+    it('un problema de otra hoja no entra en la de ninez', async () => {
+      const adulto = await request(http())
+        .get('/v1/fichas/catalogo/ADULTO')
+        .set(como(Rol.MEDICO))
+        .expect(200);
+
+      const r = await request(http())
+        .post('/v1/expedientes/' + expedienteId + '/fichas')
+        .set(como(Rol.MEDICO))
+        .send({
+          tipoFicha: 'NINEZ',
+          motivo: 'Prueba',
+          problemas: [{ problemaId: adulto.body.problemas[0].id, presente: true }],
+        })
+        .expect(400);
+
+      expect(r.body.mensaje).toContain('no pertenece');
     });
   });
 
