@@ -8,6 +8,7 @@ import {
   Button,
   Checkbox,
   CircularProgress,
+  Collapse,
   Divider,
   FormControlLabel,
   MenuItem,
@@ -17,14 +18,17 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { AvisoError } from '../../../componentes/AvisoError';
-import { BloqueFicha, SeccionFicha } from '../SeccionFicha';
+import { BloqueFicha, Dato, SeccionFicha } from '../SeccionFicha';
+import { EncabezadoFicha } from '../EncabezadoFicha';
 import { IndiceFicha, type EntradaIndice } from '../IndiceFicha';
 import { MatrizProblemas } from '../MatrizProblemas';
 import { LineaPregunta, SelectorSiNo } from '../SelectorRespuesta';
+import { ETIQUETA_TIPO_LUGAR } from '../../recepcion/servicio-pacientes';
 import {
   obtenerCatalogo,
   obtenerPaciente,
   registrarFicha,
+  SERVICIO_DE_SALUD,
   type CatalogoFicha,
 } from '../servicio-fichas';
 import type { AvanceSeccion } from '../borrador';
@@ -42,6 +46,7 @@ import {
 } from './borrador-neonato';
 
 const SECCIONES: readonly EntradaIndice[] = [
+  { clave: 'servicio', numeral: '1', titulo: 'Identificación del servicio' },
   { clave: 'datos', numeral: '2', titulo: 'Datos generales' },
   { clave: 'evaluacion', numeral: '3', titulo: 'Evaluación del recién nacido' },
   { clave: 'antecedentes', numeral: '4', titulo: 'Antecedentes maternos y del parto' },
@@ -66,6 +71,52 @@ const TIPOS_PARTO = [
   { valor: 'FORCEPS', texto: 'Distócico = Fórceps' },
   { valor: 'PODALICA', texto: 'Podálica' },
 ];
+
+/**
+ * Una fecha `aaaa-mm-dd` dicha como se lee en el papel.
+ *
+ * Se parte la cadena en vez de construir un `Date` con ella entera: Guatemala
+ * es UTC-6 y `new Date('2026-08-20')` es medianoche UTC, que aquí todavía es
+ * el 19. La fecha de nacimiento de un recién nacido corrida un día cambia su
+ * edad en días, que es justo lo que esta ficha decide.
+ */
+function fechaImpresa(valor: string | null | undefined): string {
+  if (!valor) return '—';
+  const [anio, mes, dia] = valor.slice(0, 10).split('-').map(Number);
+  if (!anio || !mes || !dia) return '—';
+  return new Date(anio, mes - 1, dia).toLocaleDateString('es-GT', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+}
+
+/**
+ * Lo que una respuesta destapa: el «¿Cuál?», el «¿Quién?», el número de dosis.
+ *
+ * Va **debajo** de la pregunta, no a su derecha. En el papel esas rayas están
+ * siempre impresas y ocupan el ancho de la hoja; en pantalla, colgarlas al
+ * lado de las casillas SI/NO empuja la fila, corre las casillas de sitio en
+ * cuanto alguien responde que sí, y deja el campo tan estrecho que no se lee
+ * lo que se escribió. Debajo y con fondo, la fila no se mueve y el detalle se
+ * ve como lo que es: parte de la respuesta anterior.
+ *
+ * Es el mismo trato que la ficha de adultos le da a sus treinta y tres
+ * antecedentes.
+ */
+function DetalleDeRespuesta({
+  abierto,
+  children,
+}: {
+  abierto: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Collapse in={abierto} unmountOnExit>
+      <Box sx={{ pl: 2, py: 1.5, bgcolor: 'action.hover' }}>{children}</Box>
+    </Collapse>
+  );
+}
 
 /** Un campo del examen físico, con su unidad y su aviso de rango. */
 function CampoExamen({
@@ -171,10 +222,11 @@ export function PaginaFichaNeonato() {
   const datos = paciente.data;
   const dias = edadEnDias(datos.fechaNacimiento as unknown as string);
 
+  const volverA = '/pacientes/' + pacienteId + '/expediente';
   const volver = (
     <Button
       component={EnlaceRuta}
-      to={'/pacientes/' + pacienteId + '/expediente'}
+      to={volverA}
       startIcon={<ArrowBackIcon />}
       sx={{ alignSelf: 'flex-start', mb: 2 }}
     >
@@ -194,6 +246,16 @@ export function PaginaFichaNeonato() {
     );
   }
 
+  // En Purulhá nadie tiene calle y número: la dirección es el barrio, caserío
+  // o aldea dentro de su comunidad, que es lo que recepción pregunta.
+  const lugar = datos.lugar;
+  const comunidad = datos.comunidad?.nombre ?? '';
+  const partesDireccion = [
+    lugar ? (ETIQUETA_TIPO_LUGAR[lugar.tipo] ?? lugar.tipo) + ' ' + lugar.nombre : '',
+    comunidad,
+  ].filter((parte) => parte !== '');
+  const direccion = partesDireccion.length > 0 ? partesDireccion.join(', ') : '—';
+
   const graves = signosGravesMarcados(actual, catalogo.data);
   const avance: Record<string, AvanceSeccion> = {};
   for (const s of SECCIONES) avance[s.clave] = { respondidas: 0, total: 0 };
@@ -202,16 +264,27 @@ export function PaginaFichaNeonato() {
 
   return (
     <Box>
-      {volver}
-
-      <Stack sx={{ gap: 0.5, mb: 1 }}>
-        <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
-          Ficha clínica para menor de 28 días
-        </Typography>
-        <Typography color="text.secondary">
-          {datos.apellidos}, {datos.nombres} · {dias} {dias === 1 ? 'día' : 'días'} de nacido
-        </Typography>
-      </Stack>
+      {/*
+        El encabezado del papel: el nombre de la hoja, el recuadro de No.
+        Expediente y el de Fecha. Es el mismo componente que usa la ficha de
+        adultos, porque el personal salta entre las dos con el papel al lado.
+      */}
+      <EncabezadoFicha
+        titulo="Ficha clínica para menor de 28 días"
+        volverA={volverA}
+        volverTexto="Expediente"
+        nombre={datos.apellidos + ', ' + datos.nombres}
+        resumen={
+          dias +
+          (dias === 1 ? ' día' : ' días') +
+          ' de nacido · ' +
+          (datos.sexo === 'F' ? 'Femenino' : 'Masculino') +
+          ' · ' +
+          (datos.comunidad?.nombre ?? 'Sin comunidad')
+        }
+        expediente={datos.expediente.numero}
+        fecha={{ valor: actual.fecha, onCambio: (v) => cambiar({ fecha: v }) }}
+      />
 
       {/*
         No se bloquea la captura: el CAP transcribe expedientes de papel, y una
@@ -232,14 +305,36 @@ export function PaginaFichaNeonato() {
         </Box>
 
         <Stack sx={{ gap: 2, flex: 1, minWidth: 0 }}>
+          {/* ────── 1. Identificación del servicio de salud ────── */}
+          <SeccionFicha
+            ref={(n) => {
+              secciones.current.servicio = n;
+            }}
+            numeral="1"
+            titulo="Identificación del servicio de salud"
+            nota="El papel trae seis casillas —PSF, C/S «A», CENAPA, C/S «B», CAP, CAIMI— porque se imprime igual para todo el país. Aquí no se pregunta: el sistema es de un solo establecimiento."
+          >
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
+                gap: 1.5,
+              }}
+            >
+              <Dato titulo="Tipo de servicio" valor={SERVICIO_DE_SALUD.tipo} />
+              <Dato titulo="Nombre del servicio" valor={SERVICIO_DE_SALUD.nombre} />
+              <Dato titulo="Área de salud" valor={SERVICIO_DE_SALUD.areaDeSalud} />
+            </Box>
+          </SeccionFicha>
+
           {/* ───────────────── 2. Datos generales ───────────────── */}
           <SeccionFicha
             ref={(n) => {
               secciones.current.datos = n;
             }}
             numeral="2"
-            titulo="Datos generales"
-            nota="En esta ficha el paciente es el niño, pero casi todos los datos son de la madre."
+            titulo="Datos generales del paciente"
+            nota="En esta ficha el paciente es el niño, pero casi todos los datos son de la madre. Lo que no se puede escribir aquí viene del registro de recepción: si algo está mal se corrige allí y no aquí, así el expediente y la ficha nunca dicen cosas distintas."
           >
             <Stack sx={{ gap: 2 }}>
               <TextField
@@ -248,6 +343,31 @@ export function PaginaFichaNeonato() {
                 onChange={(e) => cambiar({ nombreMadre: e.target.value })}
                 fullWidth
               />
+
+              {/*
+                Los datos que el papel pide en esta sección y que recepción ya
+                anotó. Se enseñan porque en la hoja impresa están, y quien
+                llena la ficha no entra al registro del paciente: sin esto,
+                leer la ficha no es leer la misma hoja.
+              */}
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(3, 1fr)' },
+                  gap: 1.5,
+                }}
+              >
+                <Dato titulo="Dirección" valor={direccion} />
+                <Dato
+                  titulo="Fecha de nacimiento"
+                  valor={fechaImpresa(datos.fechaNacimiento as unknown as string)}
+                />
+                <Dato titulo="Edad" valor={dias + (dias === 1 ? ' día' : ' días')} />
+                <Dato titulo="Sexo" valor={datos.sexo === 'F' ? 'Femenino' : 'Masculino'} />
+                <Dato titulo="Población migrante" valor={datos.migrante ? 'Sí' : 'No'} />
+                <Dato titulo="Lugar de origen" valor={datos.lugarOrigen ?? '—'} />
+              </Box>
+
               <TextField
                 label="Motivo de consulta"
                 value={actual.motivo}
@@ -256,15 +376,6 @@ export function PaginaFichaNeonato() {
                 fullWidth
                 multiline
                 minRows={2}
-              />
-              <TextField
-                label="Fecha de la consulta"
-                type="date"
-                value={actual.fecha}
-                onChange={(e) => cambiar({ fecha: e.target.value })}
-                sx={{ width: 220 }}
-                slotProps={{ inputLabel: { shrink: true } }}
-                helperText="Cámbiela si está transcribiendo del papel"
               />
             </Stack>
           </SeccionFicha>
@@ -345,8 +456,8 @@ export function PaginaFichaNeonato() {
               <BloqueFicha titulo="Antecedentes maternos">
                 <Stack sx={{ gap: 0.5 }}>
                   {cat.antecedentes.map((a) => (
-                    <LineaPregunta key={a.id} texto={a.texto}>
-                      <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
+                    <Box key={a.id}>
+                      <LineaPregunta texto={a.texto}>
                         <SelectorSiNo
                           etiqueta={a.texto}
                           denso
@@ -360,10 +471,14 @@ export function PaginaFichaNeonato() {
                             })
                           }
                         />
-                        {a.pideDetalle && actual.antecedentes[a.id]?.respuesta === true ? (
+                      </LineaPregunta>
+                      {a.pideDetalle ? (
+                        <DetalleDeRespuesta
+                          abierto={actual.antecedentes[a.id]?.respuesta === true}
+                        >
                           <TextField
+                            label="¿Cuál?"
                             size="small"
-                            placeholder="¿Cuál?"
                             value={actual.antecedentes[a.id]?.detalle ?? ''}
                             onChange={(e) =>
                               cambiar({
@@ -377,17 +492,25 @@ export function PaginaFichaNeonato() {
                               })
                             }
                           />
-                        ) : null}
-                      </Stack>
-                    </LineaPregunta>
+                        </DetalleDeRespuesta>
+                      ) : null}
+                    </Box>
                   ))}
                 </Stack>
               </BloqueFicha>
 
               <BloqueFicha titulo="Antecedentes del parto">
                 <Stack sx={{ gap: 2 }}>
-                  <Stack direction="row" sx={{ gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <Typography variant="body2" sx={{ minWidth: 110 }}>
+                  {/*
+                    Alineadas por arriba, no por el centro: solo «Onzas» lleva
+                    aviso debajo, y centrar dos campos de distinta altura deja
+                    una casilla más arriba que la otra.
+                  */}
+                  <Stack
+                    direction="row"
+                    sx={{ gap: 2, flexWrap: 'wrap', alignItems: 'flex-start' }}
+                  >
+                    <Typography variant="body2" sx={{ minWidth: 110, mt: 1.25 }}>
                       Peso al nacer
                     </Typography>
                     <TextField
@@ -456,19 +579,20 @@ export function PaginaFichaNeonato() {
                         </MenuItem>
                       ))}
                     </TextField>
-                    {actual.parto.quienAtendioParto === 'OTRO' ? (
-                      <TextField
-                        label="¿Quién?"
-                        size="small"
-                        value={actual.parto.quienAtendioPartoOtro}
-                        onChange={(e) =>
-                          cambiar({
-                            parto: { ...actual.parto, quienAtendioPartoOtro: e.target.value },
-                          })
-                        }
-                      />
-                    ) : null}
                   </Stack>
+
+                  <DetalleDeRespuesta abierto={actual.parto.quienAtendioParto === 'OTRO'}>
+                    <TextField
+                      label="¿Quién?"
+                      size="small"
+                      value={actual.parto.quienAtendioPartoOtro}
+                      onChange={(e) =>
+                        cambiar({
+                          parto: { ...actual.parto, quienAtendioPartoOtro: e.target.value },
+                        })
+                      }
+                    />
+                  </DetalleDeRespuesta>
 
                   <Box>
                     <Typography variant="body2" sx={{ mb: 0.5 }}>
@@ -525,27 +649,27 @@ export function PaginaFichaNeonato() {
                       onCambio={(v) => cambiar({ parto: { ...actual.parto, bcg: v } })}
                     />
                   </LineaPregunta>
-                  <LineaPregunta texto="Td en la madre">
-                    <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
+                  <Box>
+                    <LineaPregunta texto="Td en la madre">
                       <SelectorSiNo
                         etiqueta="Td en la madre"
                         valor={actual.parto.tdMadre}
                         onCambio={(v) => cambiar({ parto: { ...actual.parto, tdMadre: v } })}
                       />
-                      {actual.parto.tdMadre === true ? (
-                        <TextField
-                          label="N.º de dosis"
-                          type="number"
-                          size="small"
-                          sx={{ width: 140 }}
-                          value={actual.parto.tdMadreDosis}
-                          onChange={(e) =>
-                            cambiar({ parto: { ...actual.parto, tdMadreDosis: e.target.value } })
-                          }
-                        />
-                      ) : null}
-                    </Stack>
-                  </LineaPregunta>
+                    </LineaPregunta>
+                    <DetalleDeRespuesta abierto={actual.parto.tdMadre === true}>
+                      <TextField
+                        label="N.º de dosis"
+                        type="number"
+                        size="small"
+                        sx={{ width: 140 }}
+                        value={actual.parto.tdMadreDosis}
+                        onChange={(e) =>
+                          cambiar({ parto: { ...actual.parto, tdMadreDosis: e.target.value } })
+                        }
+                      />
+                    </DetalleDeRespuesta>
+                  </Box>
                   <LineaPregunta texto="Lactancia materna exclusiva">
                     <SelectorSiNo
                       etiqueta="Lactancia materna exclusiva"

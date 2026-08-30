@@ -39,6 +39,11 @@ const PACIENTE = {
   fallecido: false,
   comunidad: { id: 'c-1', nombre: 'Chilasco' },
   grupoFamiliar: null,
+  lugar: { id: 'l-1', nombre: 'El Naranjo', tipo: 'CASERIO' },
+  migrante: false,
+  lugarOrigen: null,
+  tieneAlergias: null,
+  alergias: null,
   expediente: { id: 'e-1', numero: 'EXP-2026-000900', aperturaEn: null },
 };
 
@@ -125,8 +130,13 @@ function abrir(perfil: Perfil, ruta = '/pacientes/p-1/ficha-neonato') {
   return render(<App />);
 }
 
-const esperarFicha = () =>
-  screen.findByRole('heading', { name: /Ficha clínica para menor de 28 días/ });
+/**
+ * El encabezado de una ficha dice de QUIEN es: ese es el encabezado de nivel
+ * uno, igual que en la de adultos. El nombre de la hoja va encima, en letra
+ * pequena, y no entra en la jerarquia de encabezados: los de nivel dos son las
+ * secciones numeradas del formulario.
+ */
+const esperarFicha = () => screen.findByRole('heading', { name: /Caal Xol, Bebé/ });
 
 beforeEach(() => {
   peticiones = [];
@@ -259,6 +269,94 @@ describe('la ficha en pantalla', () => {
     await esperarFicha();
 
     expect(screen.getByText(/8 días de nacido/)).toBeInTheDocument();
+  });
+
+  /**
+   * El papel abre con dos recuadros: No. Expediente y Fecha. Sin ellos, una
+   * ficha impresa no se puede archivar ni fechar, y en pantalla pasaba lo
+   * mismo: no habia forma de ver a que expediente estaba entrando la captura.
+   */
+  it('el encabezado trae el numero de expediente y la fecha, como el papel', async () => {
+    servidor();
+    abrir(MEDICO);
+    await esperarFicha();
+
+    expect(screen.getByText('No. de expediente')).toBeInTheDocument();
+    expect(screen.getByText('EXP-2026-000900')).toBeInTheDocument();
+    expect(screen.getByLabelText('Fecha')).toBeInTheDocument();
+    expect(screen.getByText('Ficha clínica para menor de 28 días')).toBeInTheDocument();
+  });
+
+  it('la seccion 1 dice que servicio de salud llena la ficha', async () => {
+    servidor();
+    abrir(MEDICO);
+    await esperarFicha();
+
+    const seccion = screen.getByRole('region', {
+      name: '1. Identificación del servicio de salud',
+    });
+    expect(within(seccion).getByText('CAP')).toBeInTheDocument();
+    expect(within(seccion).getByText('CAP Purulhá')).toBeInTheDocument();
+    expect(within(seccion).getByText('Baja Verapaz')).toBeInTheDocument();
+  });
+
+  /**
+   * Recepcion anota estos datos y NO entra a la ficha. Que los llene otra
+   * pantalla no es motivo para que la hoja no los diga: en el papel estan
+   * impresos, y una ficha sin la edad ni la direccion del nino no es la misma
+   * hoja. Se enseñan sin poder reescribirse, que es como los trata la ficha de
+   * adultos: el dato se corrige donde vive.
+   */
+  it('la seccion 2 enseña los datos que recepcion ya anoto', async () => {
+    servidor();
+    abrir(MEDICO);
+    await esperarFicha();
+
+    const seccion = screen.getByRole('region', { name: '2. Datos generales del paciente' });
+    expect(within(seccion).getByText('Caserío El Naranjo, Chilasco')).toBeInTheDocument();
+    expect(within(seccion).getByText('Masculino')).toBeInTheDocument();
+    expect(within(seccion).getByText('8 días')).toBeInTheDocument();
+    expect(within(seccion).getByText('Población migrante')).toBeInTheDocument();
+    // Y lo de la consulta si se escribe.
+    expect(within(seccion).getByLabelText(/Motivo de consulta/)).toBeEnabled();
+    expect(within(seccion).getByLabelText('Nombre de la madre')).toBeEnabled();
+  });
+
+  it('de un paciente migrante dice de donde viene', async () => {
+    servidor({
+      paciente: { ...PACIENTE, migrante: true, lugarOrigen: 'Salamá' },
+    });
+    abrir(MEDICO);
+    await esperarFicha();
+
+    const seccion = screen.getByRole('region', { name: '2. Datos generales del paciente' });
+    expect(within(seccion).getByText('Sí')).toBeInTheDocument();
+    expect(within(seccion).getByText('Salamá')).toBeInTheDocument();
+  });
+
+  /**
+   * El "¿Cual?" cuelga DEBAJO de la pregunta, no a su derecha.
+   *
+   * Al lado de las casillas SI/NO empujaba la fila: responder que si movia las
+   * casillas de sitio, y el campo quedaba tan estrecho que no se leia lo
+   * escrito. Es el mismo trato que la ficha de adultos le da a sus
+   * antecedentes.
+   */
+  it('el ¿cual? de un antecedente cuelga debajo de la pregunta, no al lado', async () => {
+    servidor();
+    const usuario = userEvent.setup();
+    abrir(MEDICO);
+    await esperarFicha();
+
+    expect(screen.queryByLabelText('¿Cuál?')).not.toBeInTheDocument();
+
+    const grupo = screen.getByRole('radiogroup', { name: 'Toma o tomó algún medicamento' });
+    await usuario.click(within(grupo).getAllByRole('radio')[0]);
+
+    const cual = await screen.findByLabelText('¿Cuál?');
+    // La fila de la pregunta es la que contiene las casillas: el detalle esta
+    // fuera de ella, que es lo que significa "debajo y no al lado".
+    expect(grupo.parentElement).not.toContainElement(cual);
   });
 
   it('separa los tres recuadros del papel, con su conducta', async () => {
@@ -420,7 +518,7 @@ describe('la ficha en pantalla', () => {
 
     await waitFor(() => {
       expect(
-        screen.queryByRole('heading', { name: /menor de 28 días/ }),
+        screen.queryByRole('heading', { name: /Caal Xol, Bebé/ }),
       ).not.toBeInTheDocument();
     });
   });

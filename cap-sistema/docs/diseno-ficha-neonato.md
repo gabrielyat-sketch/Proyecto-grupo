@@ -139,6 +139,79 @@ El CAP transcribe expedientes de papel (RF-08): una ficha de hace tres años se
 llena con la edad que el niño tenía **entonces**. Bloquear la captura por la
 edad de hoy haría imposible digitalizar el archivo. Se avisa y se deja seguir.
 
+### El encabezado del papel es el mismo en las cuatro hojas
+
+Las cuatro fichas del MSPAS abren igual: el nombre de la hoja, el recuadro de
+**No. Expediente** y el de **Fecha**. La pantalla no los tenía —solo un título y
+el nombre del paciente en gris— y eso dejaba a quien capturaba sin saber a qué
+expediente estaba entrando.
+
+El encabezado vive ahora en `web/src/modulos/fichas/EncabezadoFicha.tsx` y lo
+usan **las dos fichas**. No es reutilización por ahorrar: el personal salta
+entre hojas con el papel al lado, y si la de adultos y la de neonato dijeran lo
+mismo en sitios distintos, cada salto costaría una búsqueda. Las dos que faltan
+—niñez y prenatal— entran por ahí sin volver a decidir nada.
+
+Dentro, **el nombre del paciente es el encabezado de nivel uno** y el de la hoja
+va encima en letra pequeña, fuera de la jerarquía: los encabezados de nivel dos
+son las secciones numeradas del formulario, y meter ahí el nombre de la hoja
+haría que un lector de pantalla anunciara una sección que en el papel no existe.
+
+La **fecha** se editaba en la sección 2. Se movió al encabezado, que es donde el
+papel la imprime.
+
+### La sección 1 no se pregunta: se dice
+
+El papel abre con seis casillas —PSF, C/S «A», CENAPA, C/S «B», CAP, CAIMI—,
+el nombre del servicio y el área de salud, porque el formulario se imprime igual
+para todo el país. Aquí el sistema corre en **un solo establecimiento**, así que
+la sección se muestra resuelta: `CAP · CAP Purulhá · Baja Verapaz`. Una casilla
+que solo admite una respuesta es una casilla que alguien puede equivocar.
+
+Los tres valores están en `SERVICIO_DE_SALUD`, en `servicio-fichas.ts`, y los
+usa también la ficha de adultos. Si el CAP algún día comparte el sistema con
+otro servicio, eso deja de ser una constante y pasa a ser configuración del
+establecimiento.
+
+### Los datos generales se enseñan aunque los llene recepción
+
+La sección 2 del papel pide dirección, fecha de nacimiento del niño, edad en
+días, sexo, población migrante y lugar de origen. La pantalla no los tenía
+porque recepción ya los anota al registrar al paciente.
+
+Ese razonamiento estaba mal: **recepción no entra a la ficha**. Quien la llena
+no puede ir a mirar el registro, y una hoja sin la edad ni la dirección del niño
+no es la misma hoja que el MSPAS imprime.
+
+Se muestran, y **no se pueden reescribir**, que es como los trata la ficha de
+adultos en su sección I·II: si un dato está mal se corrige en recepción, que es
+donde vive, y así el expediente y la ficha nunca dicen cosas distintas.
+Editable sigue siendo solo lo que pertenece a la consulta: el nombre de la
+madre, el motivo y la fecha.
+
+La **dirección** no es un campo: en Purulhá nadie tiene calle y número. Se arma
+con el lugar poblado y la comunidad —«Caserío El Naranjo, Chilasco»—, que es lo
+que recepción pregunta y como la gente dice dónde vive.
+
+### Lo que una respuesta destapa va debajo, no al lado
+
+El «¿Cuál?» de los antecedentes maternos, el «¿Quién?» del parto y el número de
+dosis de Td colgaban a la derecha de las casillas SI/NO. Responder que sí
+**empujaba la fila** y movía las casillas de sitio, y el campo quedaba tan
+estrecho que no se leía lo escrito.
+
+Ahora bajan debajo de la pregunta, con fondo y sangría, en un `Collapse`: la
+fila no se mueve y el detalle se ve como lo que es, parte de la respuesta
+anterior. Es el mismo trato que la ficha de adultos le da a sus treinta y tres
+antecedentes, y está en un componente —`DetalleDeRespuesta`— para que la
+siguiente ficha no vuelva a inventarlo.
+
+### Libras y onzas a la misma altura
+
+Los dos campos del peso al nacer se alineaban por el centro y solo «Onzas»
+llevaba aviso debajo, así que su casilla quedaba más arriba que la de «Libras».
+Se alinean por arriba.
+
 ---
 
 ## Permisos
@@ -157,7 +230,8 @@ fuera del menú, igual que la de adultos: se llega con un paciente ya elegido.
 | `services/usuarios/prisma/migrations/…_ficha_neonato_y_consejeria/` | Las tres tablas nuevas |
 | `web/src/modulos/fichas/neonato/borrador-neonato.ts` | El estado del formulario y sus reglas |
 | `web/src/modulos/fichas/neonato/PaginaFichaNeonato.tsx` | La pantalla |
-| `web/src/modulos/fichas/neonato/neonato.spec.tsx` | 23 pruebas de pantalla |
+| `web/src/modulos/fichas/neonato/neonato.spec.tsx` | 28 pruebas de pantalla |
+| `web/src/modulos/fichas/EncabezadoFicha.tsx` | El encabezado impreso, compartido con la ficha de adultos |
 
 ## Archivos modificados
 
@@ -169,6 +243,9 @@ fuera del menú, igual que la de adultos: se llega con un paciente ya elegido.
 | `test/fichas.e2e-spec.ts` | +15 pruebas |
 | `docs/openapi/usuarios.yaml` y `web/src/api/generado/usuarios.ts` | Regenerados |
 | `web/src/App.tsx` y `navegacion/menu.ts` | La ruta nueva |
+| `web/src/modulos/fichas/SeccionFicha.tsx` | `Dato` sale de la ficha de adultos y se comparte |
+| `web/src/modulos/fichas/servicio-fichas.ts` | `SERVICIO_DE_SALUD` |
+| `web/src/modulos/fichas/PaginaFicha.tsx` | Usa el encabezado compartido y la constante del servicio |
 
 ---
 
@@ -200,6 +277,19 @@ Tres huecos, todos de la misma familia y todos introducidos aquí:
 - **Un problema repetido, lo mismo**, y eso ya existía antes de esta ficha.
 
 Los tres se cierran con la misma comprobación, y tienen prueba.
+
+### Y uno que sigue abierto: la ficha de neonato no se puede marcar como transcrita
+
+`BorradorNeonato` tiene `digitalizada` y el cuerpo lo envía, pero **la pantalla
+no tiene la casilla** que sí tiene la de adultos: `borrador.digitalizada` vale
+`false` siempre. Consecuencia: una jornada entera transcribiendo fichas de
+neonato del archivo de papel se registraría como consultas del día, y el panel
+de avance de la digitalización (RF-08) no vería ninguna.
+
+Es la misma familia que los tres de arriba —código que nunca se ejercitó desde
+una pantalla— y **no está corregido**: aparece al revisar la sección 2, pero
+tocarlo bien exige decidir si esta ficha entra también desde la cola de
+digitalización, como la de adultos, y no solo desde recepción.
 
 ---
 
