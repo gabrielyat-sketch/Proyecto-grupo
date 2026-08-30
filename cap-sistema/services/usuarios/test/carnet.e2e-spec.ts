@@ -422,4 +422,120 @@ describe('Carnet del lactante y ninez (e2e)', () => {
         .expect(404);
     });
   });
+
+  // ══════════════════════ la grafica de peso ══════════════════════
+
+  describe('la serie de peso para la grafica', () => {
+    let expedienteId = '';
+
+    beforeAll(async () => {
+      const expediente = await prisma.expediente.create({
+        data: {
+          pacienteId,
+          numeroCifrado: Buffer.from('x'),
+          numeroIndice: Buffer.from('zz-crecimiento-' + Date.now()),
+        },
+        select: { id: true },
+      });
+      expedienteId = expediente.id;
+
+      // Tres controles, con el peso EN KILOS que es como la base lo guarda.
+      // 22 lb, 24.2 lb y 23.1 lb: sube y luego baja.
+      const pesos = [
+        { meses: 6, kg: 9.98 },
+        { meses: 12, kg: 10.98 },
+        { meses: 18, kg: 10.48 },
+      ];
+      for (const p of pesos) {
+        const fecha = new Date();
+        fecha.setMonth(fecha.getMonth() - (27 - p.meses));
+        await prisma.atencion.create({
+          data: {
+            expedienteId,
+            fecha,
+            registradaPor: 'u-prueba',
+            motivoCifrado: Buffer.from('x'),
+            pesoKg: p.kg,
+          },
+        });
+      }
+    });
+
+    afterAll(async () => {
+      await prisma.atencion.deleteMany({ where: { expedienteId } });
+      await prisma.expediente.deleteMany({ where: { id: expedienteId } });
+    });
+
+    /**
+     * La grafica no captura nada: sale de los pesos que cada atencion ya
+     * guarda. Y sale en LIBRAS, que es como el papel la dibuja, aunque la base
+     * los guarde en kilos porque esa es la columna que alimenta los
+     * indicadores de desnutricion.
+     */
+    it('devuelve los pesos en libras, del mas antiguo al mas reciente', async () => {
+      const r = await request(http())
+        .get('/v1/pacientes/' + pacienteId + '/crecimiento')
+        .set(como(Rol.MEDICO))
+        .expect(200);
+
+      expect(r.body.puntos).toHaveLength(3);
+      expect(r.body.puntos.map((p: { pesoLibras: number }) => p.pesoLibras)).toEqual([
+        22, 24.2, 23.1,
+      ]);
+      // Y en orden: la grafica es una linea, no un conjunto de puntos.
+      const fechas = r.body.puntos.map((p: { fecha: string }) => p.fecha);
+      expect([...fechas].sort()).toEqual(fechas);
+    });
+
+    /**
+     * La leyenda del papel compara contra el control ANTERIOR, no contra una
+     * curva. "No crece bien, pierde peso" se ve en la pendiente entre dos
+     * puntos, no en donde cae uno.
+     */
+    it('clasifica cada control contra el anterior, como dice la leyenda', async () => {
+      const r = await request(http())
+        .get('/v1/pacientes/' + pacienteId + '/crecimiento')
+        .set(como(Rol.MEDICO))
+        .expect(200);
+
+      const t = r.body.puntos.map((p: { tendencia: string }) => p.tendencia);
+      expect(t).toEqual(['SIN_ANTERIOR', 'CRECE_BIEN', 'PERDIO']);
+
+      expect(r.body.puntos[1].diferenciaLibras).toBeCloseTo(2.2, 1);
+      expect(r.body.puntos[2].diferenciaLibras).toBeCloseTo(-1.1, 1);
+    });
+
+    /**
+     * En la primera visita no hay contra que comparar. Decir "crece bien" sin
+     * base seria inventar, y es justo la clase de dato que despues nadie
+     * cuestiona.
+     */
+    it('el primer control no dice si crece bien: no hay con que compararlo', async () => {
+      const r = await request(http())
+        .get('/v1/pacientes/' + pacienteId + '/crecimiento')
+        .set(como(Rol.MEDICO))
+        .expect(200);
+
+      expect(r.body.puntos[0].tendencia).toBe('SIN_ANTERIOR');
+      expect(r.body.puntos[0].diferenciaLibras).toBeNull();
+    });
+
+    it('trae la edad que tenia el nino en cada control', async () => {
+      const r = await request(http())
+        .get('/v1/pacientes/' + pacienteId + '/crecimiento')
+        .set(como(Rol.MEDICO))
+        .expect(200);
+
+      expect(r.body.puntos.map((p: { edadEnMeses: number }) => p.edadEnMeses)).toEqual([
+        6, 12, 18,
+      ]);
+    });
+
+    it('Recepcion no ve los pesos de un nino', async () => {
+      await request(http())
+        .get('/v1/pacientes/' + pacienteId + '/crecimiento')
+        .set(como(Rol.RECEPCION))
+        .expect(403);
+    });
+  });
 });

@@ -2,7 +2,12 @@ import { Body, Controller, Get, Param, Patch } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Rol, Roles, Usuario } from '@cap/shared';
 import { CarnetService } from './carnet.service';
-import { CarnetDto, CatalogoCarnetDto, GuardarCarnetDto } from './dto/carnet.dto';
+import {
+  CarnetDto,
+  CatalogoCarnetDto,
+  CrecimientoDto,
+  GuardarCarnetDto,
+} from './dto/carnet.dto';
 
 /**
  * El carnet del lactante y la ninez: paginas 1 y 2 de su ficha.
@@ -45,6 +50,20 @@ export class CarnetController {
   @ApiOkResponse({ type: CarnetDto })
   obtener(@Param('pacienteId') pacienteId: string): Promise<CarnetDto> {
     return this.servicio.obtener(pacienteId);
+  }
+
+  @Get('pacientes/:pacienteId/crecimiento')
+  @Roles(Rol.MEDICO, Rol.ENFERMERIA, Rol.DIRECTOR, Rol.ADMINISTRADOR)
+  @ApiOperation({
+    summary: 'Los pesos del nino en el tiempo, para la grafica de peso para edad',
+    description:
+      'No se captura nada: sale de los pesos que cada atencion ya guarda. Viene en LIBRAS, que es ' +
+      'como el papel dibuja la grafica, y cada punto trae como se movio desde el control anterior ' +
+      '—que es lo que dice la leyenda impresa, y no depende de donde cae el punto—.',
+  })
+  @ApiOkResponse({ type: CrecimientoDto })
+  crecimiento(@Param('pacienteId') pacienteId: string): Promise<CrecimientoDto> {
+    return this.servicio.crecimiento(pacienteId);
   }
 
   @Patch('pacientes/:pacienteId/carnet')

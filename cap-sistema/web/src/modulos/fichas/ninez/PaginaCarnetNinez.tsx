@@ -27,11 +27,13 @@ import { obtenerPaciente } from '../servicio-fichas';
 import {
   obtenerCarnet,
   obtenerCatalogoCarnet,
+  obtenerCrecimiento,
   guardarCarnet,
   type Carnet,
   type GuardarCarnet,
   type TramoEdad,
 } from './servicio-carnet';
+import { GraficaPesoEdad } from './GraficaPesoEdad';
 import {
   casillasDe,
   COLUMNAS_DOSIS,
@@ -99,6 +101,14 @@ export function PaginaCarnetNinez() {
   const carnet = useQuery({
     queryKey: ['carnet', pacienteId],
     queryFn: () => obtenerCarnet(pacienteId),
+    enabled: pacienteId !== '',
+  });
+
+  // La grafica sale de los pesos que cada atencion ya guardo. No depende de
+  // nada de esta pantalla, asi que se pide aparte y no bloquea al carnet.
+  const crecimiento = useQuery({
+    queryKey: ['crecimiento', pacienteId],
+    queryFn: () => obtenerCrecimiento(pacienteId),
     enabled: pacienteId !== '',
   });
 
@@ -464,6 +474,23 @@ export function PaginaCarnetNinez() {
               </TableBody>
             </Table>
           </Box>
+        </SeccionFicha>
+
+        {/* ────────── La grafica de peso para edad ────────── */}
+        <SeccionFicha
+          numeral="·"
+          titulo="Gráfica de peso para edad"
+          nota="No se captura: se dibuja con los pesos que cada consulta ya anotó. Las tres bandas del papel faltan todavía; sus curvas son un escaneo y de una foto no salen valores."
+        >
+          {crecimiento.isPending ? (
+            <Stack sx={{ alignItems: 'center', py: 3 }}>
+              <CircularProgress size={28} />
+            </Stack>
+          ) : crecimiento.isError ? (
+            <AvisoError error={crecimiento.error} />
+          ) : (
+            <GraficaPesoEdad puntos={crecimiento.data?.puntos ?? []} />
+          )}
         </SeccionFicha>
 
         {/* ────────── Micronutrientes ────────── */}

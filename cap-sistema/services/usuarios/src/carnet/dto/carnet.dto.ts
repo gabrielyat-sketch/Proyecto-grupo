@@ -440,3 +440,60 @@ export class GuardarCarnetDto {
   @Type(() => GuardarMicronutrienteDto)
   micronutrientes?: GuardarMicronutrienteDto[];
 }
+
+// ═════════════════════════ la grafica de peso ═════════════════════════
+
+/**
+ * Como se movio el peso desde el control anterior.
+ *
+ * Son las tres bandas que la leyenda del papel imprime junto a la grafica, y
+ * NO dependen de donde cae el punto sino de si subio o bajo respecto de la vez
+ * pasada. Por eso el primer control nunca tiene tendencia: no hay contra que
+ * compararlo, y decir "crece bien" sin base seria inventar.
+ */
+export enum TendenciaPesoDto {
+  /** Gano peso desde el control anterior. */
+  CRECE_BIEN = 'CRECE_BIEN',
+  /** Ni gano ni perdio. */
+  NO_GANO = 'NO_GANO',
+  PERDIO = 'PERDIO',
+  /** Primer control: no hay con que comparar. */
+  SIN_ANTERIOR = 'SIN_ANTERIOR',
+}
+
+export class PuntoCrecimientoDto {
+  @ApiProperty({ example: '2025-04-12', description: 'Como aaaa-mm-dd.' })
+  fecha!: string;
+
+  @ApiProperty({
+    type: Number,
+    description: 'En LIBRAS, que es como el papel dibuja la grafica.',
+    example: 24.3,
+  })
+  pesoLibras!: number;
+
+  @ApiProperty({ type: Number, nullable: true, description: 'Meses cumplidos ese dia.' })
+  edadEnMeses!: number | null;
+
+  @ApiProperty({ enum: TendenciaPesoDto })
+  tendencia!: TendenciaPesoDto;
+
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    description: 'Libras ganadas o perdidas desde el control anterior.',
+    example: 1.1,
+  })
+  diferenciaLibras!: number | null;
+}
+
+export class CrecimientoDto {
+  @ApiProperty({ format: 'uuid' })
+  pacienteId!: string;
+
+  @ApiProperty({
+    type: [PuntoCrecimientoDto],
+    description: 'Los pesos ya registrados, del mas antiguo al mas reciente.',
+  })
+  puntos!: PuntoCrecimientoDto[];
+}
