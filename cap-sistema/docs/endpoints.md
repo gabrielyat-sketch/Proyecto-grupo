@@ -68,6 +68,18 @@ gateway público).
 | `GET` | `/v1/salud` | El proceso esta vivo | — |
 | `GET` | `/v1/salud/listo` | El servicio y sus dependencias responden | — |
 
+## trazabilidad
+
+| Método | Ruta | Qué hace | Auth |
+|---|---|---|---|
+| `GET` | `/v1/raices` | Raices diarias firmadas | Bearer |
+| `POST` | `/v1/raices/cierre` | Cierra un dia y firma su hash raiz | Bearer |
+| `GET` | `/v1/registros` | Consulta la bitacora, paginada | Bearer |
+| `POST` | `/v1/registros` | Agrega una entrada a la bitacora | Bearer |
+| `GET` | `/v1/registros/verificacion` | Recorre la cadena y reporta si esta intacta | Bearer |
+| `GET` | `/v1/salud` | El proceso esta vivo | — |
+| `GET` | `/v1/salud/listo` | El servicio y sus dependencias responden | — |
+
 ## usuarios
 
 | Método | Ruta | Qué hace | Auth |
@@ -91,4 +103,4 @@ gateway público).
 
 ---
 
-**Total: 62 operaciones en 4 servicios.**
+**Total: 69 operaciones en 5 servicios.**

@@ -22,7 +22,8 @@
     "lint": "npm run lint --workspaces --if-present",
     "mock": "prism mock docs/openapi/usuarios.yaml",
     "contratos": "npm run contrato --workspaces --if-present",
-    "endpoints": "tsx scripts/indice-endpoints.ts"
+    "endpoints": "tsx scripts/indice-endpoints.ts",
+    "verificar-cadena": "tsx infra/scripts/verificar-cadena.ts"
   },
   "devDependencies": {
     "@types/node": "^26.3.0",

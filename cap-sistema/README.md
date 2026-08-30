@@ -115,11 +115,12 @@ Por servicio: `npm run test:e2e -w @cap/auth`, `npm run contrato -w @cap/usuario
 | 4 | `usuarios` | ✅ |
 | 6 | `programas` (hipertensión, embarazo) | ✅ |
 | 8 | `medicamentos` (inventario, lotes, entregas) | ✅ |
+| 9 | `trazabilidad` (bitácora append-only, RF-09) | ✅ |
 | 5 | Panel web | ⬜ pendiente |
 | 7 | Desnutrición infantil | ⬜ |
-| 9–12 | Ver `docs/servicios-pendientes.md` | ⬜ |
+| 10–12 | Ver `docs/servicios-pendientes.md` | ⬜ |
 
-**359 pruebas** (206 unitarias, 153 e2e contra PostgreSQL real).
+**425 pruebas** (234 unitarias, 191 e2e contra PostgreSQL real).
 
 ## La regla más importante del repositorio
 
