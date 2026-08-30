@@ -1,11 +1,11 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+﻿import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import request from 'supertest';
 import { FiltroExcepciones, Rol } from '@cap/shared';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { PrismaClient } from '../prisma/generado';
+import { PrismaClient } from '../generado';
 
 /**
  * ─────────────────────────────────────────────────────────────────────────
