@@ -7,6 +7,9 @@ export type MicronutrienteCatalogo = components['schemas']['MicronutrienteCatalo
 export type Carnet = components['schemas']['CarnetDto'];
 export type GuardarCarnet = components['schemas']['GuardarCarnetDto'];
 export type TramoEdad = components['schemas']['EntregaEsperadaDto']['tramo'];
+export type Crecimiento = components['schemas']['CrecimientoDto'];
+export type PuntoCrecimiento = components['schemas']['PuntoCrecimientoDto'];
+export type TendenciaPeso = PuntoCrecimiento['tendencia'];
 
 /**
  * El esquema impreso: qué vacunas hay y qué dosis aplican a cada una.
@@ -45,6 +48,22 @@ export async function guardarCarnet(
   const { data, error, response } = await apiUsuarios.PATCH(ruta, {
     params: { path: { pacienteId } },
     body: cambios,
+  });
+  if (error || !data) fallarApi(error, ruta, response);
+  return data;
+}
+
+/**
+ * Los pesos del nino en el tiempo, para la grafica de peso para edad.
+ *
+ * Endpoint propio y no el historial de atenciones: ese descifra motivo,
+ * diagnostico y tratamiento de cada visita, y para dibujar una linea no hace
+ * falta nada de eso.
+ */
+export async function obtenerCrecimiento(pacienteId: string): Promise<Crecimiento> {
+  const ruta = '/v1/pacientes/{pacienteId}/crecimiento';
+  const { data, error, response } = await apiUsuarios.GET(ruta, {
+    params: { path: { pacienteId } },
   });
   if (error || !data) fallarApi(error, ruta, response);
   return data;

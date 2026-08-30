@@ -369,6 +369,26 @@ export interface paths {
         patch: operations["CarnetController_guardar"];
         trace?: never;
     };
+    "/v1/pacientes/{pacienteId}/crecimiento": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Los pesos del nino en el tiempo, para la grafica de peso para edad
+         * @description No se captura nada: sale de los pesos que cada atencion ya guarda. Viene en LIBRAS, que es como el papel dibuja la grafica, y cada punto trae como se movio desde el control anterior —que es lo que dice la leyenda impresa, y no depende de donde cae el punto—.
+         */
+        get: operations["CarnetController_crecimiento"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/pacientes/{pacienteId}/antecedentes": {
         parameters: {
             query?: never;
@@ -1356,6 +1376,33 @@ export interface components {
             datos: components["schemas"]["DatosNinezDto"] | null;
             /** @description El agua y las excretas de la casa. Vienen del grupo familiar, no del niño: los hermanos comparten uno solo. */
             hogar: components["schemas"]["HogarDto"] | null;
+        };
+        PuntoCrecimientoDto: {
+            /**
+             * @description Como aaaa-mm-dd.
+             * @example 2025-04-12
+             */
+            fecha: string;
+            /**
+             * @description En LIBRAS, que es como el papel dibuja la grafica.
+             * @example 24.3
+             */
+            pesoLibras: number;
+            /** @description Meses cumplidos ese dia. */
+            edadEnMeses: number | null;
+            /** @enum {string} */
+            tendencia: "CRECE_BIEN" | "NO_GANO" | "PERDIO" | "SIN_ANTERIOR";
+            /**
+             * @description Libras ganadas o perdidas desde el control anterior.
+             * @example 1.1
+             */
+            diferenciaLibras: number | null;
+        };
+        CrecimientoDto: {
+            /** Format: uuid */
+            pacienteId: string;
+            /** @description Los pesos ya registrados, del mas antiguo al mas reciente. */
+            puntos: components["schemas"]["PuntoCrecimientoDto"][];
         };
         GuardarDatosNinezDto: {
             lugarNacimiento?: string;
@@ -3074,6 +3121,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CarnetDto"];
+                };
+            };
+            /** @description La informacion enviada no es valida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El recurso solicitado no existe. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
+    CarnetController_crecimiento: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pacienteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrecimientoDto"];
                 };
             };
             /** @description La informacion enviada no es valida. */

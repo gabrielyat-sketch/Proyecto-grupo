@@ -5,7 +5,10 @@ import { SERVICIO_CIFRADO } from '../comun/cifrado.module';
 import {
   CarnetDto,
   CatalogoCarnetDto,
+  CrecimientoDto,
   GuardarCarnetDto,
+  PuntoCrecimientoDto,
+  TendenciaPesoDto,
   type AbastecimientoAguaDto,
   type DisposicionExcretasDto,
   type EscolaridadMadreDto,
@@ -13,6 +16,28 @@ import {
 } from './dto/carnet.dto';
 
 type Cifrado = Uint8Array | Buffer | null;
+
+/** Un kilo son 2.2046 libras. La conversion vive en un solo sitio. */
+const KILOS_POR_LIBRA = 0.45359237;
+
+/**
+ * La leyenda del papel, aplicada.
+ *
+ * Compara contra el control ANTERIOR, no contra una curva: "no crece bien,
+ * pierde peso" y "no crece bien, no gano peso" son las dos formas de dejar de
+ * crecer, y las dos se ven en la pendiente entre dos puntos.
+ *
+ * Las bandas de referencia del formulario todavia no estan: sus curvas son un
+ * escaneo y de una foto no salen valores. Cuando el CAP o el MSPAS den la tabla
+ * de peso para edad, se anaden SIN tocar esto, que es una lectura distinta.
+ */
+function tendenciaDe(diferencia: number | null): TendenciaPesoDto {
+  if (diferencia === null) return TendenciaPesoDto.SIN_ANTERIOR;
+  if (diferencia > 0) return TendenciaPesoDto.CRECE_BIEN;
+  if (diferencia < 0) return TendenciaPesoDto.PERDIO;
+  return TendenciaPesoDto.NO_GANO;
+}
+
 
 /**
  * El carnet del lactante y la ninez: las paginas 1 y 2 de su ficha.
@@ -352,6 +377,61 @@ export class CarnetService {
     });
 
     return this.obtener(pacienteId);
+  }
+
+
+  /**
+   * La serie de pesos para la grafica de peso para edad.
+   *
+   * **No se captura nada nuevo: se dibuja con lo que ya hay.** Cada atencion
+   * guarda el peso, y la grafica son esos pesos puestos en el tiempo. Es de las
+   * pocas partes del sistema donde lo digital hace algo que el papel no puede.
+   *
+   * Va en su propio endpoint y no reutiliza el historial de atenciones porque
+   * ese descifra motivo, diagnostico y tratamiento de cada visita. Para dibujar
+   * una grafica no hace falta nada de eso, y descifrar el expediente entero
+   * para sacar una linea es pagar caro y exponer de mas.
+   *
+   * El peso se guarda en KILOS —es la columna que alimenta los indicadores de
+   * desnutricion— y aqui sale en LIBRAS, que es como el papel dibuja la
+   * grafica y como el personal lo lee.
+   */
+  async crecimiento(pacienteId: string): Promise<CrecimientoDto> {
+    const paciente = await this.prisma.paciente.findUnique({
+      where: { id: pacienteId },
+      select: { id: true, fechaNacimiento: true, expediente: { select: { id: true } } },
+    });
+    if (!paciente) throw new NotFoundException('El paciente no existe.');
+
+    if (!paciente.expediente) return { pacienteId, puntos: [] };
+
+    const pesos = await this.prisma.atencion.findMany({
+      where: { expedienteId: paciente.expediente.id, pesoKg: { not: null } },
+      orderBy: { fecha: 'asc' },
+      select: { fecha: true, pesoKg: true },
+    });
+
+    const nacimiento = paciente.fechaNacimiento;
+    const puntos: PuntoCrecimientoDto[] = [];
+    let anterior: number | null = null;
+
+    for (const p of pesos) {
+      // `Decimal` de Prisma: se convierte una sola vez, aqui.
+      const libras = Math.round((Number(p.pesoKg) / KILOS_POR_LIBRA) * 10) / 10;
+      const diferencia =
+        anterior === null ? null : Math.round((libras - anterior) * 10) / 10;
+
+      puntos.push({
+        fecha: this.comoFecha(p.fecha),
+        pesoLibras: libras,
+        edadEnMeses: nacimiento ? this.mesesCumplidos(nacimiento, p.fecha) : null,
+        tendencia: tendenciaDe(diferencia),
+        diferenciaLibras: diferencia,
+      });
+      anterior = libras;
+    }
+
+    return { pacienteId, puntos };
   }
 
   /**

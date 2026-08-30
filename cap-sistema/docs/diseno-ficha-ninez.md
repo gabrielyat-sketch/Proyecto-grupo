@@ -1,6 +1,6 @@
 # Diseño: ficha clínica del lactante y niñez
 
-Estado: **etapas A y B construidas.** La C —la gráfica de peso— está diseñada y sin empezar.
+Estado: **las tres etapas construidas.** La ficha del lactante y niñez está completa, con una salvedad declarada: la gráfica todavía no dibuja las bandas de referencia.
 
 Rama: `feature/ficha-ninez`.
 
@@ -233,9 +233,62 @@ las de SPR —que el papel imprime como «meses», sin número— y las de Neumo
 Hb y Otras no se cuentan. Inventarles una edad convertiría un hueco del
 formulario en un aviso falso.
 
-**Etapa C — la gráfica.**
-Peso para edad con sus bandas y el aviso de crecimiento. Depende de que haya
-pesos capturados, así que va al final por necesidad, no por comodidad.
+**Etapa C — la gráfica. ✅ Construida, sin las bandas.**
+
+No lleva migración ni captura nada: sale de los pesos que cada atención ya
+guarda. Tiene endpoint propio —`/v1/pacientes/:id/crecimiento`— y no reutiliza
+el historial de atenciones porque ese descifra motivo, diagnóstico y tratamiento
+de cada visita. Para dibujar una línea no hace falta nada de eso, y descifrar el
+expediente entero para sacarla es pagar caro y exponer de más.
+
+**La clasificación es entre controles, no contra una curva.** La leyenda del
+papel dice «no crece bien, pierde peso» y «no crece bien, no ganó peso»: las dos
+son formas de dejar de crecer y las dos se ven en la pendiente entre dos puntos,
+no en dónde cae uno. Por eso el primer control **no** dice si crece bien —no hay
+contra qué compararlo, y decirlo sin base sería inventar.
+
+**Lo que falta, y por qué.** Las tres bandas de referencia del formulario son un
+escaneo; de una foto no salen valores. Cuando el CAP o el MSPAS den la tabla de
+peso para edad se dibujan encima sin tocar nada de lo hecho: son una lectura
+distinta —dónde cae el punto— de la que ya está —cómo se movió—. Mientras tanto
+la pantalla dice si ganó o perdió peso, que es lo que más pesa en una consulta,
+y **no** dice si está por encima o por debajo de lo esperado para su edad. Hay
+una prueba que lo vigila: ninguna fila puede hablar de percentiles ni de bajo
+peso para la edad.
+
+**Un panel, no dos.** El papel parte la gráfica en dos —0 a 36 meses y 38 a 60—
+porque las curvas impresas necesitan escalas distintas para caber en la hoja. Es
+un artefacto de imprenta, no información clínica: aquí es una sola gráfica
+continua de 0 a 5 años, con las marcas por año que el papel lleva abajo.
+
+### El estado no se dice con color
+
+Los tres estados se dibujan con **forma**: círculo lleno para «crece bien»,
+cuadro hueco para «no ganó peso», triángulo para «perdió peso». El color
+acompaña, no informa.
+
+No es una precaución genérica. Se pasaron por el validador de paletas los tres
+colores de estado del tema del panel:
+
+```
+[FAIL] CVD separation   #b3261e ↔ #8a5a00  ΔE 0.7 (deutan)
+[FAIL] Normal-vision    #b3261e ↔ #8a5a00  ΔE 12.7 — por debajo del piso de 15
+```
+
+El ámbar de aviso y el rojo de error **son el mismo color** para quien no
+distingue rojo y verde, y cuesta separarlos incluso con visión normal. Dibujar
+los puntos solo por color habría hecho ilegible justo la diferencia entre «no
+ganó peso» y «perdió peso».
+
+> Esto es un hallazgo sobre `web/src/tema.ts`, no solo sobre la gráfica: esos
+> dos colores conviven hoy en avisos de todo el panel. No se tocó aquí porque es
+> un cambio de sistema y le corresponde a quien lleve la identidad visual.
+
+### La tabla no es un extra
+
+Debajo de la gráfica va la misma serie en tabla, con la fecha, la edad, el peso,
+el cambio con signo y el estado en palabras. En una consulta, leer «perdió 1.1
+libras desde agosto» sirve más que mirar una pendiente.
 
 La página 4 no necesita nada: son notas fechadas, y el historial del expediente
 ya las enseña.
@@ -281,13 +334,11 @@ imprimir un dato plausible en una ficha oficial. Se corrigen en
 
 ## Lo que queda
 
-Las dos migraciones están aplicadas y las dos decisiones, tomadas. Queda la
-etapa C, que no lleva migración: la gráfica se dibuja con los pesos que el
-sistema ya guarda.
+Las tres etapas están construidas y las dos migraciones aplicadas.
 
-Lo que sí hace falta antes de la C son **los valores de referencia de las
-curvas**. Las del papel son un escaneo, y de una foto no se puede dibujar una
-gráfica correcta.
+Lo único que queda de esta ficha es **la tabla de referencia de peso para
+edad**, y no es trabajo de programación: es un dato que tiene que dar el CAP o
+el MSPAS. Con ella, las bandas se dibujan encima de lo que ya está.
 
 ---
 

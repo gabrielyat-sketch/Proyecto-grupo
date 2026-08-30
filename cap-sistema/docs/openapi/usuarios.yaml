@@ -1284,6 +1284,59 @@ paths:
       security: *a14
       summary: Anota o corrige el carnet
       tags: *a15
+  /v1/pacientes/{pacienteId}/crecimiento:
+    get:
+      description: "No se captura nada: sale de los pesos que cada atencion ya guarda.
+        Viene en LIBRAS, que es como el papel dibuja la grafica, y cada punto
+        trae como se movio desde el control anterior —que es lo que dice la
+        leyenda impresa, y no depende de donde cae el punto—."
+      operationId: CarnetController_crecimiento
+      parameters:
+        - name: pacienteId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrecimientoDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a14
+      summary: Los pesos del nino en el tiempo, para la grafica de peso para edad
+      tags: *a15
   /v1/pacientes/{pacienteId}/antecedentes:
     get:
       description: Devuelve solo lo respondido. Un antecedente ausente significa que
@@ -3521,6 +3574,53 @@ components:
         - micronutrientes
         - datos
         - hogar
+    PuntoCrecimientoDto:
+      type: object
+      properties:
+        fecha:
+          type: string
+          example: 2025-04-12
+          description: Como aaaa-mm-dd.
+        pesoLibras:
+          type: number
+          description: En LIBRAS, que es como el papel dibuja la grafica.
+          example: 24.3
+        edadEnMeses:
+          type: number
+          nullable: true
+          description: Meses cumplidos ese dia.
+        tendencia:
+          type: string
+          enum:
+            - CRECE_BIEN
+            - NO_GANO
+            - PERDIO
+            - SIN_ANTERIOR
+        diferenciaLibras:
+          type: number
+          nullable: true
+          description: Libras ganadas o perdidas desde el control anterior.
+          example: 1.1
+      required:
+        - fecha
+        - pesoLibras
+        - edadEnMeses
+        - tendencia
+        - diferenciaLibras
+    CrecimientoDto:
+      type: object
+      properties:
+        pacienteId:
+          type: string
+          format: uuid
+        puntos:
+          description: Los pesos ya registrados, del mas antiguo al mas reciente.
+          type: array
+          items:
+            $ref: "#/components/schemas/PuntoCrecimientoDto"
+      required:
+        - pacienteId
+        - puntos
     GuardarDatosNinezDto:
       type: object
       properties:

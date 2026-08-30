@@ -18,10 +18,23 @@ import { beforeEach, vi } from 'vitest';
  * farmacia — dos archivos mas compitiendo por la CPU bastaron para cruzar el
  * segundo, y la ficha empezo a fallar de forma consistente.
  *
- * Cinco segundos no esconden una prueba lenta de verdad: el limite de 20 s
- * sigue cortandola.
+ * SEGUNDA subida, al anadir el carnet y la grafica de la ficha de ninez: dos
+ * archivos mas, y `ficha.spec` volvio a fallar en la suite completa mientras
+ * pasaba aislada. Esta vez de forma INTERMITENTE —una pasada de dos—, no
+ * consistente, asi que el limite exacto que se cruzo no se pudo capturar; es
+ * este por descarte, porque el archivo entero tardo 145 s con veintidos
+ * pruebas y ninguna se acerco sola a los 20 s de `testTimeout`.
+ *
+ * Diez segundos no esconden una prueba lenta de verdad: el limite de 20 s de
+ * `vite.config.ts` sigue cortandola.
+ *
+ * **Si hace falta una tercera subida, no la hagas.** Que el margen crezca con
+ * cada pantalla nueva significa que el problema no es el margen: es que los
+ * archivos pesados corren todos a la vez. Lo que toca entonces es limitar el
+ * paralelismo —`poolOptions.threads.maxThreads` en `vite.config.ts`—, que hace
+ * la suite mas lenta pero deja de depender de lo cargada que este la maquina.
  */
-configure({ asyncUtilTimeout: 5_000 });
+configure({ asyncUtilTimeout: 10_000 });
 
 /**
  * jsdom no implementa `scrollIntoView`.
