@@ -86,8 +86,7 @@ export function fichaParaPaciente(
     return {
       tipo: 'NINEZ',
       nombre: 'Lactancia y niñez',
-      // Todavia sin construir.
-      ruta: null,
+      ruta: '/pacientes/' + pacienteId + '/ficha-ninez',
       motivo: anios === 0 ? 'Tiene ' + dias + ' días' : 'Tiene ' + anios + ' años',
     };
   }

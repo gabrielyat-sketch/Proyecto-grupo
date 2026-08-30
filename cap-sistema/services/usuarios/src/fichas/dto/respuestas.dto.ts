@@ -32,6 +32,18 @@ export class ProblemaCatalogoDto {
   @ApiProperty({ example: 'Tos o dificultad para respirar' })
   nombre!: string;
 
+  // El `type: String` no es redundante: sin el, Swagger publica el campo sin
+  // tipo y el cliente generado lo recibe como `Record<string, never>`, que no
+  // se puede leer como texto. Pasa en todo campo anulable sin tipo explicito.
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'La raya que el papel imprime al lado de las casillas, cuando la hay. null en los problemas que no la traen.',
+    example: 'Cuánto tiempo hace',
+  })
+  etiquetaAnotacion!: string | null;
+
   @ApiProperty({ type: [OpcionCatalogoDto], description: 'Lo que en el papel se subraya en EVALUAR.' })
   signos!: OpcionCatalogoDto[];
 
@@ -238,6 +250,13 @@ export class ProblemaFichaRegistradoDto {
 
   @ApiProperty({ type: String, nullable: true })
   conducta!: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'Lo escrito en la raya impresa del problema, si la lleva.',
+  })
+  anotacion!: string | null;
 }
 
 export class MedicamentoFichaDto {

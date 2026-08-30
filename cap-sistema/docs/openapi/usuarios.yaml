@@ -2442,6 +2442,12 @@ components:
         nombre:
           type: string
           example: Tos o dificultad para respirar
+        etiquetaAnotacion:
+          type: string
+          nullable: true
+          description: La raya que el papel imprime al lado de las casillas, cuando la
+            hay. null en los problemas que no la traen.
+          example: Cuánto tiempo hace
         signos:
           description: Lo que en el papel se subraya en EVALUAR.
           type: array
@@ -2456,6 +2462,7 @@ components:
         - id
         - orden
         - nombre
+        - etiquetaAnotacion
         - signos
         - diagnosticos
     TemaConsejeriaCatalogoDto:
@@ -2546,6 +2553,12 @@ components:
         conducta:
           type: string
           description: Conducta indicada para este problema.
+        anotacion:
+          type: string
+          description: 'Lo escrito en la raya que el problema lleva impresa, cuando la
+            lleva. Su etiqueta viene en el catalogo: "Cuanto tiempo hace",
+            "Cuantas veces por dia".'
+          example: Tres dias
       required:
         - problemaId
         - presente
@@ -2803,6 +2816,10 @@ components:
         conducta:
           type: string
           nullable: true
+        anotacion:
+          type: string
+          nullable: true
+          description: Lo escrito en la raya impresa del problema, si la lleva.
       required:
         - problemaId
         - nombre
@@ -2811,6 +2828,7 @@ components:
         - diagnosticos
         - otroDiagnostico
         - conducta
+        - anotacion
     MedicamentoFichaDto:
       type: object
       properties:

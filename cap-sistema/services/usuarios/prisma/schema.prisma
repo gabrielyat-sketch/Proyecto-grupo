@@ -476,6 +476,16 @@ model ProblemaFicha {
   /// Orden en que aparece en el papel. El personal lo recorre de arriba abajo.
   orden     Int
   nombre    String    @db.VarChar(160)
+
+  /// La raya que algunos problemas llevan impresa al lado de las casillas:
+  /// "Cuanto tiempo hace", "Cuantas veces por dia". Null en los que no la
+  /// traen, que son la mayoria.
+  ///
+  /// Vive en el catalogo y no en la pantalla porque es texto del formulario:
+  /// una revision del MSPAS puede cambiar la pregunta sin que nadie toque
+  /// codigo. La ficha del lactante y ninez tiene cuatro filas asi.
+  etiquetaAnotacion String? @map("etiqueta_anotacion") @db.VarChar(80)
+
   /// Una revision del formulario puede retirar un problema sin borrarlo: las
   /// atenciones viejas siguen apuntando a el.
   activo    Boolean   @default(true)
@@ -690,6 +700,13 @@ model ProblemaAtencion {
   /// El texto libre de las opciones "Otro: ____" de la columna de diagnostico.
   otroDiagnosticoCifrado Bytes? @map("otro_diagnostico_cifrado")
   conductaCifrado        Bytes? @map("conducta_cifrado")
+
+  /// Lo escrito en la raya que el problema lleva impresa, si la lleva. Su
+  /// etiqueta esta en el catalogo (`ProblemaFicha.etiquetaAnotacion`).
+  ///
+  /// Cifrado como el resto del texto clinico: "hace tres dias con fiebre" es
+  /// dato clinico igual que el diagnostico.
+  anotacionCifrado       Bytes? @map("anotacion_cifrado")
 
   atencion     Atencion             @relation(fields: [atencionId], references: [id], onDelete: Cascade)
   problema     ProblemaFicha        @relation(fields: [problemaId], references: [id])

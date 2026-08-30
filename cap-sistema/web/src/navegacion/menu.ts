@@ -165,6 +165,7 @@ const RUTAS_FUERA_DEL_MENU: Record<string, readonly Rol[]> = {
   // La ficha de menor de 28 dias. Mismos roles que la de adultos: es el
   // mismo POST de fichas el que la guarda.
   '/ficha-neonato': ['MEDICO', 'ENFERMERIA'],
+  '/ficha-ninez': ['MEDICO', 'ENFERMERIA'],
   // El expediente de UN paciente. Entran los seis: lo que cambia por rol es
   // cuanto se ve dentro, no si se puede abrir.
   '/expediente': ['ADMINISTRADOR', 'DIRECTOR', 'MEDICO', 'ENFERMERIA', 'FARMACIA', 'RECEPCION'],

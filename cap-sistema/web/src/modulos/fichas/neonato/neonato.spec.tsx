@@ -84,6 +84,7 @@ const CATALOGO: CatalogoFicha = {
       id: 'pr-1',
       orden: 1,
       nombre: 'Diarrea',
+      etiquetaAnotacion: null,
       signos: [{ id: 's-1', orden: 1, texto: 'Ojos hundidos' }],
       diagnosticos: [{ id: 'd-1', orden: 1, texto: 'Diarrea con DHE', pideTexto: false }],
     },

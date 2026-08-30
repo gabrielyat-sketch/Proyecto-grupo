@@ -17,6 +17,7 @@
     "contrato": "ts-node --project tsconfig.json scripts/exportar-contrato.ts",
     "catalogo": "ts-node --project tsconfig.json prisma/catalogo-ficha-adulto.ts",
     "catalogo:neonato": "ts-node --project tsconfig.json prisma/catalogo-ficha-neonato.ts",
+    "catalogo:ninez": "ts-node --project tsconfig.json prisma/catalogo-ficha-ninez.ts",
     "lugares": "ts-node --project tsconfig.json prisma/lugares-poblados.ts"
   },
   "dependencies": {

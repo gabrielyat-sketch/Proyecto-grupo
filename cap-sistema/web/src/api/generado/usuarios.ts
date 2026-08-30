@@ -933,6 +933,11 @@ export interface components {
             orden: number;
             /** @example Tos o dificultad para respirar */
             nombre: string;
+            /**
+             * @description La raya que el papel imprime al lado de las casillas, cuando la hay. null en los problemas que no la traen.
+             * @example Cuánto tiempo hace
+             */
+            etiquetaAnotacion: string | null;
             /** @description Lo que en el papel se subraya en EVALUAR. */
             signos: components["schemas"]["OpcionCatalogoDto"][];
             /** @description Lo que se subraya en CLASIFICAR. */
@@ -972,6 +977,11 @@ export interface components {
             otroDiagnostico?: string;
             /** @description Conducta indicada para este problema. */
             conducta?: string;
+            /**
+             * @description Lo escrito en la raya que el problema lleva impresa, cuando la lleva. Su etiqueta viene en el catalogo: "Cuanto tiempo hace", "Cuantas veces por dia".
+             * @example Tres dias
+             */
+            anotacion?: string;
         };
         MedicamentoIndicadoDto: {
             /** @example Amoxicilina 500 mg */
@@ -1107,6 +1117,8 @@ export interface components {
             diagnosticos: string[];
             otroDiagnostico: string | null;
             conducta: string | null;
+            /** @description Lo escrito en la raya impresa del problema, si la lleva. */
+            anotacion: string | null;
         };
         MedicamentoFichaDto: {
             nombre: string;

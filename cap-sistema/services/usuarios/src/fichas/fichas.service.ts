@@ -66,6 +66,7 @@ export class FichasService {
           id: true,
           orden: true,
           nombre: true,
+          etiquetaAnotacion: true,
           signos: {
             where: { activo: true },
             orderBy: { orden: 'asc' },
@@ -193,6 +194,7 @@ export class FichasService {
             presente: p.presente,
             otroDiagnosticoCifrado: this.cifrar(p.otroDiagnostico),
             conductaCifrado: this.cifrar(p.conducta),
+            anotacionCifrado: this.cifrar(p.anotacion),
           },
           select: { id: true },
         });
@@ -482,6 +484,7 @@ export class FichasService {
           .map((d) => d.diagnostico.texto),
         otroDiagnostico: this.descifrar(p.otroDiagnosticoCifrado),
         conducta: this.descifrar(p.conductaCifrado),
+        anotacion: this.descifrar(p.anotacionCifrado),
       }));
 
     const consejeriaTemas: ConsejeriaFichaDto[] = a.consejeria

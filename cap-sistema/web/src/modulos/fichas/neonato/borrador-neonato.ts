@@ -151,6 +151,7 @@ export function borradorNeonatoVacio(catalogo: CatalogoFicha): BorradorNeonato {
       diagnosticoIds: [],
       otroDiagnostico: '',
       conducta: '',
+      anotacion: '',
     };
   }
 

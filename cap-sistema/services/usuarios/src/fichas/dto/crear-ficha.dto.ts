@@ -84,6 +84,16 @@ export class ProblemaEvaluadoDto {
   @IsString()
   @Length(1, 1000)
   conducta?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Lo escrito en la raya que el problema lleva impresa, cuando la lleva. Su etiqueta viene en el catalogo: "Cuanto tiempo hace", "Cuantas veces por dia".',
+    example: 'Tres dias',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(1, 200)
+  anotacion?: string;
 }
 
 /**

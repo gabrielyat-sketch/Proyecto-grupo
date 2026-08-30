@@ -60,6 +60,7 @@ const CATALOGO: CatalogoFicha = {
       id: 'p-1',
       orden: 1,
       nombre: 'Tos o dificultad para respirar',
+      etiquetaAnotacion: null,
       signos: [{ id: 'sg-1', orden: 1, texto: 'Respiracion rapida' }],
       diagnosticos: [
         { id: 'dx-1', orden: 1, texto: 'Neumonia', pideTexto: false },
@@ -273,6 +274,7 @@ describe('cuerpo de la ficha', () => {
       diagnosticoIds: ['dx-1'],
       otroDiagnostico: '',
       conducta: 'Amoxicilina',
+      anotacion: '',
     };
     expect(cuerpoDeFicha(b, 'ADULTO').problemas).toEqual([
       {

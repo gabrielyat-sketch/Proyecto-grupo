@@ -97,4 +97,20 @@ export const SERVICIO_DE_SALUD = {
   tipo: 'CAP',
   nombre: 'CAP Purulhá',
   areaDeSalud: 'Baja Verapaz',
+
+  /**
+   * La ficha del lactante y niñez pide además distrito y comunidad del
+   * servicio; la del neonato no.
+   *
+   * ⚠️ **Nadie del CAP los ha confirmado todavía.** El distrito de salud es una
+   * división administrativa del MSPAS y la comunidad del servicio no tiene por
+   * qué ser la del paciente. Van en `null` a propósito: la pantalla dice que
+   * están sin confirmar en vez de imprimir un dato inventado en una ficha
+   * oficial.
+   */
+  distrito: null as string | null,
+  comunidad: null as string | null,
 } as const;
+
+/** Lo que se enseña de un dato del servicio que el CAP aún no ha confirmado. */
+export const SIN_CONFIRMAR = 'Pendiente de confirmar';
