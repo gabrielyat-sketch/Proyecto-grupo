@@ -325,6 +325,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/carnet/catalogo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * El esquema de vacunacion y los micronutrientes del formulario
+         * @description Solo las casillas que el papel deja llenables. Las sombreadas no vienen: Hepatitis y BCG tienen una sola dosis, DPT solo los dos refuerzos, y el desparasitante no empieza hasta los dos anos.
+         */
+        get: operations["CarnetController_catalogo"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pacientes/{pacienteId}/carnet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * El carnet de un nino: dosis puestas, entregas hechas, padres y hogar
+         * @description La edad de cada dosis viene calculada contra la fecha de nacimiento. No se guarda: en el papel hay que escribirla porque no se puede restar.
+         */
+        get: operations["CarnetController_obtener"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Anota o corrige el carnet
+         * @description Todo es opcional y lo que no viene no se toca: la pagina 1 se llena a lo largo de anos y casi nunca se toca entera. Una dosis con fecha null se BORRA, que es como se corrige una casilla mal anotada. El agua y las excretas van al grupo familiar del nino, y si no tiene uno el sistema se lo crea.
+         */
+        patch: operations["CarnetController_guardar"];
+        trace?: never;
+    };
     "/v1/pacientes/{pacienteId}/antecedentes": {
         parameters: {
             query?: never;
@@ -1212,6 +1256,155 @@ export interface components {
             consejeriaTemas: components["schemas"]["ConsejeriaFichaDto"][];
             /** @description Solo en las fichas de menor de 28 dias. */
             neonato: components["schemas"]["FichaNeonatoDto"] | null;
+        };
+        DosisRecomendadaDto: {
+            /**
+             * @description Cuál de las cinco columnas del papel.
+             * @example 1
+             */
+            orden: number;
+            /**
+             * @description La edad que el formulario imprime para esa dosis. null en Neumococo, Hb y Otras, que el papel deja llenables pero sin esquema.
+             * @example 2 meses
+             */
+            edadRecomendada: string | null;
+        };
+        VacunaCatalogoDto: {
+            /** Format: uuid */
+            id: string;
+            orden: number;
+            /** @example Pentavalente */
+            nombre: string;
+            /** @description SOLO las dosis que aplican. Las casillas sombreadas del papel no vienen: ofrecerlas dejaría anotar una tercera dosis de BCG, que no existe. */
+            dosis: components["schemas"]["DosisRecomendadaDto"][];
+        };
+        EntregaEsperadaDto: {
+            /** @enum {string} */
+            tramo: "M6_A_A1" | "A1_A_A2" | "A2_A_A3" | "A3_A_A4" | "A4_A_A5";
+            /** @example 1 */
+            orden: number;
+        };
+        MicronutrienteCatalogoDto: {
+            /** Format: uuid */
+            id: string;
+            orden: number;
+            /** @example Sulfato Ferroso */
+            nombre: string;
+            /** @description Cuántas entregas van en cada tramo. No es uniforme: el desparasitante no empieza hasta los dos años. */
+            esperadas: components["schemas"]["EntregaEsperadaDto"][];
+        };
+        CatalogoCarnetDto: {
+            vacunas: components["schemas"]["VacunaCatalogoDto"][];
+            micronutrientes: components["schemas"]["MicronutrienteCatalogoDto"][];
+        };
+        VacunaAplicadaDto: {
+            /** Format: uuid */
+            vacunaId: string;
+            orden: number;
+            /**
+             * @description Como aaaa-mm-dd.
+             * @example 2024-05-12
+             */
+            fecha: string;
+            /**
+             * @description Edad en meses cumplidos el día de la dosis. NO se guarda: se calcula contra la fecha de nacimiento. Es null si el paciente no la tiene registrada.
+             * @example 4
+             */
+            edadEnMeses: number | null;
+        };
+        MicronutrienteEntregadoDto: {
+            /** Format: uuid */
+            micronutrienteId: string;
+            /** @enum {string} */
+            tramo: "M6_A_A1" | "A1_A_A2" | "A2_A_A3" | "A3_A_A4" | "A4_A_A5";
+            orden: number;
+            /** @example 2024-05-12 */
+            fecha: string;
+        };
+        DatosNinezDto: {
+            lugarNacimiento: string | null;
+            acompananteNombre: string | null;
+            madreNombre: string | null;
+            madreEdad: number | null;
+            madreOcupacion: string | null;
+            madreSabeLeer: boolean | null;
+            /** @enum {string|null} */
+            madreEscolaridad: "NINGUNO" | "PRIMARIA_1_3" | "PRIMARIA_4_6" | "MEDIA" | "SUPERIOR" | null;
+            padreNombre: string | null;
+            padreEdad: number | null;
+            padreOcupacion: string | null;
+            padreSabeLeer: boolean | null;
+            hijosTotal: number | null;
+            hijosVivos: number | null;
+            hijosMuertos: number | null;
+        };
+        HogarDto: {
+            /** @enum {string|null} */
+            agua: "CHORRO_INTRADOMICILIAR" | "CHORRO_PUBLICO" | "POZO" | "RIO" | "OTRO" | null;
+            aguaOtro: string | null;
+            /** @enum {string|null} */
+            excretas: "INODORO" | "LETRINA" | "AIRE_LIBRE" | null;
+        };
+        CarnetDto: {
+            /** Format: uuid */
+            pacienteId: string;
+            /** @description Edad del paciente en meses cumplidos hoy. Decide qué tramos de micronutrientes tocan. */
+            edadEnMeses: number | null;
+            vacunas: components["schemas"]["VacunaAplicadaDto"][];
+            micronutrientes: components["schemas"]["MicronutrienteEntregadoDto"][];
+            /** @description null cuando nadie ha llenado todavía la página 1 de este niño. */
+            datos: components["schemas"]["DatosNinezDto"] | null;
+            /** @description El agua y las excretas de la casa. Vienen del grupo familiar, no del niño: los hermanos comparten uno solo. */
+            hogar: components["schemas"]["HogarDto"] | null;
+        };
+        GuardarDatosNinezDto: {
+            lugarNacimiento?: string;
+            acompananteNombre?: string;
+            madreNombre?: string;
+            madreEdad?: number;
+            madreOcupacion?: string;
+            madreSabeLeer?: boolean;
+            /** @enum {string} */
+            madreEscolaridad?: "NINGUNO" | "PRIMARIA_1_3" | "PRIMARIA_4_6" | "MEDIA" | "SUPERIOR";
+            padreNombre?: string;
+            padreEdad?: number;
+            padreOcupacion?: string;
+            padreSabeLeer?: boolean;
+            hijosTotal?: number;
+            hijosVivos?: number;
+            hijosMuertos?: number;
+        };
+        GuardarHogarDto: {
+            /** @enum {string} */
+            agua?: "CHORRO_INTRADOMICILIAR" | "CHORRO_PUBLICO" | "POZO" | "RIO" | "OTRO";
+            aguaOtro?: string;
+            /** @enum {string} */
+            excretas?: "INODORO" | "LETRINA" | "AIRE_LIBRE";
+        };
+        GuardarVacunaDto: {
+            /** Format: uuid */
+            vacunaId: string;
+            orden: number;
+            /**
+             * @description Como aaaa-mm-dd. null borra la dosis anotada.
+             * @example 2024-05-12
+             */
+            fecha?: string | null;
+        };
+        GuardarMicronutrienteDto: {
+            /** Format: uuid */
+            micronutrienteId: string;
+            /** @enum {string} */
+            tramo: "M6_A_A1" | "A1_A_A2" | "A2_A_A3" | "A3_A_A4" | "A4_A_A5";
+            orden: number;
+            /** @example 2024-05-12 */
+            fecha?: string | null;
+        };
+        GuardarCarnetDto: {
+            datos?: components["schemas"]["GuardarDatosNinezDto"];
+            hogar?: components["schemas"]["GuardarHogarDto"];
+            vacunas?: components["schemas"]["GuardarVacunaDto"][];
+            micronutrientes?: components["schemas"]["GuardarMicronutrienteDto"][];
         };
         AntecedenteRegistradoDto: {
             /** Format: uuid */
@@ -2699,6 +2892,188 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FichaDto"];
+                };
+            };
+            /** @description La informacion enviada no es valida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El recurso solicitado no existe. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
+    CarnetController_catalogo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogoCarnetDto"];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
+    CarnetController_obtener: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pacienteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CarnetDto"];
+                };
+            };
+            /** @description La informacion enviada no es valida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El recurso solicitado no existe. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
+    CarnetController_guardar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pacienteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GuardarCarnetDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CarnetDto"];
                 };
             };
             /** @description La informacion enviada no es valida. */

@@ -253,7 +253,22 @@ export function PaginaFichaNinez() {
         }
         expediente={datos.expediente.numero}
         fecha={{ valor: actual.fecha, onCambio: (v) => cambiar({ fecha: v }) }}
-      />
+      >
+        {/*
+          El carnet -vacunas, micronutrientes, padres y casa- vive aparte
+          porque es del nino y no de esta visita. Se llega con un boton: la
+          sesion vive solo en memoria y escribir la direccion a mano recarga la
+          pagina y echa al usuario.
+        */}
+        <Button
+          component={EnlaceRuta}
+          to={'/pacientes/' + pacienteId + '/carnet'}
+          variant="outlined"
+          size="small"
+        >
+          Carnet
+        </Button>
+      </EncabezadoFicha>
 
       {/*
         No se bloquea la captura: el CAP transcribe expedientes de papel, y una
