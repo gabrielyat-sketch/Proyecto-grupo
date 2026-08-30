@@ -798,9 +798,7 @@ export interface operations {
     HipertensionController_inscribir: {
         parameters: {
             query?: never;
-            header: {
-                authorization: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -1264,9 +1262,7 @@ export interface operations {
     EmbarazoController_inscribir: {
         parameters: {
             query?: never;
-            header: {
-                authorization: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };

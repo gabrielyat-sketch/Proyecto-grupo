@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ComunidadResumenDto } from '../../comunidades/dto/respuestas.dto';
+import { ComunidadResumenDto, LugarResumenDto } from '../../comunidades/dto/respuestas.dto';
 
 export class ExpedienteResumenDto {
   @ApiProperty({ format: 'uuid' })
@@ -104,6 +104,25 @@ export class PacienteDto {
 
   @ApiProperty({ type: GrupoResumenDto, nullable: true })
   grupoFamiliar!: GrupoResumenDto | null;
+
+  @ApiProperty({ type: LugarResumenDto, nullable: true })
+  lugar!: LugarResumenDto | null;
+
+  @ApiProperty({ description: 'Si viene de fuera de Purulha.' })
+  migrante!: boolean;
+
+  @ApiProperty({ type: String, nullable: true })
+  lugarOrigen!: string | null;
+
+  @ApiProperty({
+    type: Boolean,
+    nullable: true,
+    description: 'null significa que NO se ha preguntado, que no es lo mismo que no tener.',
+  })
+  tieneAlergias!: boolean | null;
+
+  @ApiProperty({ type: String, nullable: true, description: 'A que medicamentos.' })
+  alergias!: string | null;
 
   @ApiProperty({ type: ExpedienteDePacienteDto, nullable: true })
   expediente!: ExpedienteDePacienteDto | null;

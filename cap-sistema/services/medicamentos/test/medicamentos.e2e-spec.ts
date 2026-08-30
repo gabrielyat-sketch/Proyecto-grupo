@@ -203,6 +203,116 @@ describe('Servicio medicamentos (e2e)', () => {
     });
   });
 
+  /**
+   * ─────────────────────────────────────────────────────────────────────
+   *  EDICION DEL MEDICAMENTO
+   *
+   *  Este endpoint no tenia ninguna prueba, y por eso nadie habia visto que
+   *  su cuerpo estaba escrito como un tipo suelto de TypeScript en vez de una
+   *  clase. Sin clase, el ValidationPipe no valida —no tiene metatype que
+   *  inspeccionar— y el objeto llegaba entero hasta `prisma.update`. Estas
+   *  pruebas fijan las dos mitades: que lo permitido se guarda y que lo demas
+   *  se rechaza en vez de escribirse.
+   * ─────────────────────────────────────────────────────────────────────
+   */
+  describe('edicion del medicamento', () => {
+    it('cambia la existencia minima', async () => {
+      const id = await crearMedicamento({ stockMinimo: 10 });
+
+      const r = await request(http())
+        .patch('/v1/medicamentos/' + id)
+        .set('Authorization', auth(Rol.FARMACIA))
+        .send({ stockMinimo: 80 })
+        .expect(200);
+
+      expect(r.body.stockMinimo).toBe(80);
+    });
+
+    it('desactivar deja el medicamento fuera del catalogo pero conserva su historial', async () => {
+      const id = await crearMedicamento();
+      await ingresarLote(id, 'L-DESACT', 300, 40);
+
+      await request(http())
+        .patch('/v1/medicamentos/' + id)
+        .set('Authorization', auth(Rol.FARMACIA))
+        .send({ activo: false })
+        .expect(200);
+
+      const visible = await request(http())
+        .get('/v1/medicamentos')
+        .set('Authorization', auth(Rol.FARMACIA))
+        .expect(200);
+      expect(visible.body.datos.some((m: { id: string }) => m.id === id)).toBe(false);
+
+      // El lote sigue ahi: desactivar no es borrar.
+      const detalle = await request(http())
+        .get('/v1/medicamentos/' + id)
+        .set('Authorization', auth(Rol.FARMACIA))
+        .expect(200);
+      expect(detalle.body.existencia).toBe(40);
+    });
+
+    it('NO deja reescribir el codigo ni el nombre: identifican al medicamento', async () => {
+      const id = await crearMedicamento({ nombreGenerico: 'Amoxicilina' });
+
+      await request(http())
+        .patch('/v1/medicamentos/' + id)
+        .set('Authorization', auth(Rol.FARMACIA))
+        .send({ codigo: 'SECUESTRADO', nombreGenerico: 'Otra cosa' })
+        .expect(400);
+
+      const sigue = await request(http())
+        .get('/v1/medicamentos/' + id)
+        .set('Authorization', auth(Rol.FARMACIA))
+        .expect(200);
+      expect(sigue.body.nombreGenerico).toBe('Amoxicilina');
+      expect(sigue.body.codigo).not.toBe('SECUESTRADO');
+    });
+
+    it('NO deja cambiar la unidad: los lotes ya se contaron en ella', async () => {
+      const id = await crearMedicamento({ unidad: 'TABLETA' });
+      await ingresarLote(id, 'L-UNIDAD', 300, 500);
+
+      await request(http())
+        .patch('/v1/medicamentos/' + id)
+        .set('Authorization', auth(Rol.FARMACIA))
+        .send({ unidad: 'FRASCO' })
+        .expect(400);
+
+      const sigue = await request(http())
+        .get('/v1/medicamentos/' + id)
+        .set('Authorization', auth(Rol.FARMACIA))
+        .expect(200);
+      expect(sigue.body.unidad).toBe('TABLETA');
+    });
+
+    it('rechaza una existencia minima negativa', async () => {
+      const id = await crearMedicamento();
+      await request(http())
+        .patch('/v1/medicamentos/' + id)
+        .set('Authorization', auth(Rol.FARMACIA))
+        .send({ stockMinimo: -5 })
+        .expect(400);
+    });
+
+    it('el medico consulta pero no edita el catalogo', async () => {
+      const id = await crearMedicamento();
+      await request(http())
+        .patch('/v1/medicamentos/' + id)
+        .set('Authorization', auth(Rol.MEDICO))
+        .send({ stockMinimo: 5 })
+        .expect(403);
+    });
+
+    it('devuelve 404 con un medicamento que no existe', async () => {
+      await request(http())
+        .patch('/v1/medicamentos/00000000-0000-4000-8000-000000000000')
+        .set('Authorization', auth(Rol.FARMACIA))
+        .send({ stockMinimo: 5 })
+        .expect(404);
+    });
+  });
+
   // ═══════════════════════ lotes ═══════════════════════
   describe('lotes', () => {
     it('rechaza ingresar un lote ya vencido', async () => {
@@ -309,6 +419,253 @@ describe('Servicio medicamentos (e2e)', () => {
         .set('Authorization', auth(Rol.FARMACIA))
         .send({ motivo: '  ' })
         .expect(400);
+    });
+
+    /**
+     * ───────────────────────────────────────────────────────────────────
+     *  AJUSTE POR CONTEO FISICO
+     *
+     *  El conteo del estante y el sistema se separan tarde o temprano. Antes
+     *  la unica salida era dar de baja el lote ENTERO con un motivo inventado.
+     * ───────────────────────────────────────────────────────────────────
+     */
+    describe('ajuste por conteo fisico', () => {
+      it('baja la existencia a lo contado cuando falta medicamento', async () => {
+        const id = await crearMedicamento();
+        const loteId = await ingresarLote(id, 'L-CONTEO-1', 300, 100);
+
+        const r = await request(http())
+          .patch('/v1/lotes/' + loteId + '/ajuste')
+          .set('Authorization', auth(Rol.FARMACIA))
+          .send({
+            cantidadContada: 95,
+            cantidadEnSistema: 100,
+            motivo: 'Conteo fisico: faltan 5 tabletas sin registrar.',
+          })
+          .expect(200);
+
+        expect(r.body.cantidadDisponible).toBe(95);
+        expect(r.body.estado).toBe('DISPONIBLE');
+      });
+
+      it('sube la existencia cuando aparece medicamento que no estaba contado', async () => {
+        const id = await crearMedicamento();
+        const loteId = await ingresarLote(id, 'L-CONTEO-2', 300, 100);
+
+        await request(http())
+          .patch('/v1/lotes/' + loteId + '/ajuste')
+          .set('Authorization', auth(Rol.FARMACIA))
+          .send({
+            cantidadContada: 112,
+            cantidadEnSistema: 100,
+            motivo: 'Aparecieron 12 tabletas en una caja mal ubicada.',
+          })
+          .expect(200);
+
+        const lote = await prisma.lote.findUnique({ where: { id: loteId } });
+        expect(lote!.cantidadDisponible).toBe(112);
+      });
+
+      it('el desvio queda en el libro mayor con su signo y su motivo', async () => {
+        const id = await crearMedicamento();
+        const loteId = await ingresarLote(id, 'L-CONTEO-3', 300, 100);
+        const motivo = 'Conteo del 28/08/2026, acta 14-2026.';
+
+        await request(http())
+          .patch('/v1/lotes/' + loteId + '/ajuste')
+          .set('Authorization', auth(Rol.FARMACIA))
+          .send({ cantidadContada: 88, cantidadEnSistema: 100, motivo })
+          .expect(200);
+
+        const mov = await prisma.movimientoInventario.findFirst({
+          where: { loteId, tipo: 'AJUSTE' },
+        });
+        expect(mov!.cantidad).toBe(-12);
+        expect(mov!.cantidadResultante).toBe(88);
+        expect(mov!.motivo).toBe(motivo);
+      });
+
+      it('contar cero deja el lote AGOTADO, no dado de baja', async () => {
+        const id = await crearMedicamento();
+        const loteId = await ingresarLote(id, 'L-CONTEO-4', 300, 40);
+
+        await request(http())
+          .patch('/v1/lotes/' + loteId + '/ajuste')
+          .set('Authorization', auth(Rol.FARMACIA))
+          .send({ cantidadContada: 0, cantidadEnSistema: 40, motivo: 'No queda nada en el estante.' })
+          .expect(200);
+
+        const lote = await prisma.lote.findUnique({ where: { id: loteId } });
+        expect(lote!.estado).toBe('AGOTADO');
+        expect(lote!.cantidadDisponible).toBe(0);
+      });
+
+      it('un lote agotado que reaparece vuelve a estar DISPONIBLE', async () => {
+        const id = await crearMedicamento();
+        const loteId = await ingresarLote(id, 'L-CONTEO-5', 300, 10);
+
+        await request(http())
+          .patch('/v1/lotes/' + loteId + '/ajuste')
+          .set('Authorization', auth(Rol.FARMACIA))
+          .send({ cantidadContada: 0, cantidadEnSistema: 10, motivo: 'Estante vacio.' })
+          .expect(200);
+
+        await request(http())
+          .patch('/v1/lotes/' + loteId + '/ajuste')
+          .set('Authorization', auth(Rol.FARMACIA))
+          .send({ cantidadContada: 6, cantidadEnSistema: 0, motivo: 'Aparecieron en la bodega.' })
+          .expect(200);
+
+        const lote = await prisma.lote.findUnique({ where: { id: loteId } });
+        expect(lote!.estado).toBe('DISPONIBLE');
+        expect(lote!.cantidadDisponible).toBe(6);
+      });
+
+      /**
+       * El ajuste fija un valor ABSOLUTO. Si alguien entrega mientras otra
+       * persona cuenta, guardar el conteo pisaria esa entrega y la existencia
+       * quedaria mal sin que nadie lo note.
+       */
+      it('si la existencia se movio mientras se contaba, NO ajusta nada', async () => {
+        const id = await crearMedicamento();
+        const loteId = await ingresarLote(id, 'L-CONTEO-6', 300, 100);
+
+        // Alguien entrego 10 despues de que empezara el conteo.
+        await prisma.lote.update({
+          where: { id: loteId },
+          data: { cantidadDisponible: 90 },
+        });
+
+        await request(http())
+          .patch('/v1/lotes/' + loteId + '/ajuste')
+          .set('Authorization', auth(Rol.FARMACIA))
+          .send({ cantidadContada: 95, cantidadEnSistema: 100, motivo: 'Conteo fisico.' })
+          .expect(409);
+
+        const lote = await prisma.lote.findUnique({ where: { id: loteId } });
+        expect(lote!.cantidadDisponible).toBe(90);
+
+        const mov = await prisma.movimientoInventario.findFirst({
+          where: { loteId, tipo: 'AJUSTE' },
+        });
+        expect(mov).toBeNull();
+      });
+
+      it('un conteo que coincide no genera movimiento vacio', async () => {
+        const id = await crearMedicamento();
+        const loteId = await ingresarLote(id, 'L-CONTEO-7', 300, 50);
+
+        await request(http())
+          .patch('/v1/lotes/' + loteId + '/ajuste')
+          .set('Authorization', auth(Rol.FARMACIA))
+          .send({ cantidadContada: 50, cantidadEnSistema: 50, motivo: 'Cuadra.' })
+          .expect(400);
+
+        const mov = await prisma.movimientoInventario.findFirst({
+          where: { loteId, tipo: 'AJUSTE' },
+        });
+        expect(mov).toBeNull();
+      });
+
+      it('exige un motivo: un descuadre sin explicar no sirve de nada', async () => {
+        const id = await crearMedicamento();
+        const loteId = await ingresarLote(id, 'L-CONTEO-8', 300, 50);
+
+        await request(http())
+          .patch('/v1/lotes/' + loteId + '/ajuste')
+          .set('Authorization', auth(Rol.FARMACIA))
+          .send({ cantidadContada: 45, cantidadEnSistema: 50, motivo: '  ' })
+          .expect(400);
+      });
+
+      it('rechaza una cantidad contada negativa', async () => {
+        const id = await crearMedicamento();
+        const loteId = await ingresarLote(id, 'L-CONTEO-9', 300, 50);
+
+        await request(http())
+          .patch('/v1/lotes/' + loteId + '/ajuste')
+          .set('Authorization', auth(Rol.FARMACIA))
+          .send({ cantidadContada: -5, cantidadEnSistema: 50, motivo: 'Imposible.' })
+          .expect(400);
+      });
+
+      it('no se ajusta un lote dado de baja: ya no es inventario', async () => {
+        const id = await crearMedicamento();
+        const loteId = await ingresarLote(id, 'L-CONTEO-10', 300, 30);
+
+        await request(http())
+          .patch('/v1/lotes/' + loteId + '/baja')
+          .set('Authorization', auth(Rol.FARMACIA))
+          .send({ motivo: 'Vencido y destruido.' })
+          .expect(200);
+
+        await request(http())
+          .patch('/v1/lotes/' + loteId + '/ajuste')
+          .set('Authorization', auth(Rol.FARMACIA))
+          .send({ cantidadContada: 5, cantidadEnSistema: 0, motivo: 'Aparecieron.' })
+          .expect(400);
+      });
+
+      it('el medico no ajusta inventario', async () => {
+        const id = await crearMedicamento();
+        const loteId = await ingresarLote(id, 'L-CONTEO-11', 300, 30);
+
+        await request(http())
+          .patch('/v1/lotes/' + loteId + '/ajuste')
+          .set('Authorization', auth(Rol.MEDICO))
+          .send({ cantidadContada: 25, cantidadEnSistema: 30, motivo: 'Conteo.' })
+          .expect(403);
+      });
+
+      it('el ajuste emite su evento: sin el, las mermas no cuadran en reportes', async () => {
+        const id = await crearMedicamento();
+        const loteId = await ingresarLote(id, 'L-CONTEO-12', 300, 60);
+
+        await request(http())
+          .patch('/v1/lotes/' + loteId + '/ajuste')
+          .set('Authorization', auth(Rol.FARMACIA))
+          .send({ cantidadContada: 54, cantidadEnSistema: 60, motivo: 'Conteo fisico mensual.' })
+          .expect(200);
+
+        // Filtrado por el lote de ESTA prueba. Un findFirst por tipo devuelve el
+        // evento que dejo la primera prueba del bloque, y la asercion pasa o
+        // falla segun el orden en que corran.
+        const evento = await prisma.outbox.findFirst({
+          where: { tipo: 'lote.ajustado', datos: { path: ['loteId'], equals: loteId } },
+        });
+        expect(evento).not.toBeNull();
+        expect((evento!.datos as { diferencia: number }).diferencia).toBe(-6);
+      });
+    });
+
+    it('rechaza un motivo mas largo que la columna, en vez de recortarlo', async () => {
+      const id = await crearMedicamento();
+      const loteId = await ingresarLote(id, 'L-MOTIVOLARGO', 300, 10);
+      await request(http())
+        .patch('/v1/lotes/' + loteId + '/baja')
+        .set('Authorization', auth(Rol.FARMACIA))
+        .send({ motivo: 'x'.repeat(201) })
+        .expect(400);
+
+      // Y el lote sigue disponible: un motivo invalido no da de baja nada.
+      const lote = await prisma.lote.findUnique({ where: { id: loteId } });
+      expect(lote!.estado).toBe('DISPONIBLE');
+    });
+
+    it('guarda el motivo completo de la baja', async () => {
+      const id = await crearMedicamento();
+      const loteId = await ingresarLote(id, 'L-MOTIVOENTERO', 300, 10);
+      const motivo =
+        'Vencido el mes pasado, retirado del estante y destruido con acta 14-2026 firmada por el director del CAP.';
+
+      await request(http())
+        .patch('/v1/lotes/' + loteId + '/baja')
+        .set('Authorization', auth(Rol.FARMACIA))
+        .send({ motivo })
+        .expect(200);
+
+      const lote = await prisma.lote.findUnique({ where: { id: loteId } });
+      expect(lote!.motivoBaja).toBe(motivo);
     });
 
     it('no permite dar de baja dos veces', async () => {

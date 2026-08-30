@@ -100,6 +100,70 @@ El servicio también lo comprueba antes, para poder responder algo útil —"ese
 paciente ya está en la sala de espera", con el identificador de la visita— en
 vez de un error de restricción.
 
+## La visita que nadie cerró al terminar el día
+
+**Este índice, junto con el filtro de "solo hoy" del listado, dejaba pacientes
+bloqueados para siempre.** Lo encontró Dennis probando el sistema, y es el tipo
+de defecto que en el CAP habría pasado a diario.
+
+El CAP cierra a las cinco y la gente se va. Nadie recorre la lista sacando uno
+por uno a los que no llegaron a pasar, así que esas visitas se quedaban
+`ESPERANDO`. Y ahí los dos criterios dejaban de coincidir:
+
+| | |
+|---|---|
+| `enEspera()` | filtra `llegadaEn >= inicio de hoy` — **solo las de hoy** |
+| `marcarLlegada()` y el índice único | miran si hay **cualquier** visita `ESPERANDO`, sin fecha |
+
+El resultado: la visita de ayer era **invisible** —no salía en la lista, así que
+no se podía retirar desde ninguna pantalla— y **bloqueaba al paciente**. Marcar
+su llegada respondía "ese paciente ya está en la sala de espera" con el
+identificador de una visita que nadie podía ver. Ese paciente no volvía a poder
+entrar a la sala de espera **nunca**.
+
+### Cómo se arregló
+
+Un barrido que cierra las rezagadas como `RETIRADA` —que es lo que de verdad
+pasó: se fueron sin que los atendieran— con un motivo que las distingue de un
+retiro anotado a mano:
+
+> *Cerrada por el sistema: quedó abierta al terminar el día.*
+
+Se dispara en dos sitios, y los dos hacen falta:
+
+- **Al marcar una llegada**, acotado a ese paciente. Sin esto, la comprobación
+  de duplicado seguiría rechazándolo por una visita que nadie puede ver.
+- **Al consultar la sala**, sobre todas. Es la pantalla que se abre cada mañana,
+  así que no hace falta un proceso nocturno para algo que se resuelve al primer
+  vistazo del día.
+
+No se optó por mostrar las visitas viejas en la lista: la sala de espera
+describe **este momento**, y una lista que acumula gente de otros días deja de
+mirarse a la semana. Esa decisión sigue en pie; lo que faltaba era cerrar lo que
+quedaba fuera de ella.
+
+### Por qué las pruebas no lo vieron
+
+Había una prueba llamada *"una llegada de AYER no aparece hoy"*, y pasaba. Pero
+creaba la visita vieja ya cerrada, con estado `ATENDIDA`: comprobaba que las
+**cerradas** no se arrastran, no que las **abiertas** bloquean. El caso que
+importaba nunca se ejercitó. Ahora hay cuatro pruebas que lo cubren, incluidas
+las dos que impiden que el barrido se pase de listo: no toca a quien llegó hoy
+ni reescribe las que ya estaban cerradas.
+
+### Y una trampa de fechas de propina
+
+El filtro usaba `new Date(); setHours(0,0,0,0)`, que toma la zona horaria **del
+proceso**. En la máquina de un desarrollador eso es Guatemala y funciona; en el
+contenedor de producción es UTC, y la frontera del día se corría seis horas —
+todo lo registrado entre las 18:00 y la medianoche caería en el día siguiente.
+Habría funcionado en las pruebas y fallado desplegado.
+
+Ahora usa `inicioDelDiaLocal()` de `@cap/shared`, que es el complemento de
+`fechaDelDia`: una devuelve la medianoche **UTC** del día local, para comparar
+días entre sí; la otra la medianoche **local** como instante, que es lo único
+comparable contra una columna de marca de tiempo.
+
 ## Endpoints
 
 ```

@@ -12,6 +12,7 @@ import {
   IsString,
   IsUUID,
   Length,
+  Matches,
   Max,
   MaxDate,
   Min,
@@ -83,6 +84,16 @@ export class ProblemaEvaluadoDto {
   @IsString()
   @Length(1, 1000)
   conducta?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Lo escrito en la raya que el problema lleva impresa, cuando la lleva. Su etiqueta viene en el catalogo: "Cuanto tiempo hace", "Cuantas veces por dia".',
+    example: 'Tres dias',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(1, 200)
+  anotacion?: string;
 }
 
 /**
@@ -121,6 +132,180 @@ export class MedicamentoIndicadoDto {
  * todo, y exigir campos que el personal deja en blanco a diario solo hace que
  * inventen valores para poder guardar.
  */
+/** Un tema de consejeria brindado, con la fecha en que debe volver. */
+export class ConsejeriaBrindadaDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsString()
+  temaId!: string;
+
+  @ApiPropertyOptional({ default: true })
+  @IsOptional()
+  @IsBoolean()
+  brindada?: boolean;
+
+  /**
+   * Como `aaaa-mm-dd`, sin convertir a Date.
+   *
+   * Guatemala es UTC-6: construir un `Date` con la cadena entera la
+   * interpreta como medianoche UTC y la fecha se corre al dia anterior.
+   */
+  @ApiPropertyOptional({ example: '2026-09-15', format: 'date' })
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'La fecha debe venir como aaaa-mm-dd.' })
+  fechaReconsulta?: string;
+}
+
+export enum QuienAtendioPartoDto {
+  MD = 'MD',
+  EP = 'EP',
+  AE = 'AE',
+  CT = 'CT',
+  OTRO = 'OTRO',
+}
+
+export enum TipoPartoDto {
+  NORMAL = 'NORMAL',
+  CESAREA = 'CESAREA',
+  FORCEPS = 'FORCEPS',
+  PODALICA = 'PODALICA',
+}
+
+/**
+ * Lo que solo pide la ficha de menor de 28 dias.
+ *
+ * El peso viaja en LIBRAS Y ONZAS porque asi lo pide el formulario, y porque
+ * uno de sus signos de peligro impresos es "pesa menos de 5 libras 8 onzas".
+ * Las onzas se acotan a 0-15: dieciseis onzas son una libra, y aceptarlas
+ * dejaria dos formas de escribir el mismo peso.
+ */
+export class DatosNeonatoDto {
+  @ApiPropertyOptional({ maxLength: 240 })
+  @IsOptional()
+  @IsString()
+  @Length(1, 240)
+  nombreMadre?: string;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 40 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(40)
+  pesoLibras?: number;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 15, description: 'Dieciseis onzas son una libra.' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(15)
+  pesoOnzas?: number;
+
+  @ApiPropertyOptional({ example: 11.5 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 1 })
+  @Min(0)
+  @Max(60)
+  perimetroBraquialCm?: number;
+
+  @ApiPropertyOptional({ example: 34.5, description: 'Circunferencia cefalica.' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 1 })
+  @Min(0)
+  @Max(60)
+  circunferenciaCefalicaCm?: number;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 40 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(40)
+  pesoNacerLibras?: number;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 15 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(15)
+  pesoNacerOnzas?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  lloroAlNacer?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  nacioCianotico?: boolean;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 200 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(200)
+  horasTrabajoParto?: number;
+
+  @ApiPropertyOptional({ enum: QuienAtendioPartoDto })
+  @IsOptional()
+  @IsEnum(QuienAtendioPartoDto)
+  quienAtendioParto?: QuienAtendioPartoDto;
+
+  @ApiPropertyOptional({ maxLength: 120 })
+  @IsOptional()
+  @IsString()
+  @Length(1, 120)
+  quienAtendioPartoOtro?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  rupturaPrematuraMembranas?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  trabajoPartoPrematuro?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  partoProlongado?: boolean;
+
+  @ApiPropertyOptional({ enum: TipoPartoDto })
+  @IsOptional()
+  @IsEnum(TipoPartoDto)
+  tipoParto?: TipoPartoDto;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  bcg?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  tdMadre?: boolean;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 10 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(10)
+  tdMadreDosis?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  lactanciaMaternaExclusiva?: boolean;
+}
+
 export class CrearFichaDto {
   @ApiProperty({ enum: TipoFichaDto })
   @IsEnum(TipoFichaDto)
@@ -293,4 +478,25 @@ export class CrearFichaDto {
   @IsString()
   @Length(1, 2000)
   notas?: string;
+
+  /**
+   * La tabla de consejeria del pie de la ficha.
+   *
+   * Solo la usan las fichas cuyo catalogo trae temas. En la de adultos la
+   * consejeria sigue siendo el texto libre de `consejeria`.
+   */
+  @ApiPropertyOptional({ type: [ConsejeriaBrindadaDto] })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(30)
+  @ValidateNested({ each: true })
+  @Type(() => ConsejeriaBrindadaDto)
+  consejeriaTemas?: ConsejeriaBrindadaDto[];
+
+  /** Solo cuando `tipoFicha` es NEONATO. Se ignora en las demas. */
+  @ApiPropertyOptional({ type: DatosNeonatoDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => DatosNeonatoDto)
+  neonato?: DatosNeonatoDto;
 }

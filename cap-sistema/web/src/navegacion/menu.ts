@@ -82,9 +82,11 @@ export const MENU: readonly ElementoMenu[] = [
       'Consulta del expediente y su historial de atenciones. El acceso al historial clinico queda restringido al personal medico y de enfermeria.',
     etiqueta: 'Expedientes',
     icono: FolderSharedIcon,
-    // GET /v1/expedientes/buscar: los seis roles.
+    // Buscar por numero lo hace todo el personal: es la pregunta de quien tiene
+    // la carpeta en la mano. El HISTORIAL de adentro no —Recepcion y Farmacia
+    // ven los datos del paciente pero no sus diagnosticos— y esa restriccion la
+    // aplica la propia pantalla, igual que el servidor.
     roles: TODO_EL_PERSONAL,
-    pendiente: true,
   },
   {
     ruta: '/digitalizacion',
@@ -109,12 +111,13 @@ export const MENU: readonly ElementoMenu[] = [
   {
     ruta: '/farmacia',
     descripcion:
-      'Inventario por lotes, alertas de vencimiento y entrega de medicamentos con seleccion FEFO. El backend ya esta construido (Etapa 8).',
+      'Inventario por lotes, alertas de vencimiento y entrega de medicamentos con seleccion FEFO (Etapa 8).',
     etiqueta: 'Farmacia',
     icono: MedicationIcon,
     // El medico consulta existencias: si no sabe que hay, receta lo que no hay.
+    // Lo que NO ve es la alerta de vencimientos: esa es de farmacia, y el
+    // propio controlador la guarda para Farmacia, Administrador y Director.
     roles: ['ADMINISTRADOR', 'DIRECTOR', 'FARMACIA', 'MEDICO', 'ENFERMERIA'],
-    pendiente: true,
   },
   {
     ruta: '/reportes',
@@ -137,12 +140,11 @@ export const MENU: readonly ElementoMenu[] = [
   {
     ruta: '/administracion',
     descripcion:
-      'Cuentas del personal, roles y segundo factor. Exclusivo del Administrador.',
+      'Cuentas del personal, roles y restablecimiento de contrasenas. Exclusivo del Administrador.',
     etiqueta: 'Administracion',
     icono: ManageAccountsIcon,
     // El modulo de cuentas es exclusivo del Administrador.
     roles: ['ADMINISTRADOR'],
-    pendiente: true,
   },
 ];
 
@@ -160,10 +162,29 @@ export const MENU: readonly ElementoMenu[] = [
  */
 const RUTAS_FUERA_DEL_MENU: Record<string, readonly Rol[]> = {
   '/ficha': ['MEDICO', 'ENFERMERIA'],
+  // La ficha de menor de 28 dias. Mismos roles que la de adultos: es el
+  // mismo POST de fichas el que la guarda.
+  '/ficha-neonato': ['MEDICO', 'ENFERMERIA'],
+  '/ficha-ninez': ['MEDICO', 'ENFERMERIA'],
+  // El carnet del lactante y ninez: vacunas, micronutrientes, padres y casa.
+  // NO es una consulta, es del nino, pero se lee dentro del expediente y por
+  // eso entran los mismos que a la ficha.
+  '/carnet': ['MEDICO', 'ENFERMERIA'],
+  // El expediente de UN paciente. Entran los seis: lo que cambia por rol es
+  // cuanto se ve dentro, no si se puede abrir.
+  '/expediente': ['ADMINISTRADOR', 'DIRECTOR', 'MEDICO', 'ENFERMERIA', 'FARMACIA', 'RECEPCION'],
   // Dar de alta a un paciente es de Recepcion. Todo el personal puede
   // BUSCARLO —por eso /recepcion es de los seis roles— pero solo recepcion y
   // administracion lo registran, que es lo que dice el controlador.
   '/recepcion/nuevo': ['RECEPCION', 'ADMINISTRADOR'],
+  // Un medicamento concreto. Entran los mismos cinco roles que a Farmacia: lo
+  // que cambia por rol es que se puede HACER dentro —solo Farmacia y
+  // Administracion ingresan lotes o dan de baja— no si se puede abrir.
+  '/farmacia/medicamento': ['ADMINISTRADOR', 'DIRECTOR', 'FARMACIA', 'MEDICO', 'ENFERMERIA'],
+  // El despacho de medicamentos. Se llega desde Farmacia, con el boton de
+  // arriba. Los roles son los del POST /v1/entregas: el medico consulta el
+  // historial pero no despacha.
+  '/farmacia/entrega': ['FARMACIA', 'ADMINISTRADOR'],
 };
 
 /** Opciones visibles para un rol. Vacio si el rol no se reconoce. */

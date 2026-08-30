@@ -80,3 +80,37 @@ export async function registrarFicha(
   if (error || !data) fallarApi(error, ruta, response);
   return data;
 }
+
+/**
+ * El servicio de salud que llena la ficha, que siempre es el mismo.
+ *
+ * Las cuatro hojas del MSPAS abren pidiéndolo —tipo de servicio, nombre y área
+ * de salud— porque el formulario se imprime igual para todo el país. Aquí no
+ * se pregunta: el sistema corre en un solo establecimiento, y una casilla que
+ * solo admite una respuesta es una casilla que alguien puede equivocar.
+ *
+ * Si el CAP algún día comparte el sistema con otro servicio, esto deja de ser
+ * una constante y pasa a ser configuración del establecimiento.
+ */
+export const SERVICIO_DE_SALUD = {
+  /** De las seis casillas del papel —PSF, C/S «A», CENAPA, C/S «B», CAP, CAIMI—. */
+  tipo: 'CAP',
+  nombre: 'CAP Purulhá',
+  areaDeSalud: 'Baja Verapaz',
+
+  /**
+   * La ficha del lactante y niñez pide además distrito y comunidad del
+   * servicio; la del neonato no.
+   *
+   * ⚠️ **Nadie del CAP los ha confirmado todavía.** El distrito de salud es una
+   * división administrativa del MSPAS y la comunidad del servicio no tiene por
+   * qué ser la del paciente. Van en `null` a propósito: la pantalla dice que
+   * están sin confirmar en vez de imprimir un dato inventado en una ficha
+   * oficial.
+   */
+  distrito: null as string | null,
+  comunidad: null as string | null,
+} as const;
+
+/** Lo que se enseña de un dato del servicio que el CAP aún no ha confirmado. */
+export const SIN_CONFIRMAR = 'Pendiente de confirmar';

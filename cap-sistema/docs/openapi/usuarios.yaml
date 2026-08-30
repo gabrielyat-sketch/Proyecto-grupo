@@ -135,6 +135,60 @@ paths:
       security: *a2
       summary: Registra una comunidad
       tags: *a3
+  /v1/comunidades/{id}/lugares:
+    get:
+      description: "Vacio si el CAP todavia no ha declarado los lugares de esa
+        comunidad. Sin paginar: son unos pocos y el formulario de alta necesita
+        la lista entera."
+      operationId: ComunidadesController_lugares
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LugarResumenDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a2
+      summary: Barrios, caserios y aldeas de una comunidad
+      tags: *a3
   /v1/pacientes:
     get:
       description: La busqueda por DPI se resuelve con el indice ciego sobre el campo
@@ -1082,6 +1136,207 @@ paths:
       security: *a12
       summary: Una ficha registrada, con el texto descifrado y el catalogo resuelto
       tags: *a13
+  /v1/carnet/catalogo:
+    get:
+      description: "Solo las casillas que el papel deja llenables. Las sombreadas no
+        vienen: Hepatitis y BCG tienen una sola dosis, DPT solo los dos
+        refuerzos, y el desparasitante no empieza hasta los dos anos."
+      operationId: CarnetController_catalogo
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogoCarnetDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: &a14
+        - bearer: []
+      summary: El esquema de vacunacion y los micronutrientes del formulario
+      tags: &a15
+        - carnet
+  /v1/pacientes/{pacienteId}/carnet:
+    get:
+      description: "La edad de cada dosis viene calculada contra la fecha de
+        nacimiento. No se guarda: en el papel hay que escribirla porque no se
+        puede restar."
+      operationId: CarnetController_obtener
+      parameters:
+        - name: pacienteId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CarnetDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a14
+      summary: "El carnet de un nino: dosis puestas, entregas hechas, padres y hogar"
+      tags: *a15
+    patch:
+      description: "Todo es opcional y lo que no viene no se toca: la pagina 1 se
+        llena a lo largo de anos y casi nunca se toca entera. Una dosis con
+        fecha null se BORRA, que es como se corrige una casilla mal anotada. El
+        agua y las excretas van al grupo familiar del nino, y si no tiene uno el
+        sistema se lo crea."
+      operationId: CarnetController_guardar
+      parameters:
+        - name: pacienteId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuardarCarnetDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CarnetDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a14
+      summary: Anota o corrige el carnet
+      tags: *a15
+  /v1/pacientes/{pacienteId}/crecimiento:
+    get:
+      description: "No se captura nada: sale de los pesos que cada atencion ya guarda.
+        Viene en LIBRAS, que es como el papel dibuja la grafica, y cada punto
+        trae como se movio desde el control anterior —que es lo que dice la
+        leyenda impresa, y no depende de donde cae el punto—."
+      operationId: CarnetController_crecimiento
+      parameters:
+        - name: pacienteId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrecimientoDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a14
+      summary: Los pesos del nino en el tiempo, para la grafica de peso para edad
+      tags: *a15
   /v1/pacientes/{pacienteId}/antecedentes:
     get:
       description: Devuelve solo lo respondido. Un antecedente ausente significa que
@@ -1130,10 +1385,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RespuestaErrorDto"
-      security: &a14
+      security: &a16
         - bearer: []
       summary: Antecedentes ya registrados de un paciente
-      tags: &a15
+      tags: &a17
         - antecedentes
     patch:
       description: "Actualizacion PARCIAL: lo que no viene en la peticion se conserva.
@@ -1189,9 +1444,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RespuestaErrorDto"
-      security: *a14
+      security: *a16
       summary: Guarda o actualiza las respuestas enviadas
-      tags: *a15
+      tags: *a17
   /v1/visitas:
     post:
       description: "Es lo unico que el sistema no puede deducir solo: un paciente
@@ -1238,10 +1493,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RespuestaErrorDto"
-      security: &a16
+      security: &a18
         - bearer: []
       summary: Marca que un paciente llego y espera ser atendido
-      tags: &a17
+      tags: &a19
         - visitas
   /v1/visitas/espera:
     get:
@@ -1276,9 +1531,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RespuestaErrorDto"
-      security: *a16
+      security: *a18
       summary: Quienes esperan ahora, por orden de llegada
-      tags: *a17
+      tags: *a19
   /v1/visitas/{id}/retiro:
     patch:
       description: 'El motivo es obligatorio: "se fue" no le sirve a nadie dentro de
@@ -1333,9 +1588,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RespuestaErrorDto"
-      security: *a16
+      security: *a18
       summary: Saca de la sala a alguien que se fue sin atencion
-      tags: *a17
+      tags: *a19
 info:
   title: Servicio usuarios - CAP Purulha
   description: >-
@@ -1412,6 +1667,26 @@ components:
         - nombre
         - distante
         - activa
+    LugarResumenDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+          example: Barrio El Centro
+        tipo:
+          type: string
+          enum:
+            - BARRIO
+            - CASERIO
+            - ALDEA
+            - OTRO
+      required:
+        - id
+        - nombre
+        - tipo
     CrearComunidadDto:
       type: object
       properties:
@@ -1593,6 +1868,26 @@ components:
           type: object
           allOf:
             - $ref: "#/components/schemas/GrupoResumenDto"
+        lugar:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/LugarResumenDto"
+        migrante:
+          type: boolean
+          description: Si viene de fuera de Purulha.
+        lugarOrigen:
+          type: string
+          nullable: true
+        tieneAlergias:
+          type: boolean
+          nullable: true
+          description: null significa que NO se ha preguntado, que no es lo mismo que no
+            tener.
+        alergias:
+          type: string
+          nullable: true
+          description: A que medicamentos.
         expediente:
           nullable: true
           type: object
@@ -1611,6 +1906,11 @@ components:
         - fallecido
         - comunidad
         - grupoFamiliar
+        - lugar
+        - migrante
+        - lugarOrigen
+        - tieneAlergias
+        - alergias
         - expediente
     CrearPacienteDto:
       type: object
@@ -1657,6 +1957,23 @@ components:
         digitalizado:
           type: boolean
           description: Marca el expediente como proveniente de papel (RF-08).
+        lugarId:
+          type: string
+          format: uuid
+        migrante:
+          type: boolean
+          default: false
+        lugarOrigen:
+          type: string
+          maxLength: 160
+          description: De donde viene, si es migrante.
+        tieneAlergias:
+          type: boolean
+          description: Omitirlo significa que no se ha preguntado.
+        alergias:
+          type: string
+          maxLength: 500
+          description: A que medicamentos es alergico.
       required:
         - nombres
         - apellidos
@@ -1930,6 +2247,15 @@ components:
         digitalizada:
           type: boolean
           description: true si proviene de transcribir una atencion en papel.
+        tipoFicha:
+          type: string
+          enum:
+            - ADULTO
+            - NEONATO
+            - NINEZ
+            - PRENATAL
+          nullable: true
+          description: null cuando la atencion no se capturo con una ficha oficial.
         motivo:
           type: string
           nullable: true
@@ -1971,6 +2297,7 @@ components:
         - fecha
         - registradaPor
         - digitalizada
+        - tipoFicha
         - motivo
         - diagnostico
         - tratamiento
@@ -2316,6 +2643,12 @@ components:
         nombre:
           type: string
           example: Tos o dificultad para respirar
+        etiquetaAnotacion:
+          type: string
+          nullable: true
+          description: La raya que el papel imprime al lado de las casillas, cuando la
+            hay. null en los problemas que no la traen.
+          example: Cuánto tiempo hace
         signos:
           description: Lo que en el papel se subraya en EVALUAR.
           type: array
@@ -2330,14 +2663,30 @@ components:
         - id
         - orden
         - nombre
+        - etiquetaAnotacion
         - signos
         - diagnosticos
+    TemaConsejeriaCatalogoDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orden:
+          type: number
+        texto:
+          type: string
+          example: Técnica de amamantamiento
+      required:
+        - id
+        - orden
+        - texto
     CatalogoFichaDto:
       type: object
       properties:
         tipoFicha:
           type: string
-          enum: &a18
+          enum: &a20
             - ADULTO
             - NEONATO
             - NINEZ
@@ -2354,11 +2703,18 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ProblemaCatalogoDto"
+        temasConsejeria:
+          description: Vacio en las fichas donde la consejeria es un texto libre, como la
+            de adultos.
+          type: array
+          items:
+            $ref: "#/components/schemas/TemaConsejeriaCatalogoDto"
       required:
         - tipoFicha
         - signosPeligro
         - antecedentes
         - problemas
+        - temasConsejeria
     SignoPeligroEvaluadoDto:
       type: object
       properties:
@@ -2398,6 +2754,12 @@ components:
         conducta:
           type: string
           description: Conducta indicada para este problema.
+        anotacion:
+          type: string
+          description: 'Lo escrito en la raya que el problema lleva impresa, cuando la
+            lleva. Su etiqueta viene en el catalogo: "Cuanto tiempo hace",
+            "Cuantas veces por dia".'
+          example: Tres dias
       required:
         - problemaId
         - presente
@@ -2415,6 +2777,93 @@ components:
           example: 7
       required:
         - nombre
+    ConsejeriaBrindadaDto:
+      type: object
+      properties:
+        temaId:
+          type: string
+          format: uuid
+        brindada:
+          type: boolean
+          default: true
+        fechaReconsulta:
+          type: string
+          example: 2026-09-15
+          format: date
+      required:
+        - temaId
+    DatosNeonatoDto:
+      type: object
+      properties:
+        nombreMadre:
+          type: string
+          maxLength: 240
+        pesoLibras:
+          type: number
+          minimum: 0
+          maximum: 40
+        pesoOnzas:
+          type: number
+          minimum: 0
+          maximum: 15
+          description: Dieciseis onzas son una libra.
+        perimetroBraquialCm:
+          type: number
+          example: 11.5
+        circunferenciaCefalicaCm:
+          type: number
+          example: 34.5
+          description: Circunferencia cefalica.
+        pesoNacerLibras:
+          type: number
+          minimum: 0
+          maximum: 40
+        pesoNacerOnzas:
+          type: number
+          minimum: 0
+          maximum: 15
+        lloroAlNacer:
+          type: boolean
+        nacioCianotico:
+          type: boolean
+        horasTrabajoParto:
+          type: number
+          minimum: 0
+          maximum: 200
+        quienAtendioParto:
+          type: string
+          enum:
+            - MD
+            - EP
+            - AE
+            - CT
+            - OTRO
+        quienAtendioPartoOtro:
+          type: string
+          maxLength: 120
+        rupturaPrematuraMembranas:
+          type: boolean
+        trabajoPartoPrematuro:
+          type: boolean
+        partoProlongado:
+          type: boolean
+        tipoParto:
+          type: string
+          enum:
+            - NORMAL
+            - CESAREA
+            - FORCEPS
+            - PODALICA
+        bcg:
+          type: boolean
+        tdMadre:
+          type: boolean
+        tdMadreDosis:
+          type: number
+          minimum: 0
+          maximum: 10
+        lactanciaMaternaExclusiva:
+          type: boolean
     CrearFichaDto:
       type: object
       properties:
@@ -2499,6 +2948,12 @@ components:
           type: string
         notas:
           type: string
+        consejeriaTemas:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConsejeriaBrindadaDto"
+        neonato:
+          $ref: "#/components/schemas/DatosNeonatoDto"
       required:
         - tipoFicha
         - motivo
@@ -2562,6 +3017,10 @@ components:
         conducta:
           type: string
           nullable: true
+        anotacion:
+          type: string
+          nullable: true
+          description: Lo escrito en la raya impresa del problema, si la lleva.
       required:
         - problemaId
         - nombre
@@ -2570,6 +3029,7 @@ components:
         - diagnosticos
         - otroDiagnostico
         - conducta
+        - anotacion
     MedicamentoFichaDto:
       type: object
       properties:
@@ -2585,6 +3045,122 @@ components:
         - nombre
         - dosis
         - dias
+    ConsejeriaFichaDto:
+      type: object
+      properties:
+        temaId:
+          type: string
+          format: uuid
+        texto:
+          type: string
+        brindada:
+          type: boolean
+        fechaReconsulta:
+          type: string
+          format: date
+          nullable: true
+      required:
+        - temaId
+        - texto
+        - brindada
+        - fechaReconsulta
+    FichaNeonatoDto:
+      type: object
+      properties:
+        nombreMadre:
+          type: string
+          nullable: true
+        pesoLibras:
+          type: number
+          nullable: true
+        pesoOnzas:
+          type: number
+          nullable: true
+        perimetroBraquialCm:
+          type: string
+          nullable: true
+          description: Decimal en texto.
+        circunferenciaCefalicaCm:
+          type: string
+          nullable: true
+          description: Circunferencia cefalica. Decimal en texto.
+        pesoNacerLibras:
+          type: number
+          nullable: true
+        pesoNacerOnzas:
+          type: number
+          nullable: true
+        lloroAlNacer:
+          type: boolean
+          nullable: true
+        nacioCianotico:
+          type: boolean
+          nullable: true
+        horasTrabajoParto:
+          type: number
+          nullable: true
+        quienAtendioParto:
+          type: string
+          nullable: true
+          enum:
+            - MD
+            - EP
+            - AE
+            - CT
+            - OTRO
+        quienAtendioPartoOtro:
+          type: string
+          nullable: true
+        rupturaPrematuraMembranas:
+          type: boolean
+          nullable: true
+        trabajoPartoPrematuro:
+          type: boolean
+          nullable: true
+        partoProlongado:
+          type: boolean
+          nullable: true
+        tipoParto:
+          type: string
+          nullable: true
+          enum:
+            - NORMAL
+            - CESAREA
+            - FORCEPS
+            - PODALICA
+        bcg:
+          type: boolean
+          nullable: true
+        tdMadre:
+          type: boolean
+          nullable: true
+        tdMadreDosis:
+          type: number
+          nullable: true
+        lactanciaMaternaExclusiva:
+          type: boolean
+          nullable: true
+      required:
+        - nombreMadre
+        - pesoLibras
+        - pesoOnzas
+        - perimetroBraquialCm
+        - circunferenciaCefalicaCm
+        - pesoNacerLibras
+        - pesoNacerOnzas
+        - lloroAlNacer
+        - nacioCianotico
+        - horasTrabajoParto
+        - quienAtendioParto
+        - quienAtendioPartoOtro
+        - rupturaPrematuraMembranas
+        - trabajoPartoPrematuro
+        - partoProlongado
+        - tipoParto
+        - bcg
+        - tdMadre
+        - tdMadreDosis
+        - lactanciaMaternaExclusiva
     FichaDto:
       type: object
       properties:
@@ -2596,7 +3172,7 @@ components:
           format: uuid
         tipoFicha:
           type: string
-          enum: *a18
+          enum: *a20
           nullable: true
         fecha:
           format: date-time
@@ -2684,6 +3260,18 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MedicamentoFichaDto"
+        consejeriaTemas:
+          description: La tabla de consejeria. Vacia en las fichas con consejeria de texto
+            libre.
+          type: array
+          items:
+            $ref: "#/components/schemas/ConsejeriaFichaDto"
+        neonato:
+          nullable: true
+          description: Solo en las fichas de menor de 28 dias.
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/FichaNeonatoDto"
       required:
         - id
         - expedienteId
@@ -2713,6 +3301,458 @@ components:
         - signosPeligro
         - problemas
         - medicamentos
+        - consejeriaTemas
+        - neonato
+    DosisRecomendadaDto:
+      type: object
+      properties:
+        orden:
+          type: number
+          description: Cuál de las cinco columnas del papel.
+          example: 1
+        edadRecomendada:
+          type: string
+          nullable: true
+          description: La edad que el formulario imprime para esa dosis. null en
+            Neumococo, Hb y Otras, que el papel deja llenables pero sin esquema.
+          example: 2 meses
+      required:
+        - orden
+        - edadRecomendada
+    VacunaCatalogoDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orden:
+          type: number
+        nombre:
+          type: string
+          example: Pentavalente
+        dosis:
+          description: "SOLO las dosis que aplican. Las casillas sombreadas del papel no
+            vienen: ofrecerlas dejaría anotar una tercera dosis de BCG, que no
+            existe."
+          type: array
+          items:
+            $ref: "#/components/schemas/DosisRecomendadaDto"
+      required:
+        - id
+        - orden
+        - nombre
+        - dosis
+    EntregaEsperadaDto:
+      type: object
+      properties:
+        tramo:
+          type: string
+          enum:
+            - M6_A_A1
+            - A1_A_A2
+            - A2_A_A3
+            - A3_A_A4
+            - A4_A_A5
+        orden:
+          type: number
+          example: 1
+      required:
+        - tramo
+        - orden
+    MicronutrienteCatalogoDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orden:
+          type: number
+        nombre:
+          type: string
+          example: Sulfato Ferroso
+        esperadas:
+          description: "Cuántas entregas van en cada tramo. No es uniforme: el
+            desparasitante no empieza hasta los dos años."
+          type: array
+          items:
+            $ref: "#/components/schemas/EntregaEsperadaDto"
+      required:
+        - id
+        - orden
+        - nombre
+        - esperadas
+    CatalogoCarnetDto:
+      type: object
+      properties:
+        vacunas:
+          type: array
+          items:
+            $ref: "#/components/schemas/VacunaCatalogoDto"
+        micronutrientes:
+          type: array
+          items:
+            $ref: "#/components/schemas/MicronutrienteCatalogoDto"
+      required:
+        - vacunas
+        - micronutrientes
+    VacunaAplicadaDto:
+      type: object
+      properties:
+        vacunaId:
+          type: string
+          format: uuid
+        orden:
+          type: number
+        fecha:
+          type: string
+          example: 2024-05-12
+          description: Como aaaa-mm-dd.
+        edadEnMeses:
+          type: number
+          nullable: true
+          description: "Edad en meses cumplidos el día de la dosis. NO se guarda: se
+            calcula contra la fecha de nacimiento. Es null si el paciente no la
+            tiene registrada."
+          example: 4
+      required:
+        - vacunaId
+        - orden
+        - fecha
+        - edadEnMeses
+    MicronutrienteEntregadoDto:
+      type: object
+      properties:
+        micronutrienteId:
+          type: string
+          format: uuid
+        tramo:
+          type: string
+          enum:
+            - M6_A_A1
+            - A1_A_A2
+            - A2_A_A3
+            - A3_A_A4
+            - A4_A_A5
+        orden:
+          type: number
+        fecha:
+          type: string
+          example: 2024-05-12
+      required:
+        - micronutrienteId
+        - tramo
+        - orden
+        - fecha
+    DatosNinezDto:
+      type: object
+      properties:
+        lugarNacimiento:
+          type: string
+          nullable: true
+        acompananteNombre:
+          type: string
+          nullable: true
+        madreNombre:
+          type: string
+          nullable: true
+        madreEdad:
+          type: number
+          nullable: true
+        madreOcupacion:
+          type: string
+          nullable: true
+        madreSabeLeer:
+          type: boolean
+          nullable: true
+        madreEscolaridad:
+          type: string
+          enum:
+            - NINGUNO
+            - PRIMARIA_1_3
+            - PRIMARIA_4_6
+            - MEDIA
+            - SUPERIOR
+          nullable: true
+        padreNombre:
+          type: string
+          nullable: true
+        padreEdad:
+          type: number
+          nullable: true
+        padreOcupacion:
+          type: string
+          nullable: true
+        padreSabeLeer:
+          type: boolean
+          nullable: true
+        hijosTotal:
+          type: number
+          nullable: true
+        hijosVivos:
+          type: number
+          nullable: true
+        hijosMuertos:
+          type: number
+          nullable: true
+      required:
+        - lugarNacimiento
+        - acompananteNombre
+        - madreNombre
+        - madreEdad
+        - madreOcupacion
+        - madreSabeLeer
+        - madreEscolaridad
+        - padreNombre
+        - padreEdad
+        - padreOcupacion
+        - padreSabeLeer
+        - hijosTotal
+        - hijosVivos
+        - hijosMuertos
+    HogarDto:
+      type: object
+      properties:
+        agua:
+          type: string
+          enum:
+            - CHORRO_INTRADOMICILIAR
+            - CHORRO_PUBLICO
+            - POZO
+            - RIO
+            - OTRO
+          nullable: true
+        aguaOtro:
+          type: string
+          nullable: true
+        excretas:
+          type: string
+          enum:
+            - INODORO
+            - LETRINA
+            - AIRE_LIBRE
+          nullable: true
+      required:
+        - agua
+        - aguaOtro
+        - excretas
+    CarnetDto:
+      type: object
+      properties:
+        pacienteId:
+          type: string
+          format: uuid
+        edadEnMeses:
+          type: number
+          nullable: true
+          description: Edad del paciente en meses cumplidos hoy. Decide qué tramos de
+            micronutrientes tocan.
+        vacunas:
+          type: array
+          items:
+            $ref: "#/components/schemas/VacunaAplicadaDto"
+        micronutrientes:
+          type: array
+          items:
+            $ref: "#/components/schemas/MicronutrienteEntregadoDto"
+        datos:
+          nullable: true
+          description: null cuando nadie ha llenado todavía la página 1 de este niño.
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/DatosNinezDto"
+        hogar:
+          nullable: true
+          description: "El agua y las excretas de la casa. Vienen del grupo familiar, no
+            del niño: los hermanos comparten uno solo."
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/HogarDto"
+      required:
+        - pacienteId
+        - edadEnMeses
+        - vacunas
+        - micronutrientes
+        - datos
+        - hogar
+    PuntoCrecimientoDto:
+      type: object
+      properties:
+        fecha:
+          type: string
+          example: 2025-04-12
+          description: Como aaaa-mm-dd.
+        pesoLibras:
+          type: number
+          description: En LIBRAS, que es como el papel dibuja la grafica.
+          example: 24.3
+        edadEnMeses:
+          type: number
+          nullable: true
+          description: Meses cumplidos ese dia.
+        tendencia:
+          type: string
+          enum:
+            - CRECE_BIEN
+            - NO_GANO
+            - PERDIO
+            - SIN_ANTERIOR
+        diferenciaLibras:
+          type: number
+          nullable: true
+          description: Libras ganadas o perdidas desde el control anterior.
+          example: 1.1
+      required:
+        - fecha
+        - pesoLibras
+        - edadEnMeses
+        - tendencia
+        - diferenciaLibras
+    CrecimientoDto:
+      type: object
+      properties:
+        pacienteId:
+          type: string
+          format: uuid
+        puntos:
+          description: Los pesos ya registrados, del mas antiguo al mas reciente.
+          type: array
+          items:
+            $ref: "#/components/schemas/PuntoCrecimientoDto"
+      required:
+        - pacienteId
+        - puntos
+    GuardarDatosNinezDto:
+      type: object
+      properties:
+        lugarNacimiento:
+          type: string
+          maxLength: 160
+        acompananteNombre:
+          type: string
+          maxLength: 160
+        madreNombre:
+          type: string
+          maxLength: 160
+        madreEdad:
+          type: number
+          minimum: 10
+          maximum: 70
+        madreOcupacion:
+          type: string
+          maxLength: 120
+        madreSabeLeer:
+          type: boolean
+        madreEscolaridad:
+          type: string
+          enum:
+            - NINGUNO
+            - PRIMARIA_1_3
+            - PRIMARIA_4_6
+            - MEDIA
+            - SUPERIOR
+        padreNombre:
+          type: string
+          maxLength: 160
+        padreEdad:
+          type: number
+          minimum: 10
+          maximum: 99
+        padreOcupacion:
+          type: string
+          maxLength: 120
+        padreSabeLeer:
+          type: boolean
+        hijosTotal:
+          type: number
+          minimum: 0
+          maximum: 30
+        hijosVivos:
+          type: number
+          minimum: 0
+          maximum: 30
+        hijosMuertos:
+          type: number
+          minimum: 0
+          maximum: 30
+    GuardarHogarDto:
+      type: object
+      properties:
+        agua:
+          type: string
+          enum:
+            - CHORRO_INTRADOMICILIAR
+            - CHORRO_PUBLICO
+            - POZO
+            - RIO
+            - OTRO
+        aguaOtro:
+          type: string
+          maxLength: 120
+        excretas:
+          type: string
+          enum:
+            - INODORO
+            - LETRINA
+            - AIRE_LIBRE
+    GuardarVacunaDto:
+      type: object
+      properties:
+        vacunaId:
+          type: string
+          format: uuid
+        orden:
+          type: number
+          minimum: 1
+          maximum: 5
+        fecha:
+          type: string
+          nullable: true
+          description: Como aaaa-mm-dd. null borra la dosis anotada.
+          example: 2024-05-12
+      required:
+        - vacunaId
+        - orden
+    GuardarMicronutrienteDto:
+      type: object
+      properties:
+        micronutrienteId:
+          type: string
+          format: uuid
+        tramo:
+          type: string
+          enum:
+            - M6_A_A1
+            - A1_A_A2
+            - A2_A_A3
+            - A3_A_A4
+            - A4_A_A5
+        orden:
+          type: number
+          minimum: 1
+          maximum: 4
+        fecha:
+          type: string
+          nullable: true
+          example: 2024-05-12
+      required:
+        - micronutrienteId
+        - tramo
+        - orden
+    GuardarCarnetDto:
+      type: object
+      properties:
+        datos:
+          $ref: "#/components/schemas/GuardarDatosNinezDto"
+        hogar:
+          $ref: "#/components/schemas/GuardarHogarDto"
+        vacunas:
+          type: array
+          items:
+            $ref: "#/components/schemas/GuardarVacunaDto"
+        micronutrientes:
+          type: array
+          items:
+            $ref: "#/components/schemas/GuardarMicronutrienteDto"
     AntecedenteRegistradoDto:
       type: object
       properties:

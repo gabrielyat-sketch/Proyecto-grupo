@@ -28,6 +28,25 @@ export class CuentaDto {
   debeCambiarContrasena!: boolean;
 
   @ApiProperty({
+    description:
+      'true si el segundo factor esta configurado y activo. Nunca se expone el secreto.',
+  })
+  mfaActivo!: boolean;
+
+  @ApiProperty({
+    description: 'true si la cuenta esta bloqueada AHORA por intentos fallidos.',
+  })
+  bloqueada!: boolean;
+
+  @ApiProperty({
+    type: String,
+    format: 'date-time',
+    nullable: true,
+    description: 'Hasta cuando dura el bloqueo. Puede ser una fecha ya pasada.',
+  })
+  bloqueadoHasta!: Date | null;
+
+  @ApiProperty({
     type: String,
     format: 'date-time',
     nullable: true,
@@ -54,4 +73,21 @@ export class ContrasenaRestablecidaDto {
 
   @ApiProperty({ description: 'Temporal: la persona debera cambiarla al entrar.' })
   contrasenaTemporal!: string;
+}
+
+/**
+ * Resultado de reiniciar el segundo factor de una cuenta.
+ *
+ * No devuelve ningun secreto: el secreto nuevo lo genera la propia persona en
+ * su siguiente acceso, con el mismo flujo de la primera vez.
+ */
+export class MfaReiniciadoDto {
+  @ApiProperty({ description: 'Cuenta a la que se le reinicio el segundo factor.' })
+  usuario!: string;
+
+  @ApiProperty({
+    description:
+      'true si su rol lo exige: el sistema se lo volvera a pedir al entrar. Si es false, entrara sin el hasta que decida configurarlo.',
+  })
+  exigeSegundoFactor!: boolean;
 }

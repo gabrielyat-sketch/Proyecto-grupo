@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Param, Patch, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
@@ -75,10 +75,23 @@ export class HipertensionController {
   inscribir(
     @Body() dto: InscribirHipertensionDto,
     @Usuario('id') usuarioId: string,
-    @Headers('authorization') autorizacion: string,
-    @Req() req: { trazaId?: string },
+    /**
+     * El token se lee del `Request`, NO con `@Headers('authorization')`.
+     *
+     * Con `@Headers`, Swagger publica `authorization` como un parametro de
+     * cabecera OBLIGATORIO del endpoint, y el cliente tipado del panel exige
+     * pasarlo a mano — cuando el middleware ya lo pone en cada peticion. La
+     * autenticacion ya esta declarada con `@ApiBearerAuth()`; volver a
+     * publicarla como parametro no documenta nada y hace imposible llamar al
+     * endpoint desde el contrato generado.
+     *
+     * El servicio necesita el token para reenviarlo al de usuarios al validar
+     * el paciente (arquitectura §8.3), asi que hay que leerlo de algun lado;
+     * solo que no de una firma que acabe en el contrato.
+     */
+    @Req() req: { trazaId?: string; headers: { authorization?: string } },
   ): Promise<ProgramaHipertensionDto> {
-    return this.servicio.inscribir(dto, usuarioId, autorizacion, req.trazaId);
+    return this.servicio.inscribir(dto, usuarioId, req.headers.authorization ?? '', req.trazaId);
   }
 
   @Get(':id/controles')

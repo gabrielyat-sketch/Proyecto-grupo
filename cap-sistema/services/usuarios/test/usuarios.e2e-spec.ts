@@ -223,6 +223,213 @@ describe('Servicio usuarios (e2e)', () => {
     });
   });
 
+  /**
+   * ───────────────────────────────────────────────────────────────────────
+   *  LUGAR POBLADO, MIGRANTE Y ALERGIAS
+   *
+   *  La comunidad sola no basta para encontrar a nadie, al CAP llega gente que
+   *  no es de Purulha, y las alergias son el dato que evita recetar algo que
+   *  puede matar a alguien.
+   * ───────────────────────────────────────────────────────────────────────
+   */
+  describe('lugar poblado, migrante y alergias', () => {
+    let lugarId = '';
+    let otraComunidadId = '';
+    let lugarDeOtra = '';
+
+    /**
+     * Se usan comunidades que YA existen en vez de crear y borrar unas propias:
+     * una comunidad con pacientes no se puede borrar —la llave foranea lo
+     * impide, y esta bien que lo impida— y la limpieza acababa fallando por
+     * pacientes que habian creado otras pruebas.
+     */
+    beforeAll(async () => {
+      const lugar = await prisma.lugarPoblado.upsert({
+        where: { comunidadId_nombre: { comunidadId, nombre: 'Barrio de prueba e2e' } },
+        create: { comunidadId, nombre: 'Barrio de prueba e2e', tipo: 'BARRIO' },
+        update: { activo: true },
+      });
+      lugarId = lugar.id;
+
+      const otra = await prisma.comunidad.findFirst({
+        where: { id: { not: comunidadId } },
+        select: { id: true },
+      });
+      otraComunidadId = otra!.id;
+
+      const ajeno = await prisma.lugarPoblado.upsert({
+        where: {
+          comunidadId_nombre: { comunidadId: otraComunidadId, nombre: 'Barrio ajeno e2e' },
+        },
+        create: { comunidadId: otraComunidadId, nombre: 'Barrio ajeno e2e', tipo: 'BARRIO' },
+        update: { activo: true },
+      });
+      lugarDeOtra = ajeno.id;
+    });
+
+    afterAll(async () => {
+      // Solo los lugares: las comunidades ya estaban antes y siguen despues.
+      await prisma.lugarPoblado.deleteMany({
+        where: { id: { in: [lugarId, lugarDeOtra] } },
+      });
+    });
+
+    it('lista los lugares de una comunidad', async () => {
+      const r = await request(http())
+        .get('/v1/comunidades/' + comunidadId + '/lugares')
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .expect(200);
+
+      expect(r.body.some((l: { id: string }) => l.id === lugarId)).toBe(true);
+      expect(r.body.every((l: { tipo: string }) => typeof l.tipo === 'string')).toBe(true);
+    });
+
+    /**
+     * No es un error: es que nadie del CAP ha dicho todavia cuales son. La
+     * pantalla lo dice en vez de mostrar un desplegable vacio sin explicacion.
+     */
+    it('una comunidad sin lugares declarados devuelve vacio, no 404', async () => {
+      // Una que existe y a la que nadie le ha declarado lugares todavia.
+      const sinLugares = await prisma.comunidad.findFirst({
+        where: { lugares: { none: {} } },
+        select: { id: true },
+      });
+      // Si todas tuvieran lugares no habria nada que comprobar aqui.
+      if (!sinLugares) return;
+
+      const r = await request(http())
+        .get('/v1/comunidades/' + sinLugares.id + '/lugares')
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .expect(200);
+      expect(r.body).toEqual([]);
+    });
+
+    it('una comunidad que no existe si da 404', async () => {
+      await request(http())
+        .get('/v1/comunidades/00000000-0000-4000-8000-000000000000/lugares')
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .expect(404);
+    });
+
+    it('registra al paciente con su barrio', async () => {
+      const r = await crearPaciente({
+          comunidadId,
+          lugarId,
+      });
+
+      const detalle = await request(http())
+        .get('/v1/pacientes/' + r.id)
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .expect(200);
+
+      expect(detalle.body.lugar.id).toBe(lugarId);
+      expect(detalle.body.lugar.nombre).toBe('Barrio de prueba e2e');
+    });
+
+    /**
+     * Sin esto se podria registrar a alguien en el "Barrio El Centro" de otro
+     * municipio, y el listado por lugar dejaria de significar nada.
+     */
+    it('rechaza un lugar que no es de esa comunidad', async () => {
+      const r = await request(http())
+        .post('/v1/pacientes')
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .send({
+          nombres: 'Lugar',
+          apellidos: 'Zzajeno E2e',
+          fechaNacimiento: '1990-05-05',
+          sexo: 'M',
+          comunidadId,
+          lugarId: lugarDeOtra,
+        })
+        .expect(400);
+      expect(r.body.mensaje).toMatch(/no pertenece a la comunidad/i);
+    });
+
+    it('el lugar es opcional: se puede registrar sin el', async () => {
+      const r = await crearPaciente();
+
+      const detalle = await request(http())
+        .get('/v1/pacientes/' + r.id)
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .expect(200);
+      expect(detalle.body.lugar).toBeNull();
+    });
+
+    it('guarda de donde viene un paciente migrante', async () => {
+      const r = await crearPaciente({
+          comunidadId,
+          migrante: true,
+          lugarOrigen: 'Salama, Baja Verapaz',
+      });
+
+      const detalle = await request(http())
+        .get('/v1/pacientes/' + r.id)
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .expect(200);
+      expect(detalle.body.migrante).toBe(true);
+      expect(detalle.body.lugarOrigen).toBe('Salama, Baja Verapaz');
+    });
+
+    /**
+     * TRES estados, no dos. "No se pregunto" NO es lo mismo que "no tiene": a
+     * quien no se le pregunto hay que preguntarle antes de recetar.
+     */
+    it('sin preguntar por alergias, el campo queda en null y no en false', async () => {
+      const r = await crearPaciente({
+          comunidadId,
+      });
+
+      const detalle = await request(http())
+        .get('/v1/pacientes/' + r.id)
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .expect(200);
+      expect(detalle.body.tieneAlergias).toBeNull();
+    });
+
+    it('distingue a quien dijo que NO de a quien no se le pregunto', async () => {
+      const r = await crearPaciente({
+          comunidadId,
+          tieneAlergias: false,
+      });
+
+      const detalle = await request(http())
+        .get('/v1/pacientes/' + r.id)
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .expect(200);
+      expect(detalle.body.tieneAlergias).toBe(false);
+      expect(detalle.body.alergias).toBeNull();
+    });
+
+    it('guarda a que medicamentos es alergico', async () => {
+      const r = await crearPaciente({
+          comunidadId,
+          tieneAlergias: true,
+          alergias: 'Penicilina y derivados',
+      });
+
+      const detalle = await request(http())
+        .get('/v1/pacientes/' + r.id)
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .expect(200);
+      expect(detalle.body.tieneAlergias).toBe(true);
+      expect(detalle.body.alergias).toBe('Penicilina y derivados');
+    });
+
+    /** Es informacion clinica: se cifra como el diagnostico. */
+    it('las alergias NO son legibles con un SELECT directo', async () => {
+      const r = await crearPaciente({
+          comunidadId,
+          tieneAlergias: true,
+          alergias: 'Sulfas',
+      });
+
+      const fila = await prisma.paciente.findUnique({ where: { id: r.id } });
+      const crudo = Buffer.from(fila!.alergiasCifrado!).toString('utf8');
+      expect(crudo).not.toContain('Sulfas');
+    });
+  });
+
   describe('el cifrado es real, no decorativo', () => {
     it('el DPI no es legible con un SELECT directo a la base', async () => {
       const dpi = nuevoDpi();

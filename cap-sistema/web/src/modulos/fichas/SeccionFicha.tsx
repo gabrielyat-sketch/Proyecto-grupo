@@ -124,3 +124,35 @@ export function BloqueFicha({ titulo, children }: { titulo: string; children: Re
     </Box>
   );
 }
+
+/**
+ * Un dato que la ficha enseña pero no captura.
+ *
+ * El papel tiene una raya para escribirlos; aquí llegan ya escritos desde el
+ * registro de recepción. Se muestran igual porque quien llena la ficha no
+ * entra al registro, y porque en la hoja impresa están: leer la ficha sin
+ * saber la edad ni la dirección del paciente no es leer la misma hoja.
+ *
+ * No se editan a propósito. Si el dato está mal se corrige en recepción, que
+ * es donde vive: así el expediente y la ficha nunca dicen cosas distintas.
+ */
+export function Dato({ titulo, valor }: { titulo: string; valor: string }) {
+  return (
+    <Box>
+      <Typography
+        sx={{
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+          color: 'text.secondary',
+        }}
+      >
+        {titulo}
+      </Typography>
+      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+        {valor}
+      </Typography>
+    </Box>
+  );
+}

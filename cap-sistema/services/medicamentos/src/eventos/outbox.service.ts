@@ -6,6 +6,9 @@ export const Evento = {
   LOTE_INGRESADO: 'lote.ingresado',
   LOTE_POR_VENCER: 'lote.por.vencer',
   LOTE_DADO_DE_BAJA: 'lote.dado.de.baja',
+  // Reportes lo necesita para explicar las mermas: sin el, la diferencia entre
+  // lo que entro y lo que salio no cuadra y parece un error del sistema.
+  LOTE_AJUSTADO: 'lote.ajustado',
 } as const;
 
 export type TipoEvento = (typeof Evento)[keyof typeof Evento];

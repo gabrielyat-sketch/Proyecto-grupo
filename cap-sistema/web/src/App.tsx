@@ -13,8 +13,17 @@ import { EnConstruccion } from './rutas/EnConstruccion';
 import { PaginaRecepcion } from './modulos/recepcion/PaginaRecepcion';
 import { PaginaNuevoPaciente } from './modulos/recepcion/PaginaNuevoPaciente';
 import { PaginaFicha } from './modulos/fichas/PaginaFicha';
+import { PaginaFichaNeonato } from './modulos/fichas/neonato/PaginaFichaNeonato';
+import { PaginaFichaNinez } from './modulos/fichas/ninez/PaginaFichaNinez';
+import { PaginaCarnetNinez } from './modulos/fichas/ninez/PaginaCarnetNinez';
 import { PaginaDigitalizacion } from './modulos/digitalizacion/PaginaDigitalizacion';
 import { PaginaSalaEspera } from './modulos/espera/PaginaSalaEspera';
+import { PaginaExpedientes } from './modulos/expedientes/PaginaExpedientes';
+import { PaginaExpediente } from './modulos/expedientes/PaginaExpediente';
+import { PaginaFarmacia } from './modulos/farmacia/PaginaFarmacia';
+import { PaginaMedicamento } from './modulos/farmacia/PaginaMedicamento';
+import { PaginaEntrega } from './modulos/farmacia/PaginaEntrega';
+import { PaginaAdministracion } from './modulos/administracion/PaginaAdministracion';
 import { MENU } from './navegacion/menu';
 
 /**
@@ -97,10 +106,61 @@ export function App() {
                 }
               />
               <Route
+                path="/expedientes"
+                element={
+                  <RutaPorRol ruta="/expedientes">
+                    <PaginaExpedientes />
+                  </RutaPorRol>
+                }
+              />
+              <Route
+                path="/pacientes/:pacienteId/expediente"
+                element={
+                  <RutaPorRol ruta="/expediente">
+                    <PaginaExpediente />
+                  </RutaPorRol>
+                }
+              />
+
+              <Route
                 path="/espera"
                 element={
                   <RutaPorRol ruta="/espera">
                     <PaginaSalaEspera />
+                  </RutaPorRol>
+                }
+              />
+
+              <Route
+                path="/farmacia"
+                element={
+                  <RutaPorRol ruta="/farmacia">
+                    <PaginaFarmacia />
+                  </RutaPorRol>
+                }
+              />
+              {/*
+                El despacho va ANTES de /farmacia/:medicamentoId: la ruta
+                declarada primero gana, y si no, "entrega" se leeria como el id
+                de un medicamento.
+              */}
+              <Route
+                path="/farmacia/entrega"
+                element={
+                  <RutaPorRol ruta="/farmacia/entrega">
+                    <PaginaEntrega />
+                  </RutaPorRol>
+                }
+              />
+              {/*
+                El detalle de un medicamento no esta en el menu: se llega a el
+                desde el catalogo, con el medicamento ya elegido.
+              */}
+              <Route
+                path="/farmacia/:medicamentoId"
+                element={
+                  <RutaPorRol ruta="/farmacia/medicamento">
+                    <PaginaMedicamento />
                   </RutaPorRol>
                 }
               />
@@ -126,12 +186,50 @@ export function App() {
                   </RutaPorRol>
                 }
               />
+              <Route
+                path="/pacientes/:pacienteId/ficha-neonato"
+                element={
+                  <RutaPorRol ruta="/ficha-neonato">
+                    <PaginaFichaNeonato />
+                  </RutaPorRol>
+                }
+              />
+              <Route
+                path="/pacientes/:pacienteId/ficha-ninez"
+                element={
+                  <RutaPorRol ruta="/ficha-ninez">
+                    <PaginaFichaNinez />
+                  </RutaPorRol>
+                }
+              />
+              <Route
+                path="/pacientes/:pacienteId/carnet"
+                element={
+                  <RutaPorRol ruta="/carnet">
+                    <PaginaCarnetNinez />
+                  </RutaPorRol>
+                }
+              />
               {/*
                 Las rutas salen del mismo menu que dibuja la navegacion: no
                 puede haber una opcion sin pantalla ni una pantalla que el rol
                 no tenga permitida.
               */}
-              {MENU.filter((m) => m.ruta !== '/recepcion' && m.ruta !== '/digitalizacion' && m.ruta !== '/espera').map(({ ruta, etiqueta, descripcion }) => (
+              <Route
+                path="/administracion"
+                element={
+                  <RutaPorRol ruta="/administracion">
+                    <PaginaAdministracion />
+                  </RutaPorRol>
+                }
+              />
+
+              {MENU.filter((m) => m.ruta !== '/recepcion' &&
+                m.ruta !== '/digitalizacion' &&
+                m.ruta !== '/espera' &&
+                m.ruta !== '/farmacia' &&
+                m.ruta !== '/administracion' &&
+                m.ruta !== '/expedientes').map(({ ruta, etiqueta, descripcion }) => (
                 <Route
                   key={ruta}
                   path={ruta}

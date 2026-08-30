@@ -10,12 +10,10 @@ import {
   Chip,
   CircularProgress,
   FormControlLabel,
-  Paper,
   Stack,
   TextField,
   Typography,
 } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { AvisoError } from '../../componentes/AvisoError';
 import { usarAtajo } from '../../navegacion/usarAtajo';
 import { ETIQUETA_IDIOMA } from '../recepcion/servicio-pacientes';
@@ -41,6 +39,7 @@ import {
   obtenerPaciente,
   registrarFicha,
   guardarAntecedentes,
+  SERVICIO_DE_SALUD,
   type FichaCreada,
 } from './servicio-fichas';
 import { IndiceFicha, type EntradaIndice } from './IndiceFicha';
@@ -48,7 +47,8 @@ import { MatrizProblemas } from './MatrizProblemas';
 import { SeccionAntecedentes } from './SeccionAntecedentes';
 import { SeccionExamenFisico } from './SeccionExamenFisico';
 import { SeccionPlan } from './SeccionPlan';
-import { BloqueFicha, SeccionFicha } from './SeccionFicha';
+import { BloqueFicha, Dato, SeccionFicha } from './SeccionFicha';
+import { EncabezadoFicha } from './EncabezadoFicha';
 import { LineaPregunta, SelectorSiNo } from './SelectorRespuesta';
 
 /**
@@ -348,60 +348,33 @@ export function PaginaFicha() {
 
   return (
     <Box>
-      {/* ─── Barra fija: quien es el paciente y el boton de guardar ───────── */}
-      <Paper
-        elevation={0}
-        sx={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 3,
-          mb: 2,
-          px: { xs: 1.5, md: 2 },
-          py: 1.25,
-          border: '1px solid',
-          borderColor: 'divider',
-          borderRadius: 0,
-        }}
+      {/* ─── El encabezado impreso, compartido con las demas fichas ─────── */}
+      <EncabezadoFicha
+        titulo="Ficha clinica de adolescente, adulto y adulto mayor"
+        volverA={digitalizando ? '/digitalizacion' : '/recepcion'}
+        volverTexto={digitalizando ? 'Cola' : 'Recepcion'}
+        nombre={datos.apellidos + ', ' + datos.nombres}
+        resumen={
+          datos.edad +
+          ' anos · ' +
+          (esMujer ? 'Femenino' : 'Masculino') +
+          ' · ' +
+          (datos.comunidad?.nombre ?? 'Sin comunidad')
+        }
+        expediente={datos.expediente.numero}
       >
-        <Stack
-          direction={{ xs: 'column', md: 'row' }}
-          sx={{ gap: 1.5, alignItems: { md: 'center' }, justifyContent: 'space-between' }}
+        {hayCambios ? <Chip size="small" label="Sin guardar" color="warning" /> : null}
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ display: { xs: 'none', lg: 'block' } }}
         >
-          <Stack direction="row" sx={{ gap: 1.5, alignItems: 'center', minWidth: 0 }}>
-            <Button
-              component={EnlaceRuta}
-              to={digitalizando ? '/digitalizacion' : '/recepcion'}
-              startIcon={<ArrowBackIcon />}
-              size="small"
-              color="inherit"
-            >
-              {digitalizando ? 'Cola' : 'Recepcion'}
-            </Button>
-            <Box sx={{ minWidth: 0 }}>
-              <Typography component="h1" sx={{ fontWeight: 700, lineHeight: 1.2 }} noWrap>
-                {datos.apellidos}, {datos.nombres}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" noWrap>
-                {datos.edad} anos · {esMujer ? 'Femenino' : 'Masculino'} ·{' '}
-                {datos.comunidad?.nombre} · Expediente{' '}
-                <Box component="span" sx={{ fontFamily: 'monospace' }}>
-                  {datos.expediente.numero}
-                </Box>
-              </Typography>
-            </Box>
-          </Stack>
-
-          <Stack direction="row" sx={{ gap: 1.5, alignItems: 'center' }}>
-            {hayCambios ? <Chip size="small" label="Sin guardar" color="warning" /> : null}
-            <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', lg: 'block' } }}>
-              Ctrl+Enter guarda
-            </Typography>
-            <Button variant="contained" onClick={guardar} disabled={registrar.isPending}>
-              {registrar.isPending ? 'Guardando...' : 'Guardar ficha'}
-            </Button>
-          </Stack>
-        </Stack>
-      </Paper>
+          Ctrl+Enter guarda
+        </Typography>
+        <Button variant="contained" onClick={guardar} disabled={registrar.isPending}>
+          {registrar.isPending ? 'Guardando...' : 'Guardar ficha'}
+        </Button>
+      </EncabezadoFicha>
 
       {guardada ? (
         <Alert
@@ -487,8 +460,8 @@ export function PaginaFicha() {
                 <Dato titulo="Comunidad" valor={datos.comunidad?.nombre ?? '—'} />
                 <Dato titulo="Telefono" valor={datos.telefono ?? 'Sin registrar'} />
                 <Dato titulo="Idioma" valor={ETIQUETA_IDIOMA[datos.idioma] ?? datos.idioma} />
-                <Dato titulo="Establecimiento" valor="CAP Purulha" />
-                <Dato titulo="Area de salud" valor="Baja Verapaz" />
+                <Dato titulo="Establecimiento" valor={SERVICIO_DE_SALUD.nombre} />
+                <Dato titulo="Area de salud" valor={SERVICIO_DE_SALUD.areaDeSalud} />
               </Box>
 
               <Stack direction={{ xs: 'column', md: 'row' }} sx={{ gap: 2, alignItems: { md: 'center' } }}>
@@ -688,28 +661,6 @@ export function PaginaFicha() {
           </Stack>
         </Stack>
       </Box>
-    </Box>
-  );
-}
-
-/** Un dato que viene del registro del paciente y aqui solo se lee. */
-function Dato({ titulo, valor }: { titulo: string; valor: string }) {
-  return (
-    <Box>
-      <Typography
-        sx={{
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: '0.06em',
-          textTransform: 'uppercase',
-          color: 'text.secondary',
-        }}
-      >
-        {titulo}
-      </Typography>
-      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-        {valor}
-      </Typography>
     </Box>
   );
 }

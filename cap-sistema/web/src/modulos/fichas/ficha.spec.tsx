@@ -74,6 +74,8 @@ const CATALOGO = {
       diagnosticos: [{ id: 'dx-2', orden: 1, texto: 'Deshidratacion', pideTexto: false }],
     },
   ],
+  // La ficha de adultos usa consejeria de texto libre, no temas.
+  temasConsejeria: [],
 };
 
 const SIN_ANTECEDENTES = { pacienteId: 'p-1', marcados: [], obstetricos: null };

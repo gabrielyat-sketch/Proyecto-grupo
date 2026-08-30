@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
@@ -10,7 +10,7 @@ import {
 import { Rol, Roles } from '@cap/shared';
 import { ComunidadesService } from './comunidades.service';
 import { CrearComunidadDto } from './dto/crear-comunidad.dto';
-import { ComunidadDto } from './dto/respuestas.dto';
+import { ComunidadDto, LugarResumenDto } from './dto/respuestas.dto';
 
 @ApiTags('comunidades')
 @ApiBearerAuth()
@@ -34,6 +34,17 @@ export class ComunidadesController {
   @ApiOkResponse({ type: [ComunidadDto] })
   listar(@Query('todas') todas?: string): Promise<ComunidadDto[]> {
     return this.servicio.listar(todas !== 'true');
+  }
+
+  @Get(':id/lugares')
+  @ApiOperation({
+    summary: 'Barrios, caserios y aldeas de una comunidad',
+    description:
+      'Vacio si el CAP todavia no ha declarado los lugares de esa comunidad. Sin paginar: son unos pocos y el formulario de alta necesita la lista entera.',
+  })
+  @ApiOkResponse({ type: [LugarResumenDto] })
+  lugares(@Param('id') id: string): Promise<LugarResumenDto[]> {
+    return this.servicio.lugaresDe(id);
   }
 
   @Post()

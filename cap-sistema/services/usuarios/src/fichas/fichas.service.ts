@@ -6,8 +6,10 @@ import { Evento, OutboxService } from '../eventos/outbox.service';
 import { CrearFichaDto, type TipoFichaDto } from './dto/crear-ficha.dto';
 import type {
   CatalogoFichaDto,
+  ConsejeriaFichaDto,
   FichaCreadaDto,
   FichaDto,
+  FichaNeonatoDto,
   MedicamentoFichaDto,
   ProblemaFichaRegistradoDto,
   SignoPeligroFichaDto,
@@ -46,7 +48,7 @@ export class FichasService {
    * no se puede dibujar a medias.
    */
   async catalogo(tipoFicha: TipoFichaDto): Promise<CatalogoFichaDto> {
-    const [signosPeligro, enFicha, problemas] = await this.prisma.$transaction([
+    const [signosPeligro, enFicha, problemas, temasConsejeria] = await this.prisma.$transaction([
       this.prisma.signoPeligro.findMany({
         where: { tipoFicha, activo: true },
         orderBy: { orden: 'asc' },
@@ -64,6 +66,7 @@ export class FichasService {
           id: true,
           orden: true,
           nombre: true,
+          etiquetaAnotacion: true,
           signos: {
             where: { activo: true },
             orderBy: { orden: 'asc' },
@@ -75,6 +78,11 @@ export class FichasService {
             select: { id: true, orden: true, texto: true, pideTexto: true },
           },
         },
+      }),
+      this.prisma.temaConsejeria.findMany({
+        where: { tipoFicha, activo: true },
+        orderBy: { orden: 'asc' },
+        select: { id: true, orden: true, texto: true },
       }),
     ]);
 
@@ -99,6 +107,8 @@ export class FichasService {
         permiteNoAplica: e.antecedente.permiteNoAplica,
       })),
       problemas,
+      // Vacio en la ficha de adultos, donde la consejeria es un texto libre.
+      temasConsejeria,
     };
   }
 
@@ -184,6 +194,7 @@ export class FichasService {
             presente: p.presente,
             otroDiagnosticoCifrado: this.cifrar(p.otroDiagnostico),
             conductaCifrado: this.cifrar(p.conducta),
+            anotacionCifrado: this.cifrar(p.anotacion),
           },
           select: { id: true },
         });
@@ -254,6 +265,59 @@ export class FichasService {
         });
       }
 
+      // ── La tabla de consejeria del pie de la ficha ──────────────────
+      //
+      // Solo las fichas cuyo catalogo trae temas. La de adultos sigue usando
+      // el texto libre de `consejeria`.
+      for (const c of dto.consejeriaTemas ?? []) {
+        await tx.consejeriaEnAtencion.create({
+          data: {
+            atencionId: atencion.id,
+            temaId: c.temaId,
+            brindada: c.brindada ?? true,
+            // Como aaaa-mm-dd, sin construir un Date: Guatemala es UTC-6 y la
+            // conversion correria la fecha al dia anterior.
+            fechaReconsulta: c.fechaReconsulta
+              ? new Date(c.fechaReconsulta + 'T00:00:00')
+              : null,
+          },
+        });
+      }
+
+      // ── Lo que solo trae la ficha de menor de 28 dias ───────────────
+      //
+      // Se guarda unicamente cuando la ficha ES de neonato. Si llegara en una
+      // ficha de adultos seria un cliente equivocado, y escribirlo dejaria una
+      // fila huerfana que nadie va a leer nunca.
+      if (dto.tipoFicha === 'NEONATO' && dto.neonato) {
+        const n = dto.neonato;
+        await tx.fichaNeonato.create({
+          data: {
+            atencionId: atencion.id,
+            nombreMadreCifrado: this.cifrar(n.nombreMadre),
+            pesoLibras: n.pesoLibras,
+            pesoOnzas: n.pesoOnzas,
+            perimetroBraquialCm: n.perimetroBraquialCm,
+            circunferenciaCefalicaCm: n.circunferenciaCefalicaCm,
+            pesoNacerLibras: n.pesoNacerLibras,
+            pesoNacerOnzas: n.pesoNacerOnzas,
+            lloroAlNacer: n.lloroAlNacer,
+            nacioCianotico: n.nacioCianotico,
+            horasTrabajoParto: n.horasTrabajoParto,
+            quienAtendioParto: n.quienAtendioParto,
+            quienAtendioPartoOtro: n.quienAtendioPartoOtro,
+            rupturaPrematuraMembranas: n.rupturaPrematuraMembranas,
+            trabajoPartoPrematuro: n.trabajoPartoPrematuro,
+            partoProlongado: n.partoProlongado,
+            tipoParto: n.tipoParto,
+            bcg: n.bcg,
+            tdMadre: n.tdMadre,
+            tdMadreDosis: n.tdMadreDosis,
+            lactanciaMaternaExclusiva: n.lactanciaMaternaExclusiva,
+          },
+        });
+      }
+
       /**
        * Si el paciente estaba en la sala de espera, esta ficha lo atiende.
        *
@@ -295,6 +359,38 @@ export class FichasService {
   private async validarContraCatalogo(dto: CrearFichaDto): Promise<void> {
     const signosPeligro = (dto.signosPeligro ?? []).map((s) => s.signoId);
     const problemas = (dto.problemas ?? []).map((p) => p.problemaId);
+    const temas = (dto.consejeriaTemas ?? []).map((c) => c.temaId);
+
+    // ── Nada repetido ────────────────────────────────────────────────────
+    //
+    // Las tres tablas tienen clave compuesta por atencion, asi que mandar el
+    // mismo elemento dos veces reventaria contra la restriccion y saldria como
+    // un 500. Un cuerpo mal armado es culpa de quien lo manda: 400.
+    for (const [nombre, ids] of [
+      ['signo de peligro', signosPeligro],
+      ['problema', problemas],
+      ['tema de consejeria', temas],
+    ] as const) {
+      if (new Set(ids).size !== ids.length) {
+        throw new BadRequestException('Hay un ' + nombre + ' repetido en la ficha.');
+      }
+    }
+
+    // ── Los temas de consejeria son de ESTA ficha ────────────────────────
+    //
+    // Mismo motivo que los problemas: las llaves foraneas existen, asi que la
+    // base aceptaria un tema de la ficha de ninez dentro de una de neonato y el
+    // error solo aparecería al leerla, con los datos ya escritos.
+    if (temas.length > 0) {
+      const validos = await this.prisma.temaConsejeria.count({
+        where: { id: { in: temas }, tipoFicha: dto.tipoFicha },
+      });
+      if (validos !== temas.length) {
+        throw new BadRequestException(
+          'Algun tema de consejeria no pertenece a la ficha ' + dto.tipoFicha + '.',
+        );
+      }
+    }
 
     if (signosPeligro.length > 0) {
       const validos = await this.prisma.signoPeligro.count({
@@ -359,6 +455,8 @@ export class FichasService {
           },
         },
         medicamentos: { orderBy: { orden: 'asc' } },
+        consejeria: { include: { tema: { select: { texto: true, orden: true } } } },
+        fichaNeonato: true,
       },
     });
     if (!a) throw new NotFoundException('No existe esa ficha.');
@@ -386,7 +484,48 @@ export class FichasService {
           .map((d) => d.diagnostico.texto),
         otroDiagnostico: this.descifrar(p.otroDiagnosticoCifrado),
         conducta: this.descifrar(p.conductaCifrado),
+        anotacion: this.descifrar(p.anotacionCifrado),
       }));
+
+    const consejeriaTemas: ConsejeriaFichaDto[] = a.consejeria
+      .sort((x, y) => x.tema.orden - y.tema.orden)
+      .map((c) => ({
+        temaId: c.temaId,
+        texto: c.tema.texto,
+        brindada: c.brindada,
+        // Como aaaa-mm-dd: la fecha se guarda sin hora y devolverla como
+        // instante la correria un dia al leerla en Guatemala.
+        fechaReconsulta: c.fechaReconsulta
+          ? c.fechaReconsulta.toISOString().slice(0, 10)
+          : null,
+      }));
+
+    const n = a.fichaNeonato;
+    const neonato: FichaNeonatoDto | null = n
+      ? {
+          nombreMadre: this.descifrar(n.nombreMadreCifrado),
+          pesoLibras: n.pesoLibras,
+          pesoOnzas: n.pesoOnzas,
+          // Decimal de Prisma viaja como TEXTO en JSON, no como numero.
+          perimetroBraquialCm: n.perimetroBraquialCm?.toString() ?? null,
+          circunferenciaCefalicaCm: n.circunferenciaCefalicaCm?.toString() ?? null,
+          pesoNacerLibras: n.pesoNacerLibras,
+          pesoNacerOnzas: n.pesoNacerOnzas,
+          lloroAlNacer: n.lloroAlNacer,
+          nacioCianotico: n.nacioCianotico,
+          horasTrabajoParto: n.horasTrabajoParto,
+          quienAtendioParto: n.quienAtendioParto,
+          quienAtendioPartoOtro: n.quienAtendioPartoOtro,
+          rupturaPrematuraMembranas: n.rupturaPrematuraMembranas,
+          trabajoPartoPrematuro: n.trabajoPartoPrematuro,
+          partoProlongado: n.partoProlongado,
+          tipoParto: n.tipoParto,
+          bcg: n.bcg,
+          tdMadre: n.tdMadre,
+          tdMadreDosis: n.tdMadreDosis,
+          lactanciaMaternaExclusiva: n.lactanciaMaternaExclusiva,
+        }
+      : null;
 
     const medicamentos: MedicamentoFichaDto[] = a.medicamentos.map((m) => ({
       nombre: this.descifrar(m.nombreCifrado) ?? '',
@@ -413,6 +552,8 @@ export class FichasService {
       tratamiento: this.descifrar(a.tratamientoCifrado),
       notas: this.descifrar(a.notasCifrado),
       consejeria: this.descifrar(a.consejeriaCifrado),
+      consejeriaTemas,
+      neonato,
       referencia: this.descifrar(a.referenciaCifrado),
       vacunaAdministrada: this.descifrar(a.vacunaAdministradaCifrado),
 
