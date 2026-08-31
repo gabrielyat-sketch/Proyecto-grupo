@@ -33,6 +33,17 @@ export interface ElementoMenu {
   etiqueta: string;
   /** Tipado con SvgIconProps para poder darle color y tamano donde se use. */
   icono: ComponentType<SvgIconProps>;
+  /**
+   * Color del icono, uno por modulo.
+   *
+   * El color no dice nada por si mismo —ninguno significa "farmacia"— y por eso
+   * la etiqueta nunca desaparece. Lo que hace es dar a cada fila una marca fija
+   * que se reconoce sin leer, para quien entra y sale del mismo modulo veinte
+   * veces al dia. Vive aqui y no en las pantallas porque el menu lateral y las
+   * tarjetas de inicio deben pintar el mismo color, y con la definicion en dos
+   * sitios acabarian separandose.
+   */
+  color: string;
   /** Roles que pueden entrar. Copiado de los @Roles de cada controlador. */
   roles: readonly Rol[];
   /** Todavia sin construir: la pantalla existe pero avisa que falta. */
@@ -59,6 +70,7 @@ const CLINICOS: readonly Rol[] = ['ADMINISTRADOR', 'DIRECTOR', 'MEDICO', 'ENFERM
 export const MENU: readonly ElementoMenu[] = [
   {
     ruta: '/recepcion',
+    color: '#1a7a1f', // verde
     descripcion:
       'Busqueda de pacientes por DPI, nombre o comunidad, alta de nuevos pacientes y apertura de expediente. Es la pantalla de la Etapa 5.',
     etiqueta: 'Recepcion',
@@ -68,6 +80,7 @@ export const MENU: readonly ElementoMenu[] = [
   },
   {
     ruta: '/espera',
+    color: '#b3261e', // rojo
     descripcion:
       'Quienes llegaron hoy y todavia no tienen ficha, en orden de llegada. Recepcion marca la llegada al entrar; la visita se cierra sola al guardar la ficha.',
     etiqueta: 'Sala de espera',
@@ -78,6 +91,7 @@ export const MENU: readonly ElementoMenu[] = [
   },
   {
     ruta: '/expedientes',
+    color: '#9e7700', // mostaza
     descripcion:
       'Consulta del expediente y su historial de atenciones. El acceso al historial clinico queda restringido al personal medico y de enfermeria.',
     etiqueta: 'Expedientes',
@@ -90,6 +104,7 @@ export const MENU: readonly ElementoMenu[] = [
   },
   {
     ruta: '/digitalizacion',
+    color: '#1565c0', // azul
     descripcion:
       'Modo de captura rapida por teclado para transcribir los expedientes en papel (RF-08), con avance por comunidad y autoguardado.',
     etiqueta: 'Digitalizacion',
@@ -100,6 +115,7 @@ export const MENU: readonly ElementoMenu[] = [
   },
   {
     ruta: '/programas',
+    color: '#6a1b9a', // morado
     descripcion:
       'Seguimiento de hipertension y embarazo: inscripciones, controles, alertas de riesgo y pacientes atrasados. El backend ya esta construido (Etapa 6).',
     etiqueta: 'Programas',
@@ -110,6 +126,7 @@ export const MENU: readonly ElementoMenu[] = [
   },
   {
     ruta: '/farmacia',
+    color: '#1a7a1f', // verde
     descripcion:
       'Inventario por lotes, alertas de vencimiento y entrega de medicamentos con seleccion FEFO (Etapa 8).',
     etiqueta: 'Farmacia',
@@ -121,6 +138,7 @@ export const MENU: readonly ElementoMenu[] = [
   },
   {
     ruta: '/reportes',
+    color: '#558b2f', // verde limon
     descripcion:
       'Panel de indicadores y las cifras que el CAP reporta periodicamente al MSPAS, con exportacion a hoja de calculo (Etapa 10).',
     etiqueta: 'Reportes',
@@ -130,6 +148,7 @@ export const MENU: readonly ElementoMenu[] = [
   },
   {
     ruta: '/auditoria',
+    color: '#e65100', // naranja
     descripcion:
       'Consulta de la traza: quien vio o modifico cada dato clinico, con cadena de hash verificable (Etapa 9).',
     etiqueta: 'Auditoria',
@@ -139,6 +158,7 @@ export const MENU: readonly ElementoMenu[] = [
   },
   {
     ruta: '/administracion',
+    color: '#6d4c41', // cafe
     descripcion:
       'Cuentas del personal, roles y restablecimiento de contrasenas. Exclusivo del Administrador.',
     etiqueta: 'Administracion',

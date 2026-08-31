@@ -26,6 +26,7 @@ import {
   listarLugares,
   type PacienteCreado,
 } from './servicio-pacientes';
+import { MENU_AZUL } from '../../componentes/menuAzul';
 
 const IDIOMAS = [
   { valor: 'ESPANOL', etiqueta: 'Espanol' },
@@ -35,6 +36,7 @@ const IDIOMAS = [
 ];
 
 const hoy = () => new Date().toISOString().slice(0, 10);
+
 
 /**
  * Reglas identicas a CrearPacienteDto del backend.
@@ -306,6 +308,7 @@ export function PaginaNuevoPaciente() {
               defaultValue=""
               error={Boolean(errors.comunidadId)}
               helperText={errors.comunidadId?.message}
+              slotProps={{ select: { MenuProps: MENU_AZUL } }}
               {...register('comunidadId')}
             >
               {(comunidades.data ?? []).map((c) => (
