@@ -22,14 +22,13 @@ le añade el fondo y los retoques visuales que pidió la referencia
 
 ## Supuestos
 
-- **El fondo va en gradientes, no en fotografía.** Se probaron dos: un recorte
-  de la propia maqueta (demasiado desenfocado, porque el original ya lo estaba)
-  y una imagen de un pasillo clínico que traía la marca de agua del servicio
-  que la generó, repetida en diagonal por toda la superficie. Publicar una
-  marca ajena en la pantalla de acceso de un centro de salud no es aceptable,
-  así que quedaron los gradientes, que reproducen la luz y la paleta de la
-  referencia. Cuando aparezca una fotografía libre del CAP, se antepone su
-  `url(...)` a `FONDO_ACCESO` y los gradientes quedan como respaldo.
+- **El fondo es una fotografía de sala de espera**, apaisada y sin marcas de
+  agua: `web/public/fondo-acceso.jpg` (1195x896, 89 KB). Antes se probaron dos
+  que no servían — un recorte de la propia maqueta, demasiado desenfocado
+  porque el original ya lo estaba, y una imagen con la marca de agua del
+  servicio que la generó, que no se puede publicar en la pantalla de acceso de
+  un centro de salud. Los gradientes se quedan debajo como respaldo mientras
+  el JPEG carga.
 - **El logo es el oficial**, entregado como JPEG con fondo gris opaco. Se le
   quitó el fondo por distancia de color, se recortó al contenido y se redujo a
   256 px: `web/public/logo-cap.png`. De ahí salen también el icono de la
@@ -57,10 +56,11 @@ Se reutilizan los del tema (`web/src/tema.ts`) sin modificarlo. Lo añadido:
 
 | Token | Valor | Rol |
 |---|---|---|
-| Luz cálida | `rgba(255, 206, 148, 0.42)` | Radial superior: el ventanal |
-| Verde vegetal | `rgba(101, 148, 118, 0.28)` | Radial izquierdo: las plantas |
-| Teal clínico | `rgba(21, 96, 122, 0.26)` | Radial derecho, derivado de `primary.main` |
-| Base del fondo | `#eef3f4` → `#dde7ea` | Degradado vertical que unifica |
+| Fotografía | `/fondo-acceso.jpg` (1195x896, 89 KB) | Capa base: la sala de espera |
+| Luz cálida | `rgba(255, 206, 148, 0.26)` | Radial superior: el ventanal |
+| Teal clínico | `rgba(21, 96, 122, 0.16)` | Radial derecho, derivado de `primary.main` |
+| Velo sobre la foto | `rgba(238,243,244,0.24)` → `rgba(221,231,234,0.38)` | Baja el contraste bajo la tarjeta |
+| Respaldo del fondo | `#eef3f4` → `#dde7ea` | Lo que se ve si el JPEG no carga |
 | Sombra de tarjeta | `0 24px 60px -26px rgba(12,45,58,0.38)` + `0 2px 6px rgba(12,45,58,0.06)` | Despegue y apoyo |
 | Borde de tarjeta | `rgba(15, 50, 64, 0.09)` | Contorno sin peso visual |
 | Fondo de la franja de pie | `rgba(21, 96, 122, 0.035)` | Separa el pie del formulario |
@@ -106,8 +106,9 @@ funcionando igual.
   a una segunda línea en vez de desbordarse.
 - Fondo con `background-size: cover` y `minHeight: 100dvh`: la foto llena la
   pantalla real del móvil, sin deformarse y sin el salto de la barra de
-  direcciones. Sin `background-attachment: fixed`, que Safari de iOS dibuja mal
-  y hace tironear el desplazamiento.
+  direcciones. Centrada, porque es apaisada y en pantallas más anchas `cover`
+  la recorta por los lados. Sin `background-attachment: fixed`, que Safari de
+  iOS dibuja mal y hace tironear el desplazamiento.
 
 ## Accesibilidad
 
@@ -140,11 +141,10 @@ Ninguna. Todo sale de `@mui/material` y `@mui/icons-material`, que ya estaban.
 
 ## Información pendiente
 
-- ¿Hay una fotografía de la sala de espera del CAP, libre de marcas de agua?
 - ¿Existe el logo en vectorial (SVG)? El PNG actual sirve, pero un vectorial
   no perdería nitidez en pantallas de alta densidad.
 
 ## Próximo paso recomendado
 
-Conseguir una fotografía del CAP libre de derechos para el fondo. Al añadirla
-son dos líneas en `FONDO_ACCESO`.
+Verlo en el navegador con `npm run dev -w @cap/web` y ajustar la intensidad de
+los tintes si la tarjeta no se despega lo suficiente de la fotografía.

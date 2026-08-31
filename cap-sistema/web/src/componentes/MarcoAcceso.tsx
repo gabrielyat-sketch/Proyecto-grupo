@@ -4,24 +4,23 @@ import HelpOutlinedIcon from '@mui/icons-material/HelpOutlined';
 import { LogoCap } from './LogoCap';
 
 /**
- * Fondo de las pantallas de acceso.
+ * Fondo de las pantallas de acceso: la sala de espera del CAP.
  *
- * Es la sala de espera del CAP resumida en luz y color: la claridad calida que
- * entra por el ventanal arriba, el verde de las plantas a la izquierda, y el
- * teal del mobiliario clinico a la derecha.
+ * Las capas van de arriba hacia abajo, que es el orden en que CSS las pinta.
+ * Sobre la fotografia hay dos tintes —la luz calida del ventanal y el teal del
+ * mobiliario— y un velo claro. Hacen dos trabajos: unen la foto con la paleta
+ * del panel, y le bajan el contraste para que la tarjeta blanca se lea encima
+ * sin esfuerzo.
  *
- * Va en gradientes y no en una fotografia porque todavia no hay una del CAP
- * libre de derechos. La unica disponible traia la marca de agua del servicio
- * que la genero, y una marca ajena en la pantalla de acceso de un centro de
- * salud no se puede publicar.
- *
- * Cuando aparezca la foto, se antepone su `url(...)` a esta lista: los
- * gradientes quedan debajo como respaldo mientras carga y si el archivo falta.
+ * El degradado del final es el respaldo: es lo que se ve mientras el JPEG
+ * carga, y lo que queda si el archivo faltara. La pantalla nunca aparece en
+ * blanco.
  */
 const FONDO_ACCESO = [
-  'radial-gradient(1100px 520px at 50% -10%, rgba(255, 206, 148, 0.42), rgba(255, 206, 148, 0) 70%)',
-  'radial-gradient(760px 640px at 6% 62%, rgba(101, 148, 118, 0.28), rgba(101, 148, 118, 0) 68%)',
-  'radial-gradient(900px 720px at 97% 82%, rgba(21, 96, 122, 0.26), rgba(21, 96, 122, 0) 70%)',
+  'radial-gradient(1100px 520px at 50% -10%, rgba(255, 206, 148, 0.26), rgba(255, 206, 148, 0) 70%)',
+  'radial-gradient(900px 720px at 97% 82%, rgba(21, 96, 122, 0.16), rgba(21, 96, 122, 0) 70%)',
+  'linear-gradient(180deg, rgba(238, 243, 244, 0.24) 0%, rgba(221, 231, 234, 0.38) 100%)',
+  'url("/fondo-acceso.jpg")',
   'linear-gradient(180deg, #eef3f4 0%, #dde7ea 100%)',
 ].join(', ');
 
@@ -53,11 +52,14 @@ export function MarcoAcceso({
         py: 6,
         backgroundColor: 'background.default',
         backgroundImage: FONDO_ACCESO,
-        // `cover` y centrado, listo para cuando la primera capa sea una foto.
+        // La foto es apaisada (1195x896) y `cover` la recorta por los lados en
+        // pantallas mas anchas. Centrada, lo que sobrevive al recorte es lo que
+        // interesa: las sillas a la izquierda y el mostrador a la derecha.
+        //
         // Nada de `background-attachment: fixed`, que Safari de iOS dibuja mal
         // y hace tironear el desplazamiento.
         backgroundSize: 'cover',
-        backgroundPosition: 'center 62%',
+        backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
       }}
     >
