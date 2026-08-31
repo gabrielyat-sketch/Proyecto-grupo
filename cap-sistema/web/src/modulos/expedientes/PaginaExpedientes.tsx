@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import { AvisoError } from '../../componentes/AvisoError';
+import { desde } from '../../navegacion/usarVolver';
 import { EncabezadoPagina } from '../../componentes/EncabezadoPagina';
 import { usarAtajo } from '../../navegacion/usarAtajo';
 import { esErrorApi } from '../../api';
@@ -174,6 +175,7 @@ export function PaginaExpedientes() {
             <Button
               component={EnlaceRuta}
               to={'/pacientes/' + expediente.data.paciente.id + '/expediente'}
+              state={desde('/expedientes', 'Expedientes')}
               variant="contained"
               sx={{ alignSelf: 'flex-start' }}
             >

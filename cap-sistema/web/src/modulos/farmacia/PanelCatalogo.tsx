@@ -27,6 +27,7 @@ import AddIcon from '@mui/icons-material/Add';
 import { AvisoError } from '../../componentes/AvisoError';
 import { usarAtajo } from '../../navegacion/usarAtajo';
 import { usarSesion } from '../sesion/contexto';
+import { desde } from '../../navegacion/usarVolver';
 import { DialogoNuevoMedicamento } from './DialogoMedicamento';
 import {
   conUnidad,
@@ -102,6 +103,7 @@ export function PanelCatalogo() {
         {administra ? (
           <Button
             variant="contained"
+            color="success"
             startIcon={<AddIcon />}
             onClick={() => setAlta(true)}
             sx={{ mt: { sm: 1 }, minWidth: 210, flexShrink: 0 }}
@@ -180,6 +182,7 @@ export function PanelCatalogo() {
                         <Link
                           component={EnlaceRuta}
                           to={'/farmacia/' + m.id}
+                          state={desde('/farmacia', 'Farmacia')}
                           sx={{ fontFamily: 'monospace' }}
                         >
                           {m.codigo}

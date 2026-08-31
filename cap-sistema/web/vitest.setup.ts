@@ -30,9 +30,10 @@ import { beforeEach, vi } from 'vitest';
  *
  * **Si hace falta una tercera subida, no la hagas.** Que el margen crezca con
  * cada pantalla nueva significa que el problema no es el margen: es que los
- * archivos pesados corren todos a la vez. Lo que toca entonces es limitar el
- * paralelismo —`poolOptions.threads.maxThreads` en `vite.config.ts`—, que hace
- * la suite mas lenta pero deja de depender de lo cargada que este la maquina.
+ * archivos pesados corren todos a la vez. Eso ya se hizo: `maxWorkers` en
+ * `vite.config.ts` limita cuantos corren a la vez, lo que hace la suite mas
+ * lenta a cambio de que deje de depender de lo cargada que este la maquina.
+ * Si vuelve a fallar, bajar ESE numero, no subir este margen.
  */
 configure({ asyncUtilTimeout: 10_000 });
 

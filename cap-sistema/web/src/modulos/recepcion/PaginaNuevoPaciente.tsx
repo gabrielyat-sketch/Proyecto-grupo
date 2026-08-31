@@ -490,7 +490,13 @@ export function PaginaNuevoPaciente() {
 
           <Stack direction="row" spacing={2} sx={{ justifyContent: 'flex-end' }}>
             <Button onClick={() => navegar('/recepcion')}>Cancelar</Button>
-            <Button type="submit" variant="contained" size="large" disabled={alta.isPending}>
+            <Button
+              type="submit"
+              variant="contained"
+              color="success"
+              size="large"
+              disabled={alta.isPending}
+            >
               {alta.isPending ? 'Guardando...' : 'Registrar paciente'}
             </Button>
           </Stack>

@@ -61,5 +61,35 @@ export default defineConfig({
      * solo que mas tarde.
      */
     testTimeout: 20_000,
+
+    /**
+     * Cuantos archivos de prueba corren a la vez.
+     *
+     * Vitest usa por omision casi un trabajador por nucleo —aqui son
+     * dieciseis— y en esta suite eso es contraproducente: la ficha clinica
+     * dibuja doscientos campos en jsdom, el carnet de ninez una tabla de diez
+     * vacunas por cinco dosis, y farmacia otras tantas. Con doce de esos
+     * archivos compitiendo, cada uno tarda mas que si corrieran de seis en
+     * seis, y las esperas de `findBy*` empiezan a agotarse en pruebas que no
+     * tienen ningun problema.
+     *
+     * El sintoma es inconfundible y ya aparecio tres veces: decenas de fallos
+     * repartidos por archivos sin relacion, TODOS pasando en aislamiento, y
+     * duraciones por archivo que se disparan de sesenta segundos a trescientos.
+     *
+     * Cuanto se mueve esta suite sola: el MISMO archivo, sin tocar una linea,
+     * midio 39,5 s y 22,7 s en dos pasadas seguidas. Un 74 % de diferencia por
+     * la cache del disco. Con ese margen, cualquier comparacion de una sola
+     * pasada dice lo que uno quiera oir; hace falta medir la misma version dos
+     * veces antes de creerle a la comparacion.
+     *
+     * Aqui se perdio tiempo con la opcion equivocada. `poolOptions.threads.
+     * maxThreads` es de Vitest 2 y 3; en la 4 se cambio por `maxWorkers`, y
+     * como sobra en el objeto de configuracion, vitest la ignoro sin decir
+     * nada. Lo unico que la delataba era `tsc`: "'poolOptions' does not exist
+     * in type 'InlineConfig'". Si esta linea deja de surtir efecto tras una
+     * actualizacion, ese error de tipos es donde mirar.
+     */
+    maxWorkers: 6,
   },
 });

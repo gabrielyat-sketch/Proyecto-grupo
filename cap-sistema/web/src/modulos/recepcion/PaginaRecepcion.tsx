@@ -72,7 +72,21 @@ export function PaginaRecepcion() {
 
   const criterio = useMemo(() => interpretarBusqueda(texto), [texto]);
   const aviso = motivoSinBuscar(criterio);
-  const puedeBuscar = criterio.tipo === 'dpi' || criterio.tipo === 'nombre';
+
+  /**
+   * La comunidad por si sola YA es una busqueda.
+   *
+   * Antes hacia falta escribir tambien un nombre o un DPI, y elegir la
+   * comunidad no mostraba nada: parecia que el filtro no funcionaba. Pero es
+   * de las consultas mas utiles que hace el CAP —"quienes son mis pacientes de
+   * Panima"— y el servidor siempre supo responderla; era el panel el que no la
+   * pedia.
+   *
+   * Si ademas hay texto a medias, se busca solo por comunidad y el aviso de
+   * abajo explica que las letras todavia no cuentan.
+   */
+  const puedeBuscar =
+    criterio.tipo === 'dpi' || criterio.tipo === 'nombre' || comunidadId !== '';
 
   const comunidades = useQuery({
     queryKey: ['comunidades'],
@@ -105,6 +119,7 @@ export function PaginaRecepcion() {
               component={EnlaceRuta}
               to="/recepcion/nuevo"
               variant="contained"
+              color="success"
               startIcon={<PersonAddIcon />}
             >
               Registrar paciente
@@ -165,8 +180,8 @@ export function PaginaRecepcion() {
       {criterio.tipo === 'vacio' && !comunidadId ? (
         <NotaPagina>
           {puedeRegistrar
-            ? 'Escriba para buscar. Si el paciente no aparece, registrelo con el boton de arriba.'
-            : 'Escriba para buscar.'}
+            ? 'Escriba para buscar, o elija una comunidad para ver a todos sus pacientes. Si el paciente no aparece, registrelo con el boton de arriba.'
+            : 'Escriba para buscar, o elija una comunidad para ver a todos sus pacientes.'}
         </NotaPagina>
       ) : null}
 

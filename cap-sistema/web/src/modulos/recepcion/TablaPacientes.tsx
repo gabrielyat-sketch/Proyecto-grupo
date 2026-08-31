@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import { ETIQUETA_IDIOMA, type PaginaPacientes } from './servicio-pacientes';
 import { usarSesion } from '../sesion/contexto';
+import { desde } from '../../navegacion/usarVolver';
 import { puedeEntrar } from '../../navegacion/menu';
 import { fichaParaPaciente } from '../fichas/ficha-por-edad';
 import type { PacienteResumen } from './servicio-pacientes';
@@ -155,6 +156,7 @@ export function TablaPacientes({
                     <Link
                       component={EnlaceRuta}
                       to={'/pacientes/' + p.id + '/expediente'}
+                      state={desde('/recepcion', 'Recepcion')}
                       sx={{ fontFamily: 'monospace' }}
                     >
                       {p.expediente.numero}

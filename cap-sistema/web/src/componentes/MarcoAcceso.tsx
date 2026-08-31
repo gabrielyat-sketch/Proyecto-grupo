@@ -25,6 +25,52 @@ const FONDO_ACCESO = [
 ].join(', ');
 
 /**
+ * La franja curva del costado, tal como la trae la referencia del CAP.
+ *
+ * Son dos ondas de la misma familia de verdes azulados: una clara detras y una
+ * oscura delante, con el borde derecho curvado hacia dentro. Va dibujada en
+ * SVG y no como imagen porque tiene que estirarse a lo alto de la tarjeta sea
+ * cual sea el contenido —el formulario de acceso y el de cambiar contrasena no
+ * miden lo mismo— y un PNG se deformaria.
+ *
+ * `preserveAspectRatio="none"` es justo lo que permite ese estirado: la curva
+ * se alarga con la tarjeta en vez de recortarse.
+ *
+ * Es decorativa. Se oculta a los lectores de pantalla: no dice nada que no
+ * este ya en el titulo, y anunciarla solo alargaria el recorrido de quien
+ * navega a ciegas hasta el campo de usuario.
+ */
+function FranjaLateral() {
+  return (
+    <Box
+      aria-hidden
+      sx={{
+        // Solo cuando hay ancho de sobra. En un telefono la tarjeta ya va
+        // justa, y quitarle setenta pixeles al formulario por una decoracion
+        // seria cambiar lo util por lo bonito.
+        display: { xs: 'none', sm: 'block' },
+        position: 'absolute',
+        insetBlock: 0,
+        left: 0,
+        width: 78,
+        pointerEvents: 'none',
+      }}
+    >
+      <svg
+        viewBox="0 0 78 460"
+        preserveAspectRatio="none"
+        width="100%"
+        height="100%"
+        focusable="false"
+      >
+        <path d="M0 0 H62 C36 118 78 220 46 330 C26 398 54 430 40 460 H0 Z" fill="#80a8b2" />
+        <path d="M0 0 H44 C22 130 58 232 26 344 C10 404 32 434 22 460 H0 Z" fill="#105864" />
+      </svg>
+    </Box>
+  );
+}
+
+/**
  * Marco de las pantallas previas a la sesion.
  *
  * Centrado y sin menu: antes de entrar no hay nada mas que hacer en esta
@@ -72,6 +118,9 @@ export function MarcoAcceso({
           // del pie llega hasta los bordes, como en el diseno de referencia.
           p: 0,
           overflow: 'hidden',
+          // Para que la franja se posicione contra la tarjeta y no contra la
+          // pantalla entera.
+          position: 'relative',
           border: '1px solid',
           borderColor: 'rgba(15, 50, 64, 0.09)',
           // Dos sombras: una larga que despega la tarjeta del fondo, y una
@@ -80,7 +129,11 @@ export function MarcoAcceso({
           boxShadow: '0 24px 60px -26px rgba(12, 45, 58, 0.38), 0 2px 6px rgba(12, 45, 58, 0.06)',
         }}
       >
-        <Stack spacing={3} sx={{ p: { xs: 3, sm: 4.5 } }}>
+        <FranjaLateral />
+
+        {/* El relleno izquierdo deja sitio a la franja en las pantallas donde
+            se dibuja; en las estrechas vuelve al relleno normal. */}
+        <Stack spacing={3} sx={{ p: { xs: 3, sm: 4.5 }, pl: { sm: 13 } }}>
           <Stack spacing={1.25}>
             <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center' }}>
               <LogoCap tamano={30} />
@@ -110,6 +163,7 @@ export function MarcoAcceso({
           component="footer"
           sx={{
             px: { xs: 2, sm: 3 },
+            pl: { sm: 12 },
             py: 1.25,
             borderTop: '1px solid',
             borderColor: 'divider',

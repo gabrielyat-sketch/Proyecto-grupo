@@ -200,6 +200,7 @@ export function PaginaMedicamento() {
             <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
               <Button
                 variant="contained"
+                color="success"
                 startIcon={<AddIcon />}
                 onClick={() => setIngresando(true)}
                 disabled={!m.activo}

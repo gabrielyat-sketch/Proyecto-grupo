@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { AvisoError } from '../../componentes/AvisoError';
+import { usarVolver } from '../../navegacion/usarVolver';
 import { usarSesion } from '../sesion/contexto';
 import { obtenerPaciente } from '../fichas/servicio-fichas';
 import { ETIQUETA_IDIOMA } from '../recepcion/servicio-pacientes';
@@ -43,6 +44,10 @@ export function PaginaExpediente() {
 
   const puedeVerHistorial = VEN_EL_HISTORIAL.includes(usuario?.rol ?? '');
   const puedeAtender = ATIENDEN.includes(usuario?.rol ?? '');
+
+  // Antes de cualquier `return`: las reglas de los hooks no admiten
+  // llamadas condicionales, y mas abajo hay salidas tempranas.
+  const volver = usarVolver({ a: '/recepcion', etiqueta: 'Recepcion' });
 
   const paciente = useQuery({
     queryKey: ['paciente', pacienteId],
@@ -76,13 +81,13 @@ export function PaginaExpediente() {
     <Box sx={{ maxWidth: 900 }}>
       <Button
         component={EnlaceRuta}
-        to="/recepcion"
+        to={volver.a}
         startIcon={<ArrowBackIcon />}
         size="small"
         color="inherit"
         sx={{ mb: 1.5, ml: -1 }}
       >
-        Recepcion
+        {volver.etiqueta}
       </Button>
 
       {/* ─── Quien es ──────────────────────────────────────────────────── */}

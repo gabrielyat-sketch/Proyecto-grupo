@@ -20,6 +20,7 @@ import {
 } from '@mui/material';
 import { AvisoError } from '../../componentes/AvisoError';
 import { usarSesion } from '../sesion/contexto';
+import { desde } from '../../navegacion/usarVolver';
 import { DialogoBaja, type LoteParaBaja } from './DialogoBaja';
 import {
   conUnidad,
@@ -317,6 +318,7 @@ export function PanelBajoMinimo() {
                   <Typography
                     component={EnlaceRuta}
                     to={'/farmacia/' + m.id}
+                    state={desde('/farmacia', 'Alertas')}
                     variant="body2"
                     sx={{ fontFamily: 'monospace' }}
                   >

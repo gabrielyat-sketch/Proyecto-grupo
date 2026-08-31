@@ -1,18 +1,19 @@
 import type { ReactNode } from 'react';
 import { Box, Stack, Typography } from '@mui/material';
-import { VERDE_AZULADO } from '../tema';
 
 /**
- * Encabezado de un modulo, sobre el azul institucional.
+ * Encabezado de un modulo.
  *
- * El panel tiene nueve modulos y todos se abren igual: un titulo gris sobre
- * fondo gris. Quien pasa la jornada saltando entre recepcion, sala de espera y
- * expedientes pierde el hilo de en cual esta, y el titulo —que es lo unico que
- * lo dice— no pesaba mas que cualquier otro texto de la pantalla.
+ * Antes era una banda de color, para que el titulo pesara mas que el resto de
+ * la pantalla. Resolvia un problema real —nueve modulos que se abrian todos
+ * igual, un titulo gris sobre fondo gris— pero de una forma que competia con
+ * el trabajo: la banda era lo primero que se veia en cada pantalla, siempre, y
+ * lo primero que hay que ver es la tabla.
  *
- * La banda de color lo resuelve sin agregar nada: no hay un elemento nuevo que
- * leer, solo el mismo titulo con el peso que le corresponde. Y al ser el color
- * de la barra superior, la pantalla queda enmarcada por arriba.
+ * Ahora el peso lo da la tipografia: titulo grande y oscuro sobre la
+ * superficie clara, como en la referencia del CAP. El color queda donde
+ * orienta de verdad, que es el menu lateral: ahi se ve en que modulo se esta
+ * sin leer nada.
  */
 export function EncabezadoPagina({
   titulo,
@@ -21,63 +22,42 @@ export function EncabezadoPagina({
 }: {
   titulo: string;
   descripcion?: ReactNode;
-  /** Botones de la esquina derecha. Van dentro de la banda, no sueltos al lado. */
+  /** Botones de la esquina derecha. */
   acciones?: ReactNode;
 }) {
   return (
-    <Box
+    <Stack
+      direction={{ xs: 'column', sm: 'row' }}
       sx={{
         mb: 3,
-        px: { xs: 2, sm: 3 },
-        py: { xs: 2, sm: 2.5 },
-        borderRadius: 1,
-        bgcolor: VERDE_AZULADO,
-        color: '#fff',
-        /*
-          Los botones que llegan en `acciones` vienen con el estilo del resto
-          del panel: `contained` en azul, que sobre esta banda desaparece. Se
-          invierten aqui y no en cada pantalla, para que ninguna tenga que
-          saber que esta dentro de una banda de color.
-        */
-        '& .MuiButton-contained': {
-          bgcolor: '#fff',
-          color: VERDE_AZULADO,
-          '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.86)' },
-        },
-        '& .MuiButton-outlined': {
-          color: 'inherit',
-          borderColor: 'rgba(255, 255, 255, 0.6)',
-          '&:hover': { borderColor: '#fff', bgcolor: 'rgba(255, 255, 255, 0.08)' },
-        },
+        gap: 2,
+        justifyContent: 'space-between',
+        alignItems: { sm: 'flex-end' },
       }}
     >
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        sx={{ gap: 2, justifyContent: 'space-between', alignItems: { sm: 'center' } }}
-      >
-        <Stack sx={{ gap: 0.5, minWidth: 0 }}>
-          <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
-            {titulo}
-          </Typography>
-          {descripcion ? (
-            // 0.92 y no un gris: sobre color, bajar la opacidad mantiene la
-            // jerarquia sin ensuciar el tono ni perder contraste.
-            <Typography sx={{ opacity: 0.92 }}>{descripcion}</Typography>
-          ) : null}
-        </Stack>
-        {acciones ? <Box sx={{ flexShrink: 0 }}>{acciones}</Box> : null}
+      <Stack sx={{ gap: 0.5, minWidth: 0 }}>
+        <Typography variant="h4" component="h1">
+          {titulo}
+        </Typography>
+        {descripcion ? (
+          <Typography color="text.secondary">{descripcion}</Typography>
+        ) : null}
       </Stack>
-    </Box>
+      {acciones ? <Box sx={{ flexShrink: 0 }}>{acciones}</Box> : null}
+    </Stack>
   );
 }
 
 /**
- * Nota suelta dentro de una pantalla, en el mismo azul.
+ * Nota suelta dentro de una pantalla.
  *
- * Para los textos que guian el siguiente paso —"Escriba para buscar", el avance
- * de la transcripcion— cuando estan lejos del encabezado. Va en un tono mas
- * suave que la banda del titulo: si las dos pesaran igual, competirian, y la
- * que importa es la de arriba.
+ * Para los textos que guian el siguiente paso —"Escriba para buscar", el
+ * avance de la transcripcion— cuando estan lejos del encabezado.
+ *
+ * Fondo tenue y una linea de color a la izquierda, no un bloque entero: es una
+ * indicacion, no una alarma, y en una pantalla que ya tiene tabla, filtros y
+ * botones, un rectangulo de color solido se lleva la atencion que necesita el
+ * trabajo.
  */
 export function NotaPagina({ children, sx }: { children: ReactNode; sx?: object }) {
   return (
@@ -86,8 +66,10 @@ export function NotaPagina({ children, sx }: { children: ReactNode; sx?: object 
         px: { xs: 2, sm: 2.5 },
         py: 1.75,
         borderRadius: 1,
-        bgcolor: VERDE_AZULADO,
-        color: '#fff',
+        borderLeft: '4px solid',
+        borderColor: 'secondary.main',
+        bgcolor: 'rgba(16, 114, 115, 0.07)',
+        color: 'text.primary',
         ...sx,
       }}
     >

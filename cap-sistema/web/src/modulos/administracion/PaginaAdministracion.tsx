@@ -125,6 +125,7 @@ export function PaginaAdministracion() {
         acciones={
           <Button
             variant="contained"
+            color="success"
             startIcon={<PersonAddIcon />}
             onClick={() => setAlta(true)}
             sx={{ flexShrink: 0 }}
