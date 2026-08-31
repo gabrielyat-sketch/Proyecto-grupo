@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import { AvisoError } from '../../componentes/AvisoError';
+import { EncabezadoPagina } from '../../componentes/EncabezadoPagina';
 import { usarAtajo } from '../../navegacion/usarAtajo';
 import { esErrorApi } from '../../api';
 import { buscarExpediente } from './servicio-expedientes';
@@ -75,14 +76,10 @@ export function PaginaExpedientes() {
 
   return (
     <Box sx={{ maxWidth: 780 }}>
-      <Stack sx={{ gap: 0.5, mb: 3 }}>
-        <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
-          Expedientes
-        </Typography>
-        <Typography color="text.secondary">
-          Escriba el numero completo de la carpeta que tiene en la mano.
-        </Typography>
-      </Stack>
+      <EncabezadoPagina
+        titulo="Expedientes"
+        descripcion="Escriba el numero completo de la carpeta que tiene en la mano."
+      />
 
       <Paper
         elevation={0}

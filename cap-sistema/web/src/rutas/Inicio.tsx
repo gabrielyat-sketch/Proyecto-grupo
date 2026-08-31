@@ -1,5 +1,6 @@
 import { Link as EnlaceRuta } from 'react-router-dom';
 import { Box, Card, CardActionArea, Stack, Typography } from '@mui/material';
+import { EncabezadoPagina } from '../componentes/EncabezadoPagina';
 import { usarSesion } from '../modulos/sesion/contexto';
 import { menuPara } from '../navegacion/menu';
 
@@ -16,14 +17,10 @@ export function Inicio() {
 
   return (
     <Box>
-      <Stack spacing={0.5} sx={{ mb: 4 }}>
-        <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
-          Buen dia, {usuario?.usuario}
-        </Typography>
-        <Typography color="text.secondary">
-          Estos son los modulos disponibles para su rol.
-        </Typography>
-      </Stack>
+      <EncabezadoPagina
+        titulo={'Buen dia, ' + (usuario?.usuario ?? '')}
+        descripcion="Estos son los modulos disponibles para su rol."
+      />
 
       <Box
         sx={{

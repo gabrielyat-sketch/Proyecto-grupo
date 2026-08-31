@@ -17,11 +17,24 @@ import {
 } from '@mui/material';
 import { ETIQUETA_ESTADO, type ExpedienteEnCola, type PaginaCola } from './servicio-digitalizacion';
 
-const COLOR_ESTADO: Record<string, 'default' | 'primary' | 'success'> = {
-  PENDIENTE: 'default',
-  EN_PROCESO: 'primary',
+/**
+ * El color de cada estado: un semaforo de lo que falta.
+ *
+ * - Pendiente en rojo (`error`): la carpeta sigue solo en papel, y mientras
+ *   este asi su historia clinica no existe para el sistema.
+ * - En proceso en cafe (`warning`): alguien la empezo y quedo a medias. Es la
+ *   fila que conviene terminar antes de abrir otra.
+ * - Completo en verde (`success`): el unico estado que no pide nada.
+ * - No localizado en pizarra (`secondary`): fuera del semaforo a proposito. No
+ *   es una etapa del trabajo sino un callejon sin salida —la carpeta no
+ *   aparecio en el archivo—, y pintarlo de rojo o cafe lo pondria en la misma
+ *   cola de lo que si se puede transcribir hoy.
+ */
+const COLOR_ESTADO: Record<string, 'error' | 'warning' | 'success' | 'secondary'> = {
+  PENDIENTE: 'error',
+  EN_PROCESO: 'warning',
   COMPLETO: 'success',
-  NO_LOCALIZADO: 'default',
+  NO_LOCALIZADO: 'secondary',
 };
 
 /**
@@ -136,7 +149,10 @@ export function ColaTrabajo({
                     size="small"
                     label={ETIQUETA_ESTADO[e.estado] ?? e.estado}
                     color={COLOR_ESTADO[e.estado] ?? 'default'}
-                    variant={e.estado === 'PENDIENTE' ? 'outlined' : 'filled'}
+                    // Los cuatro rellenos: delineado, el rojo de Pendiente se
+                    // veria mas debil que el resto justo en el estado que mas
+                    // filas ocupa.
+                    variant="filled"
                   />
                 </TableCell>
                 <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
@@ -145,7 +161,7 @@ export function ColaTrabajo({
                 <TableCell align="right">
                   <Stack direction="row" sx={{ gap: 1, justifyContent: 'flex-end' }}>
                     {puedeMarcar ? (
-                      <Button size="small" color="inherit" onClick={() => onMarcar(e)}>
+                      <Button size="small" variant="contained" onClick={() => onMarcar(e)}>
                         Estado
                       </Button>
                     ) : null}

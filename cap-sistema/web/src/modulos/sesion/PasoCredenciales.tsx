@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Button, Stack, TextField } from '@mui/material';
+import { Button, InputAdornment, Stack, TextField } from '@mui/material';
+import PersonOutlinedIcon from '@mui/icons-material/PersonOutlined';
+import KeyOutlinedIcon from '@mui/icons-material/KeyOutlined';
 import { AvisoError } from '../../componentes/AvisoError';
 import { CampoContrasena } from '../../componentes/CampoContrasena';
 import { entrar, type ResultadoEntrada } from './servicio-sesion';
@@ -46,6 +48,20 @@ export function PasoCredenciales({ alAvanzar }: { alAvanzar: (r: ResultadoEntrad
     }
   }
 
+  /**
+   * Iconos de los campos. Son decorativos —MUI ya los marca `aria-hidden`— y
+   * su trabajo es que el par usuario/contrasena se distinga de un vistazo sin
+   * tener que leer las etiquetas, que es como lo mira alguien que entra al
+   * sistema varias veces al dia.
+   */
+  const iconoInicial = (icono: ReactNode) => ({
+    startAdornment: (
+      <InputAdornment position="start" sx={{ color: 'text.disabled' }}>
+        {icono}
+      </InputAdornment>
+    ),
+  });
+
   // onChange en el formulario, no campo por campo: el evento de cualquier
   // entrada burbujea hasta aqui y no hay que envolver los register.
   return (
@@ -61,6 +77,7 @@ export function PasoCredenciales({ alAvanzar }: { alAvanzar: (r: ResultadoEntrad
           autoComplete="username"
           error={Boolean(errors.usuario)}
           helperText={errors.usuario?.message}
+          slotProps={{ input: iconoInicial(<PersonOutlinedIcon fontSize="small" />) }}
           {...register('usuario')}
         />
 
@@ -69,6 +86,7 @@ export function PasoCredenciales({ alAvanzar }: { alAvanzar: (r: ResultadoEntrad
           autoComplete="current-password"
           error={Boolean(errors.contrasena)}
           helperText={errors.contrasena?.message}
+          slotProps={{ input: iconoInicial(<KeyOutlinedIcon fontSize="small" />) }}
           {...register('contrasena')}
         />
 

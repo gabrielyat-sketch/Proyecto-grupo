@@ -39,6 +39,30 @@ export const tema = createTheme(
           root: { minHeight: 44, paddingInline: 20 },
         },
       },
+      /**
+       * La fila de titulos de CUALQUIER tabla, en el azul institucional.
+       *
+       * Va en el tema y no tabla por tabla porque son diez repartidas entre
+       * recepcion, farmacia, digitalizacion, administracion y el carnet de
+       * ninez: puesto en cada una, la siguiente tabla que alguien agregue
+       * nacería distinta y habria que acordarse de copiarlo.
+       *
+       * Ayuda a leer, no solo a decorar. Varias de estas tablas se desplazan a
+       * lo ancho en la pantalla de recepcion, y con la cabecera del mismo color
+       * que las filas se pierde de vista cual columna se esta mirando.
+       */
+      MuiTableCell: {
+        styleOverrides: {
+          head: {
+            backgroundColor: '#15607a',
+            color: '#ffffff',
+            fontWeight: 600,
+            // La linea divisoria por defecto es gris sobre el azul: se ve como
+            // una raya sucia bajo la cabecera.
+            borderBottom: 'none',
+          },
+        },
+      },
       MuiCssBaseline: {
         styleOverrides: {
           // El foco DEBE verse. Sin esto, navegar por teclado —que es como se va a

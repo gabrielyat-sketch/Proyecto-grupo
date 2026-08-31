@@ -25,6 +25,8 @@ import { puedeEntrar } from '../../navegacion/menu';
 import { usarAtajo } from '../../navegacion/usarAtajo';
 import { interpretarBusqueda, motivoSinBuscar } from './busqueda';
 import { buscarPacientes, listarComunidades, type PacienteResumen } from './servicio-pacientes';
+import { MENU_AZUL } from '../../componentes/menuAzul';
+import { EncabezadoPagina, NotaPagina } from '../../componentes/EncabezadoPagina';
 import { marcarLlegada } from '../espera/servicio-espera';
 import { TablaPacientes } from './TablaPacientes';
 
@@ -94,31 +96,22 @@ export function PaginaRecepcion() {
 
   return (
     <Box>
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={2}
-        sx={{ mb: 3, alignItems: { sm: 'center' }, justifyContent: 'space-between' }}
-      >
-        <Stack spacing={0.5}>
-          <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
-            Recepcion
-          </Typography>
-          <Typography color="text.secondary">
-            Busque por DPI o por el inicio del apellido.
-          </Typography>
-        </Stack>
-
-        {puedeRegistrar ? (
-          <Button
-            component={EnlaceRuta}
-            to="/recepcion/nuevo"
-            variant="contained"
-            startIcon={<PersonAddIcon />}
-          >
-            Registrar paciente
-          </Button>
-        ) : null}
-      </Stack>
+      <EncabezadoPagina
+        titulo="Recepcion"
+        descripcion="Busque por DPI o por el inicio del apellido."
+        acciones={
+          puedeRegistrar ? (
+            <Button
+              component={EnlaceRuta}
+              to="/recepcion/nuevo"
+              variant="contained"
+              startIcon={<PersonAddIcon />}
+            >
+              Registrar paciente
+            </Button>
+          ) : null
+        }
+      />
 
       <Paper
         elevation={0}
@@ -155,6 +148,7 @@ export function PaginaRecepcion() {
             }}
             sx={{ minWidth: { md: 260 } }}
             helperText="Opcional"
+            slotProps={{ select: { MenuProps: MENU_AZUL } }}
           >
             <MenuItem value="">Todas las comunidades</MenuItem>
             {(comunidades.data ?? []).map((c) => (
@@ -169,11 +163,11 @@ export function PaginaRecepcion() {
       {aviso ? <Alert severity="info">{aviso}</Alert> : null}
 
       {criterio.tipo === 'vacio' && !comunidadId ? (
-        <Typography color="text.secondary">
+        <NotaPagina>
           {puedeRegistrar
             ? 'Escriba para buscar. Si el paciente no aparece, registrelo con el boton de arriba.'
             : 'Escriba para buscar.'}
-        </Typography>
+        </NotaPagina>
       ) : null}
 
       {resultados.isFetching ? (

@@ -1,5 +1,6 @@
 import { Box, Paper, Stack, Typography } from '@mui/material';
 import ConstructionIcon from '@mui/icons-material/Construction';
+import { EncabezadoPagina } from '../componentes/EncabezadoPagina';
 
 /**
  * Marcador de un modulo que todavia no existe.
@@ -12,9 +13,7 @@ import ConstructionIcon from '@mui/icons-material/Construction';
 export function EnConstruccion({ titulo, descripcion }: { titulo: string; descripcion: string }) {
   return (
     <Box>
-      <Typography variant="h5" component="h1" sx={{ fontWeight: 600, mb: 3 }}>
-        {titulo}
-      </Typography>
+      <EncabezadoPagina titulo={titulo} />
       <Paper
         elevation={0}
         sx={{ p: 4, border: '1px solid', borderColor: 'divider', maxWidth: 620 }}

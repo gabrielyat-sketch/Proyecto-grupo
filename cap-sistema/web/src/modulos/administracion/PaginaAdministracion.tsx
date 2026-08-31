@@ -28,6 +28,9 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import { AvisoError } from '../../componentes/AvisoError';
+import { AvatarUsuario } from '../../componentes/AvatarUsuario';
+import { EncabezadoPagina } from '../../componentes/EncabezadoPagina';
+import { MENU_AZUL } from '../../componentes/menuAzul';
 import { usarAtajo } from '../../navegacion/usarAtajo';
 import { usarSesion } from '../sesion/contexto';
 import { DialogoContrasenaTemporal } from './DialogoContrasenaTemporal';
@@ -116,28 +119,20 @@ export function PaginaAdministracion() {
 
   return (
     <Box>
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        sx={{ gap: 2, mb: 3, justifyContent: 'space-between', alignItems: { sm: 'flex-start' } }}
-      >
-        <Stack sx={{ gap: 0.5 }}>
-          <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
-            Administracion
-          </Typography>
-          <Typography color="text.secondary">
-            Cuentas del personal del CAP, sus roles y sus contrasenas.
-          </Typography>
-        </Stack>
-
-        <Button
-          variant="contained"
-          startIcon={<PersonAddIcon />}
-          onClick={() => setAlta(true)}
-          sx={{ flexShrink: 0 }}
-        >
-          Nueva cuenta
-        </Button>
-      </Stack>
+      <EncabezadoPagina
+        titulo="Administracion"
+        descripcion="Cuentas del personal del CAP, sus roles y sus contrasenas."
+        acciones={
+          <Button
+            variant="contained"
+            startIcon={<PersonAddIcon />}
+            onClick={() => setAlta(true)}
+            sx={{ flexShrink: 0 }}
+          >
+            Nueva cuenta
+          </Button>
+        }
+      />
 
       <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2, mb: 2 }}>
         <TextField
@@ -169,6 +164,7 @@ export function PaginaAdministracion() {
             setPagina(1);
           }}
           sx={{ minWidth: 200 }}
+          slotProps={{ select: { MenuProps: MENU_AZUL } }}
         >
           <MenuItem value="">Todos</MenuItem>
           {LISTA_ROLES.map((r) => (
@@ -229,7 +225,23 @@ export function PaginaAdministracion() {
                   return (
                     <TableRow key={c.id} hover>
                       <TableCell>
-                        <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
+                        <Stack direction="row" sx={{ gap: 1.25, alignItems: 'center' }}>
+                          {/*
+                            Sin punto de presencia a proposito. El servidor no
+                            sabe quien esta dentro ahora mismo: `ultimoAcceso`
+                            se escribe al iniciar sesion, asi que quien entro a
+                            las siete y sigue trabajando se veria igual que
+                            quien se fue a media manana. Un punto verde ahi
+                            afirmaria algo que nadie ha comprobado. La columna
+                            "Ultimo acceso" dice la verdad que si se tiene.
+                          */}
+                          <AvatarUsuario
+                            usuario={c.usuario}
+                            nombres={c.nombres}
+                            apellidos={c.apellidos}
+                            tamano={32}
+                            descripcion={c.nombres + ' ' + c.apellidos + ' (' + c.usuario + ')'}
+                          />
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>
                             {c.apellidos}, {c.nombres}
                           </Typography>
@@ -289,12 +301,24 @@ export function PaginaAdministracion() {
                       </TableCell>
                       <TableCell>
                         <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
-                          <Button size="small" variant="outlined" onClick={() => setEditando(c)}>
+                          {/*
+                            Rellenos, no delineados: en una tabla de seis
+                            columnas los botones delineados se perdian entre las
+                            lineas de las celdas. El color separa lo que hace
+                            cada uno —azul para editar los datos de la cuenta,
+                            cafe para lo que genera una contrasena nueva y
+                            deja sin entrar a quien tenia la anterior.
+                          */}
+                          <Button
+                            size="small"
+                            variant="contained"
+                            onClick={() => setEditando(c)}
+                          >
                             Editar
                           </Button>
                           <Button
                             size="small"
-                            variant="outlined"
+                            variant="contained"
                             color="warning"
                             onClick={() => setConfirmando(c)}
                           >
