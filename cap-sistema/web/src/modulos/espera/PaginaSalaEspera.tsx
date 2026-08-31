@@ -20,6 +20,7 @@ import { AvisoError } from '../../componentes/AvisoError';
 import { EncabezadoPagina } from '../../componentes/EncabezadoPagina';
 import { usarSesion } from '../sesion/contexto';
 import { usarAtajo } from '../../navegacion/usarAtajo';
+import { desde } from '../../navegacion/usarVolver';
 import {
   ESPERA_LARGA_MINUTOS,
   esperaEnPalabras,
@@ -77,7 +78,12 @@ export function PaginaSalaEspera() {
     },
   });
 
-  const atender = (v: VisitaEnEspera) => navegar('/pacientes/' + v.pacienteId + '/ficha');
+  // Se lleva el origen: quien atiende desde la sala vuelve a la sala, no a
+  // recepcion, que es otro modulo y otra cola.
+  const atender = (v: VisitaEnEspera) =>
+    navegar('/pacientes/' + v.pacienteId + '/ficha', {
+      state: desde('/espera', 'Sala de espera'),
+    });
 
   // Ctrl+J lleva el foco a la lista, igual que en digitalizacion.
   usarAtajo('j', () => {

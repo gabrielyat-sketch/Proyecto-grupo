@@ -95,7 +95,7 @@ export const CREAR_CLARO = "#076f55";
  * apretados, que es lo que hacia que se viera como una franja delgada pegada
  * al borde.
  */
-export const ALTO_BARRA = 73;
+export const ALTO_BARRA = 76;
 
 // ══════════════════════ Los estados ══════════════════════
 

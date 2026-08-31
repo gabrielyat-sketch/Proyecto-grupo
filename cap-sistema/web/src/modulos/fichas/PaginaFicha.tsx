@@ -50,6 +50,7 @@ import { SeccionPlan } from './SeccionPlan';
 import { BloqueFicha, Dato, SeccionFicha } from './SeccionFicha';
 import { EncabezadoFicha } from './EncabezadoFicha';
 import { LineaPregunta, SelectorSiNo } from './SelectorRespuesta';
+import { usarVolver } from '../../navegacion/usarVolver';
 
 /**
  * Memorizadas porque la ficha entera es un solo estado.
@@ -108,6 +109,17 @@ export function PaginaFicha() {
    * es justo lo que hace que el trabajo avance.
    */
   const digitalizando = parametros.get('digitalizacion') === '1';
+  /*
+    A la ficha se llega desde recepcion, desde la sala de espera y desde la
+    cola de digitalizacion, y el boton de salir apuntaba siempre a recepcion.
+    Quien atendia a alguien de la sala salia a otro modulo y tenia que volver a
+    navegar hasta la cola donde estaba trabajando.
+  */
+  const volver = usarVolver(
+    digitalizando
+      ? { a: '/digitalizacion', etiqueta: 'Cola' }
+      : { a: '/recepcion', etiqueta: 'Recepcion' },
+  );
   const clienteConsultas = useQueryClient();
 
   const [borrador, setBorrador] = useState<Borrador | null>(null);
@@ -351,8 +363,8 @@ export function PaginaFicha() {
       {/* ─── El encabezado impreso, compartido con las demas fichas ─────── */}
       <EncabezadoFicha
         titulo="Ficha clinica de adolescente, adulto y adulto mayor"
-        volverA={digitalizando ? '/digitalizacion' : '/recepcion'}
-        volverTexto={digitalizando ? 'Cola' : 'Recepcion'}
+        volverA={volver.a}
+        volverTexto={volver.etiqueta}
         nombre={datos.apellidos + ', ' + datos.nombres}
         resumen={
           datos.edad +
@@ -382,8 +394,8 @@ export function PaginaFicha() {
           sx={{ mb: 2 }}
           action={
             <Stack direction="row" sx={{ gap: 1 }}>
-              <Button size="small" onClick={() => navegar(digitalizando ? '/digitalizacion' : '/recepcion')}>
-                {digitalizando ? 'Volver a la cola' : 'Ir a recepcion'}
+              <Button size="small" onClick={() => navegar(volver.a)}>
+                {'Ir a ' + volver.etiqueta.toLowerCase()}
               </Button>
               <Button
                 size="small"

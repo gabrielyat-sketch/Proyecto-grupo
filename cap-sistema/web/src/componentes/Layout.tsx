@@ -265,14 +265,48 @@ export function Layout() {
             y dos formas de hacer lo mismo a diez centimetros una de otra solo
             obligan a averiguar si son distintas.
           */}
-          <Typography
-            variant="h6"
-            component="div"
-            sx={{ fontWeight: 600, flexGrow: 1, minWidth: 0 }}
-            noWrap
-          >
-            Plataforma del Centro de Atencion Permanente
-          </Typography>
+          {/*
+            El nombre en dos alturas, no en una linea corrida.
+
+            «Plataforma del» es andamiaje: nadie lo lee dos veces, y puesto al
+            mismo tamano que el resto obliga a recorrerlo entero para llegar a
+            lo que nombra. Arriba, pequeno y espaciado, hace de rotulo; debajo
+            queda el nombre propio del centro, que es lo unico que hay que
+            reconocer de un vistazo. Ademas la barra mide 73 pixeles y una sola
+            linea de texto los desaprovecha.
+
+            Se ve distinto desde que la letra del tema se carga de verdad: Inter
+            estaba pedida en `tema.ts` desde el principio pero no la instalaba
+            nadie, asi que todo salia en Segoe UI. Ver `main.tsx`.
+          */}
+          <Box sx={{ flexGrow: 1, minWidth: 0, overflow: 'hidden' }}>
+            <Typography
+              component="div"
+              noWrap
+              sx={{
+                fontSize: 11,
+                fontWeight: 500,
+                letterSpacing: '.2em',
+                textTransform: 'uppercase',
+                opacity: 0.66,
+                lineHeight: 1.3,
+              }}
+            >
+              Plataforma del
+            </Typography>
+            <Typography
+              component="div"
+              noWrap
+              sx={{
+                fontSize: { xs: 15, sm: 19 },
+                fontWeight: 600,
+                letterSpacing: '-.015em',
+                lineHeight: 1.2,
+              }}
+            >
+              Centro de Atencion Permanente
+            </Typography>
+          </Box>
 
           {/*
             El reloj a la par del avatar, no al centro: los dos son informacion
@@ -335,21 +369,28 @@ export function Layout() {
               no se enfoca con el teclado y no debe anunciarse como opcion. Un
               MenuItem apagado si sale en el recorrido del lector de pantalla.
 
-              Va sobre el mismo oscuro de la barra para que se lea como la
-              continuacion de la pastilla que se acaba de pulsar, no como una
-              tarjeta suelta que aparecio encima.
+              En blanco, como el resto del desplegable. Estuvo un tiempo sobre
+              el oscuro de la barra, y el resultado era un recuadro de color
+              arriba y dos filas blancas debajo dentro de una ventanita de
+              cuatro centimetros: el bloque tiraba de la vista hacia el dato
+              —el nombre de quien entro, que ya se sabe— y no hacia las dos
+              acciones, que es a lo que se abrio. La linea de abajo separa
+              igual de bien y no compite con nada.
             */}
             <Stack
               direction="row"
               spacing={1.5}
-              sx={{ alignItems: 'center', px: 2, py: 2, bgcolor: BARRA, color: '#fff' }}
+              sx={{ alignItems: 'center', px: 2, py: 2 }}
             >
               <AvatarUsuario usuario={usuario?.usuario ?? '?'} tamano={44} />
               <Stack sx={{ minWidth: 0, gap: 0.25 }}>
                 <Typography sx={{ fontWeight: 700 }} noWrap>
                   {usuario?.usuario}
                 </Typography>
-                <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5, opacity: 0.82 }}>
+                <Stack
+                  direction="row"
+                  sx={{ alignItems: 'center', gap: 0.5, color: 'text.secondary' }}
+                >
                   <BadgeOutlinedIcon sx={{ fontSize: 15 }} />
                   <Typography variant="caption" noWrap>
                     {ETIQUETA_ROL[usuario?.rol ?? ''] ?? usuario?.rol}
@@ -358,12 +399,14 @@ export function Layout() {
               </Stack>
             </Stack>
 
+            <Divider />
+
             <MenuItem
               onClick={() => {
                 setMenuCuenta(null);
                 navegar('/contrasena');
               }}
-              sx={{ minHeight: 48, gap: 0.5, mt: 1 }}
+              sx={{ minHeight: 48, gap: 0.5, mt: 0.5 }}
             >
               <ListItemIcon>
                 <KeyOutlinedIcon fontSize="small" sx={{ color: 'primary.main' }} />

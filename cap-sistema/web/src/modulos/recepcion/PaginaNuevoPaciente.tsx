@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Link as EnlaceRuta, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -9,7 +9,7 @@ import {
   Box,
   Button,
   Checkbox,
-  Divider,
+  ListSubheader,
   FormControlLabel,
   MenuItem,
   Paper,
@@ -21,12 +21,12 @@ import { AvisoError } from '../../componentes/AvisoError';
 import { usarAtajo } from '../../navegacion/usarAtajo';
 import {
   crearPaciente,
-  ETIQUETA_TIPO_LUGAR,
   listarComunidades,
   listarLugares,
   type PacienteCreado,
 } from './servicio-pacientes';
 import { MENU_FILTRO } from '../../componentes/menuFiltro';
+import { PRIMARIO } from '../../tema';
 
 const IDIOMAS = [
   { valor: 'ESPANOL', etiqueta: 'Espanol' },
@@ -89,6 +89,48 @@ const esquema = z.object({
 
 type Campos = z.infer<typeof esquema>;
 
+/** El orden en que la gente nombra los lugares, de lo grande a lo pequeno. */
+const ORDEN_GRUPOS = ['ALDEA', 'BARRIO', 'CASERIO', 'OTRO'];
+
+/** En plural, porque titula un grupo y no una fila. */
+const ETIQUETA_GRUPO_LUGAR: Record<string, string> = {
+  ALDEA: 'Aldeas',
+  BARRIO: 'Barrios',
+  CASERIO: 'Caserios',
+  OTRO: 'Otros',
+};
+
+/**
+ * Titulo de un bloque del formulario.
+ *
+ * Antes eran una linea separadora y un texto gris del mismo tamano que las
+ * etiquetas de los campos: separaba, pero no agrupaba, y el formulario se leia
+ * como veinte cajas seguidas. La barra de color es lo que deja ver donde
+ * empieza cada bloque sin leerlos.
+ *
+ * Es un `h2` de verdad y no un texto en negrita: quien usa lector de pantalla
+ * puede saltar de bloque en bloque en vez de recorrer los veinte campos.
+ */
+function TituloSeccion({ children }: { children: ReactNode }) {
+  return (
+    <Stack direction="row" sx={{ alignItems: 'center', gap: 1.25, mt: 1 }}>
+      <Box sx={{ width: 4, height: 20, borderRadius: 4, bgcolor: PRIMARIO, flexShrink: 0 }} />
+      <Typography
+        component="h2"
+        sx={{
+          fontWeight: 700,
+          fontSize: 13,
+          letterSpacing: '.08em',
+          textTransform: 'uppercase',
+          color: 'text.secondary',
+        }}
+      >
+        {children}
+      </Typography>
+    </Stack>
+  );
+}
+
 export function PaginaNuevoPaciente() {
   const navegar = useNavigate();
   const clienteConsultas = useQueryClient();
@@ -142,6 +184,24 @@ export function PaginaNuevoPaciente() {
     enabled: comunidadId !== '',
     staleTime: 30 * 60_000,
   });
+
+  /*
+    Los lugares, repartidos por tipo y en el orden en que la gente los nombra.
+
+    Un tipo que no este en la lista de orden no se pierde: cae al final con su
+    propio titulo. Perder un lugar del listado significaria que a alguien no se
+    le puede registrar donde vive.
+  */
+  const gruposDeLugares = useMemo(() => {
+    const lista = lugares.data ?? [];
+    const posicion = (t: string) => {
+      const i = ORDEN_GRUPOS.indexOf(t);
+      return i === -1 ? ORDEN_GRUPOS.length : i;
+    };
+    return [...new Set(lista.map((l) => l.tipo))]
+      .sort((a, b) => posicion(a) - posicion(b))
+      .map((tipo) => ({ tipo, lugares: lista.filter((l) => l.tipo === tipo) }));
+  }, [lugares.data]);
 
   const alta = useMutation({
     mutationFn: crearPaciente,
@@ -232,10 +292,17 @@ export function PaginaNuevoPaciente() {
           alta.reset();
         }}
         noValidate
-        sx={{ p: { xs: 2.5, md: 4 }, border: '1px solid', borderColor: 'divider' }}
+        sx={{
+          p: { xs: 2.5, md: 4 },
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 3,
+        }}
       >
         <Stack spacing={3}>
           {alta.isError ? <AvisoError error={alta.error} /> : null}
+
+          <TituloSeccion>Datos de la persona</TituloSeccion>
 
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
             <TextField
@@ -359,15 +426,41 @@ export function PaginaNuevoPaciente() {
               }
             >
               <MenuItem value="">Sin especificar</MenuItem>
-              {(lugares.data ?? []).map((l) => (
-                <MenuItem key={l.id} value={l.id}>
-                  {(ETIQUETA_TIPO_LUGAR[l.tipo] ?? l.tipo) + ': ' + l.nombre}
-                </MenuItem>
-              ))}
+              {/*
+                Agrupados por tipo, con su titulo.
+
+                Purulha Centro son siete barrios y cuarenta y seis caserios en
+                una sola lista. Escribir el tipo delante de cada nombre
+                —«Caserio: Sacsamani»— lo decia, pero habia que leer renglon
+                por renglon para ver donde terminaba una cosa y empezaba la
+                otra, y esa palabra repetida cuarenta y seis veces es lo
+                primero que lee el ojo en cada linea, antes que el nombre, que
+                es lo que se venia a buscar. Dicho una vez arriba, el nombre
+                queda solo.
+              */}
+              {gruposDeLugares.flatMap((grupo) => [
+                <ListSubheader
+                  key={'grupo-' + grupo.tipo}
+                  sx={{
+                    fontWeight: 700,
+                    color: 'text.primary',
+                    textDecoration: 'underline',
+                    textUnderlineOffset: 4,
+                    lineHeight: 2.6,
+                  }}
+                >
+                  {ETIQUETA_GRUPO_LUGAR[grupo.tipo] ?? grupo.tipo}
+                </ListSubheader>,
+                ...grupo.lugares.map((l) => (
+                  <MenuItem key={l.id} value={l.id} sx={{ pl: 3 }}>
+                    {l.nombre}
+                  </MenuItem>
+                )),
+              ])}
             </TextField>
           </Stack>
 
-          <Divider />
+          <TituloSeccion>Procedencia</TituloSeccion>
 
           {/*
             Población migrante. Las cuatro fichas oficiales lo preguntan: al CAP
@@ -375,9 +468,6 @@ export function PaginaNuevoPaciente() {
             para el seguimiento y para lo que el CAP reporta al MSPAS.
           */}
           <Stack spacing={1}>
-            <Typography variant="subtitle2" color="text.secondary">
-              Procedencia
-            </Typography>
             <Stack
               direction={{ xs: 'column', md: 'row' }}
               spacing={2}
@@ -404,7 +494,7 @@ export function PaginaNuevoPaciente() {
             </Stack>
           </Stack>
 
-          <Divider />
+          <TituloSeccion>Alergias a medicamentos</TituloSeccion>
 
           {/*
             Alergias a medicamentos.
@@ -419,9 +509,6 @@ export function PaginaNuevoPaciente() {
             diferencia, que es justo la que importa.
           */}
           <Stack spacing={1}>
-            <Typography variant="subtitle2" color="text.secondary">
-              Alergias a medicamentos
-            </Typography>
             <Stack
               direction={{ xs: 'column', md: 'row' }}
               spacing={2}
@@ -460,12 +547,9 @@ export function PaginaNuevoPaciente() {
             ) : null}
           </Stack>
 
-          <Divider />
+          <TituloSeccion>Expediente de papel</TituloSeccion>
 
           <Stack spacing={1}>
-            <Typography variant="subtitle2" color="text.secondary">
-              Expediente de papel
-            </Typography>
             <Stack
               direction={{ xs: 'column', md: 'row' }}
               spacing={2}

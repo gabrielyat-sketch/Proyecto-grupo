@@ -151,6 +151,10 @@ describe('sala de espera', () => {
 
       await usuario.click((await screen.findAllByRole('button', { name: 'Atender' }))[0]);
       await waitFor(() => expect(window.location.pathname).toBe('/pacientes/p-1/ficha'));
+
+      // Y se lleva de donde vino: sin esto, salir de la ficha devolvia a
+      // recepcion, que es otro modulo y otra cola.
+      expect(window.history.state?.usr).toMatchObject({ volverA: '/espera' });
     });
 
     it('direccion mira la sala pero no la toca', async () => {
