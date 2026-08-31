@@ -82,7 +82,7 @@ export function Layout() {
       </Toolbar>
       <Divider />
       <List sx={{ py: 1 }}>
-        {opciones.map(({ ruta, etiqueta, icono: Icono, pendiente }) => (
+        {opciones.map(({ ruta, etiqueta, icono: Icono, pendiente, color }) => (
           <ListItemButton
             key={ruta}
             component={NavLink}
@@ -99,7 +99,12 @@ export function Layout() {
               },
             }}
           >
-            <ListItemIcon sx={{ minWidth: 40 }}>
+            {/*
+              El color solo cuando la fila NO esta activa: la activa se pinta
+              entera de azul, y ahi el icono hereda el blanco de la regla de
+              arriba.
+            */}
+            <ListItemIcon sx={{ minWidth: 40, color }}>
               <Icono />
             </ListItemIcon>
             <ListItemText

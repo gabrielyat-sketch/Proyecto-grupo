@@ -2,6 +2,18 @@ import { createTheme } from '@mui/material/styles';
 import { esES } from '@mui/material/locale';
 
 /**
+ * Verde azulado de los encabezados de pagina.
+ *
+ * Separa dos cosas que estaban del mismo color y no son lo mismo: el azul
+ * queda para el armazon del panel —barra superior, cabeceras de tabla,
+ * desplegables de filtro— y este verde azulado para las bandas de titulo. Al
+ * abrir un modulo, el encabezado ya no se confunde con la barra de arriba.
+ *
+ * 6.0:1 con texto blanco.
+ */
+export const VERDE_AZULADO = '#136f63';
+
+/**
  * Tema del panel del CAP.
  *
  * Las decisiones de aqui no son estéticas: salen del RNF de usabilidad. El personal
@@ -18,7 +30,10 @@ export const tema = createTheme(
       error: { main: '#b3261e' },
       warning: { main: '#8a5a00' },
       success: { main: '#1b5e20' },
-      background: { default: '#f4f6f8', paper: '#ffffff' },
+      // Mas presente que un blanco roto: las tarjetas y las tablas son
+      // blancas, y sobre un fondo casi blanco no se distinguian del papel de
+      // la pantalla. Con este gris se ve donde termina cada superficie.
+      background: { default: '#e7edf1', paper: '#ffffff' },
     },
     typography: {
       fontFamily: '"Inter", "Segoe UI", system-ui, sans-serif',

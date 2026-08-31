@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Box, Stack, Typography } from '@mui/material';
+import { VERDE_AZULADO } from '../tema';
 
 /**
  * Encabezado de un modulo, sobre el azul institucional.
@@ -30,8 +31,8 @@ export function EncabezadoPagina({
         px: { xs: 2, sm: 3 },
         py: { xs: 2, sm: 2.5 },
         borderRadius: 1,
-        bgcolor: 'primary.main',
-        color: 'primary.contrastText',
+        bgcolor: VERDE_AZULADO,
+        color: '#fff',
         /*
           Los botones que llegan en `acciones` vienen con el estilo del resto
           del panel: `contained` en azul, que sobre esta banda desaparece. Se
@@ -40,7 +41,7 @@ export function EncabezadoPagina({
         */
         '& .MuiButton-contained': {
           bgcolor: '#fff',
-          color: 'primary.main',
+          color: VERDE_AZULADO,
           '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.86)' },
         },
         '& .MuiButton-outlined': {
@@ -85,8 +86,8 @@ export function NotaPagina({ children, sx }: { children: ReactNode; sx?: object 
         px: { xs: 2, sm: 2.5 },
         py: 1.75,
         borderRadius: 1,
-        bgcolor: 'primary.main',
-        color: 'primary.contrastText',
+        bgcolor: VERDE_AZULADO,
+        color: '#fff',
         ...sx,
       }}
     >
