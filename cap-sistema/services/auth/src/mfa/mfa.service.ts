@@ -41,7 +41,25 @@ export class MfaService {
    * fuera del sistema sin manera de entrar.
    */
   async iniciarConfiguracion(usuarioId: string, nombreUsuario: string) {
-    const secreto = generateSecret();
+    /**
+     * Si ya hay una configuracion SIN activar, se reutiliza su secreto en vez
+     * de generar otro.
+     *
+     * Dos peticiones seguidas —un doble clic, un refresco de la pantalla—
+     * generaban cada una su secreto, y la ultima en escribir invalidaba el QR
+     * que la persona ya habia escaneado. El sintoma era desconcertante: la
+     * aplicacion del telefono mostraba codigos correctos que el servidor
+     * rechazaba siempre, con un mensaje que culpaba al reloj.
+     *
+     * Una configuracion YA ACTIVA si se reemplaza: ahi la intencion es
+     * reconfigurar el segundo factor, y el secreto viejo debe morir.
+     */
+    const existente = await this.prisma.configuracionMfa.findUnique({ where: { usuarioId } });
+
+    const secreto =
+      existente && !existente.activo
+        ? this.cifrado.descifrar(Buffer.from(existente.secretoCifrado))
+        : generateSecret();
 
     await this.prisma.configuracionMfa.upsert({
       where: { usuarioId },
@@ -130,20 +148,28 @@ export class MfaService {
     return true;
   }
 
-  /** Genera codigos nuevos e invalida los anteriores. Se devuelven una sola vez. */
+  /**
+   * Genera codigos nuevos e invalida los anteriores. Se devuelven una sola vez.
+   *
+   * El borrado y la creacion van en una transaccion. Sueltos, dos llamadas
+   * simultaneas podian borrar las dos antes de crear ninguna y dejar 16
+   * codigos vivos: los 8 que la persona anoto y otros 8 que nadie vio nunca
+   * pero que abrian la cuenta igual.
+   */
   async regenerarCodigosRespaldo(usuarioId: string): Promise<string[]> {
-    await this.prisma.codigoRespaldo.deleteMany({ where: { usuarioId } });
-
     const codigos: string[] = [];
     for (let i = 0; i < CANTIDAD_CODIGOS_RESPALDO; i++) {
       codigos.push(randomBytes(5).toString('hex').toUpperCase());
     }
 
-    await this.prisma.codigoRespaldo.createMany({
-      data: await Promise.all(
-        codigos.map(async (c) => ({ usuarioId, hash: await hashContrasena(c) })),
-      ),
-    });
+    const data = await Promise.all(
+      codigos.map(async (c) => ({ usuarioId, hash: await hashContrasena(c) })),
+    );
+
+    await this.prisma.$transaction([
+      this.prisma.codigoRespaldo.deleteMany({ where: { usuarioId } }),
+      this.prisma.codigoRespaldo.createMany({ data }),
+    ]);
 
     return codigos;
   }
