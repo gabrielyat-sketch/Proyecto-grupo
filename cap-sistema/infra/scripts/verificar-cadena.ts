@@ -31,7 +31,7 @@
  */
 import { config as cargarDotenv } from 'dotenv';
 import { resolve } from 'node:path';
-import { PrismaClient } from '../../services/trazabilidad/prisma/generado';
+import { PrismaClient } from '../../services/trazabilidad/generado';
 import {
   firmaRaizValida,
   RegistroVerificable,
