@@ -14,7 +14,9 @@
     "prisma:generar": "prisma generate",
     "seed": "tsx prisma/seed.ts",
     "contrato": "ts-node --project tsconfig.json scripts/exportar-contrato.ts",
-    "cuenta": "tsx prisma/crear-cuenta.ts"
+    "cuenta": "tsx prisma/crear-cuenta.ts",
+    "diagnostico:mfa": "tsx prisma/diagnostico-mfa.ts",
+    "reiniciar:mfa": "tsx prisma/reiniciar-mfa.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.2.3",
