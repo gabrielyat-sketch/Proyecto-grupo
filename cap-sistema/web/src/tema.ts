@@ -47,6 +47,31 @@ export const PRIMARIO = "#0b6bb5";
 export const ARMAZON = "#164a55";
 
 /**
+ * El azul del boton de entrar, que es el que el sistema tenia desde el inicio.
+ *
+ * Se queda como estaba a proposito. La pantalla de acceso no compite con nada:
+ * no hay tablas, ni filtros, ni otras acciones de las que despegarse, que es el
+ * problema que resolvio cambiar el primario a un azul mas claro. Aqui ese
+ * cambio no arreglaba nada y si costaba algo —es la primera pantalla que ve
+ * todo el personal del CAP, y la unica que ya conocian de memoria.
+ */
+export const ENTRAR = "#15607a";
+export const ENTRAR_OSCURO = "#114e63";
+
+/**
+ * El boton de la pantalla de acceso.
+ *
+ * El estado apagado va explicito: el `bgcolor` de aqui pisaria tambien al
+ * deshabilitado, y un boton que sigue viendose pulsable mientras no lo es hace
+ * que la gente lo pulse dos veces creyendo que no registro el primer clic.
+ */
+export const BOTON_ENTRAR = {
+  bgcolor: ENTRAR,
+  "&:hover": { bgcolor: ENTRAR_OSCURO },
+  "&.Mui-disabled": { bgcolor: "action.disabledBackground" },
+} as const;
+
+/**
  * Verde de las acciones que CREAN: nuevo paciente, nueva cuenta, ingresar lote.
  *
  * Es el unico color vivo del panel y esta reservado a una sola idea, que es lo

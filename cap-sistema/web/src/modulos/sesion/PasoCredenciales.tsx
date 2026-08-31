@@ -8,6 +8,7 @@ import KeyOutlinedIcon from '@mui/icons-material/KeyOutlined';
 import { AvisoError } from '../../componentes/AvisoError';
 import { CampoContrasena } from '../../componentes/CampoContrasena';
 import { entrar, type ResultadoEntrada } from './servicio-sesion';
+import { BOTON_ENTRAR } from '../../tema';
 
 // Reglas minimas: el servidor es quien valida de verdad. Aqui solo se evita
 // mandar una peticion que ya se sabe incompleta.
@@ -90,7 +91,7 @@ export function PasoCredenciales({ alAvanzar }: { alAvanzar: (r: ResultadoEntrad
           {...register('contrasena')}
         />
 
-        <Button type="submit" variant="contained" size="large" disabled={isSubmitting}>
+        <Button type="submit" variant="contained" size="large" sx={BOTON_ENTRAR} disabled={isSubmitting}>
           {isSubmitting ? 'Entrando...' : 'Entrar'}
         </Button>
       </Stack>

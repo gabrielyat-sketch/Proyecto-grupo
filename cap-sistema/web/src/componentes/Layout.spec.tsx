@@ -203,3 +203,34 @@ describe('contraer el menu lateral', () => {
     expect(typeof original).toBe('function');
   });
 });
+
+/**
+ * El camino de vuelta al menu de tarjetas.
+ *
+ * Elegido un modulo no habia forma de volver: el menu lateral lista los
+ * modulos, pero Inicio no es uno de ellos. La marca del panel hace ese trabajo
+ * —es donde la gente ya lo busca— y por eso tiene que tener nombre accesible
+ * propio: quien navega con lector de pantalla no ve el logo.
+ */
+describe('volver al inicio', () => {
+  it('la marca del menu lleva al menu de tarjetas desde cualquier modulo', async () => {
+    const perfil = entrarComo('ADMINISTRADOR');
+    const usuario = userEvent.setup();
+    /*
+      Se arranca en Reportes y no en Recepcion a proposito: Recepcion pide las
+      comunidades al montar, aqui no hay servidor que conteste, y el fallo de
+      esa peticion cierra la sesion y devuelve al login. La prueba terminaba
+      comprobando la pantalla de entrar en vez del camino de vuelta. Reportes
+      esta pendiente, asi que dibuja su aviso sin pedir nada.
+    */
+    window.history.pushState({}, '', '/reportes');
+    render(<App />);
+
+    await waitFor(navegacion);
+    await usuario.click(within(navegacion()).getByRole('link', { name: 'Inicio' }));
+
+    expect(
+      await screen.findByRole('heading', { name: new RegExp('Buen dia, ' + perfil.usuario) }),
+    ).toBeInTheDocument();
+  });
+});

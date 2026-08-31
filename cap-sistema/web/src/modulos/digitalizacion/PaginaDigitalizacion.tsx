@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import { AvisoError } from '../../componentes/AvisoError';
 import { EncabezadoPagina } from '../../componentes/EncabezadoPagina';
-import { MENU_AZUL } from '../../componentes/menuAzul';
+import { MENU_FILTRO } from '../../componentes/menuFiltro';
 import { usarSesion } from '../sesion/contexto';
 import { usarAtajo } from '../../navegacion/usarAtajo';
 import { BarraAvance, Cifra } from './BarraAvance';
@@ -227,7 +227,7 @@ export function PaginaDigitalizacion() {
               }}
               sx={{ minWidth: 220 }}
               helperText="Por defecto, lo que falta"
-              slotProps={{ select: { MenuProps: MENU_AZUL } }}
+              slotProps={{ select: { MenuProps: MENU_FILTRO } }}
             >
               <MenuItem value="">Pendientes y en proceso</MenuItem>
               {ESTADOS.map((e) => (

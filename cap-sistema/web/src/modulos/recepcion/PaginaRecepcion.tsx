@@ -25,7 +25,7 @@ import { puedeEntrar } from '../../navegacion/menu';
 import { usarAtajo } from '../../navegacion/usarAtajo';
 import { interpretarBusqueda, motivoSinBuscar } from './busqueda';
 import { buscarPacientes, listarComunidades, type PacienteResumen } from './servicio-pacientes';
-import { MENU_AZUL } from '../../componentes/menuAzul';
+import { MENU_FILTRO } from '../../componentes/menuFiltro';
 import { EncabezadoPagina, NotaPagina } from '../../componentes/EncabezadoPagina';
 import { marcarLlegada } from '../espera/servicio-espera';
 import { TablaPacientes } from './TablaPacientes';
@@ -163,7 +163,7 @@ export function PaginaRecepcion() {
             }}
             sx={{ minWidth: { md: 260 } }}
             helperText="Opcional"
-            slotProps={{ select: { MenuProps: MENU_AZUL } }}
+            slotProps={{ select: { MenuProps: MENU_FILTRO } }}
           >
             <MenuItem value="">Todas las comunidades</MenuItem>
             {(comunidades.data ?? []).map((c) => (

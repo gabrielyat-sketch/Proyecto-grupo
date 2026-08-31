@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button, Link, Stack, TextField, Typography } from '@mui/material';
 import { AvisoError } from '../../componentes/AvisoError';
 import { verificarCodigo } from './servicio-sesion';
+import { BOTON_ENTRAR } from '../../tema';
 
 /**
  * Segundo factor. Acepta el codigo de 6 digitos de la aplicacion o uno de los
@@ -57,7 +58,13 @@ export function PasoCodigo({
           helperText="Los 6 digitos de su aplicacion, o un codigo de respaldo"
         />
 
-        <Button type="submit" variant="contained" size="large" disabled={enviando || codigo.trim().length < 6}>
+        <Button
+          type="submit"
+          variant="contained"
+          size="large"
+          sx={BOTON_ENTRAR}
+          disabled={enviando || codigo.trim().length < 6}
+        >
           {enviando ? 'Verificando...' : 'Verificar'}
         </Button>
 

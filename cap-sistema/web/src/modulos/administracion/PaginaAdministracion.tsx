@@ -30,7 +30,7 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import { AvisoError } from '../../componentes/AvisoError';
 import { AvatarUsuario } from '../../componentes/AvatarUsuario';
 import { EncabezadoPagina } from '../../componentes/EncabezadoPagina';
-import { MENU_AZUL } from '../../componentes/menuAzul';
+import { MENU_FILTRO } from '../../componentes/menuFiltro';
 import { usarAtajo } from '../../navegacion/usarAtajo';
 import { usarSesion } from '../sesion/contexto';
 import { DialogoContrasenaTemporal } from './DialogoContrasenaTemporal';
@@ -165,7 +165,7 @@ export function PaginaAdministracion() {
             setPagina(1);
           }}
           sx={{ minWidth: 200 }}
-          slotProps={{ select: { MenuProps: MENU_AZUL } }}
+          slotProps={{ select: { MenuProps: MENU_FILTRO } }}
         >
           <MenuItem value="">Todos</MenuItem>
           {LISTA_ROLES.map((r) => (

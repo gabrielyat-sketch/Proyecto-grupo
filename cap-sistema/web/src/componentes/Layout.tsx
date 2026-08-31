@@ -26,7 +26,6 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import KeyOutlinedIcon from '@mui/icons-material/KeyOutlined';
 import LogoutIcon from '@mui/icons-material/Logout';
 import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
-import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 import { usarSesion } from '../modulos/sesion/contexto';
 import { salir } from '../modulos/sesion/servicio-sesion';
 import { menuPara } from '../navegacion/menu';
@@ -121,18 +120,29 @@ export function Layout() {
       aria-label="Modulos del sistema"
     >
       {/*
-        La marca dentro del propio menu, sobre el mismo fondo oscuro: es lo que
-        hace que el panel lateral se lea como una pieza y no como una columna
-        pegada debajo de la barra.
+        La marca del menu ES el boton de Inicio.
+
+        Hacia falta un camino de vuelta al menu de tarjetas que se ve al
+        entrar: elegido un modulo, el unico camino era el menu lateral, y ahi
+        no esta Inicio. Va aqui y no en una opcion aparte porque el logo ya
+        ocupa este espacio, y en cualquier sitio la marca lleva al principio;
+        una fila mas en el menu seria repetir lo que el logo ya puede hacer.
       */}
       <Stack
+        component={EnlaceRuta}
+        to="/"
+        aria-label="Inicio"
         direction="row"
+        onClick={() => setAbierto(false)}
         sx={{
           alignItems: 'center',
           gap: 1.25,
           height: 64,
           px: estrecho ? 0 : 2.5,
           justifyContent: estrecho ? 'center' : 'flex-start',
+          color: 'inherit',
+          textDecoration: 'none',
+          '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.06)' },
         }}
       >
         <LogoCap tamano={32} />
@@ -251,34 +261,18 @@ export function Layout() {
           </IconButton>
 
           {/*
-            El nombre de la plataforma lleva a Inicio.
-
-            Antes no habia forma de volver al menu de tarjetas que se ve al
-            entrar: una vez elegido un modulo, el unico camino era el menu
-            lateral, y ahi no esta Inicio. Que la marca de la barra sea el
-            camino de vuelta es lo que la gente ya espera de cualquier sitio.
+            Titulo llano, no un boton: el camino a Inicio es el logo del menu,
+            y dos formas de hacer lo mismo a diez centimetros una de otra solo
+            obligan a averiguar si son distintas.
           */}
-          <Button
-            component={EnlaceRuta}
-            to="/"
-            startIcon={<HomeOutlinedIcon />}
-            sx={{
-              color: 'inherit',
-              flexGrow: 1,
-              justifyContent: 'flex-start',
-              minWidth: 0,
-              fontWeight: 600,
-              px: 1,
-              '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.10)' },
-            }}
+          <Typography
+            variant="h6"
+            component="div"
+            sx={{ fontWeight: 600, flexGrow: 1, minWidth: 0 }}
+            noWrap
           >
-            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
-              Plataforma del Centro de Atencion Permanente
-            </Box>
-            <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
-              Inicio
-            </Box>
-          </Button>
+            Plataforma del Centro de Atencion Permanente
+          </Typography>
 
           {/*
             El reloj a la par del avatar, no al centro: los dos son informacion
@@ -464,15 +458,22 @@ export function Layout() {
         <Box
           sx={{
             flexGrow: 1,
-            // Margen a los cuatro lados: es el aire oscuro que rodea la
-            // tarjeta y hace que no toque ningun borde.
-            mr: { xs: 1.5, md: 2.5 },
-            mb: { xs: 1.5, md: 2.5 },
-            ml: { xs: 1.5, md: 0 },
             p: { xs: 2, md: 3.5 },
             bgcolor: 'background.paper',
-            borderRadius: { xs: 3, md: 4 },
-            boxShadow: '0 1px 2px rgba(5, 65, 75, .05), 0 10px 30px -12px rgba(5, 65, 75, .10)',
+            /*
+              UNA sola esquina redondeada: la de arriba a la izquierda.
+
+              Es la unica que toca el oscuro. Redondear las cuatro convertia el
+              area de trabajo en una tarjeta flotante con aire oscuro alrededor,
+              y eso no es lo que da la referencia del CAP: ahi el blanco llega
+              hasta el borde derecho y hasta abajo, y lo unico que se curva es
+              el encuentro con el menu. Las otras tres esquinas caen contra el
+              borde de la ventana, donde no hay nada de que separarse.
+
+              En pantalla chica no hay menu al lado —es un cajon que se abre
+              encima— asi que tampoco hay esquina que suavizar.
+            */
+            borderTopLeftRadius: { xs: 0, md: 24 },
           }}
         >
           <Outlet />

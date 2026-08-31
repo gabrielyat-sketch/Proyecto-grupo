@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import { AvisoError } from '../../componentes/AvisoError';
 import { activarMfaInicial, configurarMfaInicial, type ConfiguracionMfa } from './servicio-sesion';
+import { BOTON_ENTRAR } from '../../tema';
 
 /**
  * Primera configuracion del segundo factor.
@@ -165,6 +166,7 @@ export function PasoConfigurarMfa({
             type="submit"
             variant="contained"
             size="large"
+            sx={BOTON_ENTRAR}
             disabled={enviando || codigo.trim().length !== 6}
           >
             {enviando ? 'Activando...' : 'Activar y entrar'}

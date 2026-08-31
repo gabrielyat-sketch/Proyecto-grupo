@@ -26,7 +26,7 @@ import {
   listarLugares,
   type PacienteCreado,
 } from './servicio-pacientes';
-import { MENU_AZUL } from '../../componentes/menuAzul';
+import { MENU_FILTRO } from '../../componentes/menuFiltro';
 
 const IDIOMAS = [
   { valor: 'ESPANOL', etiqueta: 'Espanol' },
@@ -308,7 +308,7 @@ export function PaginaNuevoPaciente() {
               defaultValue=""
               error={Boolean(errors.comunidadId)}
               helperText={errors.comunidadId?.message}
-              slotProps={{ select: { MenuProps: MENU_AZUL } }}
+              slotProps={{ select: { MenuProps: MENU_FILTRO } }}
               {...register('comunidadId')}
             >
               {(comunidades.data ?? []).map((c) => (
