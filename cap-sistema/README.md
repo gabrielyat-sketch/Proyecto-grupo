@@ -70,7 +70,7 @@ Estas carpetas existen en disco pero no son del proyecto: son **~590 MB** que gi
 |---|---|---|
 | `node_modules/` | Dependencias descargadas | `npm install` |
 | `*/dist/` | Código compilado | `npm run build` |
-| `*/prisma/generado/` | Cliente que genera Prisma | `npx prisma generate` |
+| `services/*/generado/` | Cliente que genera Prisma | `npx prisma generate` |
 
 Puedes borrarlas sin miedo. El proyecto real son **265 archivos**.
 

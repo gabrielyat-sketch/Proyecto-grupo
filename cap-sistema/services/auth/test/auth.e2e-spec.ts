@@ -321,6 +321,138 @@ describe('Servicio auth (e2e)', () => {
       expect(r.body.mensaje).toContain('ya tiene el segundo factor');
     });
 
+
+    /**
+     * ─────────────────────────────────────────────────────────────────────
+     *  Los dos defectos que corrigio el PR #16
+     *
+     *  Los dos son de CONCURRENCIA, y por eso ninguna prueba los cazaba: el
+     *  flujo feliz —configurar, activar, entrar— pasa igual con el fallo
+     *  dentro. Solo aparecen cuando la misma peticion llega dos veces, que es
+     *  lo que hace un doble clic, un refresco de pantalla, o React en modo
+     *  estricto montando el componente dos veces.
+     * ─────────────────────────────────────────────────────────────────────
+     */
+
+    /**
+     * Pedir la configuracion dos veces NO puede cambiar el secreto.
+     *
+     * Cuando lo cambiaba, el QR que la persona ya habia escaneado dejaba de
+     * servir y el sintoma culpaba a quien no era: la aplicacion del telefono
+     * mostraba codigos correctos, el servidor los rechazaba siempre, y el
+     * mensaje hablaba del reloj del dispositivo. Bloqueo a un miembro del
+     * equipo hasta que hubo que reiniciarle la cuenta entera.
+     */
+    it('pedir la configuracion dos veces devuelve el MISMO secreto', async () => {
+      const { contrasena } = await crearCuenta('e2e_doble_config', Rol.DIRECTOR);
+      const login = await request(http())
+        .post('/v1/auth/login')
+        .send({ usuario: 'e2e_doble_config', contrasena })
+        .expect(200);
+
+      const tokenParcial = login.body.tokenParcial as string;
+
+      const primera = await request(http())
+        .post('/v1/auth/mfa/configurar-inicial')
+        .send({ tokenParcial })
+        .expect(200);
+
+      const segunda = await request(http())
+        .post('/v1/auth/mfa/configurar-inicial')
+        .send({ tokenParcial })
+        .expect(200);
+
+      expect(segunda.body.secreto).toBe(primera.body.secreto);
+
+      // Y lo que de verdad importa: el codigo del PRIMER QR sigue activando.
+      // Sin la correccion, el secreto guardado era el de la segunda llamada y
+      // este codigo daba 400.
+      const codigo = generateSync({ strategy: 'totp', secret: primera.body.secreto });
+      await request(http())
+        .post('/v1/auth/mfa/activar-inicial')
+        .send({ tokenParcial, codigo })
+        .expect(200);
+    });
+
+    /**
+     * Una configuracion YA ACTIVA si se reemplaza.
+     *
+     * La regla no es "nunca cambiar el secreto": es "no cambiarlo mientras la
+     * persona esta a medio escanear". Con el segundo factor ya activo, pedir
+     * una configuracion nueva es reconfigurarlo, y el secreto viejo debe
+     * morir. Sin esta prueba, la correccion podria haberse escrito como "si
+     * existe, reutilizar", que dejaria vivo para siempre el primer secreto de
+     * cada cuenta.
+     */
+    it('con el segundo factor ya activo, reconfigurar SI da un secreto nuevo', async () => {
+      const { contrasena } = await crearCuenta('e2e_reconfig', Rol.DIRECTOR);
+      const login = await request(http())
+        .post('/v1/auth/login')
+        .send({ usuario: 'e2e_reconfig', contrasena })
+        .expect(200);
+
+      const usuarioBd = await prisma.usuario.findUnique({ where: { usuario: 'e2e_reconfig' } });
+      const mfa = app.get<{ iniciarConfiguracion: Function; activar: Function }>(
+        (await import('../src/mfa/mfa.service')).MfaService,
+      );
+
+      const primera = await mfa.iniciarConfiguracion(usuarioBd!.id, 'e2e_reconfig');
+      await mfa.activar(
+        usuarioBd!.id,
+        generateSync({ strategy: 'totp', secret: primera.secreto }),
+      );
+
+      const segunda = await mfa.iniciarConfiguracion(usuarioBd!.id, 'e2e_reconfig');
+      expect(segunda.secreto).not.toBe(primera.secreto);
+
+      // El token parcial se pidio antes; se usa para que la cuenta quede
+      // coherente al terminar la prueba.
+      expect(login.body.tokenParcial).toBeDefined();
+    });
+
+    /**
+     * Regenerar los codigos de respaldo dos veces A LA VEZ no puede dejar
+     * dieciseis.
+     *
+     * El borrado y la creacion iban sueltos, y ahi esta el detalle que hace
+     * util esta prueba: en SECUENCIA el codigo viejo tambien deja ocho, asi
+     * que dos llamadas seguidas no lo cazan. Hace falta que se solapen, que es
+     * lo que ocurre con un doble clic: las dos borran antes de que ninguna
+     * cree, y quedan los 8 que la persona anoto MAS otros 8 que nadie vio
+     * nunca y que abren la cuenta igual.
+     *
+     * Un codigo de respaldo salta el segundo factor entero. Ocho llaves
+     * invisibles no son una molestia: son ocho puertas. Y no se descubre
+     * mirando la pantalla —no hay error, no hay nada roto— asi que necesita
+     * una prueba que lo grite.
+     */
+    it('regenerar los codigos de respaldo dos veces A LA VEZ deja ocho, no dieciseis', async () => {
+      const { contrasena } = await crearCuenta('e2e_respaldo', Rol.DIRECTOR);
+      await request(http())
+        .post('/v1/auth/login')
+        .send({ usuario: 'e2e_respaldo', contrasena })
+        .expect(200);
+
+      const usuarioBd = await prisma.usuario.findUnique({ where: { usuario: 'e2e_respaldo' } });
+      const mfa = app.get<{ regenerarCodigosRespaldo: Function }>(
+        (await import('../src/mfa/mfa.service')).MfaService,
+      );
+
+      // Sin `await` entre las dos: es lo que hace un doble clic.
+      const [primeros, segundos] = await Promise.all([
+        mfa.regenerarCodigosRespaldo(usuarioBd!.id),
+        mfa.regenerarCodigosRespaldo(usuarioBd!.id),
+      ]);
+
+      expect(primeros).toHaveLength(8);
+      expect(segundos).toHaveLength(8);
+
+      // LA comprobacion: en la base hay ocho, no dieciseis.
+      const vivos = await prisma.codigoRespaldo.count({ where: { usuarioId: usuarioBd!.id } });
+      expect(vivos).toBe(8);
+    });
+
+
     it('un codigo incorrecto NO activa el segundo factor', async () => {
       const { contrasena } = await crearCuenta('e2e_codigo_malo', Rol.DIRECTOR);
       const login = await request(http())

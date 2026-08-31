@@ -12,6 +12,8 @@ import {
   Typography,
 } from '@mui/material';
 import { AvisoError } from '../../componentes/AvisoError';
+import { EncabezadoPagina } from '../../componentes/EncabezadoPagina';
+import { MENU_AZUL } from '../../componentes/menuAzul';
 import { usarSesion } from '../sesion/contexto';
 import { usarAtajo } from '../../navegacion/usarAtajo';
 import { BarraAvance, Cifra } from './BarraAvance';
@@ -137,16 +139,14 @@ export function PaginaDigitalizacion() {
 
   return (
     <Box>
-      <Stack sx={{ gap: 0.5, mb: 2 }}>
-        <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
-          Digitalizacion de expedientes
-        </Typography>
-        <Typography color="text.secondary">
-          {puedeTranscribir
+      <EncabezadoPagina
+        titulo="Digitalizacion de expedientes"
+        descripcion={
+          puedeTranscribir
             ? 'Elija una comunidad y transcriba sus carpetas al sistema.'
-            : 'Avance de la transcripcion del archivo de papel.'}
-        </Typography>
-      </Stack>
+            : 'Avance de la transcripcion del archivo de papel.'
+        }
+      />
 
       {/* ─── Cuanto llevamos ────────────────────────────────────────────── */}
       <Paper
@@ -227,6 +227,7 @@ export function PaginaDigitalizacion() {
               }}
               sx={{ minWidth: 220 }}
               helperText="Por defecto, lo que falta"
+              slotProps={{ select: { MenuProps: MENU_AZUL } }}
             >
               <MenuItem value="">Pendientes y en proceso</MenuItem>
               {ESTADOS.map((e) => (

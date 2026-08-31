@@ -57,3 +57,10 @@ pdf-generados/
 documentacion/fichas-cap/*
 !documentacion/fichas-cap/.gitkeep
 !documentacion/fichas-cap/README.md
+
+# ── maquetas de referencia ────────────────────────────────────────────
+# Capturas y mockups que se usan para decidir el diseno. No son codigo ni
+# recursos de la aplicacion: los que la aplicacion sirve viven en
+# cap-sistema/web/public/. Ademas algunas traen marcas de agua del servicio
+# que las genero, y no deben acabar publicadas.
+imagenes/

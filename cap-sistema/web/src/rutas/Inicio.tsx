@@ -1,5 +1,6 @@
 import { Link as EnlaceRuta } from 'react-router-dom';
 import { Box, Card, CardActionArea, Stack, Typography } from '@mui/material';
+import { EncabezadoPagina } from '../componentes/EncabezadoPagina';
 import { usarSesion } from '../modulos/sesion/contexto';
 import { menuPara } from '../navegacion/menu';
 
@@ -16,14 +17,10 @@ export function Inicio() {
 
   return (
     <Box>
-      <Stack spacing={0.5} sx={{ mb: 4 }}>
-        <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
-          Buen dia, {usuario?.usuario}
-        </Typography>
-        <Typography color="text.secondary">
-          Estos son los modulos disponibles para su rol.
-        </Typography>
-      </Stack>
+      <EncabezadoPagina
+        titulo={'Buen dia, ' + (usuario?.usuario ?? '')}
+        descripcion="Estos son los modulos disponibles para su rol."
+      />
 
       <Box
         sx={{
@@ -32,11 +29,11 @@ export function Inicio() {
           gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
         }}
       >
-        {opciones.map(({ ruta, etiqueta, icono: Icono, pendiente }) => (
+        {opciones.map(({ ruta, etiqueta, icono: Icono, pendiente, color }) => (
           <Card key={ruta} elevation={0} sx={{ border: '1px solid', borderColor: 'divider' }}>
             <CardActionArea component={EnlaceRuta} to={ruta} sx={{ p: 2.5, height: '100%' }}>
               <Stack spacing={1.5} sx={{ alignItems: 'flex-start' }}>
-                <Icono color="primary" />
+                <Icono sx={{ color }} />
                 <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                   {etiqueta}
                 </Typography>

@@ -17,6 +17,7 @@ import {
   Typography,
 } from '@mui/material';
 import { AvisoError } from '../../componentes/AvisoError';
+import { EncabezadoPagina } from '../../componentes/EncabezadoPagina';
 import { usarSesion } from '../sesion/contexto';
 import { usarAtajo } from '../../navegacion/usarAtajo';
 import {
@@ -104,34 +105,28 @@ export function PaginaSalaEspera() {
 
   return (
     <Box>
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        sx={{ gap: 1, mb: 2, alignItems: { sm: 'baseline' }, justifyContent: 'space-between' }}
-      >
-        <Stack sx={{ gap: 0.5 }}>
-          <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
-            Sala de espera
-          </Typography>
-          <Typography color="text.secondary">
-            {puedeAtender
-              ? 'Quienes llegaron hoy y todavia no tienen ficha. En orden de llegada.'
-              : 'Quienes llegaron hoy y esperan ser atendidos.'}
-          </Typography>
-        </Stack>
-
-        <Stack direction="row" sx={{ gap: 2, alignItems: 'center' }}>
-          {espera.isFetching ? (
-            <Typography variant="caption" color="text.secondary">
-              Actualizando...
-            </Typography>
-          ) : null}
-          {puedeAtender ? (
-            <Typography variant="caption" color="text.secondary">
-              Flechas y Enter para atender
-            </Typography>
-          ) : null}
-        </Stack>
-      </Stack>
+      <EncabezadoPagina
+        titulo="Sala de espera"
+        descripcion={
+          puedeAtender
+            ? 'Quienes llegaron hoy y todavia no tienen ficha. En orden de llegada.'
+            : 'Quienes llegaron hoy y esperan ser atendidos.'
+        }
+        acciones={
+          <Stack direction="row" sx={{ gap: 2, alignItems: 'center' }}>
+            {espera.isFetching ? (
+              <Typography variant="caption" sx={{ opacity: 0.85 }}>
+                Actualizando...
+              </Typography>
+            ) : null}
+            {puedeAtender ? (
+              <Typography variant="caption" sx={{ opacity: 0.85 }}>
+                Flechas y Enter para atender
+              </Typography>
+            ) : null}
+          </Stack>
+        }
+      />
 
       {espera.isError ? <AvisoError error={espera.error} /> : null}
       {retirar.isError ? (

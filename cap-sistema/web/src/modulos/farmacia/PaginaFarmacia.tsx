@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link as EnlaceRuta } from 'react-router-dom';
-import { Badge, Box, Button, Stack, Tab, Tabs, Typography } from '@mui/material';
+import { Badge, Box, Button, Tab, Tabs } from '@mui/material';
 import LocalPharmacyIcon from '@mui/icons-material/LocalPharmacy';
+import { EncabezadoPagina } from '../../componentes/EncabezadoPagina';
 import { usarSesion } from '../sesion/contexto';
 import { PanelCatalogo } from './PanelCatalogo';
 import { PanelBajoMinimo, PanelPorVencer, PanelVencidos } from './PanelAlertas';
@@ -76,37 +77,29 @@ export function PaginaFarmacia() {
 
   return (
     <Box>
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        sx={{ gap: 2, mb: 2, justifyContent: 'space-between', alignItems: { sm: 'flex-start' } }}
-      >
-        <Stack sx={{ gap: 0.5 }}>
-          <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
-            Farmacia
-          </Typography>
-          <Typography color="text.secondary">
-            Existencias por lote, vencimientos y entrega de medicamentos.
-          </Typography>
-        </Stack>
-
-        {/*
-          El despacho es la accion del dia y va arriba, no escondida en una
-          pestana: quien abre Farmacia con un paciente enfrente viene a
-          entregar, no a mirar el inventario.
-        */}
-        {despacha ? (
-          <Button
-            component={EnlaceRuta}
-            to="/farmacia/entrega"
-            variant="contained"
-            size="large"
-            startIcon={<LocalPharmacyIcon />}
-            sx={{ flexShrink: 0 }}
-          >
-            Registrar entrega
-          </Button>
-        ) : null}
-      </Stack>
+      <EncabezadoPagina
+        titulo="Farmacia"
+        descripcion="Existencias por lote, vencimientos y entrega de medicamentos."
+        acciones={
+          /*
+            El despacho es la accion del dia y va arriba, no escondida en una
+            pestana: quien abre Farmacia con un paciente enfrente viene a
+            entregar, no a mirar el inventario.
+          */
+          despacha ? (
+            <Button
+              component={EnlaceRuta}
+              to="/farmacia/entrega"
+              variant="contained"
+              size="large"
+              startIcon={<LocalPharmacyIcon />}
+              sx={{ flexShrink: 0 }}
+            >
+              Registrar entrega
+            </Button>
+          ) : null
+        }
+      />
 
       <Tabs
         value={pestana}
