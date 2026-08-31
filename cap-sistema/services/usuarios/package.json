@@ -13,6 +13,7 @@
     "prisma:migrar": "prisma migrate dev",
     "prisma:generar": "prisma generate",
     "seed": "tsx prisma/seed.ts",
+    "comunidades": "ts-node --project tsconfig.json prisma/comunidades.ts",
     "carga": "tsx prisma/carga-prueba.ts",
     "contrato": "ts-node --project tsconfig.json scripts/exportar-contrato.ts",
     "catalogo": "ts-node --project tsconfig.json prisma/catalogo-ficha-adulto.ts",
