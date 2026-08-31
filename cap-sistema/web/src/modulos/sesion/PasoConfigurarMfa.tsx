@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import {
   Alert,
@@ -35,9 +35,26 @@ export function PasoConfigurarMfa({
   const [error, setError] = useState<unknown>(null);
   const [enviando, setEnviando] = useState(false);
 
+  /**
+   * La peticion en vuelo, para no lanzarla dos veces.
+   *
+   * StrictMode monta el componente dos veces en desarrollo, y el efecto corre
+   * dos veces con el. La bandera `vigente` evita que la primera respuesta
+   * pinte la pantalla, pero NO cancela la peticion: salian dos, cada una
+   * generaba su propio secreto TOTP, y la ultima en escribir se quedaba en la
+   * base. El QR que la persona ya habia escaneado era el de la otra, asi que
+   * ningun codigo validaba nunca y el error culpaba al reloj del telefono.
+   */
+  const peticion = useRef<{ token: string; promesa: Promise<ConfiguracionMfa> } | null>(null);
+
   useEffect(() => {
     let vigente = true;
-    configurarMfaInicial(tokenParcial)
+
+    if (peticion.current?.token !== tokenParcial) {
+      peticion.current = { token: tokenParcial, promesa: configurarMfaInicial(tokenParcial) };
+    }
+
+    peticion.current.promesa
       .then(async (c) => {
         if (!vigente) return;
         setConfig(c);
