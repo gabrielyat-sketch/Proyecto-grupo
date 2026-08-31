@@ -5,19 +5,19 @@ saber para revisarlo o continuarlo. Está escrito para leerse de arriba abajo
 una sola vez.
 
 Todo sale de `develop` en `2cdd6fe` (tu merge del PR #3, trazabilidad). Las
-cuatro ramas están rebasadas sobre ese commit, ninguna tiene conflictos, y
-ninguna depende de las otras: se pueden fusionar en cualquier orden.
+ramas están rebasadas sobre ese commit, ninguna tiene conflictos, y ninguna
+depende de las otras: se pueden fusionar en cualquier orden.
 
 ---
 
-## 1. Los cuatro PR, en el orden en que conviene mirarlos
+## 1. Los cuatro PR de código, en el orden en que conviene mirarlos
 
 | PR | Rama | Qué es | Tamaño |
 |---|---|---|---|
 | **#15** | `feature/rutas-prisma-trazabilidad` | Arregla un script tuyo que no arranca | 2 líneas |
 | **#16** | `feature/mfa-doble-peticion` | Nadie podía activar el segundo factor | 2 archivos |
-| — | `feature/barrios-purulha` | Los barrios reales de Purulhá Centro | 1 archivo |
-| **#17** | `feature/web-diseno` | Identidad visual del panel | 23 archivos |
+| **#18** | `feature/barrios-purulha` | Los barrios reales de Purulhá Centro | 1 archivo |
+| **#17** | `feature/web-diseno` | Identidad visual del panel | 25 archivos |
 
 Los tres primeros son cortos y de leer en cinco minutos. El #17 es grande pero
 no toca lógica: es CSS, componentes de presentación y un tema de MUI.
@@ -86,7 +86,7 @@ peticiones se solaparon de verdad. Ese 16 fue la prueba.
 
 ---
 
-## 4. `feature/barrios-purulha` — Los barrios reales
+## 4. PR #18 — Los barrios reales de Purulhá Centro
 
 El catálogo de lugares nació con nombres inventados. El propio archivo avisaba
 de que nadie los había confirmado. El personal del CAP ya dio los de Purulhá
@@ -138,6 +138,27 @@ de lógica. Todo el color sale del `primary.main` que ya estaba en el tema
 | `componentes/Reloj.tsx` | Hora y fecha en la barra superior |
 | `componentes/usarConexion.ts` | `navigator.onLine` como store de React |
 | `componentes/menuAzul.ts` | `MENU_AZUL`, el estilo de los desplegables que filtran |
+
+### El sistema de color está documentado aparte
+
+**`cap-sistema/docs/diseno-panel.md`.** Léelo antes de tocar un color del
+panel. Lo que importa de ese documento es su primera sección: **el presupuesto
+de color ya está gastado.** Cada color tiene un significado asignado —rojo
+error, café en proceso, verde completo, pizarra no localizado— y uno nuevo que
+se parezca a alguno deja de leerse como decoración y empieza a leerse como
+estado.
+
+El resumen: el azul `#15607a` es el armazón (barra, cabeceras de tabla,
+desplegables de filtro), el verde azulado `#136f63` son los encabezados de
+página, y cada módulo lleva su propio color en el icono, definido en
+`navegacion/menu.ts`. El fondo de la aplicación pasó de `#f4f6f8` a `#e7edf1`
+para que las tarjetas y tablas blancas se distingan de él.
+
+Dos decisiones que tomé a sabiendas y quedaron anotadas: Recepción y Farmacia
+comparten verde, así que el color no identifica un módulo de forma única; y el
+rojo de Sala de espera es exactamente el `error.main` del tema, así que un
+icono rojo permanente en el menú puede leerse como que algo va mal ahí. Las dos
+se cambian tocando un hex de `menu.ts`.
 
 ### Decisiones que conviene conocer antes de tocarlo
 
@@ -227,6 +248,11 @@ cuenta.
 `auth.sesion_refresh` guarda las sesiones vivas de cada cuenta. Falta un
 endpoint que liste los usuarios con sesión no expirada. `AvatarUsuario` solo
 necesita que le pasen `conectado`; no hay que tocar el componente.
+
+**El sistema de color no se ha visto en uso real.** Tres tonos de armazón más
+un semáforo de cuatro estados es bastante en pantalla; sobre el papel cada uno
+se justifica, pero eso solo se comprueba mirándolo unos días. Lo más fácil de
+revertir, si estorba, es el verde azulado de los encabezados.
 
 **Las sub-pantallas siguen sin la banda de encabezado**: Registrar paciente, el
 expediente individual, y las de farmacia (Registrar entrega, detalle de
