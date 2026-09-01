@@ -185,16 +185,114 @@ function Dato({ titulo, texto }: { titulo: string; texto: string }) {
 }
 
 /** El contenido de la ficha oficial: lo que en el papel se subrayo. */
-function CuerpoFicha({
-  ficha,
-}: {
-  ficha: NonNullable<ReturnType<typeof obtenerFicha> extends Promise<infer T> ? T : never>;
-}) {
+/** Como se dice cada forma de atender el parto. */
+const QUIEN_ATENDIO: Record<string, string> = {
+  MEDICO: 'Medico',
+  ENFERMERA: 'Enfermera',
+  COMADRONA: 'Comadrona',
+  FAMILIAR: 'Familiar',
+  OTRO: 'Otro',
+};
+
+const TIPO_PARTO: Record<string, string> = {
+  EUTOCICO: 'Eutocico',
+  DISTOCICO: 'Distocico',
+  CESAREA: 'Cesarea',
+};
+
+/** El peso como lo escribe el papel: libras y onzas, no kilos. */
+function peso(libras: number | null, onzas: number | null): string | null {
+  if (libras === null && onzas === null) return null;
+  return (libras ?? 0) + ' lb ' + (onzas ?? 0) + ' oz';
+}
+
+const siNo = (v: boolean | null) => (v === null ? null : v ? 'Si' : 'No');
+
+/**
+ * El bloque de la ficha de menor de 28 dias, en el historial.
+ *
+ * No estaba, y eso hacia invisible todo lo que solo vive en esa hoja: el
+ * nombre de la madre, el peso al nacer, quien atendio el parto, la BCG. Media
+ * ficha se guardaba y no se podia volver a leer.
+ */
+function BloqueNeonato({ n }: { n: NonNullable<FichaGuardada['neonato']> }) {
+  const filas: { titulo: string; texto: string | null }[] = [
+    { titulo: 'Nombre de la madre', texto: n.nombreMadre },
+    { titulo: 'Peso', texto: peso(n.pesoLibras, n.pesoOnzas) },
+    { titulo: 'Peso al nacer', texto: peso(n.pesoNacerLibras, n.pesoNacerOnzas) },
+    {
+      titulo: 'Perimetro braquial',
+      texto: n.perimetroBraquialCm ? n.perimetroBraquialCm + ' cm' : null,
+    },
+    {
+      titulo: 'Circunferencia cefalica',
+      texto: n.circunferenciaCefalicaCm ? n.circunferenciaCefalicaCm + ' cm' : null,
+    },
+    { titulo: 'Lloro al nacer', texto: siNo(n.lloroAlNacer) },
+    { titulo: 'Nacio cianotico', texto: siNo(n.nacioCianotico) },
+    {
+      titulo: 'Horas de trabajo de parto',
+      texto: n.horasTrabajoParto === null ? null : String(n.horasTrabajoParto),
+    },
+    {
+      titulo: 'Quien atendio el parto',
+      texto: n.quienAtendioParto
+        ? (QUIEN_ATENDIO[n.quienAtendioParto] ?? n.quienAtendioParto) +
+          (n.quienAtendioPartoOtro ? ': ' + n.quienAtendioPartoOtro : '')
+        : null,
+    },
+    { titulo: 'Tipo de parto', texto: n.tipoParto ? (TIPO_PARTO[n.tipoParto] ?? n.tipoParto) : null },
+    { titulo: 'Ruptura prematura de membranas', texto: siNo(n.rupturaPrematuraMembranas) },
+    { titulo: 'Trabajo de parto prematuro', texto: siNo(n.trabajoPartoPrematuro) },
+    { titulo: 'Parto prolongado', texto: siNo(n.partoProlongado) },
+    { titulo: 'BCG', texto: siNo(n.bcg) },
+    {
+      titulo: 'Td en la madre',
+      texto:
+        n.tdMadre === null
+          ? null
+          : n.tdMadre
+            ? 'Si' + (n.tdMadreDosis !== null ? ', ' + n.tdMadreDosis + ' dosis' : '')
+            : 'No',
+    },
+  ].filter((f) => f.texto !== null && f.texto !== '');
+
+  if (filas.length === 0) return null;
+
+  return (
+    <Box>
+      <Rotulo>Datos de la madre y del parto</Rotulo>
+      {filas.map((f) => (
+        <Dato key={f.titulo} titulo={f.titulo} texto={f.texto!} />
+      ))}
+    </Box>
+  );
+}
+
+type FichaGuardada = NonNullable<
+  ReturnType<typeof obtenerFicha> extends Promise<infer T> ? T : never
+>;
+
+function CuerpoFicha({ ficha }: { ficha: FichaGuardada }) {
   const peligros = ficha.signosPeligro.filter((s) => s.presente);
   const problemas = ficha.problemas.filter((p) => p.presente);
 
   return (
     <Stack sx={{ gap: 1.5 }}>
+      {/*
+        Lo que solo trae la ficha de menor de 28 dias.
+
+        Se guardaba desde el primer dia —el panel lo envia, el servidor lo cifra
+        y la API lo devuelve— pero esta pantalla nunca lo dibujaba: solo pintaba
+        los campos comunes. Desde fuera eso no se distingue de que no se
+        guardara, y quien lo llenaba concluia, con razon, que se perdia.
+
+        Va PRIMERO porque en esta ficha el paciente es el nino y casi todo lo de
+        aqui es de la madre y del parto: es el contexto con el que se lee el
+        resto.
+      */}
+      {ficha.neonato ? <BloqueNeonato n={ficha.neonato} /> : null}
+
       {peligros.length > 0 ? (
         <Box>
           <Rotulo>Signos de peligro</Rotulo>

@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App, clienteConsultas } from '../../App';
 import { almacenSesion, type Perfil } from '../../api';
@@ -112,6 +112,38 @@ function servidor({
         return alRegistrar
           ? alRegistrar()
           : json({ id: 'f-1', expedienteId: 'e-1', fecha: '2026-08-27T15:00:00.000Z' }, 201);
+      }
+      // La carpeta familiar, para el salto entre integrantes.
+      if (ruta.includes('/v1/grupos-familiares/')) {
+        return json({
+          id: 'g-1',
+          numero: 1,
+          apellidos: 'Perez Caal',
+          direccion: null,
+          telefono: null,
+          comunidad: { id: 'c-1', nombre: 'Purulha Centro' },
+          lugar: null,
+          integrantes: [
+            {
+              id: 'p-1',
+              nombres: 'Juana Isabel',
+              apellidos: 'Perez Caal',
+              fechaNacimiento: '1985-04-12T00:00:00.000Z',
+              sexo: 'F',
+              fallecido: false,
+              edad: 41,
+            },
+            {
+              id: 'p-7',
+              nombres: 'Marcos',
+              apellidos: 'Perez Caal',
+              fechaNacimiento: '2024-01-05T00:00:00.000Z',
+              sexo: 'M',
+              fallecido: false,
+              edad: 2,
+            },
+          ],
+        });
       }
       if (ruta.includes('/v1/pacientes/')) return json(paciente);
       return json({}, 404);
@@ -368,13 +400,25 @@ describe('ficha clinica de adultos', () => {
     expect(within(grupo).getAllByRole('radio')[0]).toHaveAttribute('aria-checked', 'true');
   });
 
-  it('avisa cuando la edad del paciente no corresponde a esta ficha', async () => {
-    servidor({ paciente: { ...PACIENTE, edad: 4, nombres: 'Pedro' } });
+  /**
+   * Avisa, y NO bloquea.
+   *
+   * Antes esta pantalla se negaba a dibujarse para un menor de diez anos. Eso
+   * rompe la transcripcion de expedientes de papel —una consulta de hace tres
+   * anos se llena con la edad que el nino tenia entonces— y deja sin salida los
+   * casos limite, donde quien conoce el caso decide mejor que un corte de edad.
+   */
+  it('avisa cuando la edad no corresponde, pero deja llenarla', async () => {
+    servidor({
+      paciente: { ...PACIENTE, edad: 4, nombres: 'Pedro', fechaNacimiento: '2022-04-12T00:00:00.000Z' },
+    });
     abrir();
 
-    expect(
-      await screen.findByText('Esta ficha no corresponde a la edad del paciente'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/le corresponde la de/i)).toBeInTheDocument();
+    // Y el formulario esta ahi: se puede seguir. Antes esta pantalla devolvia
+    // solo el aviso, sin nada que llenar.
+    expect((await screen.findAllByRole('button', { name: /Guardar ficha/i })).length)
+      .toBeGreaterThan(0);
   });
 
   it('sin expediente abierto no se puede registrar la ficha', async () => {
@@ -528,5 +572,38 @@ describe('ficha clinica de adultos', () => {
       await screen.findByRole('heading', { name: /no es de su perfil/i }),
     ).toBeInTheDocument();
     expect(screen.queryByText('Revision de problemas')).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Llega la senora con el nino en brazos.
+ *
+ * Recepcion marca la llegada de ELLA, y la enfermera se encuentra una ficha de
+ * adulto cuando iba a pesar al nino. La salida no puede ser cambiar de
+ * formulario —los datos del nino acabarian en el expediente de la madre— sino
+ * cambiar de PERSONA, y que a cada una se le abra la suya.
+ */
+describe('saltar a otro integrante de la carpeta', () => {
+  it('ofrece a los demas de la casa, y a cada uno su ficha', async () => {
+    servidor({ paciente: { ...PACIENTE, grupoFamiliar: { id: 'g-1', numero: 1, apellidos: 'Perez Caal', lugar: null } } });
+    const usuario = userEvent.setup();
+    abrir();
+
+    await usuario.click(await screen.findByRole('button', { name: /Otro integrante/i }));
+
+    // Al de dos anos le toca la de lactancia y ninez, no esta.
+    const opcion = await screen.findByRole('menuitem', { name: /Marcos/ });
+    expect(opcion).toHaveTextContent(/Lactancia y ni.ez/i);
+
+    await usuario.click(opcion);
+    await waitFor(() => expect(window.location.pathname).toBe('/pacientes/p-7/ficha-ninez'));
+  });
+
+  it('sin carpeta familiar no se ofrece: no hay a quien saltar', async () => {
+    servidor();
+    abrir();
+
+    await screen.findAllByRole('button', { name: /Guardar ficha/i });
+    expect(screen.queryByRole('button', { name: /Otro integrante/i })).not.toBeInTheDocument();
   });
 });

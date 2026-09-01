@@ -33,13 +33,14 @@ import {
 } from '../servicio-fichas';
 import type { AvanceSeccion } from '../borrador';
 import { ALTO_BARRA } from '../../../tema';
+import { AvisoDeEdad } from '../CambioDeFicha';
+import { antecedentesPreviosDeNeonato, conAntecedentesPrevios } from './antecedentes-previos';
 import {
   bloqueDelSigno,
   borradorNeonatoVacio,
   CONDUCTA_DEL_BLOQUE,
   cuerpoDeFichaNeonato,
   edadEnDias,
-  EDAD_MAXIMA_NEONATO_DIAS,
   fueraDeRangoNeonato,
   signosGravesMarcados,
   type BorradorNeonato,
@@ -186,12 +187,37 @@ export function PaginaFichaNeonato() {
     queryFn: () => obtenerCatalogo('NEONATO'),
   });
 
+  /*
+    Lo que ya se sabe del nacimiento, de una ficha anterior.
+
+    Quien es la madre, cuanto peso al nacer, quien atendio el parto: son hechos
+    del nacimiento, no del dia, y no cambian entre controles. Volverlos a
+    escribir en cada visita es trabajo repetido y, peor, es como el expediente
+    acaba diciendo dos cosas: donde hay que teclear lo mismo cinco veces, la
+    quinta se escribe distinto.
+  */
+  const previos = useQuery({
+    queryKey: ['antecedentes-neonato', paciente.data?.expediente?.id],
+    queryFn: () => antecedentesPreviosDeNeonato(paciente.data!.expediente!.id),
+    enabled: Boolean(paciente.data?.expediente?.id),
+  });
+
   const [borrador, setBorrador] = useState<BorradorNeonato | null>(null);
   const actual = useMemo(() => {
     if (borrador) return borrador;
     if (!catalogo.data) return null;
-    return borradorNeonatoVacio(catalogo.data);
-  }, [borrador, catalogo.data]);
+    /*
+      Se espera a la consulta antes de dibujar nada: pintar el formulario vacio
+      y rellenarlo despues borraria lo que alguien hubiera empezado a escribir
+      en esos dos segundos.
+
+      `isLoading` y no `isPending`: una consulta DESHABILITADA —aqui, cuando el
+      paciente no tiene expediente— se queda en «pendiente» para siempre, y con
+      `isPending` la pantalla no llegaba nunca a decir que falta el expediente.
+    */
+    if (previos.isLoading) return null;
+    return conAntecedentesPrevios(borradorNeonatoVacio(catalogo.data), previos.data ?? null);
+  }, [borrador, catalogo.data, previos.isLoading, previos.data]);
 
   const guardar = useMutation({
     mutationFn: (cuerpo: ReturnType<typeof cuerpoDeFichaNeonato>) =>
@@ -270,10 +296,19 @@ export function PaginaFichaNeonato() {
         Expediente y el de Fecha. Es el mismo componente que usa la ficha de
         adultos, porque el personal salta entre las dos con el papel al lado.
       */}
+      <AvisoDeEdad
+        fechaNacimiento={datos.fechaNacimiento as unknown as string}
+        pacienteId={pacienteId!}
+        nombres={datos.nombres}
+        tipoDeEstaFicha="NEONATO"
+      />
+
       <EncabezadoFicha
         titulo="Ficha clínica para menor de 28 días"
         volverA={volverA}
         volverTexto="Expediente"
+        pacienteId={pacienteId}
+        grupoFamiliarId={datos.grupoFamiliar?.id}
         nombre={datos.apellidos + ', ' + datos.nombres}
         resumen={
           dias +
@@ -286,19 +321,6 @@ export function PaginaFichaNeonato() {
         expediente={datos.expediente.numero}
         fecha={{ valor: actual.fecha, onCambio: (v) => cambiar({ fecha: v }) }}
       />
-
-      {/*
-        No se bloquea la captura: el CAP transcribe expedientes de papel, y una
-        ficha de hace tres años se llena con la edad que el nino tenia entonces.
-        Se avisa y se deja seguir.
-      */}
-      {dias > EDAD_MAXIMA_NEONATO_DIAS ? (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          Este paciente tiene {dias} días. Esta ficha es para menores de{' '}
-          {EDAD_MAXIMA_NEONATO_DIAS} días; para mayores va la de lactante y niñez. Si está
-          transcribiendo una consulta antigua, continúe.
-        </Alert>
-      ) : null}
 
       <Stack direction={{ xs: 'column', md: 'row' }} sx={{ gap: 3, alignItems: 'flex-start' }}>
         <Box sx={{ position: { md: 'sticky' }, top: ALTO_BARRA + 24, flexShrink: 0 }}>

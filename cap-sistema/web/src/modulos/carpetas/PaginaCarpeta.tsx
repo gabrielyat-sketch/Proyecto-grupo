@@ -22,6 +22,9 @@ import { NotaPagina } from '../../componentes/EncabezadoPagina';
 import { desde, usarVolver } from '../../navegacion/usarVolver';
 import { ETIQUETA_TIPO_LUGAR } from '../recepcion/servicio-pacientes';
 import { obtenerCarpeta } from './servicio-carpetas';
+import ChildCareOutlinedIcon from '@mui/icons-material/ChildCareOutlined';
+import { usarSesion } from '../sesion/contexto';
+import { puedeEntrar } from '../../navegacion/menu';
 
 /** «12 anos», o los meses cuando todavia no cumple uno. */
 function edadDicha(anios: number): string {
@@ -39,6 +42,10 @@ function edadDicha(anios: number): string {
 export function PaginaCarpeta() {
   const { carpetaId } = useParams<{ carpetaId: string }>();
   const volver = usarVolver({ a: '/carpetas', etiqueta: 'Carpetas' });
+  const { usuario } = usarSesion();
+  // Dar de alta es de Recepcion y Administracion. A los demas no se les ofrece
+  // un boton que el servidor va a negarles.
+  const puedeRegistrar = puedeEntrar(usuario?.rol, '/recepcion/nuevo');
 
   const carpeta = useQuery({
     queryKey: ['carpeta', carpetaId],
@@ -66,6 +73,47 @@ export function PaginaCarpeta() {
         <Button component={EnlaceRuta} to={volver.a} startIcon={<ArrowBackIcon />} size="small">
           {volver.etiqueta}
         </Button>
+
+        <Box sx={{ flexGrow: 1 }} />
+
+        {/*
+          Registrar al recien nacido desde la carpeta.
+
+          Un bebe de horas no tiene nombre todavia, y la ficha de menor de 28
+          dias no lo pide: pregunta por la madre. Sin registro propio el sistema
+          no puede saber que hoja le toca —la elige por la fecha de nacimiento—
+          y la enfermera se queda sin camino.
+
+          La salida NO es dejar elegir la ficha y guardarla donde caiga: una
+          ficha vive dentro de un expediente, y el unico que habria es el de la
+          madre. La primera consulta del nino acabaria en el historial de ella,
+          y el dia que se le registre, esa consulta se queda huerfana.
+
+          Asi que se registra al nino, con lo que ya se sabe de la familia
+          puesto de antemano y un nombre provisional que se corrige cuando lo
+          tenga. Son treinta segundos y a partir de ahi todo lo demas funciona
+          solo.
+        */}
+        {puedeRegistrar ? (
+          <Button
+            variant="contained"
+            color="success"
+            size="small"
+            startIcon={<ChildCareOutlinedIcon />}
+            component={EnlaceRuta}
+            to="/recepcion/nuevo"
+            state={{
+              recienNacido: {
+                apellidos: c.apellidos,
+                comunidadId: c.comunidad.id,
+                lugarId: c.lugar?.id ?? '',
+                grupoFamiliarId: c.id,
+              },
+            }}
+          >
+            Registrar recien nacido
+          </Button>
+        ) : null}
       </Stack>
 
       {/*
