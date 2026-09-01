@@ -428,12 +428,24 @@ paths:
           in: query
           schema:
             type: string
-        - name: codigo
+        - name: lugarId
           required: false
           in: query
-          description: Busca por inicio del codigo del grupo.
+          description: El barrio o caserio.
           schema:
             type: string
+        - name: apellidos
+          required: false
+          in: query
+          description: Coincidencia parcial, sin distinguir mayusculas.
+          schema:
+            type: string
+        - name: numero
+          required: false
+          in: query
+          description: El numero de la pestana, exacto.
+          schema:
+            type: number
         - name: pagina
           required: false
           in: query
@@ -489,7 +501,7 @@ paths:
                 $ref: "#/components/schemas/RespuestaErrorDto"
       security: &a6
         - bearer: []
-      summary: Lista paginada de grupos familiares
+      summary: Lista paginada de carpetas familiares
       tags: &a7
         - grupos-familiares
     post:
@@ -533,7 +545,56 @@ paths:
               schema:
                 $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a6
-      summary: Crea un grupo familiar
+      summary: Abre una carpeta familiar
+      tags: *a7
+  /v1/grupos-familiares/siguiente-numero:
+    get:
+      operationId: GruposController_siguienteNumero
+      parameters:
+        - name: comunidadId
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: lugarId
+          required: false
+          in: query
+          description: El barrio o caserio. Sin el, la serie es la de la comunidad.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiguienteNumeroDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a6
+      summary: El siguiente numero libre de la serie de ese lugar
       tags: *a7
   /v1/grupos-familiares/{id}:
     get:
@@ -582,7 +643,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a6
-      summary: Grupo familiar con sus integrantes
+      summary: Carpeta familiar con sus integrantes
       tags: *a7
   /v1/expedientes/buscar:
     get:
@@ -1803,12 +1864,23 @@ components:
         id:
           type: string
           format: uuid
-        codigo:
+        numero:
+          type: number
+          example: 3
+          description: El numero escrito en la pestana del folder.
+        apellidos:
           type: string
-          example: GF-2026-000045
+          example: Lopez Ac
+        lugar:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/LugarResumenDto"
       required:
         - id
-        - codigo
+        - numero
+        - apellidos
+        - lugar
     ExpedienteDePacienteDto:
       type: object
       properties:
@@ -1912,6 +1984,19 @@ components:
         - tieneAlergias
         - alergias
         - expediente
+    CarpetaNuevaDto:
+      type: object
+      properties:
+        apellidos:
+          type: string
+          example: Lopez Ac
+          description: El apellido con que se rotula el folder.
+        numero:
+          type: number
+          description: El numero de la pestana. Si se omite, se usa el siguiente libre de
+            la serie.
+      required:
+        - apellidos
     CrearPacienteDto:
       type: object
       properties:
@@ -1948,6 +2033,8 @@ components:
           description: Identificador de la comunidad
         grupoFamiliarId:
           type: string
+        carpetaNueva:
+          $ref: "#/components/schemas/CarpetaNuevaDto"
         telefono:
           type: string
         numeroExpediente:
@@ -2024,9 +2111,14 @@ components:
         id:
           type: string
           format: uuid
-        codigo:
+        numero:
+          type: number
+          example: 1
+          description: El numero escrito en la pestana del folder.
+        apellidos:
           type: string
-          example: GF-2026-000045
+          example: Lopez Ac
+          description: El apellido con que se rotula.
         direccion:
           type: string
           nullable: true
@@ -2035,6 +2127,11 @@ components:
           nullable: true
         comunidad:
           $ref: "#/components/schemas/ComunidadResumenDto"
+        lugar:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/LugarResumenDto"
         integrantes:
           type: number
           description: "Contado en la base de datos, no trayendo a los integrantes: evita
@@ -2042,11 +2139,27 @@ components:
           example: 5
       required:
         - id
-        - codigo
+        - numero
+        - apellidos
         - direccion
         - telefono
         - comunidad
+        - lugar
         - integrantes
+    SiguienteNumeroDto:
+      type: object
+      properties:
+        serieId:
+          type: string
+          description: El lugar poblado, o la comunidad cuando la familia no tiene barrio.
+          format: uuid
+        numero:
+          type: number
+          example: 3
+          description: El mayor usado en esa serie, mas uno.
+      required:
+        - serieId
+        - numero
     IntegranteDto:
       type: object
       properties:
@@ -2082,9 +2195,12 @@ components:
         id:
           type: string
           format: uuid
-        codigo:
+        numero:
+          type: number
+          example: 1
+        apellidos:
           type: string
-          example: GF-2026-000045
+          example: Lopez Ac
         direccion:
           type: string
           nullable: true
@@ -2093,6 +2209,11 @@ components:
           nullable: true
         comunidad:
           $ref: "#/components/schemas/ComunidadResumenDto"
+        lugar:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/LugarResumenDto"
         integrantes:
           description: Ordenados del mayor al menor.
           type: array
@@ -2100,26 +2221,35 @@ components:
             $ref: "#/components/schemas/IntegranteDto"
       required:
         - id
-        - codigo
+        - numero
+        - apellidos
         - direccion
         - telefono
         - comunidad
+        - lugar
         - integrantes
     CrearGrupoDto:
       type: object
       properties:
-        codigo:
+        numero:
+          type: number
+          description: Si se omite, se usa el siguiente libre de la serie.
+        apellidos:
           type: string
-          description: Codigo del grupo familiar segun el registro del CAP. Si se omite,
-            el sistema genera uno.
+          example: Lopez Ac
+          description: El apellido con que se rotula la carpeta.
         comunidadId:
           type: string
+        lugarId:
+          type: string
+          description: El barrio o caserio. Define la serie de numeracion.
         direccion:
           type: string
-          example: Caserio El Rejon, casa 14
+          example: Casa 14, frente a la escuela
         telefono:
           type: string
       required:
+        - apellidos
         - comunidadId
     GrupoFamiliarCreadoDto:
       type: object
@@ -2127,9 +2257,12 @@ components:
         id:
           type: string
           format: uuid
-        codigo:
+        numero:
+          type: number
+          example: 1
+        apellidos:
           type: string
-          example: GF-2026-000045
+          example: Lopez Ac
         direccion:
           type: string
           nullable: true
@@ -2139,12 +2272,18 @@ components:
         comunidadId:
           type: string
           format: uuid
+        lugarId:
+          type: string
+          format: uuid
+          nullable: true
       required:
         - id
-        - codigo
+        - numero
+        - apellidos
         - direccion
         - telefono
         - comunidadId
+        - lugarId
     PacienteDelExpedienteDto:
       type: object
       properties:

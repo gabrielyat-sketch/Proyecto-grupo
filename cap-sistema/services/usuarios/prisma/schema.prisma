@@ -156,8 +156,9 @@ model LugarPoblado {
 
   creadoEn DateTime @default(now()) @map("creado_en")
 
-  comunidad Comunidad  @relation(fields: [comunidadId], references: [id])
+  comunidad Comunidad       @relation(fields: [comunidadId], references: [id])
   pacientes Paciente[]
+  grupos    GrupoFamiliar[]
 
   /// El mismo nombre puede repetirse entre comunidades —hay un "El Centro" en
   /// varias— pero no dentro de una.
@@ -167,21 +168,60 @@ model LugarPoblado {
 }
 
 model GrupoFamiliar {
-  id          String  @id @default(uuid())
-  /// Codigo del grupo familiar segun el registro del CAP.
-  codigo      String  @unique @db.VarChar(30)
+  id String @id @default(uuid())
+
+  /// El numero escrito en la pestana del folder: «No. 1».
+  ///
+  /// Lo asigna quien registra, no el sistema. El folder de carton ya existe en
+  /// el archivero antes que el registro digital, y si el sistema inventara su
+  /// propio numero habria dos numeraciones para la misma carpeta: la de la
+  /// pestana y la de la pantalla. La que manda es la del archivero.
+  numero Int
+
+  /// El apellido con que se rotula la carpeta: «Familia Lopez Ac».
+  ///
+  /// No se deduce del apellido de ningun paciente. Una carpeta puede empezar
+  /// por la abuela y seguir con nietos de otro apellido, y quien la busca en
+  /// el archivero busca el rotulo, no a un integrante.
+  apellidos String @db.VarChar(120)
+
+  /// La serie de numeracion a la que pertenece la carpeta.
+  ///
+  /// El CAP numera POR BARRIO O CASERIO: hay una carpeta No.1 en El Calvario y
+  /// otra No.1 en San Jose, y no se confunden. Aqui va el id del lugar
+  /// poblado, y el de la comunidad cuando la familia no tiene barrio —las
+  /// aldeas no tienen lugares declarados, asi que su serie es la de la aldea.
+  ///
+  /// Existe como columna propia por una razon concreta: Postgres considera
+  /// DISTINTOS dos NULL en un indice unico, asi que `(lugar_id, numero)` con
+  /// `lugar_id` nulo dejaria crear dos carpetas No.1 en la misma aldea. Un
+  /// indice con COALESCE lo resolveria, pero Prisma no sabe expresarlo y el
+  /// siguiente `migrate dev` lo borraria. La coherencia con `lugarId` y
+  /// `comunidadId` la sostiene `GruposService`, que es el unico sitio que crea
+  /// carpetas.
+  serieId String @map("serie_id")
+
   comunidadId String  @map("comunidad_id")
+  /// El barrio o caserio. Opcional porque hay comunidades cuyos lugares el CAP
+  /// todavia no ha declarado, y exigirlo impediria abrir una carpeta por un
+  /// catalogo incompleto.
+  lugarId     String? @map("lugar_id")
   direccion   String? @db.VarChar(255)
   telefono    String? @db.VarChar(20)
 
-  comunidad Comunidad  @relation(fields: [comunidadId], references: [id])
+  comunidad Comunidad     @relation(fields: [comunidadId], references: [id])
+  lugar     LugarPoblado? @relation(fields: [lugarId], references: [id])
   pacientes Paciente[]
   /// El agua y las excretas de la casa. Los pide la ficha del lactante y ninez.
   hogar     DatosDelHogar?
 
   creadoEn DateTime @default(now()) @map("creado_en")
 
+  /// Dos carpetas no pueden llevar el mismo numero en la misma serie.
+  @@unique([serieId, numero])
   @@index([comunidadId])
+  /// La busqueda de «¿existe ya la carpeta?»: apellido dentro de un lugar.
+  @@index([serieId, apellidos])
   @@map("grupo_familiar")
 }
 

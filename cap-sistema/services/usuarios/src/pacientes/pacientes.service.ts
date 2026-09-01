@@ -14,6 +14,7 @@ import {
   textoDeBusqueda,
 } from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { serieDe } from '../grupos/serie';
 import { SERVICIO_CIFRADO } from '../comun/cifrado.module';
 import { Evento, OutboxService } from '../eventos/outbox.service';
 import { CrearPacienteDto } from './dto/crear-paciente.dto';
@@ -126,7 +127,17 @@ export class PacientesService {
       include: {
         comunidad: { select: { id: true, nombre: true } },
         lugar: { select: { id: true, nombre: true, tipo: true } },
-        grupoFamiliar: { select: { id: true, codigo: true } },
+        // La carpeta se identifica por su numero DENTRO de su lugar: el
+        // «No. 3» de El Calvario no es el de San Jose, asi que el numero solo
+        // no dice nada y el lugar viaja con el.
+        grupoFamiliar: {
+          select: {
+            id: true,
+            numero: true,
+            apellidos: true,
+            lugar: { select: { id: true, nombre: true, tipo: true } },
+          },
+        },
         expediente: { select: { id: true, numeroCifrado: true, aperturaEn: true } },
       },
     });
@@ -217,6 +228,39 @@ export class PacientesService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      /*
+        La carpeta, si hay que abrirla, DENTRO de la transaccion.
+
+        Fuera de ella, un alta que falle despues dejaria un folder vacio con su
+        numero ya gastado, y el siguiente que registre a esa familia veria el
+        numero tomado sin nadie dentro. El numero de la pestana no es un
+        correlativo que se pueda desperdiciar: es un sitio en el archivero.
+      */
+      let grupoFamiliarId = dto.grupoFamiliarId;
+      if (dto.carpetaNueva) {
+        const serieId = serieDe(dto.comunidadId, dto.lugarId);
+        const numero =
+          dto.carpetaNueva.numero ??
+          ((
+            await tx.grupoFamiliar.aggregate({
+              where: { serieId },
+              _max: { numero: true },
+            })
+          )._max.numero ?? 0) + 1;
+
+        const carpeta = await tx.grupoFamiliar.create({
+          data: {
+            numero,
+            apellidos: dto.carpetaNueva.apellidos.trim(),
+            serieId,
+            comunidadId: dto.comunidadId,
+            lugarId: dto.lugarId ?? null,
+          },
+          select: { id: true },
+        });
+        grupoFamiliarId = carpeta.id;
+      }
+
       const paciente = await tx.paciente.create({
         data: {
           dpiCifrado: dto.dpi ? new Uint8Array(this.cifrado.cifrar(dto.dpi)) : null,
@@ -228,7 +272,7 @@ export class PacientesService {
           sexo: dto.sexo,
           idioma: dto.idioma ?? 'ESPANOL',
           comunidadId: dto.comunidadId,
-          grupoFamiliarId: dto.grupoFamiliarId,
+          grupoFamiliarId,
           telefono: dto.telefono?.trim(),
           lugarId: dto.lugarId,
           migrante: dto.migrante ?? false,

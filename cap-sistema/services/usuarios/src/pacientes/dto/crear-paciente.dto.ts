@@ -4,12 +4,15 @@ import {
   IsBoolean,
   IsDate,
   IsEnum,
+  IsInt,
   IsOptional,
   IsString,
   IsUUID,
   Length,
   Matches,
   MaxDate,
+  Min,
+  ValidateNested,
 } from 'class-validator';
 
 export enum SexoDto {
@@ -22,6 +25,23 @@ export enum IdiomaDto {
   POQOMCHI = 'POQOMCHI',
   QEQCHI = 'QEQCHI',
   OTRO = 'OTRO',
+}
+
+/** Los datos que hacen falta para abrir una carpeta al registrar un paciente. */
+export class CarpetaNuevaDto {
+  @ApiProperty({ example: 'Lopez Ac', description: 'El apellido con que se rotula el folder.' })
+  @IsString()
+  @Length(1, 120)
+  apellidos!: string;
+
+  @ApiPropertyOptional({
+    description: 'El numero de la pestana. Si se omite, se usa el siguiente libre de la serie.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  numero?: number;
 }
 
 export class CrearPacienteDto {
@@ -68,6 +88,27 @@ export class CrearPacienteDto {
   @IsOptional()
   @IsString()
   grupoFamiliarId?: string;
+
+  /**
+   * Abre una carpeta nueva y mete al paciente en ella, en un solo paso.
+   *
+   * Alternativa a `grupoFamiliarId`, no complemento: o la carpeta ya existe y
+   * se dice cual, o no existe y se dice como llamarla.
+   *
+   * Va aqui y no en dos llamadas seguidas desde la pantalla porque las dos
+   * cosas tienen que ocurrir juntas o ninguna: si el alta falla despues de
+   * crear la carpeta, queda un folder vacio ocupando un numero, y el siguiente
+   * que registre a esa familia vera el numero tomado sin nadie dentro.
+   *
+   * La comunidad y el lugar son los del paciente: la carpeta se guarda donde
+   * vive la familia, asi que pedirlos otra vez seria pedir dos veces el mismo
+   * dato y arriesgar que no coincidan.
+   */
+  @ApiPropertyOptional({ type: () => CarpetaNuevaDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CarpetaNuevaDto)
+  carpetaNueva?: CarpetaNuevaDto;
 
   @ApiPropertyOptional()
   @IsOptional()
