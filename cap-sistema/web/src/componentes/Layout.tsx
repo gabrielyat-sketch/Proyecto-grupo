@@ -34,6 +34,7 @@ import { LogoCap } from './LogoCap';
 import { Reloj } from './Reloj';
 import { usarConexion } from './usarConexion';
 import { ALTO_BARRA, BARRA, MENU, MENU_ACTIVO } from '../tema';
+import { usarSubirAlNavegar } from '../navegacion/usarSubirAlNavegar';
 
 const ANCHO_MENU = 248;
 /** Contraido: caben el icono y su area de pulsacion, nada mas. */
@@ -91,6 +92,8 @@ export function Layout() {
   const [contraido, setContraido] = useState(leerContraido);
   const [menuCuenta, setMenuCuenta] = useState<null | HTMLElement>(null);
   const conectado = usarConexion();
+
+  usarSubirAlNavegar();
 
   useEffect(() => {
     try {

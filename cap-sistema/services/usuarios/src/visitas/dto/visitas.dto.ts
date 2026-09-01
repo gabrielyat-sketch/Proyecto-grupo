@@ -46,6 +46,18 @@ export class VisitaEnEsperaDto {
   @ApiProperty({ example: 41 })
   edad!: number;
 
+  /**
+   * La fecha, ademas de la edad en anios.
+   *
+   * La edad en anios no basta para saber que hoja del MSPAS toca: un recien
+   * nacido y un bebe de ocho meses son los dos «0», y les corresponden fichas
+   * distintas —la de menor de 28 dias y la de lactancia y ninez—. Sin la
+   * fecha, el boton de atender de la sala de espera no puede elegir, y abria
+   * siempre la de adultos.
+   */
+  @ApiProperty({ format: 'date-time' })
+  fechaNacimiento!: Date;
+
   @ApiProperty({ example: 'F' })
   sexo!: string;
 

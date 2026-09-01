@@ -1601,6 +1601,8 @@ export interface components {
             apellidos: string;
             /** @example 41 */
             edad: number;
+            /** Format: date-time */
+            fechaNacimiento: string;
             /** @example F */
             sexo: string;
             comunidad: string;

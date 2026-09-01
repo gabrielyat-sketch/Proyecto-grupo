@@ -21,6 +21,7 @@ import { EncabezadoPagina } from '../../componentes/EncabezadoPagina';
 import { usarSesion } from '../sesion/contexto';
 import { usarAtajo } from '../../navegacion/usarAtajo';
 import { desde } from '../../navegacion/usarVolver';
+import { fichaParaPaciente } from '../fichas/ficha-por-edad';
 import {
   ESPERA_LARGA_MINUTOS,
   esperaEnPalabras,
@@ -78,12 +79,25 @@ export function PaginaSalaEspera() {
     },
   });
 
-  // Se lleva el origen: quien atiende desde la sala vuelve a la sala, no a
-  // recepcion, que es otro modulo y otra cola.
-  const atender = (v: VisitaEnEspera) =>
-    navegar('/pacientes/' + v.pacienteId + '/ficha', {
+  /*
+    Abre la hoja que le toca por edad, no siempre la de adultos.
+
+    Estaba escrita a mano: `/ficha` para todo el mundo, asi que a un recien
+    nacido se le abria la de adolescente, adulto y adulto mayor. Cada hoja del
+    MSPAS pregunta cosas distintas, y lo que se capture en la que no toca no
+    tiene respaldo en ningun papel firmado.
+
+    Se lleva ademas el origen: quien atiende desde la sala vuelve a la sala, no
+    a recepcion, que es otro modulo y otra cola.
+  */
+  const atender = (v: VisitaEnEspera) => {
+    const ficha = fichaParaPaciente(v.fechaNacimiento, v.pacienteId);
+    // Sin pantalla todavia —la prenatal— queda el expediente, que es de donde
+    // se puede seguir. Mandar a una ruta que no existe seria peor.
+    navegar(ficha.ruta ?? '/pacientes/' + v.pacienteId + '/expediente', {
       state: desde('/espera', 'Sala de espera'),
     });
+  };
 
   // Ctrl+J lleva el foco a la lista, igual que en digitalizacion.
   usarAtajo('j', () => {

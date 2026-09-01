@@ -20,6 +20,7 @@ const visita = (n: number, extra: Record<string, unknown> = {}) => ({
   nombres: 'Juana ' + n,
   apellidos: 'Perez Caal',
   edad: 40,
+  fechaNacimiento: '1986-03-12',
   sexo: 'F',
   comunidad: 'Purulha Centro',
   numeroExpediente: 'EXP-2026-00000' + n,
@@ -155,6 +156,33 @@ describe('sala de espera', () => {
       // Y se lleva de donde vino: sin esto, salir de la ficha devolvia a
       // recepcion, que es otro modulo y otra cola.
       expect(window.history.state?.usr).toMatchObject({ volverA: '/espera' });
+    });
+
+    /**
+     * La hoja que toca por edad, no siempre la de adultos.
+     *
+     * La ruta estaba escrita a mano, asi que a un recien nacido se le abria la
+     * ficha de adolescente, adulto y adulto mayor. Cada hoja del MSPAS
+     * pregunta cosas distintas: lo capturado en la que no toca no tiene
+     * respaldo en ningun papel firmado.
+     *
+     * Con la edad en anios no bastaba —un recien nacido y un bebe de ocho
+     * meses son los dos «0»—, por eso la sala de espera manda ahora la fecha.
+     */
+    it('a un recien nacido le abre la ficha de menor de 28 dias', async () => {
+      const hace3Dias = new Date();
+      hace3Dias.setDate(hace3Dias.getDate() - 3);
+      servidor({
+        sala: [visita(1, { fechaNacimiento: hace3Dias.toISOString().slice(0, 10), edad: 0 })],
+      });
+      const usuario = userEvent.setup();
+      abrir(ENFERMERIA);
+      await esperarSala();
+
+      await usuario.click((await screen.findAllByRole('button', { name: 'Atender' }))[0]);
+      await waitFor(() =>
+        expect(window.location.pathname).toBe('/pacientes/p-1/ficha-neonato'),
+      );
     });
 
     it('direccion mira la sala pero no la toca', async () => {

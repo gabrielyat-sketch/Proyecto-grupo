@@ -136,6 +136,7 @@ export class VisitasService {
       nombres: v.paciente.nombres,
       apellidos: v.paciente.apellidos,
       edad: edadEnAnios(v.paciente.fechaNacimiento),
+      fechaNacimiento: v.paciente.fechaNacimiento,
       sexo: v.paciente.sexo,
       comunidad: v.paciente.comunidad.nombre,
       numeroExpediente: v.paciente.expediente

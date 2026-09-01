@@ -32,6 +32,7 @@ import {
   type CatalogoFicha,
 } from '../servicio-fichas';
 import type { AvanceSeccion } from '../borrador';
+import { ALTO_BARRA } from '../../../tema';
 import {
   bloqueDelSigno,
   borradorNeonatoVacio,
@@ -300,7 +301,7 @@ export function PaginaFichaNeonato() {
       ) : null}
 
       <Stack direction={{ xs: 'column', md: 'row' }} sx={{ gap: 3, alignItems: 'flex-start' }}>
-        <Box sx={{ position: { md: 'sticky' }, top: 88, flexShrink: 0 }}>
+        <Box sx={{ position: { md: 'sticky' }, top: ALTO_BARRA + 24, flexShrink: 0 }}>
           <IndiceFicha entradas={SECCIONES} avance={avance} activa={activa} onIr={irA} />
         </Box>
 

@@ -216,6 +216,19 @@ export function PaginaNuevoPaciente() {
       // tras otro, y volver a la lista entre cada uno partiria el ritmo.
       reset();
       setFocus('nombres');
+      /*
+        Y sube al aviso, deslizandose.
+
+        El formulario es largo: el boton de registrar esta al final y el aviso
+        con el numero de expediente sale arriba del todo. Sin esto se quedaba
+        abajo, mirando un formulario ya vacio, sin senal de que hubiera pasado
+        nada —y el numero de expediente, que hay que anotar en la carpeta de
+        papel, fuera de la pantalla.
+
+        Deslizandose y no de golpe: aqui la pantalla NO cambia, y ver el
+        recorrido es lo que explica que el aviso estaba arriba.
+      */
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     },
   });
 

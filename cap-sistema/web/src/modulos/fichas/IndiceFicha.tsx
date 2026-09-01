@@ -1,5 +1,6 @@
 import { Box, Stack, Typography } from '@mui/material';
 import type { AvanceSeccion } from './borrador';
+import { ALTO_BARRA } from '../../tema';
 
 export interface EntradaIndice {
   clave: string;
@@ -35,7 +36,7 @@ export function IndiceFicha({
     <Stack
       component="nav"
       aria-label="Secciones de la ficha"
-      sx={{ position: 'sticky', top: 88, gap: 0.25 }}
+      sx={{ position: 'sticky', top: ALTO_BARRA + 24, gap: 0.25 }}
     >
       {entradas.map((e) => {
         const cuenta = avance[e.clave];

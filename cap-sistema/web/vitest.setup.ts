@@ -57,6 +57,22 @@ configure({ asyncUtilTimeout: 10_000 });
  * puesto en las siguientes del mismo archivo, contando llamadas que no eran
  * suyas.
  */
+/**
+ * jsdom tampoco implementa `window.scrollTo`.
+ *
+ * A diferencia de `scrollIntoView`, esta si existe: jsdom la define y lo unico
+ * que hace es escupir «Not implemented: Window's scrollTo() method» por la
+ * consola virtual. No rompe nada, y por eso es peor: desde que subir arriba al
+ * cambiar de ruta es cosa del armazon, la linea sale en CADA navegacion de
+ * CADA prueba —catorce en una pasada limpia—, y un mensaje que aparece
+ * catorce veces cuando todo esta bien deja de leerse el dia que aparezca uno
+ * que si importa. Ya paso una vez en este proyecto: un error no capturado que
+ * solo se veia en el codigo de salida.
+ *
+ * Se sustituye por un doble en vez de silenciar la consola, para que una
+ * prueba que quiera comprobar que se subio arriba pueda contar las llamadas.
+ */
 beforeEach(() => {
   Element.prototype.scrollIntoView = vi.fn();
+  window.scrollTo = vi.fn();
 });

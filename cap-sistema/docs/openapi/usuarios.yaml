@@ -4051,6 +4051,9 @@ components:
         edad:
           type: number
           example: 41
+        fechaNacimiento:
+          format: date-time
+          type: string
         sexo:
           type: string
           example: F
@@ -4077,6 +4080,7 @@ components:
         - nombres
         - apellidos
         - edad
+        - fechaNacimiento
         - sexo
         - comunidad
         - numeroExpediente
