@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SERVICIO_CIFRADO } from '../comun/cifrado.module';
 import { Evento, OutboxService } from '../eventos/outbox.service';
 import { RegistrarAtencionDto } from './dto/registrar-atencion.dto';
+import { marcarCarpetaTranscrita } from '../digitalizacion/marcar-transcrito';
 
 @Injectable()
 export class AtencionesService {
@@ -101,11 +102,12 @@ export class AtencionesService {
         trazaId,
       );
 
+      // La misma regla que al guardar una ficha completa: transcribir una hoja
+      // saca la carpeta de la cola. Que el camino corto la dejara dentro y el
+      // largo no seria una diferencia que nadie puede adivinar desde la
+      // pantalla.
       if (dto.digitalizada) {
-        await tx.registroDigitalizacion.updateMany({
-          where: { expedienteId },
-          data: { atencionesTranscritas: { increment: 1 } },
-        });
+        await marcarCarpetaTranscrita(tx, expedienteId, usuarioId);
       }
 
       return this.descifrar(atencion);

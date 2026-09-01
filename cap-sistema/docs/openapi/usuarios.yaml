@@ -903,6 +903,12 @@ paths:
           schema:
             format: uuid
             type: string
+        - name: lugarId
+          required: false
+          in: query
+          schema:
+            format: uuid
+            type: string
         - name: estado
           required: false
           in: query

@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import { tema } from './tema';
@@ -12,6 +12,7 @@ import { Inicio } from './rutas/Inicio';
 import { EnConstruccion } from './rutas/EnConstruccion';
 import { PaginaRecepcion } from './modulos/recepcion/PaginaRecepcion';
 import { PaginaNuevoPaciente } from './modulos/recepcion/PaginaNuevoPaciente';
+import { PaginaNoEncontrada } from './rutas/PaginaNoDisponible';
 import { PaginaCarpetas } from './modulos/carpetas/PaginaCarpetas';
 import { PaginaCarpeta } from './modulos/carpetas/PaginaCarpeta';
 import { PaginaFicha } from './modulos/fichas/PaginaFicha';
@@ -263,9 +264,18 @@ export function App() {
                   }
                 />
               ))}
-            </Route>
 
-            <Route path="*" element={<Navigate to="/" replace />} />
+              {/*
+                Cualquier otra direccion, DENTRO del armazon.
+
+                Antes estaba fuera y era `Navigate to="/"`: una direccion mal
+                escrita devolvia al inicio sin una palabra. Aqui dentro, el 404
+                se ve con el menu al lado, asi que se puede ir a otro sitio sin
+                volver a escribir nada. Va al final: en react-router gana la
+                primera ruta que casa, y `*` casa con todo.
+              */}
+              <Route path="*" element={<PaginaNoEncontrada />} />
+            </Route>
           </Routes>
         </BrowserRouter>
       </ThemeProvider>

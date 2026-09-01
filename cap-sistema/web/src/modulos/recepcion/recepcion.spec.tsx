@@ -13,6 +13,9 @@ const RECEPCION: Perfil = {
 const COMUNIDADES = [
   { id: 'c-1', nombre: 'Purulha Centro', codigo: null, distante: false, activa: true },
   { id: 'c-2', nombre: 'Matanzas', codigo: null, distante: true, activa: true },
+  // Donde va quien no es de Purulha. Se reconoce por el codigo, no por el
+  // nombre.
+  { id: 'c-9', nombre: 'Fuera de Purulha', codigo: 'FUERA', distante: false, activa: true },
 ];
 
 const PACIENTE = {
@@ -328,6 +331,49 @@ describe('alta de paciente', () => {
     });
   });
 
+  /**
+   * Quien no es de Purulha tambien tiene que poder registrarse.
+   *
+   * La comunidad es obligatoria —de ella cuelgan la busqueda de recepcion, la
+   * cola de digitalizacion y la serie de numeracion de las carpetas— y la
+   * casilla de «no es de Purulha» estaba debajo sin eximir de elegir una. El
+   * resultado es que a un jornalero de otro municipio no se le podia abrir
+   * expediente: se llenaba el formulario entero y no dejaba guardar.
+   */
+  describe('paciente de fuera de Purulha', () => {
+    it('marcar «no es de Purulha» resuelve la comunidad, y deja registrar', async () => {
+      servidorCon();
+      await abrirFormulario();
+
+      await userEvent.type(screen.getByLabelText(/Nombres/i), 'Carlos');
+      await userEvent.type(screen.getByLabelText(/Apellidos/i), 'Chub');
+      await userEvent.type(screen.getByLabelText(/Fecha de nacimiento/i), '1990-03-15');
+
+      // Sin tocar el desplegable de comunidad: solo la casilla.
+      await userEvent.click(screen.getByLabelText(/No es de Purulhá/i));
+      await userEvent.type(await screen.findByLabelText(/Lugar de origen/i), 'Salama');
+      await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
+
+      await waitFor(() => expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(1));
+      const cuerpo = JSON.parse(await peticiones.find((p) => p.method === 'POST')!.text());
+      expect(cuerpo.comunidadId).toBe('c-9');
+      expect(cuerpo.migrante).toBe(true);
+      expect(cuerpo.lugarOrigen).toBe('Salama');
+    });
+
+    it('desmarcarla vuelve a preguntar la comunidad', async () => {
+      servidorCon();
+      await abrirFormulario();
+
+      await userEvent.click(screen.getByLabelText(/No es de Purulhá/i));
+      await userEvent.click(screen.getByLabelText(/No es de Purulhá/i));
+
+      // La comunidad que puso el sistema deja de valer.
+      await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
+      expect(await screen.findByText(/Elija la comunidad/i)).toBeInTheDocument();
+    });
+  });
+
   it('tras registrar, el formulario queda limpio para el siguiente', async () => {
     servidorCon();
     await abrirFormulario();
@@ -405,7 +451,9 @@ describe('quien puede dar de alta un paciente', () => {
     window.history.pushState({}, '', '/recepcion/nuevo');
     render(<App />);
 
-    await waitFor(() => expect(window.location.pathname).toBe('/'));
+    expect(
+      await screen.findByRole('heading', { name: /no es de su perfil/i }),
+    ).toBeInTheDocument();
   });
 
   it('Recepcion si lo ve: es su trabajo', async () => {

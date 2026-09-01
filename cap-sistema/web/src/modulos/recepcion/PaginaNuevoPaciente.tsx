@@ -201,6 +201,15 @@ export function PaginaNuevoPaciente() {
   // de Purulha Centro a alguien que vive en Chilasco.
   const comunidadId = watch('comunidadId');
   const migrante = watch('migrante');
+
+  /*
+    La entrada del catalogo donde va quien NO es de Purulha.
+
+    Se reconoce por su codigo y no por su nombre: el nombre es texto que
+    alguien puede querer cambiar, y el dia que lo cambie una comparacion por
+    nombre dejaria de casar sin que nada avise.
+  */
+  const comunidadDeFuera = (comunidades.data ?? []).find((c) => c.codigo === 'FUERA');
   const tieneAlergias = watch('tieneAlergias');
 
   const lugares = useQuery({
@@ -459,15 +468,33 @@ export function PaginaNuevoPaciente() {
           </Stack>
 
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+            {/*
+              Controlado, no con `register`.
+
+              Lo elige tambien la casilla de «no es de Purulha», y con un campo
+              no controlado `setValue` cambia el valor del formulario pero no lo
+              que se ve: quedaba puesto por dentro y vacio en pantalla, que es
+              la peor de las dos.
+            */}
             <TextField
               select
               label="Comunidad *"
               fullWidth
-              defaultValue=""
+              value={comunidadId}
+              onChange={(e) => {
+                setValue('comunidadId', e.target.value);
+                // Los lugares son de la comunidad anterior.
+                setValue('lugarId', '');
+              }}
+              disabled={migrante}
               error={Boolean(errors.comunidadId)}
-              helperText={errors.comunidadId?.message}
+              helperText={
+                errors.comunidadId?.message ??
+                (migrante
+                  ? 'Quien no es de Purulhá va aquí; anote de dónde viene abajo'
+                  : 'Si no es de Purulhá, márquelo en Procedencia')
+              }
               slotProps={{ select: { MenuProps: MENU_FILTRO } }}
-              {...register('comunidadId')}
             >
               {(comunidades.data ?? []).map((c) => (
                 <MenuItem key={c.id} value={c.id}>
@@ -681,11 +708,33 @@ export function PaginaNuevoPaciente() {
               spacing={2}
               sx={{ alignItems: { md: 'center' } }}
             >
+              {/*
+                Marcarlo RESUELVE la comunidad, no choca con ella.
+
+                La comunidad es obligatoria —de ella cuelgan la busqueda, la
+                cola de digitalizacion y la serie de las carpetas—, asi que
+                quien no es de Purulha no se podia registrar: la casilla estaba
+                aqui abajo y el formulario seguia exigiendo elegir una de las
+                del municipio. Ahora al marcarla se pone sola la entrada «Fuera
+                de Purulha» y el campo queda fijo, porque elegir ademas un
+                barrio de Purulha seria decir dos cosas incompatibles.
+              */}
               <FormControlLabel
                 control={
                   <Checkbox
                     checked={migrante}
-                    onChange={(e) => setValue('migrante', e.target.checked)}
+                    onChange={(e) => {
+                      const marcado = e.target.checked;
+                      setValue('migrante', marcado);
+                      if (marcado && comunidadDeFuera) {
+                        setValue('comunidadId', comunidadDeFuera.id);
+                        setValue('lugarId', '');
+                      } else if (!marcado && comunidadId === comunidadDeFuera?.id) {
+                        // Se desmarca: la comunidad que puso el sistema deja de
+                        // valer, y hay que volver a preguntarla.
+                        setValue('comunidadId', '');
+                      }
+                    }}
                   />
                 }
                 label="No es de Purulhá (población migrante)"

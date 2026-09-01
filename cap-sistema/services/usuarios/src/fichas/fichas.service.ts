@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SERVICIO_CIFRADO } from '../comun/cifrado.module';
 import { Evento, OutboxService } from '../eventos/outbox.service';
 import { CrearFichaDto, type TipoFichaDto } from './dto/crear-ficha.dto';
+import { marcarCarpetaTranscrita } from '../digitalizacion/marcar-transcrito';
 import type {
   CatalogoFichaDto,
   ConsejeriaFichaDto,
@@ -245,24 +246,14 @@ export class FichasService {
         trazaId,
       );
 
-      // Lo que el panel de digitalizacion cuenta como avance. Sin esto, una
-      // jornada entera de transcripcion dejaria el contador en cero y el
-      // personal no veria progresar lo que si esta haciendo, que es
-      // exactamente como se abandona una digitalizacion (riesgo R-6).
+      // Guardar la hoja SACA la carpeta de la cola.
+      //
+      // Antes la dejaba en "en proceso" y habia que volver a Digitalizacion,
+      // buscarla otra vez entre miles y cerrarla a mano. Ver
+      // `marcarCarpetaTranscrita` para el porque de completarla con la primera
+      // hoja y no esperar a que se declaren todas.
       if (dto.digitalizada) {
-        await tx.registroDigitalizacion.updateMany({
-          where: { expedienteId },
-          data: { atencionesTranscritas: { increment: 1 } },
-        });
-
-        // La primera hoja transcrita mueve la carpeta a "en proceso" y sella
-        // quien y cuando la empezo. Es el unico de los cuatro estados que el
-        // sistema puede deducir por si mismo: los otros dependen de mirar el
-        // papel, y por eso los declara una persona.
-        await tx.registroDigitalizacion.updateMany({
-          where: { expedienteId, estado: 'PENDIENTE' },
-          data: { estado: 'EN_PROCESO', iniciadoEn: new Date(), digitalizadoPor: usuarioId },
-        });
+        await marcarCarpetaTranscrita(tx, expedienteId, usuarioId);
       }
 
       // ── La tabla de consejeria del pie de la ficha ──────────────────
