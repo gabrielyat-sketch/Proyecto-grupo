@@ -9,6 +9,7 @@ import MedicationIcon from '@mui/icons-material/Medication';
 import InsightsIcon from '@mui/icons-material/Insights';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import HistoryEduIcon from '@mui/icons-material/HistoryEdu';
+import FolderCopyIcon from '@mui/icons-material/FolderCopy';
 
 /**
  * Los seis roles del sistema (arquitectura §10.3).
@@ -101,6 +102,17 @@ export const MENU: readonly ElementoMenu[] = [
     // ven los datos del paciente pero no sus diagnosticos— y esa restriccion la
     // aplica la propia pantalla, igual que el servidor.
     roles: TODO_EL_PERSONAL,
+  },
+  {
+    ruta: '/carpetas',
+    color: '#00838f', // cian
+    descripcion:
+      'El archivero del CAP: las carpetas familiares con su numero, su apellido y el lugar donde viven. Dentro de cada una, la familia y sus expedientes.',
+    etiqueta: 'Carpetas',
+    icono: FolderCopyIcon,
+    // Los mismos cinco del controlador. Farmacia no: la carpeta dice quien
+    // vive con quien, y eso es informacion del paciente, no del medicamento.
+    roles: ['ADMINISTRADOR', 'DIRECTOR', 'RECEPCION', 'ENFERMERIA', 'MEDICO'],
   },
   {
     ruta: '/digitalizacion',

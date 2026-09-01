@@ -34,6 +34,16 @@ cargarDotenv({ quiet: true });
 const COMUNIDADES: string[] = [
   // La cabecera. Es donde estan los siete barrios.
   'Purulha Centro',
+  /*
+    No es una comunidad, es donde se listan los caserios.
+
+    Los cuarenta y seis caserios del municipio estaban colgando de la cabecera
+    porque es donde el documento del CAP los escribe, y eso obligaba a elegir
+    «Purulha Centro» —el casco urbano— para poder registrar a alguien que vive
+    en un caserio. Hasta que el CAP diga a que aldea pertenece cada uno, esta
+    entrada los deja alcanzables sin afirmar de donde son.
+  */
+  'Caserios',
   // Las ocho aldeas, en el orden en que las entrego el CAP.
   'El Durazno',
   'Mocohan',

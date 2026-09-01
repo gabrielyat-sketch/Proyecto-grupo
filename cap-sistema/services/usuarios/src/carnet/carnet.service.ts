@@ -339,27 +339,24 @@ export class CarnetService {
       // ── El agua y las excretas, que son de la CASA ───────────────────
       const h = dto.hogar;
       if (h) {
-        let grupoId = paciente.grupoFamiliarId;
+        /*
+          La carpeta tiene que existir; aqui ya no se crea sola.
 
-        // El grupo familiar estaba a cero en todo el padron cuando se
-        // construyo esto. Se crea al vuelo para que la seccion sirva desde el
-        // primer dia; cuando recepcion pueda enlazar hermanos, el dato ya
-        // esta en el sitio bueno y no hay que moverlo.
+          Antes se creaba al vuelo, con un codigo inventado a partir del id del
+          paciente, porque no habia ninguna pantalla que abriera carpetas y sin
+          eso la seccion del hogar no habria servido para nada.
+
+          Ahora recepcion las abre, y el numero de la carpeta es el que esta
+          escrito en la pestana del folder del archivero. Que el sistema
+          inventara uno al guardar el agua y las excretas pondria un numero que
+          no existe en ningun archivero, y el dia que alguien busque el folder
+          fisico no va a estar. Mas vale pedirla que fabricarla.
+        */
+        const grupoId = paciente.grupoFamiliarId;
         if (!grupoId) {
-          const creado = await tx.grupoFamiliar.create({
-            data: {
-              // Provisional y trazable hasta su hermano: el CAP todavia no
-              // asigna codigos de hogar, asi que sale del propio paciente.
-              codigo: 'HOGAR-' + pacienteId.replace(/-/g, '').slice(0, 12).toUpperCase(),
-              comunidadId: paciente.comunidadId,
-            },
-            select: { id: true },
-          });
-          grupoId = creado.id;
-          await tx.paciente.update({
-            where: { id: pacienteId },
-            data: { grupoFamiliarId: grupoId },
-          });
+          throw new BadRequestException(
+            'Para guardar los datos del hogar hay que asignarle antes una carpeta familiar a este paciente.',
+          );
         }
 
         const campos = {

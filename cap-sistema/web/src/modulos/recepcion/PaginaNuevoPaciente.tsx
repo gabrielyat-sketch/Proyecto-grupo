@@ -27,6 +27,12 @@ import {
 } from './servicio-pacientes';
 import { MENU_FILTRO } from '../../componentes/menuFiltro';
 import { PRIMARIO } from '../../tema';
+import { NotaPagina } from '../../componentes/EncabezadoPagina';
+import {
+  buscarCarpetas,
+  rotuloDeCarpeta,
+  siguienteNumeroDeCarpeta,
+} from '../carpetas/servicio-carpetas';
 
 const IDIOMAS = [
   { valor: 'ESPANOL', etiqueta: 'Espanol' },
@@ -75,6 +81,21 @@ const esquema = z.object({
    * por un catálogo incompleto.
    */
   lugarId: z.string(),
+
+  /**
+   * La carpeta familiar del archivero.
+   *
+   * '' es "no se dijo", y se acepta: hay altas —una digitalizacion de
+   * expedientes viejos— donde todavia no se sabe en que folder va la persona,
+   * y bloquear el registro por eso dejaria al paciente fuera del sistema.
+   */
+  carpetaExiste: z.enum(['', 'SI', 'NO']),
+  /** El apellido con que se rotula el folder: «Familia Lopez Ac». */
+  familia: z.string().trim().max(120),
+  /** El numero de la pestana. Texto en el formulario, entero al enviar. */
+  carpetaNumero: z.string().trim(),
+  /** La carpeta elegida cuando ya existe. */
+  grupoFamiliarId: z.string(),
 
   migrante: z.boolean(),
   lugarOrigen: z.string().trim().max(160),
@@ -165,6 +186,10 @@ export function PaginaNuevoPaciente() {
       numeroExpediente: '',
       digitalizado: false,
       lugarId: '',
+      carpetaExiste: '',
+      familia: '',
+      carpetaNumero: '',
+      grupoFamiliarId: '',
       migrante: false,
       lugarOrigen: '',
       tieneAlergias: '',
@@ -183,6 +208,37 @@ export function PaginaNuevoPaciente() {
     queryFn: () => listarLugares(comunidadId),
     enabled: comunidadId !== '',
     staleTime: 30 * 60_000,
+  });
+
+  const carpetaExiste = watch('carpetaExiste');
+  const familia = watch('familia');
+  const lugarId = watch('lugarId');
+
+  /*
+    El siguiente numero libre, para no tener que ir al archivero a mirarlo.
+
+    Depende del lugar y no solo de la comunidad: el CAP numera por barrio y
+    caserio, asi que el «siguiente» de El Calvario no es el de San Jose. Solo
+    se pide cuando hace falta —al abrir una carpeta nueva—, porque en el otro
+    camino nadie lo va a leer.
+  */
+  const siguienteNumero = useQuery({
+    queryKey: ['siguiente-numero-carpeta', comunidadId, lugarId],
+    queryFn: () => siguienteNumeroDeCarpeta(comunidadId, lugarId || undefined),
+    enabled: comunidadId !== '' && carpetaExiste === 'NO',
+    staleTime: 0,
+  });
+
+  /*
+    Las carpetas que coinciden, cuando la familia ya tiene una.
+
+    Se piden desde dos letras: con una sola, en un caserio entero, la lista
+    seria casi todo el archivero y no ayudaria a elegir.
+  */
+  const carpetas = useQuery({
+    queryKey: ['carpetas', comunidadId, lugarId, familia.trim()],
+    queryFn: () => buscarCarpetas(comunidadId, familia.trim(), lugarId || undefined),
+    enabled: comunidadId !== '' && carpetaExiste === 'SI' && familia.trim().length >= 2,
   });
 
   /*
@@ -234,6 +290,27 @@ export function PaginaNuevoPaciente() {
 
   function enviar(campos: Campos) {
     setCreado(null);
+
+    /*
+      O la carpeta ya existe y se dice cual, o no existe y se dice como
+      llamarla. Nunca las dos: el servidor tomaria una y la otra quedaria
+      escrita sin efecto, que es peor que un error.
+
+      La carpeta nueva se abre en la MISMA transaccion del alta. Hacerlo en dos
+      llamadas dejaria, si el alta falla, un folder vacio ocupando un numero
+      del archivero.
+    */
+    const carpeta =
+      campos.carpetaExiste === 'SI' && campos.grupoFamiliarId
+        ? { grupoFamiliarId: campos.grupoFamiliarId }
+        : campos.carpetaExiste === 'NO' && campos.familia
+          ? {
+              carpetaNueva: {
+                apellidos: campos.familia,
+                ...(campos.carpetaNumero ? { numero: Number(campos.carpetaNumero) } : {}),
+              },
+            }
+          : {};
     alta.mutate({
       ...(campos.dpi ? { dpi: campos.dpi } : {}),
       nombres: campos.nombres,
@@ -257,6 +334,7 @@ export function PaginaNuevoPaciente() {
       ...(campos.tieneAlergias === 'SI' && campos.alergias
         ? { alergias: campos.alergias }
         : {}),
+      ...carpeta,
     } as never);
   }
 
@@ -472,6 +550,123 @@ export function PaginaNuevoPaciente() {
               ])}
             </TextField>
           </Stack>
+
+          <TituloSeccion>Carpeta familiar</TituloSeccion>
+
+          {/*
+            El CAP no archiva por persona sino por FAMILIA: un folder de carton
+            con un numero en la pestana, rotulado con el apellido y guardado
+            por el lugar donde vive. Registrar a alguien es meterlo en su
+            carpeta, y el sistema no lo recogia.
+
+            Va DESPUES de la comunidad y el barrio a proposito: la carpeta se
+            guarda donde vive la familia, asi que esos dos datos tienen que
+            estar puestos antes de poder decir cual carpeta es o que numero le
+            toca.
+          */}
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+            <TextField
+              select
+              label="¿Existe la carpeta?"
+              sx={{ minWidth: 240 }}
+              value={carpetaExiste}
+              onChange={(e) => {
+                setValue('carpetaExiste', e.target.value as '' | 'SI' | 'NO');
+                // Lo elegido en el otro camino deja de valer: la carpeta
+                // marcada no es la que se va a crear, ni al reves.
+                setValue('grupoFamiliarId', '');
+                setValue('carpetaNumero', '');
+              }}
+              disabled={comunidadId === ''}
+              helperText={
+                comunidadId === ''
+                  ? 'Elija primero la comunidad'
+                  : 'Dejarlo sin responder registra al paciente sin carpeta'
+              }
+            >
+              <MenuItem value="">No se preguntó</MenuItem>
+              <MenuItem value="SI">Sí, ya existe</MenuItem>
+              <MenuItem value="NO">No, hay que abrirla</MenuItem>
+            </TextField>
+
+            {carpetaExiste !== '' ? (
+              <TextField
+                label="Familia"
+                fullWidth
+                value={familia}
+                onChange={(e) => setValue('familia', e.target.value)}
+                error={Boolean(errors.familia)}
+                helperText={
+                  errors.familia?.message ??
+                  (carpetaExiste === 'SI'
+                    ? 'Escriba el apellido para buscar la carpeta'
+                    : 'El apellido con que se rotula: «Familia López Ac»')
+                }
+              />
+            ) : null}
+
+            {carpetaExiste === 'NO' ? (
+              <TextField
+                label="No. de carpeta"
+                sx={{ minWidth: 200 }}
+                value={watch('carpetaNumero')}
+                onChange={(e) =>
+                  setValue('carpetaNumero', e.target.value.replace(/[^0-9]/g, ''))
+                }
+                placeholder={
+                  siguienteNumero.data !== undefined ? String(siguienteNumero.data) : ''
+                }
+                helperText={
+                  siguienteNumero.isPending
+                    ? 'Consultando...'
+                    : siguienteNumero.data !== undefined
+                      ? 'Siguiente libre aquí: ' + siguienteNumero.data
+                      : 'El número escrito en la pestaña del folder'
+                }
+              />
+            ) : null}
+          </Stack>
+
+          {/*
+            Cuando la carpeta ya existe hay que ELEGIRLA, no adivinarla.
+
+            Dos familias del mismo apellido pueden vivir en el mismo caserio
+            sin ser parientes. Meter a alguien en la carpeta equivocada mezcla
+            dos historias clinicas, y eso no se nota hasta que alguien lee un
+            antecedente que no es de quien tiene delante.
+          */}
+          {carpetaExiste === 'SI' ? (
+            <Stack spacing={1}>
+              {familia.trim().length < 2 ? (
+                <NotaPagina>Escriba al menos dos letras del apellido para buscar.</NotaPagina>
+              ) : carpetas.isPending ? (
+                <NotaPagina>Buscando carpetas...</NotaPagina>
+              ) : (carpetas.data ?? []).length === 0 ? (
+                <Alert severity="warning">
+                  No hay ninguna carpeta de «{familia.trim()}» en ese lugar. Si es la primera vez
+                  que viene esta familia, marque «No, hay que abrirla».
+                </Alert>
+              ) : (
+                <TextField
+                  select
+                  label="¿Cuál carpeta?"
+                  fullWidth
+                  value={watch('grupoFamiliarId')}
+                  onChange={(e) => setValue('grupoFamiliarId', e.target.value)}
+                  error={Boolean(errors.grupoFamiliarId)}
+                  helperText={errors.grupoFamiliarId?.message ?? 'Elija el folder donde va la ficha'}
+                >
+                  {(carpetas.data ?? []).map((c) => (
+                    <MenuItem key={c.id} value={c.id}>
+                      {rotuloDeCarpeta(c) +
+                        ' · ' +
+                        (c.integrantes === 1 ? '1 integrante' : c.integrantes + ' integrantes')}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            </Stack>
+          ) : null}
 
           <TituloSeccion>Procedencia</TituloSeccion>
 

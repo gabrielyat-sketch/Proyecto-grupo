@@ -46,7 +46,11 @@ function json(cuerpo: unknown, estado = 200) {
 }
 
 /** Responde comunidades y pacientes; `pacientes` decide que devuelve la busqueda. */
-function servidorCon(pacientes: unknown[] = [PACIENTE], alCrear?: () => Response) {
+function servidorCon(
+  pacientes: unknown[] = [PACIENTE],
+  alCrear?: () => Response,
+  carpetas: unknown[] = [],
+) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (p: Request) => {
@@ -59,6 +63,11 @@ function servidorCon(pacientes: unknown[] = [PACIENTE], alCrear?: () => Response
           : json({ id: 'p-9', numeroExpediente: 'EXP-2026-000999', expedienteId: 'e-9' }, 201);
       }
       if (ruta.endsWith('/v1/pacientes')) return json(pagina(pacientes));
+      // Las carpetas familiares del archivero.
+      if (ruta.endsWith('/v1/grupos-familiares/siguiente-numero')) {
+        return json({ serieId: 'c-1', numero: 8 });
+      }
+      if (ruta.endsWith('/v1/grupos-familiares')) return json(pagina(carpetas));
       return json({}, 404);
     }),
   );
@@ -216,6 +225,107 @@ describe('alta de paciente', () => {
 
     await waitFor(() => expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(1));
     expect(await screen.findByText(/EXP-2026-000999/)).toBeInTheDocument();
+  });
+
+  /**
+   * La carpeta familiar.
+   *
+   * El CAP archiva por familia: un folder con un numero en la pestana,
+   * rotulado con el apellido y guardado por el lugar donde vive.
+   */
+  describe('carpeta familiar', () => {
+    async function datosMinimos() {
+      await userEvent.type(screen.getByLabelText(/Nombres/i), 'Carlos');
+      await userEvent.type(screen.getByLabelText(/Apellidos/i), 'Chub');
+      await userEvent.type(screen.getByLabelText(/Fecha de nacimiento/i), '2020-03-15');
+      await userEvent.click(screen.getByLabelText(/Comunidad/i));
+      await userEvent.click(await screen.findByRole('option', { name: 'Matanzas' }));
+    }
+
+    const cuerpoDelAlta = async () =>
+      JSON.parse(await peticiones.find((p) => p.method === 'POST')!.text());
+
+    it('abrir una carpeta nueva la manda EN EL ALTA, no en otra llamada', async () => {
+      servidorCon();
+      await abrirFormulario();
+      await datosMinimos();
+
+      await userEvent.click(screen.getByLabelText(/Existe la carpeta/i));
+      await userEvent.click(await screen.findByRole('option', { name: /hay que abrirla/i }));
+      await userEvent.type(await screen.findByLabelText(/^Familia/i), 'Lopez Ac');
+      await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
+
+      await waitFor(() => expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(1));
+
+      /*
+        UNA sola peticion. Crear la carpeta aparte dejaria, si el alta falla,
+        un folder vacio ocupando un numero del archivero.
+      */
+      expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(1);
+      expect(await cuerpoDelAlta()).toMatchObject({
+        carpetaNueva: { apellidos: 'Lopez Ac' },
+      });
+    });
+
+    it('ofrece el siguiente numero libre del lugar, sin ir al archivero', async () => {
+      servidorCon();
+      await abrirFormulario();
+      await datosMinimos();
+
+      await userEvent.click(screen.getByLabelText(/Existe la carpeta/i));
+      await userEvent.click(await screen.findByRole('option', { name: /hay que abrirla/i }));
+
+      expect(await screen.findByText(/Siguiente libre aqui: 8|Siguiente libre aquí: 8/)).toBeInTheDocument();
+    });
+
+    /**
+     * Dos familias del mismo apellido pueden vivir en el mismo caserio sin ser
+     * parientes. Elegir por el sistema mezclaria dos historias clinicas, y eso
+     * no se nota hasta que alguien lee un antecedente que no es de quien tiene
+     * delante.
+     */
+    it('con la carpeta ya existente, hay que elegir cual y va su id', async () => {
+      const carpeta = (id: string, numero: number) => ({
+        id,
+        numero,
+        apellidos: 'Lopez Ac',
+        direccion: null,
+        telefono: null,
+        comunidad: { id: 'c-1', nombre: 'Matanzas' },
+        lugar: null,
+        integrantes: numero,
+      });
+      servidorCon([PACIENTE], undefined, [carpeta('g-1', 1), carpeta('g-2', 47)]);
+      await abrirFormulario();
+      await datosMinimos();
+
+      await userEvent.click(screen.getByLabelText(/Existe la carpeta/i));
+      await userEvent.click(await screen.findByRole('option', { name: /ya existe/i }));
+      await userEvent.type(await screen.findByLabelText(/^Familia/i), 'Lopez');
+
+      await userEvent.click(await screen.findByLabelText(/Cual carpeta|Cuál carpeta/i));
+      await userEvent.click(await screen.findByRole('option', { name: /No. 47/ }));
+      await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
+
+      await waitFor(() => expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(1));
+      const cuerpo = await cuerpoDelAlta();
+      expect(cuerpo.grupoFamiliarId).toBe('g-2');
+      // Y NO viaja la otra forma: el servidor tomaria una y la otra quedaria
+      // escrita sin efecto.
+      expect(cuerpo.carpetaNueva).toBeUndefined();
+    });
+
+    it('sin responder, el paciente se registra sin carpeta', async () => {
+      servidorCon();
+      await abrirFormulario();
+      await datosMinimos();
+      await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
+
+      await waitFor(() => expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(1));
+      const cuerpo = await cuerpoDelAlta();
+      expect(cuerpo.carpetaNueva).toBeUndefined();
+      expect(cuerpo.grupoFamiliarId).toBeUndefined();
+    });
   });
 
   it('tras registrar, el formulario queda limpio para el siguiente', async () => {

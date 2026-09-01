@@ -12,6 +12,8 @@ import { Inicio } from './rutas/Inicio';
 import { EnConstruccion } from './rutas/EnConstruccion';
 import { PaginaRecepcion } from './modulos/recepcion/PaginaRecepcion';
 import { PaginaNuevoPaciente } from './modulos/recepcion/PaginaNuevoPaciente';
+import { PaginaCarpetas } from './modulos/carpetas/PaginaCarpetas';
+import { PaginaCarpeta } from './modulos/carpetas/PaginaCarpeta';
 import { PaginaFicha } from './modulos/fichas/PaginaFicha';
 import { PaginaFichaNeonato } from './modulos/fichas/neonato/PaginaFichaNeonato';
 import { PaginaFichaNinez } from './modulos/fichas/ninez/PaginaFichaNinez';
@@ -102,6 +104,27 @@ export function App() {
                 element={
                   <RutaPorRol ruta="/recepcion/nuevo">
                     <PaginaNuevoPaciente />
+                  </RutaPorRol>
+                }
+              />
+              <Route
+                path="/carpetas"
+                element={
+                  <RutaPorRol ruta="/carpetas">
+                    <PaginaCarpetas />
+                  </RutaPorRol>
+                }
+              />
+              {/*
+                Una carpeta concreta. Va DESPUES del listado: declarada antes,
+                `/carpetas` entraria por `:carpetaId` y se buscaria una carpeta
+                cuyo identificador es la palabra vacia.
+              */}
+              <Route
+                path="/carpetas/:carpetaId"
+                element={
+                  <RutaPorRol ruta="/carpetas">
+                    <PaginaCarpeta />
                   </RutaPorRol>
                 }
               />

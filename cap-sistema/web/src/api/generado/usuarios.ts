@@ -125,11 +125,28 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Lista paginada de grupos familiares */
+        /** Lista paginada de carpetas familiares */
         get: operations["GruposController_listar"];
         put?: never;
-        /** Crea un grupo familiar */
+        /** Abre una carpeta familiar */
         post: operations["GruposController_crear"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/grupos-familiares/siguiente-numero": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** El siguiente numero libre de la serie de ese lugar */
+        get: operations["GruposController_siguienteNumero"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -143,7 +160,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Grupo familiar con sus integrantes */
+        /** Carpeta familiar con sus integrantes */
         get: operations["GruposController_obtener"];
         put?: never;
         post?: never;
@@ -589,8 +606,14 @@ export interface components {
         GrupoResumenDto: {
             /** Format: uuid */
             id: string;
-            /** @example GF-2026-000045 */
-            codigo: string;
+            /**
+             * @description El numero escrito en la pestana del folder.
+             * @example 3
+             */
+            numero: number;
+            /** @example Lopez Ac */
+            apellidos: string;
+            lugar: components["schemas"]["LugarResumenDto"] | null;
         };
         ExpedienteDePacienteDto: {
             /** Format: uuid */
@@ -635,6 +658,15 @@ export interface components {
             alergias: string | null;
             expediente: components["schemas"]["ExpedienteDePacienteDto"] | null;
         };
+        CarpetaNuevaDto: {
+            /**
+             * @description El apellido con que se rotula el folder.
+             * @example Lopez Ac
+             */
+            apellidos: string;
+            /** @description El numero de la pestana. Si se omite, se usa el siguiente libre de la serie. */
+            numero?: number;
+        };
         CrearPacienteDto: {
             /**
              * @description DPI de 13 digitos. OPCIONAL: los ninos y parte de la poblacion rural no lo tienen.
@@ -660,6 +692,7 @@ export interface components {
             /** @description Identificador de la comunidad */
             comunidadId: string;
             grupoFamiliarId?: string;
+            carpetaNueva?: components["schemas"]["CarpetaNuevaDto"];
             telefono?: string;
             /** @description Numero del expediente de papel. Se usa al digitalizar; si se omite, el sistema genera uno. */
             numeroExpediente?: string;
@@ -697,16 +730,37 @@ export interface components {
         GrupoFamiliarResumenDto: {
             /** Format: uuid */
             id: string;
-            /** @example GF-2026-000045 */
-            codigo: string;
+            /**
+             * @description El numero escrito en la pestana del folder.
+             * @example 1
+             */
+            numero: number;
+            /**
+             * @description El apellido con que se rotula.
+             * @example Lopez Ac
+             */
+            apellidos: string;
             direccion: string | null;
             telefono: string | null;
             comunidad: components["schemas"]["ComunidadResumenDto"];
+            lugar: components["schemas"]["LugarResumenDto"] | null;
             /**
              * @description Contado en la base de datos, no trayendo a los integrantes: evita el N+1 de esta pantalla.
              * @example 5
              */
             integrantes: number;
+        };
+        SiguienteNumeroDto: {
+            /**
+             * Format: uuid
+             * @description El lugar poblado, o la comunidad cuando la familia no tiene barrio.
+             */
+            serieId: string;
+            /**
+             * @description El mayor usado en esa serie, mas uno.
+             * @example 3
+             */
+            numero: number;
         };
         IntegranteDto: {
             /** Format: uuid */
@@ -724,31 +778,45 @@ export interface components {
         GrupoFamiliarDto: {
             /** Format: uuid */
             id: string;
-            /** @example GF-2026-000045 */
-            codigo: string;
+            /** @example 1 */
+            numero: number;
+            /** @example Lopez Ac */
+            apellidos: string;
             direccion: string | null;
             telefono: string | null;
             comunidad: components["schemas"]["ComunidadResumenDto"];
+            lugar: components["schemas"]["LugarResumenDto"] | null;
             /** @description Ordenados del mayor al menor. */
             integrantes: components["schemas"]["IntegranteDto"][];
         };
         CrearGrupoDto: {
-            /** @description Codigo del grupo familiar segun el registro del CAP. Si se omite, el sistema genera uno. */
-            codigo?: string;
+            /** @description Si se omite, se usa el siguiente libre de la serie. */
+            numero?: number;
+            /**
+             * @description El apellido con que se rotula la carpeta.
+             * @example Lopez Ac
+             */
+            apellidos: string;
             comunidadId: string;
-            /** @example Caserio El Rejon, casa 14 */
+            /** @description El barrio o caserio. Define la serie de numeracion. */
+            lugarId?: string;
+            /** @example Casa 14, frente a la escuela */
             direccion?: string;
             telefono?: string;
         };
         GrupoFamiliarCreadoDto: {
             /** Format: uuid */
             id: string;
-            /** @example GF-2026-000045 */
-            codigo: string;
+            /** @example 1 */
+            numero: number;
+            /** @example Lopez Ac */
+            apellidos: string;
             direccion: string | null;
             telefono: string | null;
             /** Format: uuid */
             comunidadId: string;
+            /** Format: uuid */
+            lugarId: string | null;
         };
         PacienteDelExpedienteDto: {
             /** Format: uuid */
@@ -2174,8 +2242,12 @@ export interface operations {
         parameters: {
             query?: {
                 comunidadId?: string;
-                /** @description Busca por inicio del codigo del grupo. */
-                codigo?: string;
+                /** @description El barrio o caserio. */
+                lugarId?: string;
+                /** @description Coincidencia parcial, sin distinguir mayusculas. */
+                apellidos?: string;
+                /** @description El numero de la pestana, exacto. */
+                numero?: number;
                 pagina?: number;
                 tamano?: number;
             };
@@ -2253,6 +2325,65 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GrupoFamiliarCreadoDto"];
+                };
+            };
+            /** @description La informacion enviada no es valida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
+    GruposController_siguienteNumero: {
+        parameters: {
+            query: {
+                comunidadId: string;
+                /** @description El barrio o caserio. Sin el, la serie es la de la comunidad. */
+                lugarId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiguienteNumeroDto"];
                 };
             };
             /** @description La informacion enviada no es valida. */
