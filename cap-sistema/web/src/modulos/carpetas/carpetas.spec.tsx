@@ -10,6 +10,7 @@ const RECEPCION: Perfil = {
   debeCambiarContrasena: false,
 };
 const FARMACIA: Perfil = { ...RECEPCION, id: 'u-2', usuario: 'sgomez', rol: 'FARMACIA' };
+const MEDICO: Perfil = { ...RECEPCION, id: 'u-3', usuario: 'jperez', rol: 'MEDICO' };
 
 const COMUNIDADES = [
   { id: 'c-1', nombre: 'Purulha Centro', codigo: null, distante: false, activa: true },
@@ -197,6 +198,39 @@ describe('el archivero de carpetas', () => {
       'href',
       '/pacientes/p-1/expediente',
     );
+  });
+
+  /**
+   * Un bebe de horas no tiene nombre, y la ficha de menor de 28 dias no lo
+   * pide: pregunta por la madre. Sin registro propio el sistema no puede saber
+   * que hoja le toca, y guardar su ficha en el expediente de la madre dejaria
+   * su primera consulta en el historial de ella.
+   */
+  it('desde la carpeta se registra al recien nacido, con lo de la familia ya puesto', async () => {
+    servidorCon();
+    entrarComo(RECEPCION, '/carpetas/g-1');
+    const usuario = userEvent.setup();
+    render(<App />);
+
+    // Se espera a que la carpeta este dibujada antes de buscar su boton.
+    await screen.findByRole('heading', { name: /Familia Lopez Ac/ });
+    await usuario.click(screen.getByRole('link', { name: /Registrar recien nacido/i }));
+
+    // Llega al alta sabiendo de que familia es.
+    expect(await screen.findByText(/Registrando a un recién nacido/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Apellidos/i)).toHaveValue('Lopez Ac');
+    expect(screen.getByLabelText(/Nombres/i)).toHaveValue('Recien nacido');
+  });
+
+  it('quien no da de alta no ve el boton: el servidor se lo negaria', async () => {
+    servidorCon();
+    entrarComo(MEDICO, '/carpetas/g-1');
+    render(<App />);
+
+    await screen.findByRole('heading', { name: /Familia Lopez Ac/ });
+    expect(
+      screen.queryByRole('link', { name: /Registrar recien nacido/i }),
+    ).not.toBeInTheDocument();
   });
 
   /**

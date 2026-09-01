@@ -51,6 +51,7 @@ import { BloqueFicha, Dato, SeccionFicha } from './SeccionFicha';
 import { EncabezadoFicha } from './EncabezadoFicha';
 import { LineaPregunta, SelectorSiNo } from './SelectorRespuesta';
 import { usarVolver } from '../../navegacion/usarVolver';
+import { AvisoDeEdad } from './CambioDeFicha';
 
 /**
  * Memorizadas porque la ficha entera es un solo estado.
@@ -75,9 +76,6 @@ const SECCIONES: readonly EntradaIndice[] = [
   { clave: 'plan', numeral: 'IX', titulo: 'Conducta' },
   { clave: 'consejeria', numeral: 'X', titulo: 'Consejeria' },
 ];
-
-/** La hoja de adultos empieza en la adolescencia; antes toca otra ficha. */
-const EDAD_MINIMA_ADULTO = 10;
 
 /**
  * Ficha clinica de adolescente, adulto y adulto mayor.
@@ -341,17 +339,6 @@ export function PaginaFicha() {
     );
   }
 
-  if (datos.edad < EDAD_MINIMA_ADULTO) {
-    return (
-      <Alert severity="warning">
-        <AlertTitle>Esta ficha no corresponde a la edad del paciente</AlertTitle>
-        {datos.nombres} tiene {datos.edad} anos. El formulario de adolescente, adulto y adulto
-        mayor empieza a los {EDAD_MINIMA_ADULTO}; para menores va la ficha de lactante y ninez,
-        que todavia no esta construida.
-      </Alert>
-    );
-  }
-
   const esMujer = datos.sexo === 'F';
   const asignarRef = (clave: string) => (nodo: HTMLDivElement | null) => {
     if (nodo) nodo.setAttribute('data-seccion', clave);
@@ -361,10 +348,28 @@ export function PaginaFicha() {
   return (
     <Box>
       {/* ─── El encabezado impreso, compartido con las demas fichas ─────── */}
+      {/*
+        Avisa, ya no bloquea.
+
+        Antes esta pantalla se negaba a dibujarse para un menor de diez anos, y
+        eso rompia dos cosas reales: el CAP transcribe expedientes de papel
+        —una consulta de hace tres anos se llena con la edad que tenia
+        entonces— y en los limites quien conoce el caso decide mejor que un
+        corte de edad. El aviso se queda puesto mientras se llena.
+      */}
+      <AvisoDeEdad
+        fechaNacimiento={datos.fechaNacimiento as unknown as string}
+        pacienteId={pacienteId!}
+        nombres={datos.nombres}
+        tipoDeEstaFicha="ADULTO"
+      />
+
       <EncabezadoFicha
         titulo="Ficha clinica de adolescente, adulto y adulto mayor"
         volverA={volver.a}
         volverTexto={volver.etiqueta}
+        pacienteId={pacienteId}
+        grupoFamiliarId={datos.grupoFamiliar?.id}
         nombre={datos.apellidos + ', ' + datos.nombres}
         resumen={
           datos.edad +

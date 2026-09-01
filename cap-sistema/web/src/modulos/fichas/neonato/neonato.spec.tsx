@@ -105,7 +105,11 @@ function json(cuerpo: unknown, estado = 200) {
   });
 }
 
-function servidor({ paciente = PACIENTE as unknown } = {}) {
+function servidor({
+  paciente = PACIENTE as unknown,
+  /** Una ficha de neonato anterior en el historial, si la hay. */
+  fichaPrevia = null as unknown,
+} = {}) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (p: Request) => {
@@ -116,8 +120,12 @@ function servidor({ paciente = PACIENTE as unknown } = {}) {
       if (ruta.includes('/fichas/catalogo/')) return json(CATALOGO);
       if (ruta.endsWith('/fichas')) return json({ id: 'a-9', expedienteId: 'e-1' }, 201);
       if (ruta.includes('/v1/pacientes/')) return json(paciente);
+      if (ruta.includes('/v1/fichas/') && fichaPrevia) return json(fichaPrevia);
       if (ruta.includes('/atenciones')) {
-        return json({ datos: [], pagina: 1, tamano: 25, total: 0, totalPaginas: 0 });
+        const datos = fichaPrevia
+          ? [{ id: 'a-1', fecha: '2026-08-20T10:00:00.000Z', tipoFicha: 'NEONATO' }]
+          : [];
+        return json({ datos, pagina: 1, tamano: 25, total: datos.length, totalPaginas: 1 });
       }
       return json({}, 404);
     }),
@@ -502,7 +510,7 @@ describe('la ficha en pantalla', () => {
     abrir(MEDICO);
     await esperarFicha();
 
-    expect(screen.getByText(/Esta ficha es para menores de/)).toBeInTheDocument();
+    expect(screen.getByText(/le corresponde la de/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Motivo de consulta/)).toBeEnabled();
   });
 
@@ -522,5 +530,70 @@ describe('la ficha en pantalla', () => {
         screen.queryByRole('heading', { name: /Caal Xol, Bebé/ }),
       ).not.toBeInTheDocument();
     });
+  });
+});
+
+/**
+ * Lo del nacimiento no se vuelve a preguntar.
+ *
+ * Quien es la madre, cuanto peso al nacer, quien atendio el parto: son hechos
+ * del nacimiento y no del dia, asi que no cambian entre controles. Antes cada
+ * ficha nueva empezaba en blanco y habia que teclearlos otra vez — y donde hay
+ * que escribir lo mismo cinco veces, la quinta se escribe distinto y el
+ * expediente acaba diciendo dos cosas.
+ */
+describe('antecedentes de una ficha anterior', () => {
+  const PREVIA = {
+    id: 'a-1',
+    tipoFicha: 'NEONATO',
+    neonato: {
+      nombreMadre: 'Juana Isabel Perez Caal',
+      pesoLibras: 6,
+      pesoOnzas: 4,
+      perimetroBraquialCm: null,
+      circunferenciaCefalicaCm: null,
+      pesoNacerLibras: 5,
+      pesoNacerOnzas: 12,
+      lloroAlNacer: true,
+      nacioCianotico: false,
+      horasTrabajoParto: 9,
+      quienAtendioParto: 'COMADRONA',
+      quienAtendioPartoOtro: null,
+      rupturaPrematuraMembranas: false,
+      trabajoPartoPrematuro: false,
+      partoProlongado: null,
+      tipoParto: 'EUTOCICO',
+      bcg: true,
+      tdMadre: true,
+      tdMadreDosis: 2,
+    },
+  };
+
+  it('el nombre de la madre viene puesto de la consulta anterior', async () => {
+    servidor({ fichaPrevia: PREVIA });
+    abrir(MEDICO);
+    await esperarFicha();
+
+    expect(screen.getByLabelText(/Nombre de la madre/i)).toHaveValue('Juana Isabel Perez Caal');
+  });
+
+  /**
+   * Lo del DIA no se arrastra: el peso de hoy hay que volver a medirlo, y
+   * traerlo puesto seria dar por bueno un dato que nadie tomo.
+   */
+  it('el peso de hoy NO se arrastra: hay que volver a medirlo', async () => {
+    servidor({ fichaPrevia: PREVIA });
+    abrir(MEDICO);
+    await esperarFicha();
+
+    expect(screen.getByLabelText(/^Libras/i)).toHaveValue(null);
+  });
+
+  it('sin ficha anterior, empieza en blanco', async () => {
+    servidor();
+    abrir(MEDICO);
+    await esperarFicha();
+
+    expect(screen.getByLabelText(/Nombre de la madre/i)).toHaveValue('');
   });
 });

@@ -121,7 +121,13 @@ function servidor({
   historial = [atencion(1)],
   expedienteBuscado = null as unknown,
   paciente = PACIENTE,
-}: { historial?: unknown[]; expedienteBuscado?: unknown; paciente?: unknown } = {}) {
+  ficha = FICHA,
+}: {
+  historial?: unknown[];
+  expedienteBuscado?: unknown;
+  paciente?: unknown;
+  ficha?: unknown;
+} = {}) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (p: Request) => {
@@ -143,7 +149,7 @@ function servidor({
             );
       }
       if (url.pathname.endsWith('/atenciones')) return json(paginaDe(historial));
-      if (url.pathname.includes('/v1/fichas/')) return json(FICHA);
+      if (url.pathname.includes('/v1/fichas/')) return json(ficha);
       if (url.pathname.includes('/v1/pacientes/')) return json(paciente);
       return json({}, 404);
     }),
@@ -344,6 +350,79 @@ describe('el expediente de un paciente', () => {
     expect(
       await screen.findByText(/todavia no tiene ninguna atencion registrada/),
     ).toBeInTheDocument();
+  });
+
+  /**
+   * La ficha de menor de 28 dias guarda cosas que ninguna otra tiene: el
+   * nombre de la madre, el peso al nacer, quien atendio el parto. El servidor
+   * las guardaba desde el primer dia, pero esta pantalla solo pintaba los
+   * campos comunes, asi que media ficha se escribia y no se podia volver a
+   * leer. Desde fuera eso no se distingue de que no se guardara.
+   */
+  it('la ficha de neonato muestra a la madre y el parto', async () => {
+    servidor({
+      // Con tipo de ficha: es lo que hace que la atencion se pueda desplegar.
+      historial: [atencion(1, { tipoFicha: 'NEONATO' })],
+      ficha: {
+        ...FICHA,
+        tipoFicha: 'NEONATO',
+        neonato: {
+          nombreMadre: 'Juana Isabel Perez Caal',
+          pesoLibras: 6,
+          pesoOnzas: 4,
+          perimetroBraquialCm: null,
+          circunferenciaCefalicaCm: '34.0',
+          pesoNacerLibras: 5,
+          pesoNacerOnzas: 12,
+          lloroAlNacer: true,
+          nacioCianotico: false,
+          horasTrabajoParto: 9,
+          quienAtendioParto: 'COMADRONA',
+          quienAtendioPartoOtro: null,
+          rupturaPrematuraMembranas: false,
+          trabajoPartoPrematuro: false,
+          partoProlongado: null,
+          tipoParto: 'EUTOCICO',
+          bcg: true,
+          tdMadre: true,
+          tdMadreDosis: 2,
+        },
+      },
+    });
+    const usuario = userEvent.setup();
+    abrir(MEDICO, '/pacientes/p-1/expediente');
+    await esperar();
+
+    await usuario.click(await screen.findByRole('button', { name: /Ver la ficha completa/i }));
+
+    expect(await screen.findByText('Juana Isabel Perez Caal')).toBeInTheDocument();
+    expect(screen.getByText('5 lb 12 oz')).toBeInTheDocument();
+    expect(screen.getByText('Comadrona')).toBeInTheDocument();
+  });
+
+  /**
+   * La ruta estaba escrita a mano —`/ficha` para todo el mundo— asi que desde
+   * el expediente de un recien nacido se abria la de adolescente, adulto y
+   * adulto mayor. Es el TERCER sitio donde aparecio el mismo error: ya lo tuvo
+   * el boton de atender de la sala de espera. Por eso el criterio vive en un
+   * unico lugar, `ficha-por-edad`.
+   */
+  it('«Nueva ficha» abre la que toca por edad, no siempre la de adultos', async () => {
+    const haceDias = (n: number) => {
+      const d = new Date();
+      d.setDate(d.getDate() - n);
+      return d.toISOString();
+    };
+    servidor({
+      paciente: { ...PACIENTE, edad: 0, fechaNacimiento: haceDias(3) },
+    });
+    abrir(MEDICO, '/pacientes/p-1/expediente');
+    await esperar();
+
+    expect(await screen.findByRole('link', { name: /Nueva ficha/i })).toHaveAttribute(
+      'href',
+      '/pacientes/p-1/ficha-neonato',
+    );
   });
 
   it('marca las atenciones transcritas del papel', async () => {

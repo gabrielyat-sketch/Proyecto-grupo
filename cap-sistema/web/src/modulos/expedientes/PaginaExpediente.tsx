@@ -21,6 +21,7 @@ import { obtenerPaciente } from '../fichas/servicio-fichas';
 import { ETIQUETA_IDIOMA } from '../recepcion/servicio-pacientes';
 import { EntradaHistorial } from './EntradaHistorial';
 import { obtenerHistorial } from './servicio-expedientes';
+import { fichaParaPaciente } from '../fichas/ficha-por-edad';
 
 /** El historial clinico no es de todos: Recepcion y Farmacia no entran. */
 const VEN_EL_HISTORIAL = ['MEDICO', 'ENFERMERIA', 'DIRECTOR', 'ADMINISTRADOR'];
@@ -115,10 +116,22 @@ export function PaginaExpediente() {
             ) : null}
           </Stack>
 
+          {/*
+            La hoja que le toca por edad, no siempre la de adultos.
+
+            Estaba escrita a mano —`/ficha` para todo el mundo— asi que desde el
+            expediente de un recien nacido se abria la de adolescente, adulto y
+            adulto mayor. Es el mismo criterio que ya aplican recepcion y la
+            sala de espera; tenerlo en un solo sitio es lo que impide que se
+            separen.
+          */}
           {puedeAtender && !p.fallecido ? (
             <Button
               component={EnlaceRuta}
-              to={'/pacientes/' + p.id + '/ficha'}
+              to={
+                fichaParaPaciente(p.fechaNacimiento as unknown as string, p.id).ruta ??
+                '/pacientes/' + p.id + '/ficha'
+              }
               variant="contained"
               sx={{ alignSelf: { md: 'flex-start' }, flexShrink: 0 }}
             >

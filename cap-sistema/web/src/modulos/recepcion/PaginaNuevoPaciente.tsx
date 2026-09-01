@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { Link as EnlaceRuta, useNavigate } from 'react-router-dom';
+import { Link as EnlaceRuta, useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -152,7 +152,40 @@ function TituloSeccion({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Con que nombre se guarda un recien nacido que todavia no tiene.
+ *
+ * En el area rural el nombre se decide en los dias siguientes, y a veces
+ * despues del bautizo. Exigirlo para poder registrarlo dejaria al nino fuera
+ * del sistema justo en las semanas en que mas se le vigila.
+ *
+ * Se escribe asi y no en blanco para que la lista de recepcion se pueda leer:
+ * «Recien nacido» junto al apellido de la familia ya dice de quien se trata.
+ * Se corrige desde el propio expediente cuando lo tenga.
+ */
+const NOMBRE_PROVISIONAL = 'Recien nacido';
+
 export function PaginaNuevoPaciente() {
+  /*
+    Lo que trae el boton «Registrar recien nacido» de la carpeta familiar.
+
+    Viene en el estado de la ruta y no en la direccion porque son cuatro datos
+    y ninguno es un identificador que alguien quiera copiar o guardar: la
+    direccion seguiria siendo `/recepcion/nuevo`, que es lo que es.
+  */
+  const { state } = useLocation();
+  const recienNacido =
+    (
+      (state ?? null) as {
+        recienNacido?: {
+          apellidos?: string;
+          comunidadId?: string;
+          lugarId?: string;
+          grupoFamiliarId?: string;
+        };
+      } | null
+    )?.recienNacido ?? null;
+
   const navegar = useNavigate();
   const clienteConsultas = useQueryClient();
   const [creado, setCreado] = useState<PacienteCreado | null>(null);
@@ -176,20 +209,22 @@ export function PaginaNuevoPaciente() {
     resolver: zodResolver(esquema),
     defaultValues: {
       dpi: '',
-      nombres: '',
-      apellidos: '',
-      fechaNacimiento: '',
+      nombres: recienNacido ? NOMBRE_PROVISIONAL : '',
+      apellidos: recienNacido?.apellidos ?? '',
+      // Hoy, que es lo que suele ser: se corrige si nacio hace unos dias.
+      fechaNacimiento: recienNacido ? hoy() : '',
       sexo: 'F',
       idioma: 'ESPANOL',
-      comunidadId: '',
+      comunidadId: recienNacido?.comunidadId ?? '',
       telefono: '',
       numeroExpediente: '',
       digitalizado: false,
-      lugarId: '',
-      carpetaExiste: '',
-      familia: '',
+      lugarId: recienNacido?.lugarId ?? '',
+      // La carpeta ya existe y es la de su familia: es de donde se vino.
+      carpetaExiste: recienNacido ? 'SI' : '',
+      familia: recienNacido?.apellidos ?? '',
       carpetaNumero: '',
-      grupoFamiliarId: '',
+      grupoFamiliarId: recienNacido?.grupoFamiliarId ?? '',
       migrante: false,
       lugarOrigen: '',
       tieneAlergias: '',
@@ -379,6 +414,26 @@ export function PaginaNuevoPaciente() {
           </Typography>
           <Typography variant="caption">
             Anotelo en la carpeta de papel. El formulario quedo listo para el siguiente.
+          </Typography>
+        </Alert>
+      ) : null}
+
+      {/*
+        Se dice por que el formulario viene medio lleno.
+
+        Sin esto, quien lo abre se encuentra un nombre que no escribio y una
+        fecha de hoy, y lo primero que piensa es que el sistema se confundio de
+        persona. Decirlo convierte lo mismo en una ayuda.
+      */}
+      {recienNacido ? (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            Registrando a un recién nacido de la familia {recienNacido.apellidos}
+          </Typography>
+          <Typography variant="caption">
+            Ya van puestos el apellido, la dirección y la carpeta de la familia. El nombre queda
+            como «{NOMBRE_PROVISIONAL}» hasta que lo tenga: se corrige desde su expediente. Revise
+            la fecha de nacimiento, que viene con la de hoy.
           </Typography>
         </Alert>
       ) : null}

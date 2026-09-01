@@ -3,6 +3,7 @@ import { Link as EnlaceRuta } from 'react-router-dom';
 import { Box, Button, Paper, Stack, TextField, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { ALTO_BARRA } from '../../tema';
+import { OtroIntegrante } from './CambioDeFicha';
 
 /**
  * El encabezado que las cuatro fichas del MSPAS traen impreso arriba.
@@ -28,6 +29,8 @@ export function EncabezadoFicha({
   expediente,
   fecha,
   children,
+  pacienteId,
+  grupoFamiliarId,
 }: {
   /** El nombre de la hoja, tal como está impreso. */
   titulo: string;
@@ -43,6 +46,10 @@ export function EncabezadoFicha({
   fecha?: { valor: string; onCambio: (valor: string) => void };
   /** Lo que cada ficha pone a la derecha: guardar, avisos, atajos. */
   children?: ReactNode;
+  /** De quien es la ficha, para poder saltar a otro de su casa. */
+  pacienteId?: string;
+  /** Su carpeta familiar. Sin ella no hay a quien saltar. */
+  grupoFamiliarId?: string | null;
 }) {
   /*
     Pegado, el bloque se encoge.
@@ -121,6 +128,18 @@ export function EncabezadoFicha({
             >
               {volverTexto}
             </Button>
+
+            {/*
+              Saltar a otro de la casa, sin pasar por recepcion.
+
+              Va junto al boton de volver porque es lo mismo: irse de aqui. La
+              diferencia es que este lleva a la PERSONA correcta en vez de al
+              listado, que es lo que hace falta cuando recepcion marco la
+              llegada de la madre y quien viene a consulta es el nino.
+            */}
+            {pacienteId ? (
+              <OtroIntegrante pacienteId={pacienteId} grupoFamiliarId={grupoFamiliarId} />
+            ) : null}
 
             <Box sx={{ minWidth: 0 }}>
               {/*
