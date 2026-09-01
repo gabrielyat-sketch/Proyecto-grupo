@@ -1,0 +1,33 @@
+{
+  "name": "cap-sistema",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sistema del CAP Purulha - monorepo de microservicios",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
+  "workspaces": [
+    "packages/*",
+    "services/*",
+    "web"
+  ],
+  "scripts": {
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down",
+    "infra:logs": "docker compose logs -f",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "mock": "prism mock docs/openapi/usuarios.yaml",
+    "contratos": "npm run contrato --workspaces --if-present",
+    "endpoints": "tsx scripts/indice-endpoints.ts",
+    "verificar-cadena": "tsx infra/scripts/verificar-cadena.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.3.0",
+    "tsx": "^4.23.12",
+    "yaml": "^2.9.0"
+  }
+}

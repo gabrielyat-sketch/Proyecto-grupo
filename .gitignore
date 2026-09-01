@@ -1,9 +1,66 @@
+# ── dependencias ──────────────────────────────────────────────────────
 node_modules/
+.pnp/
+
+# ── compilados ────────────────────────────────────────────────────────
+dist/
+build/
+*.tsbuildinfo
+
+# ── entorno: NUNCA versionar secretos ─────────────────────────────────
 .env
 .env.*
 !.env.example
-dist/
-build/
+*.pem
+*.key
+
+# ── Prisma ────────────────────────────────────────────────────────────
+# El cliente de Prisma se genera FUERA de prisma/: dentro, la extension de
+# VS Code fusionaba el schema real con la copia que deja el generador y
+# marcaba todo como duplicado.
+cap-sistema/services/*/generado/
+**/prisma/generado/
+**/prisma/generated/
+**/prisma/*.db
+
+# ── pruebas ───────────────────────────────────────────────────────────
 coverage/
-.vscode/
+.nyc_output/
+
+# ── logs ──────────────────────────────────────────────────────────────
 *.log
+npm-debug.log*
+
+# ── Flutter (cap-movil) ───────────────────────────────────────────────
+cap-movil/build/
+cap-movil/.dart_tool/
+cap-movil/.flutter-plugins*
+cap-movil/**/*.g.dart
+
+# ── editores y SO ─────────────────────────────────────────────────────
+# La configuracion de VS Code SI se versiona: oculta las carpetas generadas
+# del explorador y fija LF como fin de linea. Que cada integrante la tenga
+# evita que el proyecto se vea como un desorden de 590 MB y que los Pull
+# Requests aparezcan con el archivo entero modificado por CRLF.
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# ── artefactos generados en local ─────────────────────────────────────
+pdf-generados/
+
+# ── DATOS DE PACIENTES: nunca al repositorio ──────────────────────────
+# Los formatos escaneados del CAP pueden contener datos reales.
+documentacion/fichas-cap/*
+!documentacion/fichas-cap/.gitkeep
+!documentacion/fichas-cap/README.md
+
+# ── maquetas de referencia ────────────────────────────────────────────
+# Capturas y mockups que se usan para decidir el diseno. No son codigo ni
+# recursos de la aplicacion: los que la aplicacion sirve viven en
+# cap-sistema/web/public/. Ademas algunas traen marcas de agua del servicio
+# que las genero, y no deben acabar publicadas.
+imagenes/

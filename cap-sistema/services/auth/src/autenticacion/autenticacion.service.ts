@@ -1,0 +1,259 @@
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { exigeMfa, hashContrasena, Rol, verificarContrasena } from '@cap/shared';
+import { PrismaService } from '../prisma/prisma.service';
+import { TokensService, DatosSesion } from '../tokens/tokens.service';
+import { IntentosService } from '../intentos/intentos.service';
+import { MfaService } from '../mfa/mfa.service';
+import { LoginDto } from './dto/login.dto';
+import { CambiarContrasenaDto } from './dto/cambiar-contrasena.dto';
+import {
+  ConfiguracionMfaDto,
+  MfaRequeridoDto,
+  PerfilPropioDto,
+  RefrescoDto,
+  SesionAbiertaDto,
+} from './dto/respuestas.dto';
+
+/**
+ * Hash de una contrasena que no existe. Se usa para gastar el mismo tiempo
+ * cuando el usuario no existe que cuando existe con la contrasena equivocada.
+ * Sin esto, medir el tiempo de respuesta revela que cuentas son reales.
+ */
+const HASH_SENUELO =
+  '$argon2id$v=19$m=19456,t=2,p=1$c2VudWVsb3NlbnVlbG8$Ck4vGZq0iLwWJ8Xy3aQe9v1nBd6TmRhPqUoZxKfNsLc';
+
+@Injectable()
+export class AutenticacionService {
+  private readonly logger = new Logger(AutenticacionService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tokens: TokensService,
+    private readonly intentos: IntentosService,
+    private readonly mfa: MfaService,
+  ) {}
+
+  async login(dto: LoginDto, datos: DatosSesion): Promise<SesionAbiertaDto | MfaRequeridoDto> {
+    const nombreUsuario = dto.usuario.toLowerCase().trim();
+    const usuario = await this.prisma.usuario.findUnique({ where: { usuario: nombreUsuario } });
+
+    const minutos = this.intentos.minutosDeBloqueo(usuario?.bloqueadoHasta ?? null);
+    if (minutos > 0) {
+      throw new HttpException(
+        'La cuenta esta bloqueada temporalmente. Intente de nuevo en ' + minutos + ' minuto(s).',
+        HttpStatus.LOCKED,
+      );
+    }
+
+    const correcta = await verificarContrasena(
+      usuario?.contrasenaHash ?? HASH_SENUELO,
+      dto.contrasena,
+    );
+
+    if (!usuario || !correcta) {
+      await this.intentos.registrarFallo(nombreUsuario, datos.ip);
+      // Mismo mensaje en ambos casos: no se revela si la cuenta existe.
+      throw new UnauthorizedException('Usuario o contrasena incorrectos.');
+    }
+
+    if (!usuario.activo) {
+      throw new ForbiddenException('La cuenta esta desactivada. Consulte con el administrador.');
+    }
+
+    await this.intentos.limpiar(nombreUsuario);
+
+    const rol = usuario.rol as Rol;
+    const mfaActivo = await this.mfa.estaActivo(usuario.id);
+
+    // Los roles administrativos deben completar el segundo factor. Si aun no
+    // lo configuraron, se les emite el token parcial igual, para que puedan
+    // hacerlo: negarles el paso los dejaria sin forma de entrar nunca.
+    if (mfaActivo || exigeMfa(rol)) {
+      return {
+        mfaRequerido: true,
+        configuracionPendiente: !mfaActivo,
+        tokenParcial: this.tokens.emitirParcialMfa(usuario.id),
+      };
+    }
+
+    return this.emitirSesion(usuario, datos, false);
+  }
+
+  async verificarMfa(
+    tokenParcial: string,
+    codigo: string,
+    datos: DatosSesion,
+  ): Promise<SesionAbiertaDto> {
+    const usuarioId = this.tokens.verificarParcialMfa(tokenParcial);
+
+    const usuario = await this.prisma.usuario.findUnique({ where: { id: usuarioId } });
+    if (!usuario || !usuario.activo) {
+      throw new UnauthorizedException('La cuenta no esta disponible.');
+    }
+
+    if (!(await this.mfa.verificar(usuarioId, codigo))) {
+      await this.intentos.registrarFallo(usuario.usuario, datos.ip);
+      throw new UnauthorizedException('El codigo de verificacion no es valido.');
+    }
+
+    await this.intentos.limpiar(usuario.usuario);
+    return this.emitirSesion(usuario, datos, true);
+  }
+
+  async refrescar(tokenRefresco: string, datos: DatosSesion): Promise<RefrescoDto> {
+    const r = await this.tokens.rotar(tokenRefresco, datos);
+    return {
+      tokenAcceso: r.tokenAcceso,
+      tokenRefresco: r.tokenRefresco,
+      usuario: AutenticacionService.perfil(r.usuario),
+    };
+  }
+
+  async cerrarSesion(tokenRefresco: string): Promise<void> {
+    await this.tokens.revocarSesion(tokenRefresco);
+  }
+
+  async cambiarContrasena(usuarioId: string, dto: CambiarContrasenaDto) {
+    const usuario = await this.prisma.usuario.findUnique({ where: { id: usuarioId } });
+    if (!usuario) throw new UnauthorizedException('La cuenta no esta disponible.');
+
+    if (!(await verificarContrasena(usuario.contrasenaHash, dto.contrasenaActual))) {
+      throw new UnauthorizedException('La contrasena actual no es correcta.');
+    }
+
+    if (dto.contrasenaActual === dto.contrasenaNueva) {
+      throw new BadRequestException('La contrasena nueva debe ser distinta de la actual.');
+    }
+
+    await this.prisma.usuario.update({
+      where: { id: usuarioId },
+      data: {
+        contrasenaHash: await hashContrasena(dto.contrasenaNueva),
+        debeCambiarContrasena: false,
+      },
+    });
+
+    // Cambiar la contrasena cierra las demas sesiones: si la cambia porque
+    // sospecha que alguien la conocia, dejar esas sesiones vivas no serviria
+    // de nada.
+    const cerradas = await this.tokens.revocarTodasDelUsuario(usuarioId, 'cambio_contrasena');
+    this.logger.log({ usuarioId, cerradas }, 'Contrasena cambiada');
+  }
+
+  /**
+   * Primera configuracion del segundo factor, SIN sesion previa.
+   *
+   * Una cuenta con rol administrativo que nunca configuro el TOTP quedaba
+   * atrapada: su rol le exige el segundo factor, pero /v1/auth/mfa/configurar
+   * pide un token de acceso, y ese token solo se obtiene pasando el segundo
+   * factor que aun no existe. La cuenta inicial del sistema —creada por el
+   * seed con rol ADMINISTRADOR— no podia entrar nunca.
+   *
+   * Se valida con el token parcial, que solo se emite tras una contrasena
+   * correcta, y unicamente mientras el MFA NO este activo. Con el MFA ya
+   * activo devuelve 409: asi nadie puede usarlo para regenerarle el segundo
+   * factor a otra persona.
+   */
+  async configurarMfaInicial(tokenParcial: string): Promise<ConfiguracionMfaDto> {
+    const usuario = await this.cuentaDeTokenParcial(tokenParcial);
+
+    if (await this.mfa.estaActivo(usuario.id)) {
+      throw new ConflictException({
+        mensaje: 'Esta cuenta ya tiene el segundo factor configurado.',
+        detalles: ['use:/v1/auth/mfa/verificar'],
+      });
+    }
+
+    return this.mfa.iniciarConfiguracion(usuario.id, usuario.usuario);
+  }
+
+  /**
+   * Confirma la primera configuracion con un codigo real y deja la sesion
+   * abierta.
+   *
+   * Devuelve la sesion directamente porque a estas alturas la persona ya
+   * demostro las dos cosas: contrasena correcta y control de la aplicacion de
+   * autenticacion. Obligarla a iniciar sesion otra vez no agrega seguridad.
+   */
+  async activarMfaInicial(
+    tokenParcial: string,
+    codigo: string,
+    datos: DatosSesion,
+  ): Promise<SesionAbiertaDto> {
+    const usuario = await this.cuentaDeTokenParcial(tokenParcial);
+
+    if (await this.mfa.estaActivo(usuario.id)) {
+      throw new ConflictException({
+        mensaje: 'Esta cuenta ya tiene el segundo factor configurado.',
+        detalles: ['use:/v1/auth/mfa/verificar'],
+      });
+    }
+
+    // Lanza si el codigo no es valido: la activacion no ocurre.
+    await this.mfa.activar(usuario.id, codigo);
+
+    return this.emitirSesion(usuario, datos, true);
+  }
+
+  private async cuentaDeTokenParcial(tokenParcial: string) {
+    const usuarioId = this.tokens.verificarParcialMfa(tokenParcial);
+    const usuario = await this.prisma.usuario.findUnique({ where: { id: usuarioId } });
+    if (!usuario || !usuario.activo) {
+      throw new UnauthorizedException('La cuenta no esta disponible.');
+    }
+    return usuario;
+  }
+
+  async perfilDe(usuarioId: string): Promise<PerfilPropioDto> {
+    const usuario = await this.prisma.usuario.findUnique({ where: { id: usuarioId } });
+    if (!usuario) throw new UnauthorizedException('La cuenta no esta disponible.');
+    return {
+      ...AutenticacionService.perfil(usuario),
+      mfaActivo: await this.mfa.estaActivo(usuarioId),
+    };
+  }
+
+  private async emitirSesion(
+    usuario: { id: string; usuario: string; rol: string; debeCambiarContrasena: boolean },
+    datos: DatosSesion,
+    mfaVerificado: boolean,
+  ): Promise<SesionAbiertaDto> {
+    const { token, sesion } = await this.tokens.crearSesion(usuario.id, datos);
+
+    const tokenAcceso = this.tokens.emitirAcceso(
+      { id: usuario.id, usuario: usuario.usuario, rol: usuario.rol as Rol },
+      sesion.id,
+      mfaVerificado,
+    );
+
+    await this.prisma.usuario.update({
+      where: { id: usuario.id },
+      data: { ultimoAcceso: new Date() },
+    });
+
+    return {
+      mfaRequerido: false,
+      tokenAcceso,
+      tokenRefresco: token,
+      usuario: AutenticacionService.perfil(usuario),
+    };
+  }
+
+  private static perfil(u: { id: string; usuario: string; rol: string; debeCambiarContrasena: boolean }) {
+    return {
+      id: u.id,
+      usuario: u.usuario,
+      rol: u.rol,
+      debeCambiarContrasena: u.debeCambiarContrasena,
+    };
+  }
+}

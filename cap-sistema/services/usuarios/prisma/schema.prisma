@@ -1,0 +1,1208 @@
+// Servicio de Informacion de Usuarios — esquema `usuarios`.
+//
+// Aqui viven los datos clinicos de los pacientes del CAP. Es el servicio con
+// el requisito de proteccion mas alto del sistema.
+//
+// Ver arquitectura-cap-purulha.md §9.2, §9.3 y §9.4
+
+generator client {
+  provider = "prisma-client-js"
+  // Cada servicio genera su cliente en SU carpeta. Con la ruta por defecto,
+  // los ocho servicios del monorepo escribirian sobre el mismo
+  // node_modules/@prisma/client y el ultimo `prisma generate` dejaria a los
+  // demas apuntando a un esquema que no es el suyo.
+  output   = "../generado"
+  // FUERA de prisma/ a proposito. La extension de Prisma para VS Code trata
+  // todos los .prisma de esa carpeta como UN solo esquema —soporte de
+  // esquemas multiarchivo—, y el cliente generado deja ahi una copia del
+  // schema. El editor las fusionaba y marcaba todo como duplicado:
+  // "el enum Sexo ya existe", "el generador client ya existe".
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Sexo {
+  M
+  F
+}
+
+/// Idioma de preferencia para la atencion. En Purulha se habla poqomchi' y
+/// q'eqchi' ademas de espanol; saberlo permite asignar personal que hable el
+/// idioma del paciente y preparar material adecuado.
+enum Idioma {
+  ESPANOL
+  POQOMCHI
+  QEQCHI
+  OTRO
+}
+
+/// Las cuatro fichas clinicas oficiales del MSPAS que usa el CAP.
+///
+/// No son formatos internos: los emite el Departamento de Regulacion de los
+/// Programas de Atencion a las Personas (DRPAP). El CAP los llena porque el
+/// ministerio se los exige, asi que sus campos no se negocian.
+enum TipoFicha {
+  /// Adolescente, adulto y adulto mayor.
+  ADULTO
+  /// Menor de 28 dias.
+  NEONATO
+  /// Lactante y ninez.
+  NINEZ
+  /// Prenatal y posparto.
+  PRENATAL
+}
+
+/// Grupo al que pertenece un antecedente dentro de la ficha.
+enum GrupoAntecedente {
+  MEDICO
+  FAMILIAR
+  HABITO
+}
+
+/// El papel tiene casillas SI y NO separadas: dejar las dos vacias significa
+/// "no se pregunto", que NO es lo mismo que "no". Se distinguen porque para un
+/// indicador de cobertura importa saber a cuanta gente no se le pregunto.
+enum RespuestaAntecedente {
+  SI
+  NO
+  NO_APLICA
+}
+
+/// Quien atendio el parto. Las siglas son las del formulario del MSPAS.
+enum QuienAtendioParto {
+  /// Medico.
+  MD
+  /// Enfermera profesional.
+  EP
+  /// Auxiliar de enfermeria.
+  AE
+  /// Comadrona tradicional.
+  CT
+  OTRO
+}
+
+enum TipoParto {
+  NORMAL
+  CESAREA
+  /// Distocico = forceps.
+  FORCEPS
+  PODALICA
+}
+
+enum EstadoDigitalizacion {
+  PENDIENTE
+  EN_PROCESO
+  COMPLETO
+  NO_LOCALIZADO
+}
+
+/// Comunidades del municipio que atiende el CAP.
+model Comunidad {
+  id       String  @id @default(uuid())
+  nombre   String  @unique @db.VarChar(120)
+  /// Codigo interno del CAP, si lo tiene.
+  codigo   String? @db.VarChar(20)
+  distante Boolean @default(false)
+  activa   Boolean @default(true)
+
+  grupos    GrupoFamiliar[]
+  pacientes Paciente[]
+  lugares   LugarPoblado[]
+
+  @@index([activa])
+  @@map("comunidad")
+}
+
+/// Grupo familiar. El CAP organiza la atencion por familia, no solo por
+/// individuo: los programas de desnutricion y embarazo se siguen en ese nivel.
+/// Qué clase de lugar poblado es. Los nombres son los que usa el CAP.
+///
+/// Se deja como enum y no como texto libre para que "Barrio El Centro" y
+/// "barrio el centro" no acaben siendo dos lugares distintos en los reportes.
+/// Añadir un tipo nuevo es un cambio de una línea aquí.
+enum TipoLugar {
+  BARRIO
+  CASERIO
+  ALDEA
+  /// Finca, colonia, sector: lo que no cabe en los tres anteriores.
+  OTRO
+}
+
+/// Un barrio, caserío o aldea dentro de una comunidad.
+///
+/// La comunidad sola no basta para encontrar a nadie. "Purulhá Centro" son
+/// varios barrios, y quien va a buscar a un paciente a su casa —o quien
+/// organiza una jornada— necesita saber cuál.
+///
+/// Va como tabla y no como texto libre en el paciente por dos motivos: para
+/// que el personal elija de una lista en vez de teclear el mismo barrio de
+/// cinco formas distintas, y para poder contar pacientes por lugar sin
+/// depender de cómo lo escribió cada quien.
+///
+/// El catálogo lo mantiene Administración; el CAP irá añadiendo lugares según
+/// aparezcan, que es como funciona en la práctica.
+model LugarPoblado {
+  id          String    @id @default(uuid())
+  comunidadId String    @map("comunidad_id")
+  nombre      String    @db.VarChar(120)
+  tipo        TipoLugar @default(BARRIO)
+  /// Un lugar que ya no se usa se desactiva, no se borra: los pacientes
+  /// registrados ahí siguen apuntando a él.
+  activo Boolean @default(true)
+
+  creadoEn DateTime @default(now()) @map("creado_en")
+
+  comunidad Comunidad  @relation(fields: [comunidadId], references: [id])
+  pacientes Paciente[]
+
+  /// El mismo nombre puede repetirse entre comunidades —hay un "El Centro" en
+  /// varias— pero no dentro de una.
+  @@unique([comunidadId, nombre])
+  @@index([comunidadId, activo])
+  @@map("lugar_poblado")
+}
+
+model GrupoFamiliar {
+  id          String  @id @default(uuid())
+  /// Codigo del grupo familiar segun el registro del CAP.
+  codigo      String  @unique @db.VarChar(30)
+  comunidadId String  @map("comunidad_id")
+  direccion   String? @db.VarChar(255)
+  telefono    String? @db.VarChar(20)
+
+  comunidad Comunidad  @relation(fields: [comunidadId], references: [id])
+  pacientes Paciente[]
+  /// El agua y las excretas de la casa. Los pide la ficha del lactante y ninez.
+  hogar     DatosDelHogar?
+
+  creadoEn DateTime @default(now()) @map("creado_en")
+
+  @@index([comunidadId])
+  @@map("grupo_familiar")
+}
+
+model Paciente {
+  id String @id @default(uuid())
+
+  // ─── Identificacion ────────────────────────────────────────────────────
+  //
+  // El DPI es OPCIONAL a proposito. Los ninos del programa de desnutricion no
+  // lo tienen, y en el area rural hay adultos que tampoco. El identificador
+  // que siempre existe es el numero de expediente que asigna el CAP.
+  //
+  /// DPI cifrado con AES-256-GCM. Solo se descifra para mostrarlo a un
+  /// usuario autorizado.
+  dpiCifrado Bytes? @map("dpi_cifrado")
+  /// Indice ciego: HMAC-SHA256 del DPI. Es lo que hace posible la busqueda
+  /// de recepcion sobre un campo cifrado.
+  ///
+  /// La UNICIDAD VIVE AQUI, no en dpiCifrado. Un @unique sobre el texto
+  /// cifrado no serviria de nada: AES-GCM produce un resultado distinto cada
+  /// vez, asi que el mismo DPI insertado dos veces pasaria el control y el
+  /// paciente quedaria duplicado.
+  dpiIndice  Bytes? @unique @map("dpi_indice")
+
+  // ─── Datos que NO se cifran ────────────────────────────────────────────
+  //
+  // Requieren busqueda parcial, orden alfabetico o filtros estadisticos.
+  // Estan protegidos por RBAC y por el cifrado de disco del proveedor.
+  //
+  nombres         String   @db.VarChar(120)
+  apellidos       String   @db.VarChar(120)
+  fechaNacimiento DateTime @map("fecha_nacimiento") @db.Date
+  sexo            Sexo
+  idioma          Idioma   @default(ESPANOL)
+
+  comunidadId     String  @map("comunidad_id")
+  grupoFamiliarId String? @map("grupo_familiar_id")
+  telefono        String? @db.VarChar(20)
+
+  // ─── Campos que piden las fichas oficiales ─────────────────────────────
+  //
+  // Sin cifrar, igual que el telefono y la comunidad. La linea que sigue el
+  // proyecto es cifrar los identificadores fuertes —DPI y numero de
+  // expediente— y proteger el resto con RBAC y el cifrado de disco. Ver §9.3.
+  //
+  /// Direccion tal como la escribe el personal. La comunidad sigue siendo el
+  /// dato estructurado; esto es la referencia para llegar a la casa.
+  direccion   String? @db.VarChar(200)
+  ocupacion   String? @db.VarChar(120)
+  /// Poblacion migrante. Cambia el seguimiento: quien se mueve por trabajo
+  /// agricola puede no volver al control.
+  migrante    Boolean @default(false)
+  lugarOrigen String? @map("lugar_origen") @db.VarChar(160)
+  /// Madre, padre o responsable. En la ficha de adultos es opcional; en las de
+  /// ninez es quien acompana al paciente.
+  responsable String? @db.VarChar(160)
+
+  /// Barrio, caserio o aldea dentro de la comunidad. Opcional: los pacientes
+  /// registrados antes de que existiera el catalogo no lo tienen, y forzarlo
+  /// habria obligado a inventar un lugar para cien mil personas.
+  lugarId String? @map("lugar_id")
+
+  // ─── Alergias a medicamentos ───────────────────────────────────────────
+  //
+  // Es el dato que evita recetar algo que puede matar a alguien, asi que se
+  // pregunta en RECEPCION —antes de la consulta— y no dentro de la ficha.
+  //
+  // Son TRES estados, no dos. `null` es "no se ha preguntado", que NO es lo
+  // mismo que "no tiene": a quien no se le pregunto hay que preguntarle, y a
+  // quien dijo que no, no. Un booleano solo tendria dos estados y perderia esa
+  // diferencia, que es justo la que importa antes de recetar.
+  //
+  tieneAlergias Boolean? @map("tiene_alergias")
+
+  /// A que es alergico. Cifrado: es informacion clinica.
+  alergiasCifrado Bytes? @map("alergias_cifrado")
+
+  fallecido Boolean @default(false)
+
+  /// Apellidos y nombres juntos, en minusculas y sin tildes.
+  ///
+  /// Existe porque el personal escribe el nombre completo de corrido y con las
+  /// columnas separadas eso no coincide con ninguna de las dos. Lo mantiene la
+  /// aplicacion con textoDeBusqueda() de @cap/shared, la MISMA funcion que
+  /// normaliza el criterio al buscar: si divergieran, la busqueda dejaria de
+  /// encontrar registros que si existen, en silencio.
+  nombreBusqueda String @default("") @map("nombre_busqueda")
+
+  creadoEn      DateTime @default(now()) @map("creado_en")
+  actualizadoEn DateTime @updatedAt @map("actualizado_en")
+
+  comunidad     Comunidad      @relation(fields: [comunidadId], references: [id])
+  lugar         LugarPoblado?  @relation(fields: [lugarId], references: [id])
+  grupoFamiliar GrupoFamiliar? @relation(fields: [grupoFamiliarId], references: [id])
+  expediente    Expediente?
+
+  antecedentes            AntecedentePaciente[]
+  antecedentesObstetricos AntecedentesObstetricos?
+  visitas                 Visita[]
+
+  // El carnet del lactante y la ninez: lo que se llena a lo largo de anos y
+  // no pertenece a ninguna consulta en concreto.
+  vacunas         VacunaAplicada[]
+  micronutrientes MicronutrienteEntregado[]
+  datosNinez      DatosNinezPaciente?
+
+  /// Orden alfabetico del listado: (apellidos, nombres) es como estan las
+  /// carpetas de papel del archivo.
+  @@index([apellidos, nombres])
+  /// INDICE CLAVE de la busqueda por nombre.
+  ///
+  /// `gin_trgm_ops` SIN calificar con el esquema: asi es como PostgreSQL lo
+  /// guarda, y si aqui dijera `public.gin_trgm_ops` Prisma veria una
+  /// diferencia inexistente y querria recrear el indice en cada migracion.
+  /// El DDL de la migracion si lo califica, porque ahi el search_path
+  /// apunta solo al esquema del servicio.
+  ///
+  /// Trigramas y no B-tree porque la busqueda ya no es solo por el inicio del
+  /// campo: "Isem" debe encontrar a "Xona Isem", y un B-tree no puede
+  /// resolver un patron que empieza con comodin. Sin este indice, cada
+  /// busqueda recorreria los 100,000 pacientes.
+  @@index([nombreBusqueda(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([comunidadId])
+  @@index([grupoFamiliarId])
+  @@index([fechaNacimiento])
+  @@map("paciente")
+}
+
+/// Expediente clinico. Uno por paciente, igual que la carpeta de papel.
+model Expediente {
+  id String @id @default(uuid())
+
+  /// Numero de expediente cifrado + indice ciego, con la unicidad en el
+  /// indice por la misma razon que el DPI.
+  numeroCifrado Bytes @map("numero_cifrado")
+  numeroIndice  Bytes @unique @map("numero_indice")
+
+  pacienteId String @unique @map("paciente_id")
+
+  /// Fecha de apertura del expediente en papel, que puede ser muy anterior a
+  /// la digitalizacion.
+  aperturaEn DateTime? @map("apertura_en") @db.Date
+  creadoEn   DateTime  @default(now()) @map("creado_en")
+
+  paciente       Paciente                @relation(fields: [pacienteId], references: [id])
+  atenciones     Atencion[]
+  digitalizacion RegistroDigitalizacion?
+
+  @@map("expediente")
+}
+
+/// Una consulta o atencion registrada en el expediente.
+model Atencion {
+  id           String   @id @default(uuid())
+  expedienteId String   @map("expediente_id")
+  fecha        DateTime @default(now())
+
+  /// Identificador del usuario del sistema que registro la atencion. Viene
+  /// del JWT: NO es una llave foranea, porque las cuentas viven en el
+  /// servicio auth y un servicio nunca consulta la base de otro.
+  registradaPor String @map("registrada_por")
+
+  // ─── Datos clinicos: CIFRADOS, sin indice ──────────────────────────────
+  //
+  // Nunca se buscan por contenido. Se leen dentro del expediente ya abierto,
+  // por lo que no hacen falta ni indice ni indice ciego.
+  //
+  motivoCifrado      Bytes  @map("motivo_cifrado")
+  diagnosticoCifrado Bytes? @map("diagnostico_cifrado")
+  tratamientoCifrado Bytes? @map("tratamiento_cifrado")
+  notasCifrado       Bytes? @map("notas_cifrado")
+
+  /// Que ficha oficial se uso. Null en las atenciones registradas antes de
+  /// que el sistema conociera las fichas.
+  tipoFicha TipoFicha? @map("tipo_ficha")
+
+  /// Seccion VI. Como evoluciono el problema hasta hoy.
+  historiaEnfermedadCifrado   Bytes? @map("historia_enfermedad_cifrado")
+  /// Seccion IV. Solo se llena si el paciente fue referido.
+  manejoEstabilizacionCifrado Bytes? @map("manejo_estabilizacion_cifrado")
+  /// Seccion X.
+  consejeriaCifrado           Bytes? @map("consejeria_cifrado")
+  /// A donde se refirio, si se refirio.
+  referenciaCifrado           Bytes? @map("referencia_cifrado")
+  /// Vacuna aplicada durante la consulta, si hubo.
+  vacunaAdministradaCifrado   Bytes? @map("vacuna_administrada_cifrado")
+
+  // ─── Signos vitales: SIN cifrar ────────────────────────────────────────
+  //
+  // Alimentan los indicadores de los programas de salud (hipertension,
+  // desnutricion). Cifrarlos obligaria a descifrar miles de filas para
+  // calcular un promedio.
+  //
+  pesoKg                  Decimal? @map("peso_kg") @db.Decimal(5, 2)
+  tallaCm                 Decimal? @map("talla_cm") @db.Decimal(5, 1)
+  presionSistolica        Int?     @map("presion_sistolica")
+  presionDiastolica       Int?     @map("presion_diastolica")
+  temperaturaC            Decimal? @map("temperatura_c") @db.Decimal(4, 1)
+  pulso                   Int?
+  respiraciones           Int?
+  /// Circunferencia de cintura. Es tamizaje de riesgo cardiometabolico.
+  circunferenciaCinturaCm Decimal? @map("circunferencia_cintura_cm") @db.Decimal(5, 1)
+
+  // El IMC NO se guarda: sale de peso y talla, que ya estan aqui. Guardarlo
+  // permitiria que quedara desfasado del peso que dice tenerlo por origen, y
+  // en el papel es justo el campo que mas se equivoca al calcularse a mano.
+
+  /// Cuando debe volver el paciente.
+  fechaProximaVisita DateTime? @map("fecha_proxima_visita") @db.Date
+
+  /// true si proviene de digitalizar un expediente de papel y no de una
+  /// consulta atendida en el momento.
+  digitalizada Boolean @default(false)
+
+  signosPeligro SignoPeligroAtencion[]
+  problemas     ProblemaAtencion[]
+  medicamentos  MedicamentoIndicado[]
+  consejeria    ConsejeriaEnAtencion[]
+  visita        Visita?
+  /// Solo en las atenciones con tipoFicha NEONATO.
+  fichaNeonato  FichaNeonato?
+
+  expediente Expediente @relation(fields: [expedienteId], references: [id])
+
+  /// Historial del expediente, lo mas reciente primero. Es la consulta mas
+  /// frecuente del sistema despues de la busqueda de paciente.
+  @@index([expedienteId, fecha(sort: Desc)])
+  /// Indicadores por rango de fechas.
+  @@index([fecha])
+  @@map("atencion")
+}
+
+/// Avance de la digitalizacion del expediente de papel (RF-08).
+///
+/// Va en su propia tabla y no como columnas de Expediente porque `expediente`
+/// se lee en el camino critico de menos de 2 segundos, y estos campos solo los
+/// consulta el panel de digitalizacion. Mantener la fila caliente angosta
+/// importa cuando hay 100,000 expedientes.
+model RegistroDigitalizacion {
+  expedienteId          String               @id @map("expediente_id")
+  estado                EstadoDigitalizacion @default(PENDIENTE)
+  /// Usuario del sistema que realizo la digitalizacion (viene del JWT).
+  digitalizadoPor       String?              @map("digitalizado_por")
+  iniciadoEn            DateTime?            @map("iniciado_en")
+  completadoEn          DateTime?            @map("completado_en")
+  /// Cuantas atenciones del papel se transcribieron.
+  atencionesTranscritas Int                  @default(0) @map("atenciones_transcritas")
+  observaciones         String?              @db.VarChar(500)
+
+  expediente Expediente @relation(fields: [expedienteId], references: [id])
+
+  @@index([estado])
+  @@map("registro_digitalizacion")
+}
+
+/// Bandeja de salida de eventos (patron outbox).
+///
+/// El evento se escribe en la MISMA transaccion que el cambio de negocio. Un
+/// proceso aparte lo publica despues al bus.
+///
+/// Se crea desde ahora aunque el publicador llegue en la Etapa 10: agregarlo
+/// despues obligaria a tocar todas las rutas de escritura, y un evento perdido
+/// desfasa un indicador de salud de forma permanente y silenciosa.
+model Outbox {
+  id          String    @id @default(uuid())
+  tipo        String    @db.VarChar(60)
+  version     Int       @default(1)
+  /// Cuerpo del evento. NO debe contener datos clinicos: el bus no es un
+  /// canal cifrado por campo.
+  datos       Json
+  trazaId     String?   @map("traza_id") @db.VarChar(64)
+  ocurridoEn  DateTime  @default(now()) @map("ocurrido_en")
+  publicadoEn DateTime? @map("publicado_en")
+  intentos    Int       @default(0)
+
+  /// El publicador busca lo no publicado, en orden de ocurrencia.
+  @@index([publicadoEn, ocurridoEn])
+  @@map("outbox")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  CATALOGO DE LAS FICHAS OFICIALES
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Las listas de problemas, signos, diagnosticos y antecedentes viven en la
+// BASE DE DATOS, no escritas en el codigo.
+//
+// El MSPAS revisa estos formatos cada cierto tiempo. Con las listas en el
+// codigo, cambiar una linea de un formulario obliga a un despliegue completo;
+// con el catalogo en la base, es un dato mas que alguien corrige.
+//
+// Ademas es lo que permite contar: si el diagnostico fuera texto libre, nadie
+// podria decir cuantos casos de neumonia hubo este mes, que es justo lo que el
+// CAP tiene que reportar al MSPAS.
+
+/// Un problema de la seccion "Revision de problemas".
+model ProblemaFicha {
+  id        String    @id @default(uuid())
+  tipoFicha TipoFicha @map("tipo_ficha")
+  /// Orden en que aparece en el papel. El personal lo recorre de arriba abajo.
+  orden     Int
+  nombre    String    @db.VarChar(160)
+
+  /// La raya que algunos problemas llevan impresa al lado de las casillas:
+  /// "Cuanto tiempo hace", "Cuantas veces por dia". Null en los que no la
+  /// traen, que son la mayoria.
+  ///
+  /// Vive en el catalogo y no en la pantalla porque es texto del formulario:
+  /// una revision del MSPAS puede cambiar la pregunta sin que nadie toque
+  /// codigo. La ficha del lactante y ninez tiene cuatro filas asi.
+  etiquetaAnotacion String? @map("etiqueta_anotacion") @db.VarChar(80)
+
+  /// Una revision del formulario puede retirar un problema sin borrarlo: las
+  /// atenciones viejas siguen apuntando a el.
+  activo    Boolean   @default(true)
+
+  signos       SignoProblema[]
+  diagnosticos DiagnosticoProblema[]
+  evaluaciones ProblemaAtencion[]
+
+  @@unique([tipoFicha, orden])
+  @@index([tipoFicha, activo])
+  @@map("problema_ficha")
+}
+
+/// Un signo a buscar dentro de un problema. En el papel se subraya.
+model SignoProblema {
+  id         String  @id @default(uuid())
+  problemaId String  @map("problema_id")
+  orden      Int
+  texto      String  @db.VarChar(300)
+  activo     Boolean @default(true)
+
+  problema ProblemaFicha  @relation(fields: [problemaId], references: [id], onDelete: Cascade)
+  marcados SignoMarcado[]
+
+  @@unique([problemaId, orden])
+  @@map("signo_problema")
+}
+
+/// Un diagnostico o clasificacion posible dentro de un problema.
+model DiagnosticoProblema {
+  id         String  @id @default(uuid())
+  problemaId String  @map("problema_id")
+  orden      Int
+  texto      String  @db.VarChar(300)
+  /// true para las opciones "Otro: ____", que piden escribir cual.
+  pideTexto  Boolean @default(false) @map("pide_texto")
+  activo     Boolean @default(true)
+
+  problema ProblemaFicha        @relation(fields: [problemaId], references: [id], onDelete: Cascade)
+  marcados DiagnosticoMarcado[]
+
+  @@unique([problemaId, orden])
+  @@map("diagnostico_problema")
+}
+
+/// Un signo de peligro de la seccion III.
+///
+/// Se separa de los problemas porque tiene otra funcion: no es para
+/// diagnosticar, es para decidir en el primer minuto si el paciente se atiende
+/// o se refiere de inmediato.
+model SignoPeligro {
+  id        String    @id @default(uuid())
+  tipoFicha TipoFicha @map("tipo_ficha")
+  orden     Int
+  texto     String    @db.VarChar(300)
+  /// true en "Otros (describir)".
+  pideTexto Boolean   @default(false) @map("pide_texto")
+  activo    Boolean   @default(true)
+
+  marcados SignoPeligroAtencion[]
+
+  @@unique([tipoFicha, orden])
+  @@map("signo_peligro")
+}
+
+/// Un antecedente del catalogo, compartido entre fichas.
+///
+/// "Diabetes" es el mismo antecedente en la ficha de adultos y en la prenatal.
+/// Con una fila por ficha, contar cuantos diabeticos hay obligaria a unir
+/// listas distintas y a mantenerlas sincronizadas a mano.
+model CatalogoAntecedente {
+  id     String           @id @default(uuid())
+  grupo  GrupoAntecedente
+  /// Identificador estable para poder referirse a el desde los reportes.
+  codigo String           @unique @db.VarChar(60)
+  texto  String           @db.VarChar(200)
+
+  /// Algunos piden datos extra: "Toma medicamentos: cual", "Vacuna Td: numero
+  /// de dosis y fecha de la ultima".
+  pideDetalle     Boolean @default(false) @map("pide_detalle")
+  pideFecha       Boolean @default(false) @map("pide_fecha")
+  pideNumero      Boolean @default(false) @map("pide_numero")
+  /// Solo en los que el papel ofrece "No aplica" ademas de SI y NO.
+  permiteNoAplica Boolean @default(false) @map("permite_no_aplica")
+
+  activo Boolean @default(true)
+
+  enFichas AntecedenteEnFicha[]
+  marcados AntecedentePaciente[]
+
+  @@index([grupo, activo])
+  @@map("catalogo_antecedente")
+}
+
+/// En que ficha aparece cada antecedente, y en que orden.
+model AntecedenteEnFicha {
+  antecedenteId String    @map("antecedente_id")
+  tipoFicha     TipoFicha @map("tipo_ficha")
+  orden         Int
+
+  antecedente CatalogoAntecedente @relation(fields: [antecedenteId], references: [id], onDelete: Cascade)
+
+  @@id([antecedenteId, tipoFicha])
+  @@unique([tipoFicha, orden])
+  @@map("antecedente_en_ficha")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  LO QUE SE CAPTURA
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Respuesta del paciente a un antecedente.
+///
+/// Cuelga del PACIENTE y no de la atencion: los antecedentes son historia, no
+/// hallazgo del dia. Se corrigen cuando cambian, y la trazabilidad (Etapa 9)
+/// guardara el valor anterior.
+model AntecedentePaciente {
+  id            String               @id @default(uuid())
+  pacienteId    String               @map("paciente_id")
+  antecedenteId String               @map("antecedente_id")
+  respuesta     RespuestaAntecedente
+
+  /// El "cual" del papel: que medicamento, que cancer. Cifrado, como el resto
+  /// del texto clinico libre.
+  detalleCifrado Bytes?    @map("detalle_cifrado")
+  /// Fecha de la ultima dosis, de la ultima citologia.
+  fecha          DateTime? @db.Date
+  /// Numero de dosis, cigarrillos al dia.
+  numero         Int?
+
+  registradoPor String   @map("registrado_por")
+  actualizadoEn DateTime @updatedAt @map("actualizado_en")
+
+  paciente    Paciente            @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+  antecedente CatalogoAntecedente @relation(fields: [antecedenteId], references: [id])
+
+  /// Un antecedente, una respuesta por paciente. Sin esto, dos capturas del
+  /// mismo dato dejarian al paciente con "diabetes: si" y "diabetes: no" a la
+  /// vez, y ningun reporte podria decidir cual vale.
+  @@unique([pacienteId, antecedenteId])
+  @@index([antecedenteId, respuesta])
+  @@map("antecedente_paciente")
+}
+
+/// Antecedentes gineco-obstetricos.
+///
+/// Aparte del catalogo porque no son casillas de SI/NO sino cuentas: gestas,
+/// partos, abortos. Guardarlos como texto impediria calcular el riesgo
+/// obstetrico, que depende de esos numeros.
+model AntecedentesObstetricos {
+  pacienteId String @id @map("paciente_id")
+
+  fur                   DateTime? @db.Date
+  gestas                Int?
+  partos                Int?
+  abortos               Int?
+  abortosConsecutivos   Boolean?  @map("abortos_consecutivos")
+  legradosLiu           Int?      @map("legrados_liu")
+  cesareas              Int?
+  nacidosVivos          Int?      @map("nacidos_vivos")
+  nacidosMuertos        Int?      @map("nacidos_muertos")
+  hijosVivos            Int?      @map("hijos_vivos")
+  hijosMuertos          Int?      @map("hijos_muertos")
+  embarazosMultiples    Boolean?  @map("embarazos_multiples")
+  fechaUltimoParto      DateTime? @map("fecha_ultimo_parto") @db.Date
+  prematurosAntes8Meses Int?      @map("prematuros_antes_8_meses")
+  preeclampsia          Boolean?
+
+  /// Tamizaje de cancer de cervix: papanicolau o IVAA.
+  tamizajeCervix String?   @map("tamizaje_cervix") @db.VarChar(20)
+  tamizajeFecha  DateTime? @map("tamizaje_fecha") @db.Date
+  tamizajeNormal Boolean?  @map("tamizaje_normal")
+
+  usaPlanificacion    Boolean? @map("usa_planificacion")
+  metodoPlanificacion String?  @map("metodo_planificacion") @db.VarChar(40)
+
+  tipoSangre String?  @map("tipo_sangre") @db.VarChar(3)
+  rhPositivo Boolean? @map("rh_positivo")
+
+  registradoPor String   @map("registrado_por")
+  actualizadoEn DateTime @updatedAt @map("actualizado_en")
+
+  paciente Paciente @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+
+  @@map("antecedentes_obstetricos")
+}
+
+/// Un signo de peligro evaluado en una atencion.
+model SignoPeligroAtencion {
+  atencionId     String  @map("atencion_id")
+  signoId        String  @map("signo_id")
+  presente       Boolean
+  /// El texto de "Otros (describir)".
+  detalleCifrado Bytes?  @map("detalle_cifrado")
+
+  atencion Atencion     @relation(fields: [atencionId], references: [id], onDelete: Cascade)
+  signo    SignoPeligro @relation(fields: [signoId], references: [id])
+
+  @@id([atencionId, signoId])
+  @@index([signoId, presente])
+  @@map("signo_peligro_atencion")
+}
+
+/// Una fila de la matriz "Revision de problemas" en una atencion.
+model ProblemaAtencion {
+  id         String  @id @default(uuid())
+  atencionId String  @map("atencion_id")
+  problemaId String  @map("problema_id")
+  /// La casilla SI/NO de la primera columna.
+  presente   Boolean
+
+  /// El texto libre de las opciones "Otro: ____" de la columna de diagnostico.
+  otroDiagnosticoCifrado Bytes? @map("otro_diagnostico_cifrado")
+  conductaCifrado        Bytes? @map("conducta_cifrado")
+
+  /// Lo escrito en la raya que el problema lleva impresa, si la lleva. Su
+  /// etiqueta esta en el catalogo (`ProblemaFicha.etiquetaAnotacion`).
+  ///
+  /// Cifrado como el resto del texto clinico: "hace tres dias con fiebre" es
+  /// dato clinico igual que el diagnostico.
+  anotacionCifrado       Bytes? @map("anotacion_cifrado")
+
+  atencion     Atencion             @relation(fields: [atencionId], references: [id], onDelete: Cascade)
+  problema     ProblemaFicha        @relation(fields: [problemaId], references: [id])
+  signos       SignoMarcado[]
+  diagnosticos DiagnosticoMarcado[]
+
+  @@unique([atencionId, problemaId])
+  @@index([problemaId, presente])
+  @@map("problema_atencion")
+}
+
+/// Un signo subrayado dentro de un problema evaluado.
+model SignoMarcado {
+  problemaAtencionId String @map("problema_atencion_id")
+  signoId            String @map("signo_id")
+
+  problemaAtencion ProblemaAtencion @relation(fields: [problemaAtencionId], references: [id], onDelete: Cascade)
+  signo            SignoProblema    @relation(fields: [signoId], references: [id])
+
+  @@id([problemaAtencionId, signoId])
+  @@map("signo_marcado")
+}
+
+/// Un diagnostico subrayado dentro de un problema evaluado.
+///
+/// Es la fila que sostiene los indicadores: contar cuantas neumonias hubo este
+/// mes es contar filas de esta tabla.
+model DiagnosticoMarcado {
+  problemaAtencionId String @map("problema_atencion_id")
+  diagnosticoId      String @map("diagnostico_id")
+
+  problemaAtencion ProblemaAtencion    @relation(fields: [problemaAtencionId], references: [id], onDelete: Cascade)
+  diagnostico      DiagnosticoProblema @relation(fields: [diagnosticoId], references: [id])
+
+  @@id([problemaAtencionId, diagnosticoId])
+  @@index([diagnosticoId])
+  @@map("diagnostico_marcado")
+}
+
+/// Un medicamento indicado en la atencion.
+///
+/// El papel deja espacio para cuatro; aqui no hay tope, que es una de las
+/// pocas cosas en que conviene apartarse del formato impreso: el limite era
+/// del papel, no del tratamiento.
+model MedicamentoIndicado {
+  id         String @id @default(uuid())
+  atencionId String @map("atencion_id")
+  orden      Int
+
+  nombreCifrado Bytes  @map("nombre_cifrado")
+  dosisCifrado  Bytes? @map("dosis_cifrado")
+  dias          Int?
+
+  atencion Atencion @relation(fields: [atencionId], references: [id], onDelete: Cascade)
+
+  @@unique([atencionId, orden])
+  @@map("medicamento_indicado")
+}
+
+/// Estado de una visita a la sala de espera.
+/// Un tema de consejeria del catalogo, por ficha.
+///
+/// En la ficha de adultos la consejeria es un texto libre, y basta. En la de
+/// menor de 28 dias es una TABLA: seis temas impresos, cada uno con su casilla
+/// y su fecha de reconsulta. La de ninez trae cuatro y la prenatal nueve.
+///
+/// Se modela como catalogo y no como columnas porque los temas cambian entre
+/// fichas y el MSPAS revisa estos formatos: anadir un tema no deberia ser una
+/// migracion. Es el mismo criterio que los signos de peligro y los problemas.
+model TemaConsejeria {
+  id        String    @id @default(uuid())
+  tipoFicha TipoFicha @map("tipo_ficha")
+  orden     Int
+  texto     String    @db.VarChar(300)
+  activo    Boolean   @default(true)
+
+  marcados ConsejeriaEnAtencion[]
+
+  @@unique([tipoFicha, orden])
+  @@map("tema_consejeria")
+}
+
+/// Un tema de consejeria dado en una atencion, con su fecha de reconsulta.
+///
+/// La fecha NO se cifra: no dice nada de la persona por si sola y alimenta el
+/// indicador de reconsultas pendientes, que tendria que descifrar miles de
+/// filas para contar.
+model ConsejeriaEnAtencion {
+  atencionId String    @map("atencion_id")
+  temaId     String    @map("tema_id")
+  brindada   Boolean   @default(true)
+  /// Cuando debe volver por este tema. La columna "FECHA RECONSULTA".
+  fechaReconsulta DateTime? @map("fecha_reconsulta") @db.Date
+
+  atencion Atencion       @relation(fields: [atencionId], references: [id], onDelete: Cascade)
+  tema     TemaConsejeria @relation(fields: [temaId], references: [id])
+
+  @@id([atencionId, temaId])
+  @@index([temaId, brindada])
+  @@map("consejeria_en_atencion")
+}
+
+/// Lo que solo tiene la ficha de menor de 28 dias.
+///
+/// Va en su propia tabla y no como columnas de `Atencion` por la misma razon
+/// que `RegistroDigitalizacion`: `atencion` se lee en el historial del
+/// expediente, que es la consulta mas frecuente del sistema despues de la
+/// busqueda de paciente. Estos campos solo se miran al abrir ESTA ficha, y
+/// mantener la fila caliente angosta importa cuando hay cien mil expedientes.
+///
+/// Es tambien el molde de `FichaNinez` y `FichaPrenatal`, que van a tener el
+/// mismo problema.
+model FichaNeonato {
+  atencionId String @id @map("atencion_id")
+
+  // ─── Datos generales (seccion 2) ───────────────────────────────────────
+  //
+  // En esta ficha el paciente es el nino pero casi todos los datos son de la
+  // madre. Su nombre es un dato personal de alguien que puede no ser paciente
+  // del CAP, asi que se cifra igual que los del expediente.
+  //
+  nombreMadreCifrado Bytes? @map("nombre_madre_cifrado")
+
+  // ─── Examen fisico (seccion 5) ─────────────────────────────────────────
+  //
+  // El peso se guarda EN LIBRAS Y ONZAS, como lo pide el formulario. No se
+  // convierte a kilos al capturar: el papel dice "Peso: ___ Lb ___ Onz" y uno
+  // de los signos de peligro es, literalmente, "Pesa menos de 5 libras 8
+  // onzas". Guardar kilos obligaria a convertir en cada lectura para poder
+  // compararlo con el papel, y a redondear un dato que el personal escribio
+  // exacto.
+  //
+  // `Atencion.pesoKg` queda para las demas fichas. Cuando los indicadores
+  // necesiten comparar el peso de un neonato con el de un lactante, la
+  // conversion se hace al leer, que es donde se sabe para que se compara.
+  //
+  pesoLibras Int? @map("peso_libras")
+  pesoOnzas  Int? @map("peso_onzas")
+
+  /// Perimetro braquial en centimetros. Tamizaje nutricional.
+  perimetroBraquialCm Decimal? @map("perimetro_braquial_cm") @db.Decimal(4, 1)
+  /// Circunferencia cefalica en centimetros. El papel la abrevia "CC".
+  circunferenciaCefalicaCm Decimal? @map("circunferencia_cefalica_cm") @db.Decimal(4, 1)
+
+  // ─── Antecedentes del parto (seccion 4) ────────────────────────────────
+  //
+  // No van como antecedentes del catalogo porque no son casillas de SI/NO:
+  // tienen valor propio. "3 horas de trabajo de parto" no cabe en una casilla
+  // que solo sabe decir si o no.
+  //
+  pesoNacerLibras Int? @map("peso_nacer_libras")
+  pesoNacerOnzas  Int? @map("peso_nacer_onzas")
+
+  lloroAlNacer   Boolean? @map("lloro_al_nacer")
+  nacioCianotico Boolean? @map("nacio_cianotico")
+  /// Cuantas horas duro el trabajo de parto.
+  horasTrabajoParto Int? @map("horas_trabajo_parto")
+
+  quienAtendioParto     QuienAtendioParto? @map("quien_atendio_parto")
+  /// Solo cuando quien atendio el parto es OTRO.
+  quienAtendioPartoOtro String?            @map("quien_atendio_parto_otro") @db.VarChar(120)
+
+  // Complicaciones durante el embarazo. Tres casillas independientes en el
+  // papel: pueden marcarse varias a la vez.
+  rupturaPrematuraMembranas Boolean? @map("ruptura_prematura_membranas")
+  trabajoPartoPrematuro     Boolean? @map("trabajo_parto_prematuro")
+  partoProlongado           Boolean? @map("parto_prolongado")
+
+  tipoParto TipoParto? @map("tipo_parto")
+
+  /// Vacuna BCG aplicada al recien nacido.
+  bcg Boolean?
+  /// Td aplicada a la MADRE, con su numero de dosis.
+  tdMadre      Boolean? @map("td_madre")
+  tdMadreDosis Int?     @map("td_madre_dosis")
+
+  /// Practicas de alimentacion. El papel: "Lactancia Materna Exclusiva SI
+  /// bien, NO = investigue y oriente".
+  lactanciaMaternaExclusiva Boolean? @map("lactancia_materna_exclusiva")
+
+  atencion Atencion @relation(fields: [atencionId], references: [id], onDelete: Cascade)
+
+  @@map("ficha_neonato")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  El carnet del lactante y la ninez (paginas 1 y 2 de su ficha)
+//
+//  Nada de esto cuelga de `atencion`, y esa es la decision que gobierna todo
+//  el bloque. Las dos primeras paginas de esa ficha NO son de la consulta:
+//  son del nino y se llenan a lo largo de anos. Un nino de cuatro anos tiene
+//  dosis puestas en diez visitas distintas, y guardarlas por atencion las
+//  perderia o las obligaria a recapturarse cada vez.
+//
+//  Es el mismo reparto que ya hace `AntecedentePaciente`: lo que sigue siendo
+//  cierto en la siguiente visita pertenece al paciente, no a la consulta.
+//
+//  Ver `docs/diseno-ficha-ninez.md`.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Una vacuna del esquema que la ficha imprime.
+///
+/// Es catalogo y no un enum porque los esquemas nacionales cambian: el MSPAS
+/// puede anadir una vacuna sin que nadie despliegue codigo. Las filas viejas
+/// se retiran con `activo`, nunca se borran: las dosis ya puestas siguen
+/// apuntando a ellas.
+model CatalogoVacuna {
+  id     String  @id @default(uuid())
+  /// El orden en que la tabla del papel las imprime.
+  orden  Int     @unique
+  nombre String  @db.VarChar(80)
+  activo Boolean @default(true)
+
+  dosis     DosisRecomendada[]
+  aplicadas VacunaAplicada[]
+
+  @@map("catalogo_vacuna")
+}
+
+/// Que dosis aplica a que vacuna, y a que edad se recomienda.
+///
+/// En el papel esto son las celdas SOMBREADAS de la tabla, y no son adorno:
+/// dicen que casillas se pueden llenar. Hepatitis y BCG solo tienen primera
+/// dosis; DPT solo los dos refuerzos, no las tres primeras. Sin esta tabla la
+/// pantalla ofreceria cincuenta dosis donde el esquema tiene veintisiete, y
+/// alguien acabaria anotando una tercera dosis de BCG que no existe.
+model DosisRecomendada {
+  id       String @id @default(uuid())
+  vacunaId String @map("vacuna_id")
+  /// 1 a 5: Primero, Segundo, Tercero, Refuerzo, Refuerzo.
+  orden    Int
+  /// Como lo dice el papel: "RN", "2 meses", "18 meses", "4 anos". Null en las
+  /// filas que el formulario imprime con la edad en blanco.
+  edadRecomendada String? @map("edad_recomendada") @db.VarChar(40)
+
+  vacuna CatalogoVacuna @relation(fields: [vacunaId], references: [id], onDelete: Cascade)
+
+  @@unique([vacunaId, orden])
+  @@map("dosis_recomendada")
+}
+
+/// Una dosis puesta. UNA fila por casilla llena del papel.
+model VacunaAplicada {
+  id         String @id @default(uuid())
+  pacienteId String @map("paciente_id")
+  vacunaId   String @map("vacuna_id")
+  /// Cual de las cinco columnas del papel.
+  orden      Int
+
+  /// La fecha, sin hora: el papel pide dia y la hora no significa nada aqui.
+  ///
+  /// La EDAD que el formulario pide al lado NO se guarda. En papel hay que
+  /// escribirla porque no se puede restar; aqui sale de esta fecha menos la de
+  /// nacimiento. Guardarla seria guardar dos veces el mismo dato y darle al
+  /// sistema la ocasion de contradecirse.
+  fecha DateTime @db.Date
+
+  registradoPor String   @map("registrado_por")
+  actualizadoEn DateTime @updatedAt @map("actualizado_en")
+
+  paciente Paciente       @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+  vacuna   CatalogoVacuna @relation(fields: [vacunaId], references: [id])
+
+  /// Una dosis, una vez. Sin esto, dos capturas de la misma casilla dejarian
+  /// al nino con dos primeras dosis de BCG en fechas distintas y ningun
+  /// reporte de cobertura podria decidir cual vale.
+  @@unique([pacienteId, vacunaId, orden])
+  @@index([vacunaId, fecha])
+  @@map("vacuna_aplicada")
+}
+
+/// Los tramos de edad de las dos tablas de micronutrientes.
+///
+/// Son los del papel, y no se pueden calcular: "6 m < 1 ano" no es un rango
+/// redondo de meses sino la franja que el formulario imprime.
+enum TramoEdad {
+  /// 6 meses a menos de 1 ano.
+  M6_A_A1
+  /// 1 a menos de 2 anos.
+  A1_A_A2
+  A2_A_A3
+  A3_A_A4
+  A4_A_A5
+}
+
+/// Vitamina A, desparasitante, sulfato ferroso y acido folico.
+model CatalogoMicronutriente {
+  id     String  @id @default(uuid())
+  orden  Int     @unique
+  nombre String  @db.VarChar(80)
+  activo Boolean @default(true)
+
+  esperadas EntregaEsperada[]
+  entregas  MicronutrienteEntregado[]
+
+  @@map("catalogo_micronutriente")
+}
+
+/// Cuantas entregas van en cada tramo, por producto.
+///
+/// Tampoco es uniforme, y tambien son celdas sombreadas: el desparasitante
+/// empieza a los DOS anos —sus tres primeras casillas estan tachadas— y la
+/// vitamina A tiene una sola dosis en el primer tramo y dos en los demas.
+model EntregaEsperada {
+  id               String    @id @default(uuid())
+  micronutrienteId String    @map("micronutriente_id")
+  tramo            TramoEdad
+  /// 1 a 4, segun el producto.
+  orden            Int
+
+  micronutriente CatalogoMicronutriente @relation(fields: [micronutrienteId], references: [id], onDelete: Cascade)
+
+  @@unique([micronutrienteId, tramo, orden])
+  @@map("entrega_esperada")
+}
+
+/// Una entrega hecha. UNA fila por casilla llena del papel.
+model MicronutrienteEntregado {
+  id               String    @id @default(uuid())
+  pacienteId       String    @map("paciente_id")
+  micronutrienteId String    @map("micronutriente_id")
+  tramo            TramoEdad
+  orden            Int
+  fecha            DateTime  @db.Date
+
+  registradoPor String   @map("registrado_por")
+  actualizadoEn DateTime @updatedAt @map("actualizado_en")
+
+  paciente       Paciente               @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+  micronutriente CatalogoMicronutriente @relation(fields: [micronutrienteId], references: [id])
+
+  @@unique([pacienteId, micronutrienteId, tramo, orden])
+  @@index([micronutrienteId, fecha])
+  @@map("micronutriente_entregado")
+}
+
+/// El nivel de escolaridad de la madre, tal como lo imprime el papel.
+enum EscolaridadMadre {
+  NINGUNO
+  /// 1.o a 3.o primaria.
+  PRIMARIA_1_3
+  /// 4.o a 6.o primaria.
+  PRIMARIA_4_6
+  MEDIA
+  SUPERIOR
+}
+
+/// De donde sale el agua de la casa.
+enum AbastecimientoAgua {
+  CHORRO_INTRADOMICILIAR
+  CHORRO_PUBLICO
+  POZO
+  RIO
+  OTRO
+}
+
+/// Donde van las excretas.
+enum DisposicionExcretas {
+  INODORO
+  LETRINA
+  AIRE_LIBRE
+}
+
+/// Lo que la pagina 1 pregunta del nino y de sus padres.
+///
+/// Una fila por paciente, no por consulta: la ocupacion de la madre y el lugar
+/// de nacimiento del nino siguen siendo ciertos en la siguiente visita.
+///
+/// Los nombres y las ocupaciones van CIFRADOS. Son datos personales de gente
+/// que ni siquiera es el paciente, y nunca se buscan por contenido.
+model DatosNinezPaciente {
+  pacienteId String @id @map("paciente_id")
+
+  /// "Lugar de nacimiento" de la seccion 3.
+  lugarNacimiento String? @map("lugar_nacimiento") @db.VarChar(160)
+  /// "Nombre de persona que acompana al nino(a)". El problema 14 de la hoja de
+  /// consulta pregunta justo por ella.
+  acompananteNombreCifrado Bytes? @map("acompanante_nombre_cifrado")
+
+  // ─── La madre ──────────────────────────────────────────────────────────
+  madreNombreCifrado    Bytes?            @map("madre_nombre_cifrado")
+  madreEdad             Int?              @map("madre_edad")
+  madreOcupacionCifrado Bytes?            @map("madre_ocupacion_cifrado")
+  madreSabeLeer         Boolean?          @map("madre_sabe_leer")
+  madreEscolaridad      EscolaridadMadre? @map("madre_escolaridad")
+
+  // ─── El padre ──────────────────────────────────────────────────────────
+  //
+  // El papel NO le pregunta la escolaridad al padre, solo a la madre. No es
+  // un olvido de la transcripcion: la hoja impresa es asi.
+  //
+  padreNombreCifrado    Bytes?   @map("padre_nombre_cifrado")
+  padreEdad             Int?     @map("padre_edad")
+  padreOcupacionCifrado Bytes?   @map("padre_ocupacion_cifrado")
+  padreSabeLeer         Boolean? @map("padre_sabe_leer")
+
+  // ─── Numero de hijos ───────────────────────────────────────────────────
+  //
+  // Sin cifrar: son cuentas, y "cuantos hijos muertos" es justo el dato que
+  // los indicadores de mortalidad infantil necesitan agregar.
+  //
+  hijosTotal   Int? @map("hijos_total")
+  hijosVivos   Int? @map("hijos_vivos")
+  hijosMuertos Int? @map("hijos_muertos")
+
+  registradoPor String   @map("registrado_por")
+  actualizadoEn DateTime @updatedAt @map("actualizado_en")
+
+  paciente Paciente @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+
+  @@map("datos_ninez_paciente")
+}
+
+/// El agua y las excretas de la casa.
+///
+/// Cuelga del GRUPO FAMILIAR y no del nino, porque no son datos suyos: son de
+/// la casa. Repetirlos en cada hermano garantiza que un dia uno diga "letrina"
+/// y el otro "inodoro", y nadie pueda decidir cual vale.
+///
+/// El grupo familiar estaba a cero —ni un solo paciente asignado— cuando se
+/// construyo esto, asi que la ficha lo CREA al vuelo si el nino no tiene uno.
+/// Sin eso la seccion habria nacido muerta, esperando a un modulo de grupos
+/// familiares que todavia no existe. Cuando recepcion pueda enlazar hermanos,
+/// el dato ya esta en el sitio bueno y no hay que moverlo.
+model DatosDelHogar {
+  grupoFamiliarId String @id @map("grupo_familiar_id")
+
+  agua AbastecimientoAgua?
+  /// El "otro" del papel, cuando el agua no es de ninguna de las cuatro.
+  aguaOtro String? @map("agua_otro") @db.VarChar(120)
+
+  excretas DisposicionExcretas?
+
+  registradoPor String   @map("registrado_por")
+  actualizadoEn DateTime @updatedAt @map("actualizado_en")
+
+  grupoFamiliar GrupoFamiliar @relation(fields: [grupoFamiliarId], references: [id], onDelete: Cascade)
+
+  @@map("datos_del_hogar")
+}
+
+enum EstadoVisita {
+  ESPERANDO
+  ATENDIDA
+  /// Se fue sin que lo atendieran. Pasa, y hay que poder anotarlo: sin esta
+  /// salida la lista de manana arrastraria a los de hoy.
+  RETIRADA
+}
+
+/// Alguien que llego al CAP y espera ser atendido.
+///
+/// Es lo unico que el sistema no podia deducir de nada de lo que ya guardaba:
+/// un paciente registrado hace tres anios y uno que acaba de entrar por la
+/// puerta son identicos en la base. Alguien tiene que decir "llego", y eso es
+/// esta tabla.
+///
+/// NO es lo mismo que la digitalizacion, aunque las dos sean listas de trabajo.
+/// La sala de espera son cinco o diez personas sentadas ahora, y si no se
+/// atienden hoy alguien se va sin consulta; el archivo son miles de carpetas
+/// que pueden esperar meses. Mezclarlas haria que lo urgente se perdiera entre
+/// lo que no lo es.
+model Visita {
+  id         String       @id @default(uuid())
+  pacienteId String       @map("paciente_id")
+  estado     EstadoVisita @default(ESPERANDO)
+
+  llegadaEn     DateTime @default(now()) @map("llegada_en")
+  /// Usuario que marco la llegada (viene del JWT).
+  registradaPor String   @map("registrada_por")
+
+  /// A que viene, en una linea. Cifrado: "control prenatal" o "dolor de pecho"
+  /// son datos de salud, y esta lista se ve con la sala llena de gente.
+  motivoCifrado Bytes? @map("motivo_cifrado")
+
+  cerradaEn DateTime? @map("cerrada_en")
+  cerradaPor String?  @map("cerrada_por")
+
+  /// La ficha que salio de esta visita. Se llena sola al guardarla.
+  atencionId String? @unique @map("atencion_id")
+
+  /// Por que se fue sin atencion. Solo en las retiradas.
+  motivoRetiro String? @map("motivo_retiro") @db.VarChar(200)
+
+  paciente Paciente  @relation(fields: [pacienteId], references: [id])
+  atencion Atencion? @relation(fields: [atencionId], references: [id])
+
+  /// La consulta de la sala de espera: los que esperan, por orden de llegada.
+  @@index([estado, llegadaEn])
+  @@index([pacienteId])
+  @@map("visita")
+}

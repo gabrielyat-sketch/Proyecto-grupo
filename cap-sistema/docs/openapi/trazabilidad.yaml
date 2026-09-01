@@ -1,0 +1,262 @@
+openapi: 3.0.0
+paths:
+  /v1/salud:
+    get:
+      operationId: SaludController_vivo
+      parameters: []
+      responses:
+        "200":
+          description: ""
+      summary: El proceso esta vivo
+      tags: &a1
+        - salud
+  /v1/salud/listo:
+    get:
+      operationId: SaludController_listo
+      parameters: []
+      responses:
+        "200":
+          description: ""
+      summary: El servicio y sus dependencias responden
+      tags: *a1
+  /v1/registros:
+    post:
+      description: Encadena la entrada al ultimo registro existente. El usuario y el
+        rol se toman del token, no del cuerpo. Los valores anterior y nuevo se
+        cifran antes de guardarse.
+      operationId: RegistrosController_registrar
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegistrarRegistroDto"
+      responses:
+        "201":
+          description: ""
+      security: &a2
+        - bearer: []
+      summary: Agrega una entrada a la bitacora
+      tags: &a3
+        - registros
+    get:
+      description: "Orden descendente: lo mas reciente primero, que es como se audita."
+      operationId: RegistrosController_consultar
+      parameters:
+        - name: servicio
+          required: false
+          in: query
+          schema:
+            example: usuarios
+            type: string
+        - name: accion
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - CONSULTA
+              - CREACION
+              - MODIFICACION
+              - ELIMINACION
+              - IMPRESION
+              - EXPORTACION
+        - name: entidad
+          required: false
+          in: query
+          schema:
+            example: expediente
+            type: string
+        - name: entidadId
+          required: false
+          in: query
+          schema:
+            example: exp-000123
+            type: string
+        - name: usuarioId
+          required: false
+          in: query
+          description: Quien ejecuto la accion.
+          schema:
+            type: string
+        - name: desde
+          required: false
+          in: query
+          description: Desde (inclusive), ISO-8601.
+          schema:
+            example: 2026-08-01T00:00:00.000Z
+            type: string
+        - name: hasta
+          required: false
+          in: query
+          description: Hasta (inclusive), ISO-8601.
+          schema:
+            example: 2026-08-31T23:59:59.999Z
+            type: string
+        - name: pagina
+          required: false
+          in: query
+          schema:
+            default: 1
+            type: number
+        - name: tamano
+          required: false
+          in: query
+          schema:
+            maximum: 100
+            default: 25
+            type: number
+      responses:
+        "200":
+          description: ""
+      security: *a2
+      summary: Consulta la bitacora, paginada
+      tags: *a3
+  /v1/registros/verificacion:
+    get:
+      description: "Devuelve el numero del primer registro que no cuadra, si lo hay.
+        No necesita las llaves de descifrado: el hash cubre el texto cifrado."
+      operationId: RegistrosController_verificar
+      parameters: []
+      responses:
+        "200":
+          description: ""
+      security: *a2
+      summary: Recorre la cadena y reporta si esta intacta
+      tags: *a3
+  /v1/raices/cierre:
+    post:
+      description: "Sin `dia`, cierra el de ayer. No cierra el dia en curso: todavia
+        puede recibir registros, y la firma quedaria invalidada por el siguiente
+        que entrara."
+      operationId: RaicesController_cerrar
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CerrarDiaDto"
+      responses:
+        "201":
+          description: ""
+      security: &a4
+        - bearer: []
+      summary: Cierra un dia y firma su hash raiz
+      tags: &a5
+        - raices
+  /v1/raices:
+    get:
+      description: Cada una trae `firmaValida`, resultado de recomprobarla con
+        LLAVE_RAIZ_TRAZA. Una raiz con la firma rota significa que alguien
+        reescribio ese dia.
+      operationId: RaicesController_listar
+      parameters:
+        - name: pagina
+          required: false
+          in: query
+          schema:
+            default: 1
+            example: 1
+            type: number
+        - name: tamano
+          required: false
+          in: query
+          schema:
+            maximum: 100
+            default: 25
+            example: 25
+            type: number
+      responses:
+        "200":
+          description: ""
+      security: *a4
+      summary: Raices diarias firmadas
+      tags: *a5
+info:
+  title: Servicio trazabilidad - CAP Purulha
+  description: >-
+    Contrato del servicio trazabilidad.
+
+
+    Generado desde el codigo. No editar a mano: los cambios se pierden en la
+    siguiente exportacion. Fuente de verdad: arquitectura-cap-purulha.md
+  version: "1.0"
+  contact: {}
+tags: []
+servers:
+  - url: http://localhost:3007
+    description: Desarrollo local
+components:
+  securitySchemes:
+    bearer:
+      scheme: bearer
+      bearerFormat: JWT
+      type: http
+  schemas:
+    RegistrarRegistroDto:
+      type: object
+      properties:
+        servicio:
+          type: string
+          enum:
+            - auth
+            - usuarios
+            - programas
+            - medicamentos
+            - reportes
+            - cms
+          description: Servicio que origino la accion.
+        accion:
+          type: string
+          enum:
+            - CONSULTA
+            - CREACION
+            - MODIFICACION
+            - ELIMINACION
+            - IMPRESION
+            - EXPORTACION
+        entidad:
+          type: string
+          example: expediente
+          description: Tipo de dato tocado.
+        entidadId:
+          type: string
+          example: exp-000123
+          description: Id del dato en el servicio de origen.
+        motivo:
+          type: string
+          description: Por que se hizo. §10.4 lo exige junto con usuario, fecha y accion.
+            Obligatorio para consultas de expediente e impresiones.
+          example: Correccion tras revision medica
+        valorAnterior:
+          type: string
+          description: Valor antes del cambio, EN CLARO. El servicio lo cifra antes de
+            guardarlo; nunca queda legible en la base.
+          example: Hipertension arterial leve
+        valorNuevo:
+          type: string
+          description: Valor despues del cambio, en claro.
+          example: Hipertension arterial moderada
+        ocurridoEn:
+          type: string
+          description: Cuando ocurrio en el servicio de origen. Si no se envia, se toma el
+            momento de la recepcion.
+          example: 2026-08-26T18:23:27.531Z
+        ip:
+          type: string
+          description: IP del cliente que origino la accion.
+          example: 10.0.0.5
+      required:
+        - servicio
+        - accion
+        - entidad
+        - entidadId
+    CerrarDiaDto:
+      type: object
+      properties:
+        dia:
+          type: string
+          description: Dia a cerrar, AAAA-MM-DD. Si se omite, se cierra el de ayer.
+          example: 2026-08-25

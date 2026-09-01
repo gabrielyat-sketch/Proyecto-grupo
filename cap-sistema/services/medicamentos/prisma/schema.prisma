@@ -1,0 +1,223 @@
+// Servicio de Medicamentos — esquema `medicamentos`.
+//
+// Inventario, lotes, vencimientos y entregas a pacientes (RF-02).
+//
+// Ver arquitectura-cap-purulha.md §9.1 y §9.2
+
+generator client {
+  provider = "prisma-client-js"
+  // Cada servicio genera su cliente en SU carpeta (ver §6.1).
+  output   = "../generado"
+  // FUERA de prisma/ a proposito. La extension de Prisma para VS Code trata
+  // todos los .prisma de esa carpeta como UN solo esquema —soporte de
+  // esquemas multiarchivo—, y el cliente generado deja ahi una copia del
+  // schema. El editor las fusionaba y marcaba todo como duplicado:
+  // "el enum Sexo ya existe", "el generador client ya existe".
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+/// Unidad en la que se dispensa. Importa para no entregar "5" sin saber si
+/// son 5 tabletas o 5 frascos.
+enum UnidadMedida {
+  TABLETA
+  CAPSULA
+  JARABE_ML
+  AMPOLLA
+  FRASCO
+  SOBRE
+  UNIDAD
+  GRAMO
+}
+
+enum EstadoLote {
+  DISPONIBLE
+  AGOTADO
+  VENCIDO
+  DADO_DE_BAJA
+}
+
+enum TipoMovimiento {
+  INGRESO
+  ENTREGA
+  AJUSTE
+  BAJA
+  DEVOLUCION
+}
+
+/// Catalogo de medicamentos. NO guarda existencias: las existencias viven en
+/// el lote, porque dos lotes del mismo medicamento vencen en fechas distintas
+/// y el control de vencimiento es por lote.
+model Medicamento {
+  id     String @id @default(uuid())
+  /// Codigo interno del CAP o del listado basico del MSPAS.
+  codigo String @unique @db.VarChar(30)
+
+  nombreGenerico  String  @map("nombre_generico") @db.VarChar(160)
+  nombreComercial String? @map("nombre_comercial") @db.VarChar(160)
+  /// Como viene presentado: "caja de 100 tabletas", "frasco 120 ml".
+  presentacion String?      @db.VarChar(120)
+  /// "500 mg", "250 mg/5 ml".
+  concentracion String?     @db.VarChar(60)
+  unidad        UnidadMedida
+
+  /// Debajo de esta cantidad total el medicamento aparece en la alerta de
+  /// reabastecimiento. Cero desactiva la alerta para ese medicamento.
+  stockMinimo    Int     @default(0) @map("stock_minimo")
+  requiereReceta Boolean @default(false) @map("requiere_receta")
+  activo         Boolean @default(true)
+
+  creadoEn      DateTime @default(now()) @map("creado_en")
+  actualizadoEn DateTime @updatedAt @map("actualizado_en")
+
+  lotes Lote[]
+
+  /// Busqueda por nombre en el mostrador de farmacia.
+  @@index([nombreGenerico])
+  @@index([activo])
+  @@map("medicamento")
+}
+
+/// Un lote concreto: misma fecha de vencimiento y mismo origen.
+///
+/// Es la unidad real de control del inventario. El personal de farmacia no
+/// entrega "amoxicilina": entrega tabletas de un lote determinado, y ese lote
+/// vence en una fecha determinada.
+model Lote {
+  id            String @id @default(uuid())
+  medicamentoId String @map("medicamento_id")
+  /// Numero impreso en la caja por el fabricante.
+  numeroLote    String @map("numero_lote") @db.VarChar(60)
+
+  fechaVencimiento DateTime @map("fecha_vencimiento") @db.Date
+  fechaIngreso     DateTime @default(now()) @map("fecha_ingreso") @db.Date
+  proveedor        String?  @db.VarChar(160)
+
+  cantidadInicial Int @map("cantidad_inicial")
+
+  /// Existencia actual.
+  ///
+  /// Esta desnormalizada a proposito: el valor tambien podria calcularse
+  /// sumando `movimiento_inventario`, pero la farmacia necesita la respuesta
+  /// con el paciente enfrente, y sumar el libro mayor completo en cada
+  /// consulta seria lento en cuanto haya anios de movimientos.
+  ///
+  /// El libro mayor sigue existiendo para trazabilidad y reconciliacion: toda
+  /// modificacion de esta columna escribe su movimiento en la MISMA
+  /// transaccion.
+  cantidadDisponible Int @map("cantidad_disponible")
+
+  estado EstadoLote @default(DISPONIBLE)
+  /// Por que se dio de baja, si aplica.
+  motivoBaja String? @map("motivo_baja") @db.VarChar(200)
+
+  creadoEn DateTime @default(now()) @map("creado_en")
+
+  medicamento  Medicamento            @relation(fields: [medicamentoId], references: [id])
+  movimientos  MovimientoInventario[]
+  detalles     DetalleEntrega[]
+
+  /// El mismo numero de lote puede repetirse entre medicamentos distintos,
+  /// pero no dentro del mismo medicamento.
+  @@unique([medicamentoId, numeroLote])
+  /// INDICE CLAVE: sostiene la seleccion FEFO (primero el que vence antes).
+  /// Sin el, cada entrega recorreria todos los lotes del medicamento.
+  @@index([medicamentoId, fechaVencimiento])
+  /// Alerta de vencimientos proximos sobre todo el inventario.
+  @@index([fechaVencimiento])
+  @@index([estado])
+  @@map("lote")
+}
+
+/// Libro mayor del inventario. Cada fila explica un cambio de existencia.
+///
+/// Es append-only por convencion: no se corrige un movimiento, se registra
+/// uno de AJUSTE que lo compensa. Asi el historial siempre explica como se
+/// llego a la existencia actual.
+model MovimientoInventario {
+  id     String         @id @default(uuid())
+  loteId String         @map("lote_id")
+  tipo   TipoMovimiento
+  fecha  DateTime       @default(now())
+
+  /// Positiva en INGRESO y DEVOLUCION, negativa en ENTREGA y BAJA.
+  /// Guardar el signo evita tener que deducirlo del tipo al sumar.
+  cantidad Int
+
+  /// Existencia del lote DESPUES de aplicar este movimiento. Se guarda para
+  /// poder auditar sin recalcular toda la cadena.
+  cantidadResultante Int     @map("cantidad_resultante")
+  motivo             String? @db.VarChar(200)
+  registradoPor      String  @map("registrado_por")
+  /// Referencia a la entrega, cuando el movimiento proviene de una.
+  entregaId String? @map("entrega_id")
+
+  lote Lote @relation(fields: [loteId], references: [id])
+
+  @@index([loteId, fecha(sort: Desc)])
+  @@index([fecha])
+  @@index([entregaId])
+  @@map("movimiento_inventario")
+}
+
+/// Cabecera de una entrega a un paciente.
+///
+/// Va separada del detalle porque una receta suele llevar varios
+/// medicamentos, y son UNA entrega, no tres. Contarlas por medicamento
+/// inflaria el indicador de atenciones de farmacia.
+model Entrega {
+  id String @id @default(uuid())
+
+  /// Paciente del servicio `usuarios`. NO es llave foranea: vive en otro
+  /// esquema. Su existencia se valida por HTTP al registrar la entrega.
+  pacienteId String @map("paciente_id")
+  /// Se copia al entregar para agrupar indicadores por comunidad sin llamar
+  /// al servicio de usuarios en cada consulta.
+  comunidadId String @map("comunidad_id")
+
+  fecha         DateTime @default(now())
+  registradoPor String   @map("registrado_por")
+  observaciones String?  @db.VarChar(500)
+
+  detalles DetalleEntrega[]
+
+  @@index([pacienteId, fecha(sort: Desc)])
+  @@index([fecha])
+  @@index([comunidadId])
+  @@map("entrega")
+}
+
+/// Una linea de la entrega: cuanto se saco de que lote.
+model DetalleEntrega {
+  id        String @id @default(uuid())
+  entregaId String @map("entrega_id")
+  loteId    String @map("lote_id")
+  cantidad  Int
+
+  entrega Entrega @relation(fields: [entregaId], references: [id], onDelete: Cascade)
+  lote    Lote    @relation(fields: [loteId], references: [id])
+
+  @@index([entregaId])
+  @@index([loteId])
+  @@map("detalle_entrega")
+}
+
+/// Bandeja de salida de eventos (patron outbox), igual que en los demas
+/// servicios. El publicador llega en la Etapa 10.
+model Outbox {
+  id      String @id @default(uuid())
+  tipo    String @db.VarChar(60)
+  version Int    @default(1)
+  datos       Json
+  trazaId     String?   @map("traza_id") @db.VarChar(64)
+  ocurridoEn  DateTime  @default(now()) @map("ocurrido_en")
+  publicadoEn DateTime? @map("publicado_en")
+  intentos    Int       @default(0)
+
+  @@index([publicadoEn, ocurridoEn])
+  @@map("outbox")
+}

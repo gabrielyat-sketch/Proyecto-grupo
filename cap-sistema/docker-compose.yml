@@ -1,0 +1,55 @@
+# Entorno de DESARROLLO LOCAL.
+# Produccion usa PostgreSQL administrado de DigitalOcean, no este contenedor.
+# Ver arquitectura-cap-purulha.md §5.2
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cap-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cap
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_local_dev
+    ports:
+      # 5433 en el anfitrion, 5432 dentro del contenedor.
+      #
+      # El 5432 suele estar tomado por otro PostgreSQL en la maquina de quien
+      # desarrolla —otro proyecto, o una instalacion del sistema— y un
+      # contenedor ajeno PAUSADO igual mantiene el puerto reservado, asi que el
+      # conflicto aparece incluso cuando parece que nada esta corriendo.
+      #
+      # Dentro de la red de Docker el puerto sigue siendo el 5432: esto solo
+      # afecta a quien se conecte desde fuera, que en desarrollo son los
+      # servicios y Prisma.
+      - "5433:5432"
+    volumes:
+      - postgres_datos:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cap"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: cap-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_datos:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# Los microservicios se agregan aqui conforme se generen desde services/_plantilla
+# (Etapa 2 en adelante). Cada uno declara depends_on con condition: service_healthy.
+
+volumes:
+  postgres_datos:
+  redis_datos:
