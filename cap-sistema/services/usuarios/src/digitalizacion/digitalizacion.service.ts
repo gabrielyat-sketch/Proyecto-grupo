@@ -73,18 +73,38 @@ export class DigitalizacionService {
         noLocalizados: bigint;
       }[]
     >`
-      SELECT c.id                                                        AS "comunidadId",
-             c.nombre                                                    AS "nombre",
-             c.distante                                                  AS "distante",
-             count(*)                                                    AS "total",
-             count(*) FILTER (WHERE r.estado = 'COMPLETO')               AS "completos",
-             count(*) FILTER (WHERE r.estado IN ('PENDIENTE','EN_PROCESO')) AS "faltantes",
-             count(*) FILTER (WHERE r.estado = 'NO_LOCALIZADO')          AS "noLocalizados"
-      FROM usuarios.registro_digitalizacion r
-      JOIN usuarios.expediente e ON e.id = r.expediente_id
-      JOIN usuarios.paciente   p ON p.id = e.paciente_id
-      JOIN usuarios.comunidad  c ON c.id = p.comunidad_id
-      GROUP BY c.id, c.nombre, c.distante
+      -- Se parte del CATALOGO de comunidades, no de los expedientes.
+      --
+      -- Antes la lista salia de agrupar los registros de digitalizacion, asi
+      -- que una comunidad sin ninguna carpeta pendiente simplemente no existia
+      -- en la pantalla. Eso cerraba un circulo: para llegar a los caserios hay
+      -- que elegir «Caserios», y «Caserios» no aparecia hasta que alguien de un
+      -- caserio estuviera ya en la cola. No se podia empezar.
+      --
+      -- El conteo se sigue calculando aparte, sobre registro_digitalizacion,
+      -- que es la tabla pequena. Sacarlo con LEFT JOIN encadenado desde
+      -- comunidad obligaria a recorrer el padron entero de pacientes para
+      -- pintar una barra lateral.
+      SELECT c.id                              AS "comunidadId",
+             c.nombre                          AS "nombre",
+             c.distante                        AS "distante",
+             COALESCE(a.total, 0)              AS "total",
+             COALESCE(a.completos, 0)          AS "completos",
+             COALESCE(a.faltantes, 0)          AS "faltantes",
+             COALESCE(a."noLocalizados", 0)    AS "noLocalizados"
+      FROM usuarios.comunidad c
+      LEFT JOIN (
+        SELECT p.comunidad_id                                                  AS "comunidadId",
+               count(*)                                                        AS "total",
+               count(*) FILTER (WHERE r.estado = 'COMPLETO')                   AS "completos",
+               count(*) FILTER (WHERE r.estado IN ('PENDIENTE','EN_PROCESO'))  AS "faltantes",
+               count(*) FILTER (WHERE r.estado = 'NO_LOCALIZADO')              AS "noLocalizados"
+        FROM usuarios.registro_digitalizacion r
+        JOIN usuarios.expediente e ON e.id = r.expediente_id
+        JOIN usuarios.paciente   p ON p.id = e.paciente_id
+        GROUP BY p.comunidad_id
+      ) a ON a."comunidadId" = c.id
+      WHERE c.activa = true
       ORDER BY c.nombre
     `;
 
@@ -120,8 +140,15 @@ export class DigitalizacionService {
 
     const where: Prisma.RegistroDigitalizacionWhereInput = {
       estado: consulta.estado ? consulta.estado : { in: FALTANTES },
-      ...(consulta.comunidadId
-        ? { expediente: { paciente: { comunidadId: consulta.comunidadId } } }
+      ...(consulta.comunidadId || consulta.lugarId
+        ? {
+            expediente: {
+              paciente: {
+                ...(consulta.comunidadId ? { comunidadId: consulta.comunidadId } : {}),
+                ...(consulta.lugarId ? { lugarId: consulta.lugarId } : {}),
+              },
+            },
+          }
         : {}),
     };
 

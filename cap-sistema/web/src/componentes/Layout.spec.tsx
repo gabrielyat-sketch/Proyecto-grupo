@@ -75,11 +75,17 @@ describe('layout con menu por rol', () => {
   it('escribir a mano la ruta de otro rol devuelve al inicio', async () => {
     // Es comodidad, no seguridad: el backend responde 403 igual. Pero evita
     // pintar una pantalla que solo mostraria errores.
+    //
+    // Y lo DICE, en vez de devolver al inicio en silencio: quien escribio la
+    // direccion a mano —o siguio un enlace que le paso un companero— tiene que
+    // poder distinguir «no tengo permiso» de «me equivoque al escribir».
     entrarComo('RECEPCION');
     window.history.pushState({}, '', '/administracion');
     render(<App />);
 
-    await waitFor(() => expect(window.location.pathname).toBe('/'));
+    expect(
+      await screen.findByRole('heading', { name: /no es de su perfil/i }),
+    ).toBeInTheDocument();
   });
 
   it('al pulsar una opcion se abre su pantalla', async () => {

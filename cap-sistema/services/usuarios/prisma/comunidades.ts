@@ -53,7 +53,31 @@ const COMUNIDADES: string[] = [
   'Peña del Angel',
   'Ribaco',
   'Sacsamani',
+  /*
+    No es una comunidad: es donde va quien NO es de Purulha.
+
+    Al CAP llega gente de otros municipios y de fuera del departamento, sobre
+    todo por el trabajo agricola. La comunidad es obligatoria en el paciente
+    —de ella cuelgan la busqueda de recepcion, la cola de digitalizacion y la
+    serie de numeracion de las carpetas— asi que sin una entrada para ellos
+    simplemente no se les podia registrar: la casilla de «no es de Purulha»
+    estaba debajo y no eximia de elegir una.
+
+    Donde vive de verdad se anota en «Lugar de origen», que es texto libre
+    porque puede ser cualquier sitio del pais.
+  */
+  'Fuera de Purulha',
 ];
+
+/**
+ * El codigo con que la pantalla reconoce la entrada de los de fuera.
+ *
+ * Va por codigo y no por nombre porque el nombre es texto que alguien puede
+ * querer cambiar —«Otro municipio», «Foraneo»— y el dia que lo cambie, una
+ * comparacion por nombre dejaria de casar sin que nada avise.
+ */
+const CODIGO_FUERA = 'FUERA';
+const CODIGOS: Record<string, string> = { 'Fuera de Purulha': CODIGO_FUERA };
 
 async function main(): Promise<void> {
   const prisma = new PrismaClient();
@@ -65,8 +89,11 @@ async function main(): Promise<void> {
     const existe = await prisma.comunidad.findUnique({ where: { nombre } });
     await prisma.comunidad.upsert({
       where: { nombre },
-      create: { nombre },
-      update: { activa: true },
+      create: { nombre, codigo: CODIGOS[nombre] ?? null },
+      // El codigo tambien en el update: si la fila ya existia sin el, un
+      // create-solo lo dejaria sin poner para siempre y la pantalla no
+      // reconoceria la entrada.
+      update: { activa: true, codigo: CODIGOS[nombre] ?? null },
     });
     if (existe) actualizadas += 1;
     else creadas += 1;

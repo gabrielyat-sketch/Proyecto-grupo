@@ -82,6 +82,12 @@ function servidor({
       if (p.method !== 'GET') cuerpos.push({ ruta: url.pathname, cuerpo: await p.clone().json() });
 
       if (url.pathname.endsWith('/digitalizacion/comunidades')) return json(comunidades);
+      if (url.pathname.includes('/lugares')) {
+        return json([
+          { id: 'l-1', nombre: 'El Calvario', tipo: 'BARRIO' },
+          { id: 'l-2', nombre: 'San Antonio', tipo: 'BARRIO' },
+        ]);
+      }
       if (url.pathname.endsWith('/digitalizacion/cola')) {
         const comunidad = url.searchParams.get('comunidadId');
         // La comunidad 2 esta terminada: su cola de pendientes viene vacia.
@@ -239,7 +245,9 @@ describe('modo de digitalizacion', () => {
     it('farmacia no entra al archivo', async () => {
       servidor();
       abrir(FARMACIA);
-      await waitFor(() => expect(window.location.pathname).toBe('/'));
+      expect(
+      await screen.findByRole('heading', { name: /no es de su perfil/i }),
+    ).toBeInTheDocument();
     });
   });
 
@@ -391,5 +399,54 @@ describe('modo de digitalizacion', () => {
         expect(peticiones.filter((p) => p.url.includes('/comunidades')).length).toBeGreaterThan(1),
       );
     });
+  });
+});
+
+/**
+ * El barrio, dentro de la comunidad.
+ *
+ * Purulha Centro son siete barrios y los caserios cuarenta y seis: la cola de
+ * la comunidad a secas es el municipio entero, y no ayuda a decidir que cajon
+ * del archivo se abre hoy.
+ */
+describe('filtrar la cola por barrio o caserio', () => {
+  const consultasDeCola = () =>
+    peticiones.filter((p) => p.url.includes('/digitalizacion/cola'));
+  const ultimaCola = () => new URL(consultasDeCola().at(-1)!.url, 'http://local');
+
+  it('no se puede elegir barrio hasta elegir la comunidad', async () => {
+    servidor();
+    abrir();
+
+    const campo = await screen.findByLabelText(/Barrio o caserio/i);
+    expect(campo).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('elegido un barrio, la cola se pide solo de ese barrio', async () => {
+    servidor();
+    const usuario = userEvent.setup();
+    abrir();
+
+    await usuario.click(await screen.findByRole('button', { name: /Chilasco/i }));
+    await usuario.click(await screen.findByLabelText(/Barrio o caserio/i));
+    await usuario.click(await screen.findByRole('option', { name: 'El Calvario' }));
+
+    await waitFor(() => expect(ultimaCola().searchParams.get('lugarId')).toBe('l-1'));
+  });
+
+  it('cambiar de comunidad olvida el barrio de la anterior', async () => {
+    servidor();
+    const usuario = userEvent.setup();
+    abrir();
+
+    await usuario.click(await screen.findByRole('button', { name: /Chilasco/i }));
+    await usuario.click(await screen.findByLabelText(/Barrio o caserio/i));
+    await usuario.click(await screen.findByRole('option', { name: 'El Calvario' }));
+    await waitFor(() => expect(ultimaCola().searchParams.get('lugarId')).toBe('l-1'));
+
+    // Un barrio de la comunidad anterior no esta en la lista nueva: dejarlo
+    // puesto devolveria una cola vacia sin decir por que.
+    await usuario.click(await screen.findByRole('button', { name: /Matanzas/i }));
+    await waitFor(() => expect(ultimaCola().searchParams.get('lugarId')).toBe(null));
   });
 });

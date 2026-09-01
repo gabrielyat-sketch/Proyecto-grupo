@@ -23,6 +23,20 @@ export class ConsultarColaDto {
   @IsString()
   comunidadId?: string;
 
+  /**
+   * El barrio o caserio, dentro de la comunidad.
+   *
+   * Purulha Centro son siete barrios y los caserios son cuarenta y seis: una
+   * cola de «Purulha Centro» a secas es el municipio entero y no ayuda a
+   * decidir que cajon del archivo se abre hoy. El archivo de papel se recorre
+   * por sitio, y cerrar un barrio completo es lo que hace que el avance se
+   * note.
+   */
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsString()
+  lugarId?: string;
+
   @ApiPropertyOptional({
     enum: EstadoDigitalizacionDto,
     description: 'Por defecto, los que faltan: pendientes y en proceso.',

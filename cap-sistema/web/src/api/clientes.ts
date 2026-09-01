@@ -52,21 +52,58 @@ const clienteSinSesion = createClient<RutasAuth>({
  */
 let renovacionEnCurso: Promise<boolean> | null = null;
 
+/**
+ * Renueva la sesion, y solo la cierra si el SERVIDOR dice que ya no vale.
+ *
+ * Antes cerraba ante cualquier fallo del refresco, y eso mezclaba dos cosas
+ * muy distintas:
+ *
+ *  - «Este token ya no sirve» —revocado, expirado, reutilizado, cuenta
+ *    desactivada—. Cerrar es lo correcto.
+ *  - «No pude preguntar» —no hay red, el servicio de auth esta reiniciando,
+ *    el gateway devuelve 502—. La sesion no tiene ninguna culpa.
+ *
+ * En Purulha el segundo caso es el que va a pasar. Con el comportamiento
+ * anterior, un parpadeo de la conexion sacaba del sistema a quien estuviera a
+ * media consulta, con la ficha sin guardar, y de vuelta a la pantalla de entrar
+ * sin ninguna explicacion.
+ *
+ * La distincion se puede hacer con precision porque `rotar` en el servicio de
+ * auth lanza `UnauthorizedException` en TODOS sus caminos de rechazo: sesion
+ * invalida, expirada, reutilizada y cuenta desactivada. Un 401 significa
+ * exactamente «el servidor miro este token y lo rechazo», y ninguna otra cosa
+ * lo significa.
+ */
 async function renovarSesion(): Promise<boolean> {
   const sesion = almacenSesion.obtener();
   if (!sesion) return false;
 
-  const { data, error } = await clienteSinSesion.POST('/v1/auth/refrescar', {
-    body: { tokenRefresco: sesion.tokenRefresco },
-  });
-
-  if (error || !data) {
-    almacenSesion.limpiar();
+  let respuesta;
+  try {
+    respuesta = await clienteSinSesion.POST('/v1/auth/refrescar', {
+      body: { tokenRefresco: sesion.tokenRefresco },
+    });
+  } catch {
+    // `fetch` rechaza cuando no se llego a hablar con nadie: sin red, DNS que
+    // no resuelve, conexion rechazada. No hubo respuesta que interpretar, asi
+    // que no hay nada que permita concluir que la sesion murio.
     return false;
   }
 
-  almacenSesion.renovar(data.tokenAcceso, data.tokenRefresco, data.usuario);
-  return true;
+  const { data, error, response } = respuesta;
+
+  if (data && !error) {
+    almacenSesion.renovar(data.tokenAcceso, data.tokenRefresco, data.usuario);
+    return true;
+  }
+
+  if (response.status === 401) {
+    almacenSesion.limpiar();
+  }
+  // Cualquier otro estado —500, 502, 503, 504— es un problema del servidor, no
+  // del token. La peticion en curso falla y se vera su error, pero la sesion
+  // se queda: cuando el servicio vuelva, el siguiente intento renovara.
+  return false;
 }
 
 function renovar(): Promise<boolean> {

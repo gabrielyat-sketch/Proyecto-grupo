@@ -198,7 +198,9 @@ describe('sala de espera', () => {
     it('farmacia no entra: la sala dice quien vino al medico y a que', async () => {
       servidor();
       abrir(FARMACIA);
-      await waitFor(() => expect(window.location.pathname).toBe('/'));
+      expect(
+      await screen.findByRole('heading', { name: /no es de su perfil/i }),
+    ).toBeInTheDocument();
     });
   });
 

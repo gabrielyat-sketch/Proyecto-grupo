@@ -2787,6 +2787,7 @@ export interface operations {
         parameters: {
             query?: {
                 comunidadId?: string;
+                lugarId?: string;
                 /** @description Por defecto, los que faltan: pendientes y en proceso. */
                 estado?: "PENDIENTE" | "EN_PROCESO" | "COMPLETO" | "NO_LOCALIZADO";
                 /** @description Empieza en 1. Por defecto 1. */

@@ -113,7 +113,7 @@ describe('cliente de API', () => {
     expect(peticiones).toHaveLength(4);
   });
 
-  it('si la renovacion falla, la sesion se cierra', async () => {
+  it('un 401 al renovar cierra la sesion: el servidor rechazo el token', async () => {
     almacenSesion.guardar({ tokenAcceso: VENCIDO, tokenRefresco: 'r-vencido', usuario: USUARIO });
 
     responderCon((r) =>
@@ -125,6 +125,50 @@ describe('cliente de API', () => {
     await apiUsuarios.GET('/v1/comunidades', {});
 
     expect(almacenSesion.autenticado).toBe(false);
+  });
+
+  /**
+   * El caso que se lleva por delante a quien esta trabajando.
+   *
+   * En Purulha la conexion se cae y los servicios se reinician. Antes,
+   * cualquier fallo del refresco cerraba la sesion, asi que un 502 de medio
+   * segundo sacaba del sistema a quien estuviera a media ficha y lo devolvia a
+   * la pantalla de entrar sin explicacion. El token no tenia nada de malo:
+   * simplemente no se pudo preguntar.
+   */
+  it('un 503 al renovar NO cierra la sesion: es el servidor, no el token', async () => {
+    almacenSesion.guardar({ tokenAcceso: VENCIDO, tokenRefresco: 'r-1', usuario: USUARIO });
+
+    responderCon((r) =>
+      new URL(r.url, 'http://local').pathname.endsWith('/v1/auth/refrescar')
+        ? json({ mensaje: 'Servicio no disponible.' }, 503)
+        : json([]),
+    );
+
+    await apiUsuarios.GET('/v1/comunidades', {});
+
+    expect(almacenSesion.autenticado).toBe(true);
+  });
+
+  it('sin red tampoco se cierra: no hubo respuesta que interpretar', async () => {
+    almacenSesion.guardar({ tokenAcceso: VENCIDO, tokenRefresco: 'r-1', usuario: USUARIO });
+
+    // Lo que hace `fetch` cuando no hay a quien preguntar: rechaza, no devuelve
+    // una respuesta con estado.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (p: Request) => {
+        peticiones.push(p);
+        if (new URL(p.url, 'http://local').pathname.endsWith('/v1/auth/refrescar')) {
+          throw new TypeError('Failed to fetch');
+        }
+        return json([]);
+      }),
+    );
+
+    await apiUsuarios.GET('/v1/comunidades', {});
+
+    expect(almacenSesion.autenticado).toBe(true);
   });
 
   it('un 401 con token vigente cierra la sesion: la cuenta ya no vale', async () => {

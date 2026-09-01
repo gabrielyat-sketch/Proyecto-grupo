@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App, clienteConsultas } from '../../App';
 import { almacenSesion, type Perfil } from '../../api';
@@ -523,8 +523,10 @@ describe('ficha clinica de adultos', () => {
     servidor();
     abrir(RECEPCION);
 
-    // La guarda por rol la devuelve al inicio.
-    await waitFor(() => expect(window.location.pathname).toBe('/'));
+    // La guarda por rol lo dice; antes devolvia al inicio sin explicacion.
+    expect(
+      await screen.findByRole('heading', { name: /no es de su perfil/i }),
+    ).toBeInTheDocument();
     expect(screen.queryByText('Revision de problemas')).not.toBeInTheDocument();
   });
 });
