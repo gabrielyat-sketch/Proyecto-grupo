@@ -32,7 +32,7 @@ import {
   buscarCarpetas,
   rotuloDeCarpeta,
   siguienteNumeroDeCarpeta,
-} from './servicio-carpetas';
+} from '../carpetas/servicio-carpetas';
 
 const IDIOMAS = [
   { valor: 'ESPANOL', etiqueta: 'Espanol' },

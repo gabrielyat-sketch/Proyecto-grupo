@@ -2,6 +2,49 @@ import { apiUsuarios, fallarApi } from '../../api';
 import type { components } from '../../api/generado/usuarios';
 
 export type Carpeta = components['schemas']['GrupoFamiliarResumenDto'];
+export type CarpetaConIntegrantes = components['schemas']['GrupoFamiliarDto'];
+
+export interface FiltroCarpetas {
+  comunidadId?: string;
+  lugarId?: string;
+  apellidos?: string;
+  numero?: number;
+  pagina?: number;
+}
+
+export interface PaginaCarpetas {
+  datos: Carpeta[];
+  pagina: number;
+  tamano: number;
+  total: number;
+  totalPaginas: number;
+}
+
+/** El listado del archivero, filtrado por donde se busca. */
+export async function listarCarpetas(filtro: FiltroCarpetas): Promise<PaginaCarpetas> {
+  const ruta = '/v1/grupos-familiares';
+  const { data, error, response } = await apiUsuarios.GET(ruta, {
+    params: {
+      query: {
+        ...(filtro.comunidadId ? { comunidadId: filtro.comunidadId } : {}),
+        ...(filtro.lugarId ? { lugarId: filtro.lugarId } : {}),
+        ...(filtro.apellidos ? { apellidos: filtro.apellidos } : {}),
+        ...(filtro.numero !== undefined ? { numero: filtro.numero } : {}),
+        pagina: filtro.pagina ?? 1,
+      },
+    },
+  });
+  if (error || !data) fallarApi(error, ruta, response);
+  return data as PaginaCarpetas;
+}
+
+/** Una carpeta con la familia que tiene dentro. */
+export async function obtenerCarpeta(id: string): Promise<CarpetaConIntegrantes> {
+  const ruta = '/v1/grupos-familiares/{id}';
+  const { data, error, response } = await apiUsuarios.GET(ruta, { params: { path: { id } } });
+  if (error || !data) fallarApi(error, ruta, response);
+  return data;
+}
 
 /**
  * Las carpetas familiares del archivero del CAP.
