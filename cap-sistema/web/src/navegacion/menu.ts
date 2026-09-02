@@ -205,10 +205,19 @@ const RUTAS_FUERA_DEL_MENU: Record<string, readonly Rol[]> = {
   // El expediente de UN paciente. Entran los seis: lo que cambia por rol es
   // cuanto se ve dentro, no si se puede abrir.
   '/expediente': ['ADMINISTRADOR', 'DIRECTOR', 'MEDICO', 'ENFERMERIA', 'FARMACIA', 'RECEPCION'],
-  // Dar de alta a un paciente es de Recepcion. Todo el personal puede
-  // BUSCARLO —por eso /recepcion es de los seis roles— pero solo recepcion y
-  // administracion lo registran, que es lo que dice el controlador.
-  '/recepcion/nuevo': ['RECEPCION', 'ADMINISTRADOR'],
+  /*
+    Dar de alta es de Recepcion, Enfermeria y Administracion.
+
+    Todo el personal puede BUSCAR a un paciente —por eso `/recepcion` es de los
+    seis roles— pero registrarlo es de estos tres, que es lo que dice el
+    controlador.
+
+    Enfermeria entra por el recien nacido: es quien llena la ficha de menor de
+    28 dias, y ese paciente no existe hasta que alguien lo registra. Mandarla a
+    recepcion a media consulta es lo que hace que el dato acabe en un papel
+    suelto.
+  */
+  '/recepcion/nuevo': ['RECEPCION', 'ENFERMERIA', 'ADMINISTRADOR'],
   // Un medicamento concreto. Entran los mismos cinco roles que a Farmacia: lo
   // que cambia por rol es que se puede HACER dentro —solo Farmacia y
   // Administracion ingresan lotes o dan de baja— no si se puede abrir.
