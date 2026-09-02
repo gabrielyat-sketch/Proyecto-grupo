@@ -421,34 +421,51 @@ describe('alta de paciente', () => {
 });
 
 describe('quien puede dar de alta un paciente', () => {
-  it('Enfermeria busca, pero NO se le ofrece registrar', async () => {
-    // El servidor solo deja registrar a Recepcion y Administracion. Ofrecerle
-    // el boton terminaba en un 403 al guardar, despues de llenar el formulario
-    // entero: la persona cree que el sistema fallo, cuando esta haciendo lo
-    // correcto.
-    servidorCon();
+  function entrarComoRol(rol: string, ruta: string) {
     almacenSesion.limpiar();
     almacenSesion.guardar({
       tokenAcceso: 't',
       tokenRefresco: 'r',
-      usuario: { ...RECEPCION, id: 'u-9', usuario: 'mcaal', rol: 'ENFERMERIA' },
+      usuario: { ...RECEPCION, id: 'u-9', usuario: 'mcaal', rol: rol as typeof RECEPCION.rol },
     });
-    window.history.pushState({}, '', '/recepcion');
+    window.history.pushState({}, '', ruta);
+  }
+
+  /**
+   * Enfermeria tambien registra, y no es una concesion.
+   *
+   * Es quien llena las fichas, y hay un caso donde registrar y atender ocurren
+   * en el mismo minuto: llega la madre con un recien nacido que todavia no
+   * tiene nombre ni registro. Sin poder abrirle expediente, la enfermera no
+   * tiene donde guardar la ficha de menor de 28 dias, y mandarla a recepcion a
+   * media consulta es lo que hace que el dato acabe en un papel suelto.
+   */
+  it('Enfermeria si registra: es quien llena la ficha del recien nacido', async () => {
+    servidorCon();
+    entrarComoRol('ENFERMERIA', '/recepcion');
+    render(<App />);
+
+    await screen.findByRole('heading', { name: 'Recepcion' });
+    expect(screen.getByRole('link', { name: /Registrar paciente/i })).toBeInTheDocument();
+  });
+
+  /**
+   * Farmacia no. Ofrecer un boton que termina en un 403 al guardar, despues de
+   * llenar el formulario entero, hace pensar que el sistema fallo cuando esta
+   * haciendo justo lo correcto.
+   */
+  it('Farmacia busca, pero NO se le ofrece registrar', async () => {
+    servidorCon();
+    entrarComoRol('FARMACIA', '/recepcion');
     render(<App />);
 
     await screen.findByRole('heading', { name: 'Recepcion' });
     expect(screen.queryByRole('link', { name: /Registrar paciente/i })).not.toBeInTheDocument();
   });
 
-  it('escribir la ruta del alta a mano tampoco entra', async () => {
+  it('y escribir la ruta del alta a mano tampoco le entra', async () => {
     servidorCon();
-    almacenSesion.limpiar();
-    almacenSesion.guardar({
-      tokenAcceso: 't',
-      tokenRefresco: 'r',
-      usuario: { ...RECEPCION, id: 'u-9', usuario: 'mcaal', rol: 'ENFERMERIA' },
-    });
-    window.history.pushState({}, '', '/recepcion/nuevo');
+    entrarComoRol('FARMACIA', '/recepcion/nuevo');
     render(<App />);
 
     expect(

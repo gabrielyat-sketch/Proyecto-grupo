@@ -45,6 +45,21 @@ export function PaginaRecepcion() {
   // esta haciendo lo correcto.
   const puedeRegistrar = puedeEntrar(usuario?.rol, '/recepcion/nuevo');
 
+  /*
+    Marcar la llegada NO es lo mismo que dar de alta.
+
+    Compartian la comprobacion mientras las dos eran de recepcion, y al abrirle
+    el alta a Enfermeria —que registra al recien nacido que va a atender— el
+    boton de marcar llegada se le colo de regalo. El servidor no se lo permite
+    (`POST /v1/visitas` es de Recepcion y Administracion), asi que habria
+    terminado en un 403 despues de escribir el motivo.
+
+    Marcar llegada es de quien esta en la ventanilla y ve entrar a la gente.
+    Registrar es de quien necesita un expediente donde guardar lo que atiende.
+    Son dos cosas distintas y ahora se preguntan por separado.
+  */
+  const puedeMarcarLlegada = ['RECEPCION', 'ADMINISTRADOR'].includes(usuario?.rol ?? '');
+
   const [texto, setTexto] = useState('');
   const [comunidadId, setComunidadId] = useState('');
   const [pagina, setPagina] = useState(1);
@@ -213,10 +228,8 @@ export function PaginaRecepcion() {
           <TablaPacientes
             resultados={resultados.data}
             onPagina={setPagina}
-            // Marcar la llegada es de recepcion, igual que dar de alta: son
-            // quienes estan en la ventanilla y ven entrar a la gente.
             onLlegada={
-              puedeRegistrar
+              puedeMarcarLlegada
                 ? (p) => {
                     setMotivo('');
                     llegada.reset();

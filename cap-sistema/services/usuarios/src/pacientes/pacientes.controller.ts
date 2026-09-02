@@ -49,8 +49,23 @@ export class PacientesController {
     return this.servicio.obtener(id);
   }
 
+  /*
+    Enfermeria tambien da de alta.
+
+    No es una concesion: es quien llena las fichas, y hay un caso en que
+    registrar y atender ocurren en el mismo minuto. Llega la madre con un
+    recien nacido que todavia no tiene nombre ni registro; sin poder abrirle
+    expediente, la enfermera no tiene donde guardar la ficha de menor de 28
+    dias, y mandarla a recepcion a media consulta es lo que hace que el dato
+    acabe en un papel suelto.
+
+    Lo que se abre es el alta COMPLETA, no una version recortada para bebes:
+    partir el permiso en dos exigiria un segundo camino de creacion que hay que
+    mantener igual que el primero, y el dia que se separen nadie sabra cual de
+    los dos es el bueno.
+  */
   @Post()
-  @Roles(Rol.RECEPCION, Rol.ADMINISTRADOR)
+  @Roles(Rol.RECEPCION, Rol.ENFERMERIA, Rol.ADMINISTRADOR)
   @ApiOperation({ summary: 'Registra un paciente y abre su expediente' })
   @ApiCreatedResponse({ type: PacienteCreadoDto })
   crear(
