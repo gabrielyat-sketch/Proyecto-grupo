@@ -8,6 +8,12 @@ Todo sale de `develop` en `2cdd6fe` (tu merge del PR #3, trazabilidad). Las
 ramas están rebasadas sobre ese commit, ninguna tiene conflictos, y ninguna
 depende de las otras: se pueden fusionar en cualquier orden.
 
+> **Nota del 7 de septiembre de 2026.** Los cuatro PR ya están fusionados en
+> `develop`, y esta rama está rebasada sobre `7cf43d6` (el merge del PR #26).
+> El documento se conserva como registro de la entrega: lo que sigue describe el
+> trabajo tal como se entregó el 30 de agosto. Las tres secciones que dejaron de
+> ser ciertas —la 1, la 6 y la 7— llevan anotado qué cambió.
+
 ---
 
 ## 1. Los cuatro PR de código, en el orden en que conviene mirarlos
@@ -21,6 +27,10 @@ depende de las otras: se pueden fusionar en cualquier orden.
 
 Los tres primeros son cortos y de leer en cinco minutos. El #17 es grande pero
 no toca lógica: es CSS, componentes de presentación y un tema de MUI.
+
+**Los cuatro entraron en `develop` el 31 de agosto**, en este orden: #15
+(`fe0509b`), #16 (`86db22d`), #17 (`5f06250`) y #18 (`be31bc8`). Sus ramas ya
+no existen en el remoto.
 
 ---
 
@@ -210,6 +220,11 @@ tres tamaños en `public/`: 32 px para la pestaña, 256 para pantallas densas y
 
 ## 6. Cómo traer todo esto
 
+**Ya no hace falta traer nada: los cuatro PR están fusionados.** Lo que sigue
+queda como registro, salvo las dos cosas del final —el script de lugares y el
+reinicio de `auth`— que sí hay que hacer en cualquier máquina que actualice
+desde antes del 31 de agosto.
+
 ```bash
 git fetch origin --prune
 
@@ -242,7 +257,8 @@ DELETE FROM auth.configuracion_mfa WHERE usuario_id IN (SELECT id FROM auth.usua
 ## 7. Lo que queda pendiente
 
 Nada de esto está a medias en el código: son decisiones que no tomé por mi
-cuenta.
+cuenta. Repasado el 7 de septiembre contra `develop`: sigue pendiente todo salvo
+lo que se anota abajo.
 
 **Presencia real de usuarios en Administración.** El dato existe:
 `auth.sesion_refresh` guarda las sesiones vivas de cada cuenta. Falta un
@@ -254,10 +270,11 @@ un semáforo de cuatro estados es bastante en pantalla; sobre el papel cada uno
 se justifica, pero eso solo se comprueba mirándolo unos días. Lo más fácil de
 revertir, si estorba, es el verde azulado de los encabezados.
 
-**Las sub-pantallas siguen sin la banda de encabezado**: Registrar paciente, el
-expediente individual, y las de farmacia (Registrar entrega, detalle de
-medicamento). Se ven distintas de sus pantallas padre. Es un cambio mecánico,
-lo dejé fuera porque no estaba pedido.
+**Las sub-pantallas siguen sin la banda de encabezado**: el expediente
+individual y las de farmacia (Registrar entrega, detalle de medicamento). Se ven
+distintas de sus pantallas padre. Es un cambio mecánico, lo dejé fuera porque no
+estaba pedido. *Registrar paciente ya la tiene*: se la puso Dennis al rehacer
+esa pantalla el 1 de septiembre.
 
 **Los textos del acceso siguen sin tildes** ("Iniciar sesion", "Contrasena").
 Cambiarlos obliga a actualizar `App.spec.tsx`, que los busca sin tilde con
