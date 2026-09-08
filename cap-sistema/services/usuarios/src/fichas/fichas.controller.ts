@@ -7,7 +7,7 @@ import {
   ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
-import { Rol, Roles, Usuario } from '@cap/shared';
+import { Autorizacion, Rol, Roles, Usuario } from '@cap/shared';
 import { FichasService } from './fichas.service';
 import { CrearFichaDto, TipoFichaDto } from './dto/crear-ficha.dto';
 import { CatalogoFichaDto, FichaCreadaDto, FichaDto } from './dto/respuestas.dto';
@@ -56,9 +56,13 @@ export class FichasController {
     @Param('expedienteId') expedienteId: string,
     @Body() dto: CrearFichaDto,
     @Usuario('id') usuarioId: string,
+    @Autorizacion() autorizacion: string,
     @Req() req: { trazaId?: string },
   ): Promise<FichaCreadaDto> {
-    return this.servicio.registrar(expedienteId, dto, usuarioId, req.trazaId);
+    return this.servicio.registrar(expedienteId, dto, usuarioId, {
+      autorizacion,
+      trazaId: req.trazaId,
+    });
   }
 
   @Get('fichas/:id')

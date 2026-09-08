@@ -1,5 +1,10 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { ServicioCifrado } from '@cap/shared';
+import {
+  CLIENTE_AUDITORIA,
+  ContextoAuditoria,
+  IClienteAuditoria,
+  ServicioCifrado,
+} from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { SERVICIO_CIFRADO } from '../comun/cifrado.module';
 import {
@@ -53,6 +58,7 @@ export class CarnetService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(SERVICIO_CIFRADO) private readonly cifrado: ServicioCifrado,
+    @Inject(CLIENTE_AUDITORIA) private readonly auditoria: IClienteAuditoria,
   ) {}
 
   private cifrar(valor: string | undefined): Uint8Array<ArrayBuffer> | null {
@@ -225,6 +231,7 @@ export class CarnetService {
     pacienteId: string,
     dto: GuardarCarnetDto,
     usuarioId: string,
+    contexto: ContextoAuditoria,
   ): Promise<CarnetDto> {
     const paciente = await this.prisma.paciente.findUnique({
       where: { id: pacienteId },
@@ -371,6 +378,31 @@ export class CarnetService {
           update: { registradoPor: usuarioId, ...campos },
         });
       }
+
+      // Que partes del carnet se tocaron. Una dosis con fecha null se BORRA
+      // —asi se corrige una casilla mal anotada— y ese borrado tiene que
+      // quedar registrado como cualquier otro cambio: es el unico caso del
+      // modulo en el que un dato clinico desaparece.
+      await this.auditoria.registrar(
+        {
+          servicio: 'usuarios',
+          accion: 'MODIFICACION',
+          entidad: 'carnet',
+          entidadId: pacienteId,
+          motivo: 'Anotacion o correccion del carnet',
+          valorNuevo: JSON.stringify({
+            vacunas: (dto.vacunas ?? []).map((v) => ({
+              vacunaId: v.vacunaId,
+              orden: v.orden,
+              borrada: v.fecha === null || v.fecha === undefined,
+            })),
+            micronutrientes: (dto.micronutrientes ?? []).length,
+            hogar: dto.hogar !== undefined,
+          }),
+        },
+        contexto.autorizacion,
+        contexto.trazaId,
+      );
     });
 
     return this.obtener(pacienteId);

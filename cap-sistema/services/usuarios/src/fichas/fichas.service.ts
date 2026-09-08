@@ -1,5 +1,10 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { ServicioCifrado } from '@cap/shared';
+import {
+  CLIENTE_AUDITORIA,
+  ContextoAuditoria,
+  IClienteAuditoria,
+  ServicioCifrado,
+} from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { SERVICIO_CIFRADO } from '../comun/cifrado.module';
 import { Evento, OutboxService } from '../eventos/outbox.service';
@@ -25,6 +30,7 @@ export class FichasService {
     private readonly prisma: PrismaService,
     @Inject(SERVICIO_CIFRADO) private readonly cifrado: ServicioCifrado,
     private readonly outbox: OutboxService,
+    @Inject(CLIENTE_AUDITORIA) private readonly auditoria: IClienteAuditoria,
   ) {}
 
   /**
@@ -124,7 +130,7 @@ export class FichasService {
     expedienteId: string,
     dto: CrearFichaDto,
     usuarioId: string,
-    trazaId?: string,
+    contexto: ContextoAuditoria,
   ): Promise<FichaCreadaDto> {
     const expediente = await this.prisma.expediente.findUnique({
       where: { id: expedienteId },
@@ -243,7 +249,7 @@ export class FichasService {
           presionDiastolica: dto.presionDiastolica ?? null,
           registradaPor: usuarioId,
         },
-        trazaId,
+        contexto.trazaId,
       );
 
       // Guardar la hoja SACA la carpeta de la cola.
@@ -332,6 +338,30 @@ export class FichasService {
           atencionId: atencion.id,
         },
       });
+
+      // Una hoja del MSPAS son ~200 campos. No se copian aqui: la ficha
+      // completa ya vive en el expediente, y duplicarla en una tabla
+      // append-only multiplicaria la que mas crece del sistema (arquitectura
+      // 9.5) por una copia que ademas nadie podria corregir nunca. Queda el
+      // QUE, el QUIEN y el CUANDO, que es lo que se audita.
+      await this.auditoria.registrar(
+        {
+          servicio: 'usuarios',
+          accion: 'CREACION',
+          entidad: 'ficha',
+          entidadId: atencion.id,
+          motivo: 'Registro de ficha clinica completa',
+          valorNuevo: JSON.stringify({
+            expedienteId,
+            pacienteId: expediente.paciente.id,
+            tipoFicha: dto.tipoFicha,
+            fecha: atencion.fecha.toISOString(),
+            digitalizada: dto.digitalizada ?? false,
+          }),
+        },
+        contexto.autorizacion,
+        contexto.trazaId,
+      );
 
       return atencion;
     });

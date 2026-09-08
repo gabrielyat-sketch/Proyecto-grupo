@@ -1,5 +1,10 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { ServicioCifrado } from '@cap/shared';
+import {
+  CLIENTE_AUDITORIA,
+  ContextoAuditoria,
+  IClienteAuditoria,
+  ServicioCifrado,
+} from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { SERVICIO_CIFRADO } from '../comun/cifrado.module';
 import { GuardarAntecedentesDto } from './dto/guardar-antecedentes.dto';
@@ -13,6 +18,7 @@ export class AntecedentesService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(SERVICIO_CIFRADO) private readonly cifrado: ServicioCifrado,
+    @Inject(CLIENTE_AUDITORIA) private readonly auditoria: IClienteAuditoria,
   ) {}
 
   /**
@@ -70,6 +76,7 @@ export class AntecedentesService {
     pacienteId: string,
     dto: GuardarAntecedentesDto,
     usuarioId: string,
+    contexto: ContextoAuditoria,
   ): Promise<AntecedentesPacienteDto> {
     const paciente = await this.prisma.paciente.findUnique({
       where: { id: pacienteId },
@@ -114,6 +121,24 @@ export class AntecedentesService {
           update: { ...dto.obstetricos, registradoPor: usuarioId },
         });
       }
+
+      // Se anota CUALES se tocaron, no lo que se respondio: el detalle de un
+      // antecedente es texto clinico y vive cifrado en su propia tabla.
+      await this.auditoria.registrar(
+        {
+          servicio: 'usuarios',
+          accion: 'MODIFICACION',
+          entidad: 'antecedentes',
+          entidadId: pacienteId,
+          motivo: 'Captura de antecedentes del paciente',
+          valorNuevo: JSON.stringify({
+            antecedentes: marcados.map((m) => m.antecedenteId),
+            obstetricos: dto.obstetricos !== undefined,
+          }),
+        },
+        contexto.autorizacion,
+        contexto.trazaId,
+      );
     });
 
     return this.obtener(pacienteId);
