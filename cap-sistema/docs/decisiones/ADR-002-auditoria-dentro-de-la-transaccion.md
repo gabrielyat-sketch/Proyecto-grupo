@@ -70,11 +70,23 @@ justo la ventana que el RF-09 prohíbe: el cambio guardado, la bitácora caída,
 peor cuando miente que cuando falta.
 
 **Patrón outbox** — escribir la entrada en una tabla local dentro de la transacción y que un proceso
-aparte la envíe a `trazabilidad`. Da la misma garantía sin sostener la transacción durante una
-llamada HTTP, y es a donde habría que ir si el costo de arriba llega a doler. Se descarta **por
-ahora**: exige una tabla, un proceso que la vacíe y una política de reintentos en cada servicio que
-audite, y hoy el sistema atiende a un CAP con un puñado de usuarios concurrentes. Queda anotado como
-la evolución esperada, no como trabajo pendiente.
+aparte la envíe a `trazabilidad`. Da la misma garantía de "no hay cambio sin rastro" —la fila cae
+con el commit— sin sostener la transacción durante una llamada HTTP.
+
+Y hay que decir que **media infraestructura ya existe**: `usuarios`, `programas` y `medicamentos`
+tienen tabla `outbox` y su `OutboxService`, que se escribe siempre con el cliente de la transacción
+en curso, por exactamente el mismo razonamiento que sostiene este ADR. Lo que falta es **el
+publicador que vacía esa bandeja, y llega en la Etapa 10**; hasta entonces las filas se acumularían
+sin que nadie las entregue, y una bitácora que se escribirá "cuando exista el publicador" no es una
+bitácora. `auth` —el servicio de este PR— además no tiene outbox ni tabla ni módulo.
+
+Se descarta **por ahora**, entonces, no por diseño sino por orden: cuando la Etapa 10 traiga el
+publicador, mover la auditoría al outbox es un cambio local en cada servicio y esta decisión debería
+revisarse. Queda anotado como la evolución esperada.
+
+Hay una diferencia real entre las dos, y conviene tenerla presente al decidir: con el outbox la
+operación se completa aunque `trazabilidad` esté caída, y el rastro llega después. Con la llamada
+síncrona la operación no ocurre. La segunda es más estricta; la primera es más disponible.
 
 ## Alcance de esta primera entrega
 
