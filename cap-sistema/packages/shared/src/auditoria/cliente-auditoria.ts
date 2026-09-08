@@ -65,6 +65,19 @@ export interface EntradaAuditoria {
   ip?: string;
 }
 
+/**
+ * Lo que hace falta para auditar en nombre de quien pidio la accion.
+ *
+ * Viaja del controlador al servicio como un solo objeto: los dos datos salen
+ * de la peticion, no del dominio, y pasarlos sueltos obliga a anadir dos
+ * parametros a cada metodo que audite.
+ */
+export interface ContextoAuditoria {
+  /** La cabecera `Authorization` tal cual, con su `Bearer `. */
+  autorizacion: string;
+  trazaId?: string;
+}
+
 export const CLIENTE_AUDITORIA = 'CLIENTE_AUDITORIA';
 
 export interface IClienteAuditoria {

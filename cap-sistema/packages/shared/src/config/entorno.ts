@@ -22,6 +22,20 @@ export const esquemaCifrado = z.object({
   LLAVE_INDICE: z.string().regex(/^[0-9a-fA-F]{64}$/, 'LLAVE_INDICE debe ser 64 caracteres hex'),
 });
 
+/**
+ * Variables extra para los servicios que auditan (RF-09).
+ *
+ * `URL_TRAZABILIDAD` es opcional a proposito: un servicio suelto tiene que
+ * poder arrancar en la maquina de alguien sin levantar los ocho. Lo que NO
+ * puede es arrancar asi en produccion, y de eso responde `ModuloAuditoria`,
+ * que se niega a montar un cliente nulo con NODE_ENV=production.
+ */
+export const esquemaAuditoria = z.object({
+  URL_TRAZABILIDAD: z.string().url('URL_TRAZABILIDAD debe ser una URL').optional(),
+  /** Corto a proposito: bloquea la peticion del usuario mientras espera. */
+  AUDITORIA_TIMEOUT_MS: z.coerce.number().int().min(200).max(5000).default(2000),
+});
+
 export type EntornoBase = z.infer<typeof esquemaBase>;
 
 /**
