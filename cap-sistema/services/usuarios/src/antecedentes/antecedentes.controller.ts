@@ -1,6 +1,6 @@
-import { Body, Controller, Get, Param, Patch } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Rol, Roles, Usuario } from '@cap/shared';
+import { Autorizacion, Rol, Roles, Usuario } from '@cap/shared';
 import { AntecedentesService } from './antecedentes.service';
 import { GuardarAntecedentesDto } from './dto/guardar-antecedentes.dto';
 import { AntecedentesPacienteDto } from '../fichas/dto/respuestas.dto';
@@ -48,7 +48,12 @@ export class AntecedentesController {
     @Param('pacienteId') pacienteId: string,
     @Body() dto: GuardarAntecedentesDto,
     @Usuario('id') usuarioId: string,
+    @Autorizacion() autorizacion: string,
+    @Req() req: { trazaId?: string },
   ): Promise<AntecedentesPacienteDto> {
-    return this.servicio.guardar(pacienteId, dto, usuarioId);
+    return this.servicio.guardar(pacienteId, dto, usuarioId, {
+      autorizacion,
+      trazaId: req.trazaId,
+    });
   }
 }

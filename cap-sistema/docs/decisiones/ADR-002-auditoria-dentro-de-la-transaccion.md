@@ -88,15 +88,46 @@ Hay una diferencia real entre las dos, y conviene tenerla presente al decidir: c
 operación se completa aunque `trazabilidad` esté caída, y el rastro llega después. Con la llamada
 síncrona la operación no ocurre. La segunda es más estricta; la primera es más disponible.
 
-## Alcance de esta primera entrega
+## Lo que la bitácora guarda, y lo que no
 
-Solo `auth`, y solo sus cuatro acciones administrativas: crear cuenta, actualizar datos/rol/estado,
-reiniciar segundo factor y restablecer contraseña.
+**Guarda el qué, el quién y el cuándo. No copia el contenido clínico.**
 
-Falta —y es lo grande— `usuarios`: pacientes, expedientes, fichas y atenciones, más **toda consulta
-de expediente**, que es la mitad del RF-09 y la que genera el volumen.
+Un diagnóstico, el motivo de consulta, las notas o el detalle de un antecedente ya viven cifrados en
+su propia tabla. Duplicarlos en la bitácora tiene tres problemas, y el segundo es el que decide:
 
-**El `motivo` todavía no lo escribe una persona.** §10.4 lo exige y hoy se registra una constante
-por acción ("Alta de cuenta desde Administracion"). Capturar el motivo real obliga a añadir el campo
-a los DTO y una casilla a la pantalla de Administración: es un cambio de contrato y de interfaz, y
-se deja para su propio PR.
+1. Multiplica la tabla que más crece del sistema (§9.5: ~3.6 millones de filas).
+2. **La bitácora es append-only.** Una copia ahí no se puede corregir nunca. Un diagnóstico mal
+   tecleado se arregla en el expediente y queda fijado para siempre en el único sitio que nadie
+   puede tocar.
+3. Amplía la superficie del dato más sensible del sistema a un segundo almacén.
+
+Lo que sí se registra son los identificadores y la forma del cambio: qué antecedentes se tocaron,
+qué dosis se anotaron **y cuáles se borraron** —una fecha en `null` borra la dosis, y es el único
+caso en que un dato clínico desaparece—, de qué tipo era la ficha, a qué expediente y paciente
+pertenece.
+
+**Esto es una lectura parcial de la §10.4**, que pide "valor anterior y nuevo". Se cumple para la
+forma del cambio, no para el contenido. Cerrar esa distancia de verdad exige una decisión que no es
+técnica: cuánto tiempo el CAP debe conservar copias del texto clínico en un almacén que no admite
+correcciones. Queda como pregunta abierta, no como olvido.
+
+## Alcance
+
+**Entregado:**
+
+- `auth` — las cuatro acciones administrativas: crear cuenta, actualizar datos/rol/estado, reiniciar
+  segundo factor y restablecer contraseña.
+- `usuarios` — las cuatro escrituras de dato clínico: registrar una atención, guardar una ficha
+  completa, capturar antecedentes y anotar el carnet.
+
+**Falta:**
+
+- **Toda consulta de expediente**, que es la otra mitad del RF-09 y la que genera el volumen. Es
+  además la que usa la política contraria: la lectura continúa aunque la bitácora esté caída.
+- El resto de escrituras de `usuarios`: pacientes, visitas, grupos familiares, comunidades y el
+  marcado de digitalización.
+- `programas` y `medicamentos`.
+- **El `motivo` todavía no lo escribe una persona.** §10.4 lo exige y hoy se registra una constante
+  por acción ("Alta de cuenta desde Administracion"). Capturar el motivo real obliga a añadir el
+  campo a los DTO y una casilla a las pantallas: es un cambio de contrato y de interfaz, y se deja
+  para su propio PR.

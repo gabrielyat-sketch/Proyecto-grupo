@@ -1,5 +1,12 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { crearPagina, normalizarPagina, ServicioCifrado } from '@cap/shared';
+import {
+  CLIENTE_AUDITORIA,
+  ContextoAuditoria,
+  crearPagina,
+  IClienteAuditoria,
+  normalizarPagina,
+  ServicioCifrado,
+} from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { SERVICIO_CIFRADO } from '../comun/cifrado.module';
 import { Evento, OutboxService } from '../eventos/outbox.service';
@@ -12,6 +19,7 @@ export class AtencionesService {
     private readonly prisma: PrismaService,
     private readonly outbox: OutboxService,
     @Inject(SERVICIO_CIFRADO) private readonly cifrado: ServicioCifrado,
+    @Inject(CLIENTE_AUDITORIA) private readonly auditoria: IClienteAuditoria,
   ) {}
 
   /**
@@ -45,7 +53,7 @@ export class AtencionesService {
     expedienteId: string,
     dto: RegistrarAtencionDto,
     usuarioId: string,
-    trazaId?: string,
+    contexto: ContextoAuditoria,
   ) {
     const expediente = await this.prisma.expediente.findUnique({
       where: { id: expedienteId },
@@ -99,7 +107,30 @@ export class AtencionesService {
           presionDiastolica: dto.presionDiastolica ?? null,
           registradaPor: usuarioId,
         },
-        trazaId,
+        contexto.trazaId,
+      );
+
+      // El RF-09 pide constancia de QUE se registro una atencion y de QUIEN lo
+      // hizo. El motivo, el diagnostico y las notas no se copian aqui: ya viven
+      // cifrados en la propia atencion, y la bitacora es append-only —una copia
+      // ahi no se puede corregir nunca, asi que un diagnostico mal tecleado
+      // quedaria fijado para siempre en el unico sitio que nadie puede tocar.
+      await this.auditoria.registrar(
+        {
+          servicio: 'usuarios',
+          accion: 'CREACION',
+          entidad: 'atencion',
+          entidadId: atencion.id,
+          motivo: 'Registro de atencion en el expediente',
+          valorNuevo: JSON.stringify({
+            expedienteId,
+            pacienteId: expediente.paciente.id,
+            fecha: atencion.fecha.toISOString(),
+            digitalizada: atencion.digitalizada,
+          }),
+        },
+        contexto.autorizacion,
+        contexto.trazaId,
       );
 
       // La misma regla que al guardar una ficha completa: transcribir una hoja

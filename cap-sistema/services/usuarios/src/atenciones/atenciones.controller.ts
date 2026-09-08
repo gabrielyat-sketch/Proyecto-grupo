@@ -1,6 +1,14 @@
 import { Body, Controller, Get, Param, Post, Query, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ApiParametrosPagina, ApiPaginaDe, type Pagina, Rol, Roles, Usuario } from '@cap/shared';
+import {
+  ApiParametrosPagina,
+  ApiPaginaDe,
+  Autorizacion,
+  type Pagina,
+  Rol,
+  Roles,
+  Usuario,
+} from '@cap/shared';
 import { AtencionesService } from './atenciones.service';
 import { RegistrarAtencionDto } from './dto/registrar-atencion.dto';
 import { AtencionDto } from './dto/respuestas.dto';
@@ -41,8 +49,12 @@ export class AtencionesController {
     @Param('expedienteId') expedienteId: string,
     @Body() dto: RegistrarAtencionDto,
     @Usuario('id') usuarioId: string,
+    @Autorizacion() autorizacion: string,
     @Req() req: { trazaId?: string },
   ): Promise<AtencionDto> {
-    return this.servicio.registrar(expedienteId, dto, usuarioId, req.trazaId);
+    return this.servicio.registrar(expedienteId, dto, usuarioId, {
+      autorizacion,
+      trazaId: req.trazaId,
+    });
   }
 }

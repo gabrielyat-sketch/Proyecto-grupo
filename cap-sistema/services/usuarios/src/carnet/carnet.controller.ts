@@ -1,6 +1,6 @@
-import { Body, Controller, Get, Param, Patch } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Rol, Roles, Usuario } from '@cap/shared';
+import { Autorizacion, Rol, Roles, Usuario } from '@cap/shared';
 import { CarnetService } from './carnet.service';
 import {
   CarnetDto,
@@ -81,7 +81,12 @@ export class CarnetController {
     @Param('pacienteId') pacienteId: string,
     @Body() dto: GuardarCarnetDto,
     @Usuario('id') usuarioId: string,
+    @Autorizacion() autorizacion: string,
+    @Req() req: { trazaId?: string },
   ): Promise<CarnetDto> {
-    return this.servicio.guardar(pacienteId, dto, usuarioId);
+    return this.servicio.guardar(pacienteId, dto, usuarioId, {
+      autorizacion,
+      trazaId: req.trazaId,
+    });
   }
 }
