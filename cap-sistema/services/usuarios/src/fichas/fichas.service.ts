@@ -3,6 +3,7 @@ import {
   CLIENTE_AUDITORIA,
   ContextoAuditoria,
   IClienteAuditoria,
+  registrarConsulta,
   ServicioCifrado,
 } from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
@@ -463,7 +464,7 @@ export class FichasService {
   }
 
   /** Una ficha completa, con el texto descifrado y el catalogo resuelto. */
-  async obtener(id: string): Promise<FichaDto> {
+  async obtener(id: string, contexto: ContextoAuditoria): Promise<FichaDto> {
     const a = await this.prisma.atencion.findUnique({
       where: { id },
       include: {
@@ -481,6 +482,20 @@ export class FichasService {
       },
     });
     if (!a) throw new NotFoundException('No existe esa ficha.');
+
+    // Abrir una ficha descifra la hoja entera: es una consulta de expediente
+    // en el sentido pleno del RF-09.
+    registrarConsulta(
+      this.auditoria,
+      {
+        servicio: 'usuarios',
+        entidad: 'ficha',
+        entidadId: id,
+        motivo: 'Apertura de una ficha clinica',
+        valorNuevo: JSON.stringify({ expedienteId: a.expedienteId, tipoFicha: a.tipoFicha }),
+      },
+      contexto,
+    );
 
     const signosPeligro: SignoPeligroFichaDto[] = a.signosPeligro
       .sort((x, y) => x.signo.orden - y.signo.orden)

@@ -30,8 +30,12 @@ export class AntecedentesController {
       'que no es lo mismo que "no".',
   })
   @ApiOkResponse({ type: AntecedentesPacienteDto })
-  obtener(@Param('pacienteId') pacienteId: string): Promise<AntecedentesPacienteDto> {
-    return this.servicio.obtener(pacienteId);
+  obtener(
+    @Param('pacienteId') pacienteId: string,
+    @Autorizacion() autorizacion: string,
+    @Req() req: { trazaId?: string },
+  ): Promise<AntecedentesPacienteDto> {
+    return this.servicio.obtener(pacienteId, { autorizacion, trazaId: req.trazaId });
   }
 
   @Patch()

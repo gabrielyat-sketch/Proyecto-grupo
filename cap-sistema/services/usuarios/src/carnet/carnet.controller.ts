@@ -48,8 +48,12 @@ export class CarnetController {
       'papel hay que escribirla porque no se puede restar.',
   })
   @ApiOkResponse({ type: CarnetDto })
-  obtener(@Param('pacienteId') pacienteId: string): Promise<CarnetDto> {
-    return this.servicio.obtener(pacienteId);
+  obtener(
+    @Param('pacienteId') pacienteId: string,
+    @Autorizacion() autorizacion: string,
+    @Req() req: { trazaId?: string },
+  ): Promise<CarnetDto> {
+    return this.servicio.obtener(pacienteId, { autorizacion, trazaId: req.trazaId });
   }
 
   @Get('pacientes/:pacienteId/crecimiento')
@@ -62,8 +66,12 @@ export class CarnetController {
       '—que es lo que dice la leyenda impresa, y no depende de donde cae el punto—.',
   })
   @ApiOkResponse({ type: CrecimientoDto })
-  crecimiento(@Param('pacienteId') pacienteId: string): Promise<CrecimientoDto> {
-    return this.servicio.crecimiento(pacienteId);
+  crecimiento(
+    @Param('pacienteId') pacienteId: string,
+    @Autorizacion() autorizacion: string,
+    @Req() req: { trazaId?: string },
+  ): Promise<CrecimientoDto> {
+    return this.servicio.crecimiento(pacienteId, { autorizacion, trazaId: req.trazaId });
   }
 
   @Patch('pacientes/:pacienteId/carnet')

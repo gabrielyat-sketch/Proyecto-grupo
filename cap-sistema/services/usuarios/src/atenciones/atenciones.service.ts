@@ -5,6 +5,7 @@ import {
   crearPagina,
   IClienteAuditoria,
   normalizarPagina,
+  registrarConsulta,
   ServicioCifrado,
 } from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
@@ -29,7 +30,11 @@ export class AtencionesService {
    * controles puede tener cientos de atenciones, y cada una hay que
    * descifrarla.
    */
-  async listar(expedienteId: string, consulta: { pagina?: number; tamano?: number }) {
+  async listar(
+    expedienteId: string,
+    consulta: { pagina?: number; tamano?: number },
+    contexto: ContextoAuditoria,
+  ) {
     if (!(await this.prisma.expediente.findUnique({ where: { id: expedienteId }, select: { id: true } }))) {
       throw new NotFoundException('No existe ese expediente.');
     }
@@ -45,6 +50,20 @@ export class AtencionesService {
       }),
       this.prisma.atencion.count({ where: { expedienteId } }),
     ]);
+
+    // El historial es LA consulta de expediente del RF-09: aqui se descifran
+    // los diagnosticos y las notas de todas las atenciones de la pagina.
+    registrarConsulta(
+      this.auditoria,
+      {
+        servicio: 'usuarios',
+        entidad: 'expediente',
+        entidadId: expedienteId,
+        motivo: 'Consulta del historial del expediente',
+        valorNuevo: JSON.stringify({ atenciones: datos.length, total }),
+      },
+      contexto,
+    );
 
     return crearPagina(datos.map((a) => this.descifrar(a)), total, consulta);
   }

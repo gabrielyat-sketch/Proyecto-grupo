@@ -3,6 +3,7 @@ import {
   CLIENTE_AUDITORIA,
   ContextoAuditoria,
   IClienteAuditoria,
+  registrarConsulta,
   ServicioCifrado,
 } from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
@@ -31,7 +32,16 @@ export class AntecedentesService {
    * Un antecedente ausente significa "no se ha preguntado", que no es lo mismo
    * que "no". Para un indicador de cobertura esa diferencia importa.
    */
-  async obtener(pacienteId: string): Promise<AntecedentesPacienteDto> {
+  /**
+   * `contexto` en null significa "esta lectura NO es una consulta de
+   * expediente": es el paso final de un guardado, que ya quedo registrado como
+   * MODIFICACION. Sin obligar a decidirlo, cada escritura emitiria ademas una
+   * CONSULTA fantasma que nadie hizo.
+   */
+  async obtener(
+    pacienteId: string,
+    contexto: ContextoAuditoria | null,
+  ): Promise<AntecedentesPacienteDto> {
     const paciente = await this.prisma.paciente.findUnique({
       where: { id: pacienteId },
       select: { id: true },
@@ -45,6 +55,21 @@ export class AntecedentesService {
       }),
       this.prisma.antecedentesObstetricos.findUnique({ where: { pacienteId } }),
     ]);
+
+    // Solo cuando la lectura la pidio alguien, no cuando es el eco de un
+    // guardado que ya quedo registrado.
+    if (contexto) {
+      registrarConsulta(
+        this.auditoria,
+        {
+          servicio: 'usuarios',
+          entidad: 'antecedentes',
+          entidadId: pacienteId,
+          motivo: 'Consulta de antecedentes del paciente',
+        },
+        contexto,
+      );
+    }
 
     return {
       pacienteId,
@@ -141,7 +166,7 @@ export class AntecedentesService {
       );
     });
 
-    return this.obtener(pacienteId);
+    return this.obtener(pacienteId, null);
   }
 
   /**

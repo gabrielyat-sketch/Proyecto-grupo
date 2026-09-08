@@ -35,10 +35,16 @@ export class AtencionesController {
   @ApiParametrosPagina()
   listar(
     @Param('expedienteId') expedienteId: string,
+    @Autorizacion() autorizacion: string,
+    @Req() req: { trazaId?: string },
     @Query('pagina') pagina?: string,
     @Query('tamano') tamano?: string,
   ): Promise<Pagina<AtencionDto>> {
-    return this.servicio.listar(expedienteId, { pagina: Number(pagina), tamano: Number(tamano) });
+    return this.servicio.listar(
+      expedienteId,
+      { pagina: Number(pagina), tamano: Number(tamano) },
+      { autorizacion, trazaId: req.trazaId },
+    );
   }
 
   @Post()

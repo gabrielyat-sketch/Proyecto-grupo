@@ -181,6 +181,33 @@ export class FalloDeAuditoria extends Error {
 }
 
 /**
+ * Registra una CONSULTA sin hacer esperar a quien esta leyendo.
+ *
+ * Las escrituras se registran DENTRO de la transaccion y se esperan: si no hay
+ * rastro, no hay cambio (ver `docs/decisiones/ADR-002`). Con las lecturas la
+ * politica es la contraria y por eso la llamada tambien lo es.
+ *
+ * No se espera porque una consulta de expediente es lo que ocurre cuando el
+ * paciente ya esta sentado enfrente. Anadirle hasta dos segundos a cada
+ * apertura de expediente para esperar a un servicio secundario es un costo que
+ * paga el personal en cada consulta del dia, y a cambio no evita ningun dato
+ * huerfano: la lectura ya ocurrio, registrarla mas tarde la describe igual.
+ *
+ * El `.catch` no oculta nada —el cliente ya escribio la causa real en el log—;
+ * esta para que una promesa rechazada no tumbe el proceso el dia que alguien
+ * cambie la politica del cliente y las consultas empiecen a lanzar.
+ */
+export function registrarConsulta(
+  auditoria: IClienteAuditoria,
+  entrada: Omit<EntradaAuditoria, 'accion'>,
+  contexto: ContextoAuditoria,
+): void {
+  void auditoria
+    .registrar({ ...entrada, accion: 'CONSULTA' }, contexto.autorizacion, contexto.trazaId)
+    .catch(() => undefined);
+}
+
+/**
  * Cliente que no registra nada. Para pruebas y para el arranque local de un
  * servicio suelto, cuando trazabilidad no esta levantado.
  *
