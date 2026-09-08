@@ -3,6 +3,7 @@ import { AtencionesService } from './atenciones/atenciones.service';
 import { AntecedentesService } from './antecedentes/antecedentes.service';
 import { FichasService } from './fichas/fichas.service';
 import { CarnetService } from './carnet/carnet.service';
+import { ExpedientesService } from './expedientes/expedientes.service';
 
 /**
  * Que ningun dato clinico se escriba sin quedar registrado.
@@ -31,7 +32,14 @@ interface Registrada {
  * que hay que ampliar cada vez que alguien anade una tabla; este responde a lo
  * que le pidan y solo se le dictan las respuestas que la prueba necesita.
  */
-function montar(opciones: { auditoriaFalla?: boolean; datos?: Record<string, unknown> } = {}) {
+function montar(
+  opciones: {
+    auditoriaFalla?: boolean;
+    /** La bitacora acepta la llamada y no responde nunca. */
+    auditoriaCuelga?: boolean;
+    datos?: Record<string, unknown>;
+  } = {},
+) {
   const datos = opciones.datos ?? {};
   let dentroDeTransaccion = false;
   const registradas: Registrada[] = [];
@@ -80,7 +88,9 @@ function montar(opciones: { auditoriaFalla?: boolean; datos?: Record<string, unk
   const auditoria = {
     registrar: jest.fn(async (entrada: EntradaAuditoria, autorizacion: string, trazaId?: string) => {
       registradas.push({ entrada, autorizacion, trazaId, dentro: dentroDeTransaccion });
+      if (opciones.auditoriaCuelga) return new Promise<void>(() => undefined);
       if (opciones.auditoriaFalla) throw new FalloDeAuditoria(entrada.accion);
+      return undefined;
     }),
   };
 
@@ -88,6 +98,7 @@ function montar(opciones: { auditoriaFalla?: boolean; datos?: Record<string, unk
   const cifrado = {
     cifrar: (texto: string) => Buffer.from(texto, 'utf8'),
     descifrar: (dato: Uint8Array) => Buffer.from(dato).toString('utf8'),
+    indiceCiego: (texto: string) => Buffer.from('indice:' + texto, 'utf8'),
   };
 
   const outbox = { registrar: jest.fn(async () => ({})) };
@@ -346,5 +357,132 @@ describe('Anotar el carnet queda auditado', () => {
     await expect(servicio.guardar('p-1', {} as never, 'u-1', CONTEXTO)).rejects.toBeInstanceOf(
       FalloDeAuditoria,
     );
+  });
+});
+
+describe('Leer el expediente queda auditado, pero nunca bloquea la lectura', () => {
+  const EXPEDIENTE = {
+    id: 'e-1',
+    numeroCifrado: Buffer.from('EXP-001', 'utf8'),
+    aperturaEn: new Date('2026-01-01'),
+    paciente: PACIENTE,
+    digitalizacion: null,
+  };
+
+  function expedientes(opciones: Parameters<typeof montar>[0] = {}) {
+    const m = montar({ ...opciones, datos: { 'expediente.findUnique': EXPEDIENTE } });
+    return { servicio: new ExpedientesService(m.prisma as never, m.cifrado as never, m.auditoria as never), ...m };
+  }
+
+  function historial(opciones: Parameters<typeof montar>[0] = {}) {
+    const m = montar({
+      ...opciones,
+      datos: {
+        'expediente.findUnique': { id: 'e-1' },
+        'atencion.findMany': [],
+        'atencion.count': 0,
+      },
+    });
+    const servicio = new AtencionesService(
+      m.prisma as never,
+      m.outbox as never,
+      m.cifrado as never,
+      m.auditoria as never,
+    );
+    return { servicio, ...m };
+  }
+
+  it('buscar un expediente registra CONSULTA', async () => {
+    const { servicio, registradas } = expedientes();
+    await servicio.porNumero('EXP-001', CONTEXTO);
+
+    expect(registradas[0].entrada).toMatchObject({
+      servicio: 'usuarios',
+      accion: 'CONSULTA',
+      entidad: 'expediente',
+      entidadId: 'e-1',
+    });
+  });
+
+  it('el numero tecleado no viaja a la bitacora', async () => {
+    // Esta cifrado en la base por algo. Se audita el id, que es con lo que se
+    // sigue el rastro.
+    const { servicio, registradas } = expedientes();
+    await servicio.porNumero('EXP-001', CONTEXTO);
+    expect(JSON.stringify(registradas[0].entrada)).not.toContain('EXP-001');
+  });
+
+  it('un numero que no existe no registra nada', async () => {
+    // Seria llenar la bitacora de errores de tecleo, y no hubo consulta de
+    // ningun expediente.
+    const m = montar({ datos: { 'expediente.findUnique': null } });
+    const servicio = new ExpedientesService(m.prisma as never, m.cifrado as never, m.auditoria as never);
+
+    await expect(servicio.porNumero('NO-EXISTE', CONTEXTO)).rejects.toThrow();
+    expect(m.registradas).toHaveLength(0);
+  });
+
+  it('abrir el historial registra CONSULTA sobre el expediente', async () => {
+    const { servicio, registradas } = historial();
+    await servicio.listar('e-1', {}, CONTEXTO);
+
+    expect(registradas[0].entrada).toMatchObject({
+      accion: 'CONSULTA',
+      entidad: 'expediente',
+      entidadId: 'e-1',
+    });
+  });
+
+  it('si la bitacora falla, el historial se devuelve igual', async () => {
+    // Es la politica contraria a la de las escrituras, y es deliberada: se
+    // prefiere perder traza de lecturas antes que dejar al CAP sin poder
+    // atender al paciente que ya esta sentado enfrente.
+    const { servicio } = historial({ auditoriaFalla: true });
+    await expect(servicio.listar('e-1', {}, CONTEXTO)).resolves.toBeDefined();
+  });
+
+  it('si la bitacora no responde NUNCA, la lectura no se queda esperando', async () => {
+    // La consulta no se espera. Sin esto, un trazabilidad lento le anadiria
+    // hasta dos segundos a cada apertura de expediente del dia.
+    const { servicio } = historial({ auditoriaCuelga: true });
+    await expect(servicio.listar('e-1', {}, CONTEXTO)).resolves.toBeDefined();
+  });
+});
+
+describe('Un guardado no emite ademas una consulta fantasma', () => {
+  // Los dos guardados terminan releyendo lo que acaban de escribir para
+  // devolverlo. Esa relectura no la pidio nadie: ya quedo registrada como
+  // MODIFICACION, y contarla como CONSULTA inflaria la tabla que mas crece del
+  // sistema con lecturas que nunca ocurrieron.
+  it('al guardar antecedentes solo se registra la MODIFICACION', async () => {
+    const m = montar({
+      datos: {
+        'paciente.findUnique': { id: 'p-1' },
+        'catalogoAntecedente.findMany': [],
+        'antecedentePaciente.findMany': [],
+        'antecedentesObstetricos.findUnique': null,
+      },
+    });
+    const servicio = new AntecedentesService(m.prisma as never, m.cifrado as never, m.auditoria as never);
+
+    await servicio.guardar('p-1', { marcados: [] } as never, 'u-1', CONTEXTO);
+
+    expect(m.registradas.map((r) => r.entrada.accion)).toEqual(['MODIFICACION']);
+  });
+
+  it('al guardar el carnet solo se registra la MODIFICACION', async () => {
+    const m = montar({
+      datos: {
+        'paciente.findUnique': { id: 'p-1', comunidadId: 'c-1', grupoFamiliarId: 'g-1' },
+        'vacunaAplicada.findMany': [],
+        'micronutrienteEntregado.findMany': [],
+        'dosisRecomendada.findMany': [],
+      },
+    });
+    const servicio = new CarnetService(m.prisma as never, m.cifrado as never, m.auditoria as never);
+
+    await servicio.guardar('p-1', {} as never, 'u-1', CONTEXTO);
+
+    expect(m.registradas.map((r) => r.entrada.accion)).toEqual(['MODIFICACION']);
   });
 });

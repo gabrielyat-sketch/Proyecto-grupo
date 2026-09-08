@@ -88,6 +88,35 @@ Hay una diferencia real entre las dos, y conviene tenerla presente al decidir: c
 operación se completa aunque `trazabilidad` esté caída, y el rastro llega después. Con la llamada
 síncrona la operación no ocurre. La segunda es más estricta; la primera es más disponible.
 
+## Las lecturas van al revés, y a propósito
+
+Todo lo anterior vale para las **escrituras**. Una consulta de expediente se registra con la regla
+contraria: **la llamada no se espera y la lectura no se bloquea.**
+
+```ts
+registrarConsulta(this.auditoria, { entidad: 'expediente', entidadId }, contexto);
+// La lectura sigue. Nadie espera a la bitácora.
+```
+
+Dos razones, y la primera ya estaba escrita en el `ClienteAuditoria` antes de este trabajo:
+
+1. **Aplicar la regla estricta dejaría al CAP sin poder atender** cuando un servicio secundario se
+   cae. El personal no podría ni abrir el expediente del paciente que tiene delante. Se elige perder
+   trazabilidad de lecturas antes que perder capacidad de atención.
+2. **Esperar cuesta en cada consulta del día.** Hasta dos segundos añadidos a cada apertura de
+   expediente, y a cambio no evita ningún dato huérfano: la lectura ya ocurrió, registrarla un
+   instante después la describe igual de bien.
+
+**Un caso que hay que decidir explícitamente:** `AntecedentesService.obtener` y
+`CarnetService.obtener` los llama también el propio guardado, para devolver lo que acaba de
+escribir. Esa relectura no la pidió nadie. Por eso las dos reciben un `contexto` que puede ser
+`null` —"esto no es una consulta de expediente"— y el guardado lo pasa así: sin eso, cada escritura
+emitiría además una `CONSULTA` fantasma, inflando la tabla que más crece del sistema con lecturas
+que nunca ocurrieron.
+
+Se registra **el hallazgo, no la búsqueda**: un número de expediente mal tecleado no es una consulta
+de expediente y llenaría la bitácora de erratas.
+
 ## Lo que la bitácora guarda, y lo que no
 
 **Guarda el qué, el quién y el cuándo. No copia el contenido clínico.**
@@ -119,13 +148,16 @@ correcciones. Queda como pregunta abierta, no como olvido.
   segundo factor y restablecer contraseña.
 - `usuarios` — las cuatro escrituras de dato clínico: registrar una atención, guardar una ficha
   completa, capturar antecedentes y anotar el carnet.
+- `usuarios` — las consultas de expediente: búsqueda por número, historial, apertura de una ficha,
+  antecedentes, carnet y gráfica de peso para edad.
 
 **Falta:**
 
-- **Toda consulta de expediente**, que es la otra mitad del RF-09 y la que genera el volumen. Es
-  además la que usa la política contraria: la lectura continúa aunque la bitácora esté caída.
 - El resto de escrituras de `usuarios`: pacientes, visitas, grupos familiares, comunidades y el
   marcado de digitalización.
+- **Impresión y exportación.** La §10.4 las nombra aparte y con razón —el papel sale del sistema y
+  ya no hay control técnico sobre él—. Hoy no existe ninguna pantalla que imprima, así que no hay
+  dónde ponerlo todavía.
 - `programas` y `medicamentos`.
 - **El `motivo` todavía no lo escribe una persona.** §10.4 lo exige y hoy se registra una constante
   por acción ("Alta de cuenta desde Administracion"). Capturar el motivo real obliga a añadir el

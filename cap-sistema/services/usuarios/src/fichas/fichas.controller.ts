@@ -72,7 +72,11 @@ export class FichasController {
     description: 'El IMC viene calculado de peso y talla; no se guarda en la base.',
   })
   @ApiOkResponse({ type: FichaDto })
-  obtener(@Param('id') id: string): Promise<FichaDto> {
-    return this.servicio.obtener(id);
+  obtener(
+    @Param('id') id: string,
+    @Autorizacion() autorizacion: string,
+    @Req() req: { trazaId?: string },
+  ): Promise<FichaDto> {
+    return this.servicio.obtener(id, { autorizacion, trazaId: req.trazaId });
   }
 }

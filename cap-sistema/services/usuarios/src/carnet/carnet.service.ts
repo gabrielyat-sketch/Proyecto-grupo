@@ -3,6 +3,7 @@ import {
   CLIENTE_AUDITORIA,
   ContextoAuditoria,
   IClienteAuditoria,
+  registrarConsulta,
   ServicioCifrado,
 } from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
@@ -149,12 +150,31 @@ export class CarnetService {
   }
 
   /** El carnet de un nino: lo que ya se le anoto. */
-  async obtener(pacienteId: string): Promise<CarnetDto> {
+  /**
+   * `contexto` en null: la lectura es el paso final de un guardado, que ya se
+   * registro como MODIFICACION. Ver el mismo caso en `AntecedentesService`.
+   */
+  async obtener(pacienteId: string, contexto: ContextoAuditoria | null): Promise<CarnetDto> {
     const paciente = await this.prisma.paciente.findUnique({
       where: { id: pacienteId },
       select: { id: true, fechaNacimiento: true, grupoFamiliarId: true },
     });
     if (!paciente) throw new NotFoundException('El paciente no existe.');
+
+    // Solo cuando la lectura la pidio alguien: al final de un guardado esto es
+    // el eco de una MODIFICACION que ya quedo registrada.
+    if (contexto) {
+      registrarConsulta(
+        this.auditoria,
+        {
+          servicio: 'usuarios',
+          entidad: 'carnet',
+          entidadId: pacienteId,
+          motivo: 'Consulta del carnet del nino',
+        },
+        contexto,
+      );
+    }
 
     const [vacunas, micronutrientes, datos, hogar] = await Promise.all([
       this.prisma.vacunaAplicada.findMany({
@@ -405,7 +425,7 @@ export class CarnetService {
       );
     });
 
-    return this.obtener(pacienteId);
+    return this.obtener(pacienteId, null);
   }
 
 
@@ -425,12 +445,25 @@ export class CarnetService {
    * desnutricion— y aqui sale en LIBRAS, que es como el papel dibuja la
    * grafica y como el personal lo lee.
    */
-  async crecimiento(pacienteId: string): Promise<CrecimientoDto> {
+  async crecimiento(pacienteId: string, contexto: ContextoAuditoria): Promise<CrecimientoDto> {
     const paciente = await this.prisma.paciente.findUnique({
       where: { id: pacienteId },
       select: { id: true, fechaNacimiento: true, expediente: { select: { id: true } } },
     });
     if (!paciente) throw new NotFoundException('El paciente no existe.');
+
+    // La grafica no captura nada, pero sale de los pesos de todas las
+    // atenciones: es una lectura del expediente aunque no lo parezca.
+    registrarConsulta(
+      this.auditoria,
+      {
+        servicio: 'usuarios',
+        entidad: 'crecimiento',
+        entidadId: pacienteId,
+        motivo: 'Consulta de la grafica de peso para edad',
+      },
+      contexto,
+    );
 
     if (!paciente.expediente) return { pacienteId, puntos: [] };
 
