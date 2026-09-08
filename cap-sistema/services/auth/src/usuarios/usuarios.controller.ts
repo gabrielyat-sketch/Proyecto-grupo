@@ -1,6 +1,6 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ApiPaginaDe, type Pagina, Rol, Roles, Usuario } from '@cap/shared';
+import { ApiPaginaDe, Autorizacion, type Pagina, Rol, Roles, Usuario } from '@cap/shared';
 import { UsuariosService } from './usuarios.service';
 import { CrearUsuarioDto } from './dto/crear-usuario.dto';
 import { ActualizarUsuarioDto } from './dto/actualizar-usuario.dto';
@@ -21,6 +21,14 @@ import {
 @Roles(Rol.ADMINISTRADOR)
 export class UsuariosController {
   constructor(private readonly servicio: UsuariosService) {}
+
+  /**
+   * Lo que necesita la bitacora para registrar a nombre de quien pidio la
+   * accion. Se arma aqui, en el borde: mas adentro ya no hay peticion.
+   */
+  private static contexto(autorizacion: string, req: { trazaId?: string }) {
+    return { autorizacion, trazaId: req.trazaId };
+  }
 
   @Get()
   @ApiOperation({ summary: 'Lista paginada de cuentas' })
@@ -43,8 +51,12 @@ export class UsuariosController {
       'Devuelve una contrasena temporal. Es la unica vez que se muestra: anotela y entreguela a la persona.',
   })
   @ApiCreatedResponse({ type: CuentaCreadaDto })
-  crear(@Body() dto: CrearUsuarioDto): Promise<CuentaCreadaDto> {
-    return this.servicio.crear(dto);
+  crear(
+    @Body() dto: CrearUsuarioDto,
+    @Autorizacion() autorizacion: string,
+    @Req() req: { trazaId?: string },
+  ): Promise<CuentaCreadaDto> {
+    return this.servicio.crear(dto, UsuariosController.contexto(autorizacion, req));
   }
 
   @Patch(':id')
@@ -54,8 +66,15 @@ export class UsuariosController {
     @Param('id') id: string,
     @Body() dto: ActualizarUsuarioDto,
     @Usuario('id') idQuienEdita: string,
+    @Autorizacion() autorizacion: string,
+    @Req() req: { trazaId?: string },
   ): Promise<CuentaDto> {
-    return this.servicio.actualizar(id, dto, idQuienEdita);
+    return this.servicio.actualizar(
+      id,
+      dto,
+      idQuienEdita,
+      UsuariosController.contexto(autorizacion, req),
+    );
   }
 
   @Post(':id/reiniciar-mfa')
@@ -65,14 +84,22 @@ export class UsuariosController {
       'Para quien perdio el telefono con la aplicacion de autenticacion. Borra tambien sus codigos de respaldo y cierra sus sesiones. No devuelve ningun secreto: el nuevo lo genera la propia persona al entrar.',
   })
   @ApiCreatedResponse({ type: MfaReiniciadoDto })
-  reiniciarMfa(@Param('id') id: string): Promise<MfaReiniciadoDto> {
-    return this.servicio.reiniciarMfa(id);
+  reiniciarMfa(
+    @Param('id') id: string,
+    @Autorizacion() autorizacion: string,
+    @Req() req: { trazaId?: string },
+  ): Promise<MfaReiniciadoDto> {
+    return this.servicio.reiniciarMfa(id, UsuariosController.contexto(autorizacion, req));
   }
 
   @Post(':id/restablecer-contrasena')
   @ApiOperation({ summary: 'Genera una contrasena temporal nueva y cierra las sesiones' })
   @ApiCreatedResponse({ type: ContrasenaRestablecidaDto })
-  restablecer(@Param('id') id: string): Promise<ContrasenaRestablecidaDto> {
-    return this.servicio.restablecerContrasena(id);
+  restablecer(
+    @Param('id') id: string,
+    @Autorizacion() autorizacion: string,
+    @Req() req: { trazaId?: string },
+  ): Promise<ContrasenaRestablecidaDto> {
+    return this.servicio.restablecerContrasena(id, UsuariosController.contexto(autorizacion, req));
   }
 }

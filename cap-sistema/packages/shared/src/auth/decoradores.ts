@@ -23,3 +23,18 @@ export const Usuario = createParamDecorator(
     return dato ? peticion.usuario?.[dato] : peticion.usuario;
   },
 );
+
+/**
+ * Inyecta la cabecera `Authorization` tal como llego, sin tocarla.
+ *
+ * El servicio de trazabilidad registra a nombre del USUARIO que origino la
+ * accion, no del servicio que la ejecuta, y para eso necesita su token entero.
+ * `@Usuario()` no sirve: devuelve el contenido ya verificado del token, no el
+ * token, y volver a firmarlo desde el servicio produciria una bitacora que
+ * prueba lo que el servicio dice, no lo que el usuario hizo.
+ */
+export const Autorizacion = createParamDecorator((_dato: unknown, ctx: ExecutionContext) => {
+  const peticion = ctx.switchToHttp().getRequest<{ headers?: Record<string, unknown> }>();
+  const cabecera = peticion.headers?.authorization;
+  return typeof cabecera === 'string' ? cabecera : '';
+});

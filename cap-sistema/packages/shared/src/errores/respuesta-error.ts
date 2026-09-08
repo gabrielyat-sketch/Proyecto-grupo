@@ -24,5 +24,7 @@ export const CodigoError = {
   NO_ENCONTRADO: 'NO_ENCONTRADO',
   CONFLICTO: 'CONFLICTO',
   DEMASIADAS_PETICIONES: 'DEMASIADAS_PETICIONES',
+  /** La operacion no se guardo porque no se pudo dejar constancia de ella. */
+  AUDITORIA_NO_DISPONIBLE: 'AUDITORIA_NO_DISPONIBLE',
   ERROR_INTERNO: 'ERROR_INTERNO',
 } as const;

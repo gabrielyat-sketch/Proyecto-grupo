@@ -632,7 +632,7 @@ export interface components {
              * @example VALIDACION
              * @enum {string}
              */
-            codigo: "VALIDACION" | "NO_AUTENTICADO" | "SIN_PERMISO" | "NO_ENCONTRADO" | "CONFLICTO" | "DEMASIADAS_PETICIONES" | "ERROR_INTERNO";
+            codigo: "VALIDACION" | "NO_AUTENTICADO" | "SIN_PERMISO" | "NO_ENCONTRADO" | "CONFLICTO" | "DEMASIADAS_PETICIONES" | "AUDITORIA_NO_DISPONIBLE" | "ERROR_INTERNO";
             /**
              * @description Mensaje en espanol, apto para mostrarse tal cual al usuario.
              * @example La informacion enviada no es valida.

@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import { FalloDeAuditoria } from '../auditoria/cliente-auditoria';
 import { CodigoError, RespuestaError } from './respuesta-error';
 
 /**
@@ -33,7 +34,14 @@ export class FiltroExcepciones implements ExceptionFilter {
     let mensaje = 'Ocurrio un error inesperado. El equipo tecnico fue notificado.';
     let detalles: string[] | undefined;
 
-    if (excepcion instanceof HttpException) {
+    if (excepcion instanceof FalloDeAuditoria) {
+      // 503 y no 500: no es un fallo de esta operacion, es que un servicio del
+      // que depende no esta respondiendo. El cambio no se guardo, y reintentar
+      // es lo correcto — que es justo lo que dice el mensaje de la excepcion.
+      estado = HttpStatus.SERVICE_UNAVAILABLE;
+      codigo = CodigoError.AUDITORIA_NO_DISPONIBLE;
+      mensaje = excepcion.message;
+    } else if (excepcion instanceof HttpException) {
       estado = excepcion.getStatus();
       const cuerpo = excepcion.getResponse();
       codigo = FiltroExcepciones.codigoPorEstado(estado);
@@ -65,8 +73,13 @@ export class FiltroExcepciones implements ExceptionFilter {
       }
     }
 
-    if (estado >= HttpStatus.INTERNAL_SERVER_ERROR) {
+    if (estado >= HttpStatus.INTERNAL_SERVER_ERROR && !(excepcion instanceof FalloDeAuditoria)) {
       // El detalle real se registra, no se devuelve.
+      //
+      // El fallo de auditoria queda fuera: el cliente ya lo registro con su
+      // causa real —timeout, 500 de trazabilidad, red caida—, y volver a
+      // escribirlo aqui como "Error no controlado" solo entierra esa linea
+      // util bajo otra que no dice nada.
       this.logger.error(
         { trazaId, ruta, error: excepcion instanceof Error ? excepcion.message : excepcion },
         'Error no controlado',
