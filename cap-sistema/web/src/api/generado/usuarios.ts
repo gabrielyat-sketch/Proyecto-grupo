@@ -669,10 +669,10 @@ export interface components {
         };
         CrearPacienteDto: {
             /**
-             * @description DPI de 13 digitos. OPCIONAL: los ninos y parte de la poblacion rural no lo tienen.
+             * @description CUI o DPI de 13 digitos. El CUI del menor sirve igual que el DPI del adulto.
              * @example 1234567890101
              */
-            dpi?: string;
+            dpi: string;
             /** @example Juana Isabel */
             nombres: string;
             /** @example Perez Caal */
@@ -688,7 +688,7 @@ export interface components {
              * @default ESPANOL
              * @enum {string}
              */
-            idioma: "ESPANOL" | "POQOMCHI" | "QEQCHI" | "OTRO";
+            idioma: "ESPANOL" | "POQOMCHI" | "QEQCHI" | "ACHI" | "OTRO";
             /** @description Identificador de la comunidad */
             comunidadId: string;
             grupoFamiliarId?: string;
@@ -704,6 +704,8 @@ export interface components {
             migrante: boolean;
             /** @description De donde viene, si es migrante. */
             lugarOrigen?: string;
+            /** @description Nombre del esposo o conviviente. */
+            esposo: string;
             /** @description Omitirlo significa que no se ha preguntado. */
             tieneAlergias?: boolean;
             /** @description A que medicamentos es alergico. */
@@ -721,7 +723,7 @@ export interface components {
             nombres?: string;
             apellidos?: string;
             /** @enum {string} */
-            idioma?: "ESPANOL" | "POQOMCHI" | "QEQCHI" | "OTRO";
+            idioma?: "ESPANOL" | "POQOMCHI" | "QEQCHI" | "ACHI" | "OTRO";
             comunidadId?: string;
             grupoFamiliarId?: string;
             telefono?: string;
@@ -774,6 +776,8 @@ export interface components {
             fallecido: boolean;
             /** @example 12 */
             edad: number;
+            /** @example EXP-2026-000123 */
+            numeroExpediente: string | null;
         };
         GrupoFamiliarDto: {
             /** Format: uuid */
@@ -1676,6 +1680,8 @@ export interface components {
             comunidad: string;
             /** @example EXP-2026-000123 */
             numeroExpediente: string | null;
+            /** @example 47 */
+            familiaNumero: number | null;
             /** Format: date-time */
             llegadaEn: string;
             /**

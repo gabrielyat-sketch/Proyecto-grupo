@@ -44,6 +44,7 @@ const CON_FAMILIA = {
       sexo: 'F',
       fallecido: false,
       edad: 41,
+      numeroExpediente: 'EXP-2026-000123',
     },
     {
       id: 'p-2',
@@ -53,6 +54,8 @@ const CON_FAMILIA = {
       sexo: 'M',
       fallecido: false,
       edad: 2,
+      // Registrado pero sin expediente abierto todavia.
+      numeroExpediente: null,
     },
   ],
 };
@@ -198,6 +201,32 @@ describe('el archivero de carpetas', () => {
       'href',
       '/pacientes/p-1/expediente',
     );
+  });
+
+  /**
+   * Los NUMEROS, no solo el enlace.
+   *
+   * Quien abre esta pantalla suele estar a punto de ir al archivo, y ahi los
+   * historiales se piden por su numero. Con solo el enlace habia que entrar a
+   * cada integrante para anotarlos uno por uno.
+   */
+  it('cada integrante muestra su numero de expediente', async () => {
+    servidorCon();
+    entrarComo(RECEPCION, '/carpetas/g-1');
+    render(<App />);
+
+    const fila = await screen.findByRole('row', { name: /Juana Isabel/ });
+    expect(within(fila).getByText('EXP-2026-000123')).toBeInTheDocument();
+  });
+
+  /** Se puede estar en la carpeta sin tener expediente abierto todavia. */
+  it('a quien no tiene expediente se lo dice, en vez de inventar un numero', async () => {
+    servidorCon();
+    entrarComo(RECEPCION, '/carpetas/g-1');
+    render(<App />);
+
+    const fila = await screen.findByRole('row', { name: /Marcos/ });
+    expect(within(fila).getByText(/Sin expediente/i)).toBeInTheDocument();
   });
 
   /**

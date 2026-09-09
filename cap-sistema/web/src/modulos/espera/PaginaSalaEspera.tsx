@@ -223,6 +223,29 @@ export function PaginaSalaEspera() {
                     ) : null}
                   </Stack>
 
+                  {/*
+                    El numero de la carpeta familiar, junto al tiempo de
+                    espera.
+
+                    Es con lo que se pide el expediente en el archivo, asi que
+                    va donde ya se mira la fila —a la derecha, con el turno y
+                    la espera— y no enterrado en la linea de datos: quien
+                    atiende lo lee de un vistazo y manda a buscar el folder
+                    antes de que le toque el turno.
+
+                    Quien no tiene carpeta no muestra nada. Un "No. -" ocuparia
+                    el mismo sitio para decir que no hay dato.
+                  */}
+                  {v.familiaNumero !== null ? (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}
+                    >
+                      Familia No. {v.familiaNumero}
+                    </Typography>
+                  ) : null}
+
                   <Chip
                     size="small"
                     label={esperaEnPalabras(v.esperandoMinutos)}

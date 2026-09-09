@@ -30,13 +30,17 @@ enum Sexo {
   F
 }
 
-/// Idioma de preferencia para la atencion. En Purulha se habla poqomchi' y
-/// q'eqchi' ademas de espanol; saberlo permite asignar personal que hable el
-/// idioma del paciente y preparar material adecuado.
+/// Idioma de preferencia para la atencion. En Purulha se habla poqomchi',
+/// q'eqchi' y achi' ademas de espanol; saberlo permite asignar personal que
+/// hable el idioma del paciente y preparar material adecuado.
+///
+/// OTRO va siempre al final: es la salida para lo que no esta en la lista, y
+/// leerlo en medio de los idiomas reales invita a elegirlo por error.
 enum Idioma {
   ESPANOL
   POQOMCHI
   QEQCHI
+  ACHI
   OTRO
 }
 
@@ -278,6 +282,13 @@ model Paciente {
   /// Madre, padre o responsable. En la ficha de adultos es opcional; en las de
   /// ninez es quien acompana al paciente.
   responsable String? @db.VarChar(160)
+
+  /// Nombre del esposo. Lo pide la ficha oficial y es dato de contacto, no
+  /// clinico: sin cifrar, igual que el telefono y el responsable.
+  ///
+  /// Opcional siempre: quien no esta casado no tiene que responderlo, y los
+  /// cien mil pacientes ya registrados no lo tienen.
+  esposo      String? @db.VarChar(160)
 
   /// Barrio, caserio o aldea dentro de la comunidad. Opcional: los pacientes
   /// registrados antes de que existiera el catalogo no lo tienen, y forzarlo

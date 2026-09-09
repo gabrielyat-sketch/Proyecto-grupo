@@ -7,6 +7,15 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 /**
+ * DPIs de prueba, unicos por llamada y fuera del rango de la carga sintetica.
+ *
+ * Uno fijo no sirve: el CUI o DPI es obligatorio y unico, asi que el segundo
+ * paciente que creara esta suite chocaria contra el control de duplicados.
+ */
+let siguienteDpiPrueba = 9400000000000;
+const nuevoDpi = () => String(++siguienteDpiPrueba);
+
+/**
  * Sala de espera: quien esta AHORA en el CAP.
  *
  * Es la pieza que faltaba para separar dos trabajos que se estaban
@@ -44,6 +53,8 @@ describe('Sala de espera (e2e)', () => {
       .post('/v1/pacientes')
       .set(como(Rol.RECEPCION))
       .send({
+        dpi: nuevoDpi(),
+        esposo: 'Carlos Chub Caal',
         nombres,
         apellidos: 'Zzespera Prueba',
         fechaNacimiento: '1988-02-20',

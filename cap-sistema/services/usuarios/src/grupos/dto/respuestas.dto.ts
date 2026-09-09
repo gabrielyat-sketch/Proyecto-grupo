@@ -51,6 +51,16 @@ export class IntegranteDto {
 
   @ApiProperty({ example: 12 })
   edad!: number;
+
+  /**
+   * El numero del expediente de esta persona, descifrado al responder.
+   *
+   * Nulo cuando todavia no tiene expediente abierto. Es lo que se lee para ir
+   * al archivo: la carpeta agrupa a la familia, pero en el archivero cada
+   * historial se pide por su numero.
+   */
+  @ApiProperty({ type: String, nullable: true, example: 'EXP-2026-000123' })
+  numeroExpediente!: string | null;
 }
 
 export class GrupoFamiliarDto {

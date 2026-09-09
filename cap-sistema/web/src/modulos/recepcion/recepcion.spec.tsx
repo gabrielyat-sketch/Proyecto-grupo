@@ -191,12 +191,13 @@ describe('alta de paciente', () => {
     return screen.findByLabelText(/Nombres/i);
   }
 
-  it('exige nombres, apellidos, fecha y comunidad antes de llamar al servidor', async () => {
+  it('exige CUI o DPI, nombres, apellidos, fecha y comunidad antes de llamar al servidor', async () => {
     servidorCon();
     await abrirFormulario();
 
     await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
 
+    expect(await screen.findByText(/Escriba el CUI o DPI/i)).toBeInTheDocument();
     expect(await screen.findByText(/Escriba los nombres/i)).toBeInTheDocument();
     expect(screen.getByText(/Escriba los apellidos/i)).toBeInTheDocument();
     expect(screen.getByText(/Indique la fecha de nacimiento/i)).toBeInTheDocument();
@@ -204,18 +205,25 @@ describe('alta de paciente', () => {
     expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(0);
   });
 
-  it('rechaza un DPI que no tenga 13 digitos, sin ir al servidor', async () => {
+  it('rechaza un CUI o DPI que no tenga 13 digitos, sin ir al servidor', async () => {
     servidorCon();
     await abrirFormulario();
 
-    await userEvent.type(screen.getByLabelText(/^DPI/i), '12345');
+    await userEvent.type(screen.getByLabelText(/CUI o DPI/i), '12345');
     await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
 
     expect(await screen.findByText(/exactamente 13 digitos/i)).toBeInTheDocument();
     expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(0);
   });
 
-  it('deja registrar SIN DPI: los ninos y parte de la poblacion no lo tienen', async () => {
+  /**
+   * El CAP pidio que el numero sea obligatorio. Antes se dejaba vacio porque
+   * los ninos no tienen el carnet del DPI — pero si tienen CUI, que es el mismo
+   * numero. Por eso la casilla cambio de nombre a la vez que de regla: pedir
+   * «DPI» a la madre de un recien nacido no tiene respuesta; pedir «CUI o DPI»
+   * si.
+   */
+  it('exige el CUI o DPI: sin el no va al servidor', async () => {
     servidorCon();
     await abrirFormulario();
 
@@ -226,8 +234,67 @@ describe('alta de paciente', () => {
     await userEvent.click(await screen.findByRole('option', { name: 'Matanzas' }));
     await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
 
+    expect(await screen.findByText(/Escriba el CUI o DPI/i)).toBeInTheDocument();
+    expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(0);
+  });
+
+  it('con el CUI del menor puesto, el alta sale y el numero viaja', async () => {
+    servidorCon();
+    await abrirFormulario();
+
+    await userEvent.type(screen.getByLabelText(/CUI o DPI/i), '3012345670101');
+    await userEvent.type(screen.getByLabelText(/Nombre del esposo/i), 'Luis');
+    await userEvent.type(screen.getByLabelText(/Nombres/i), 'Carlos');
+    await userEvent.type(screen.getByLabelText(/Apellidos/i), 'Chub');
+    await userEvent.type(screen.getByLabelText(/Fecha de nacimiento/i), '2020-03-15');
+    await userEvent.click(screen.getByLabelText(/Comunidad/i));
+    await userEvent.click(await screen.findByRole('option', { name: 'Matanzas' }));
+    await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
+
     await waitFor(() => expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(1));
+    const cuerpo = JSON.parse(await peticiones.find((p) => p.method === 'POST')!.text());
+    expect(cuerpo.dpi).toBe('3012345670101');
     expect(await screen.findByText(/EXP-2026-000999/)).toBeInTheDocument();
+  });
+
+  /** El nombre del esposo o conviviente, que pide la ficha oficial. */
+  it('el nombre del esposo o conviviente viaja en el alta', async () => {
+    servidorCon();
+    await abrirFormulario();
+
+    await userEvent.type(screen.getByLabelText(/CUI o DPI/i), '1234567890101');
+    await userEvent.type(screen.getByLabelText(/Nombres/i), 'Juana');
+    await userEvent.type(screen.getByLabelText(/Apellidos/i), 'Perez');
+    await userEvent.type(screen.getByLabelText(/Fecha de nacimiento/i), '1985-04-12');
+    await userEvent.click(screen.getByLabelText(/Comunidad/i));
+    await userEvent.click(await screen.findByRole('option', { name: 'Purulha Centro' }));
+    await userEvent.type(screen.getByLabelText(/Nombre del esposo/i), 'Carlos Chub Caal');
+    await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
+
+    await waitFor(() => expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(1));
+    const cuerpo = JSON.parse(await peticiones.find((p) => p.method === 'POST')!.text());
+    expect(cuerpo.esposo).toBe('Carlos Chub Caal');
+  });
+
+  /**
+   * El CAP lo pidio obligatorio sabiendo el costo: este mismo formulario
+   * registra recien nacidos, hombres y solteras, y a todos les pide ahora una
+   * respuesta en esta casilla.
+   */
+  it('exige el nombre del esposo o conviviente: sin el no va al servidor', async () => {
+    servidorCon();
+    await abrirFormulario();
+
+    await userEvent.type(screen.getByLabelText(/CUI o DPI/i), '1234567890101');
+    await userEvent.type(screen.getByLabelText(/Nombres/i), 'Juana');
+    await userEvent.type(screen.getByLabelText(/Apellidos/i), 'Perez');
+    await userEvent.type(screen.getByLabelText(/Fecha de nacimiento/i), '1985-04-12');
+    await userEvent.click(screen.getByLabelText(/Comunidad/i));
+    await userEvent.click(await screen.findByRole('option', { name: 'Purulha Centro' }));
+    await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
+
+    expect(await screen.findByText(/Escriba el nombre del esposo o conviviente/i)).toBeInTheDocument();
+    expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(0);
   });
 
   /**
@@ -238,6 +305,8 @@ describe('alta de paciente', () => {
    */
   describe('carpeta familiar', () => {
     async function datosMinimos() {
+      await userEvent.type(screen.getByLabelText(/CUI o DPI/i), '3012345670101');
+      await userEvent.type(screen.getByLabelText(/Nombre del esposo/i), 'Luis');
       await userEvent.type(screen.getByLabelText(/Nombres/i), 'Carlos');
       await userEvent.type(screen.getByLabelText(/Apellidos/i), 'Chub');
       await userEvent.type(screen.getByLabelText(/Fecha de nacimiento/i), '2020-03-15');
@@ -345,6 +414,8 @@ describe('alta de paciente', () => {
       servidorCon();
       await abrirFormulario();
 
+      await userEvent.type(screen.getByLabelText(/CUI o DPI/i), '1234567890101');
+      await userEvent.type(screen.getByLabelText(/Nombre del esposo/i), 'Luis');
       await userEvent.type(screen.getByLabelText(/Nombres/i), 'Carlos');
       await userEvent.type(screen.getByLabelText(/Apellidos/i), 'Chub');
       await userEvent.type(screen.getByLabelText(/Fecha de nacimiento/i), '1990-03-15');
@@ -378,6 +449,8 @@ describe('alta de paciente', () => {
     servidorCon();
     await abrirFormulario();
 
+    await userEvent.type(screen.getByLabelText(/CUI o DPI/i), '3012345670101');
+    await userEvent.type(screen.getByLabelText(/Nombre del esposo/i), 'Luis');
     await userEvent.type(screen.getByLabelText(/Nombres/i), 'Carlos');
     await userEvent.type(screen.getByLabelText(/Apellidos/i), 'Chub');
     await userEvent.type(screen.getByLabelText(/Fecha de nacimiento/i), '2020-03-15');
@@ -386,6 +459,8 @@ describe('alta de paciente', () => {
     await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
 
     await screen.findByText(/EXP-2026-000999/);
+    expect(screen.getByLabelText(/CUI o DPI/i)).toHaveValue('');
+    expect(screen.getByLabelText(/Nombre del esposo/i)).toHaveValue('');
     expect(screen.getByLabelText(/Nombres/i)).toHaveValue('');
     expect(screen.getByLabelText(/Apellidos/i)).toHaveValue('');
   });
@@ -406,6 +481,8 @@ describe('alta de paciente', () => {
     );
     await abrirFormulario();
 
+    await userEvent.type(screen.getByLabelText(/CUI o DPI/i), '1234567890101');
+    await userEvent.type(screen.getByLabelText(/Nombre del esposo/i), 'Luis');
     await userEvent.type(screen.getByLabelText(/Nombres/i), 'Juana');
     await userEvent.type(screen.getByLabelText(/Apellidos/i), 'Perez');
     await userEvent.type(screen.getByLabelText(/Fecha de nacimiento/i), '1985-04-12');

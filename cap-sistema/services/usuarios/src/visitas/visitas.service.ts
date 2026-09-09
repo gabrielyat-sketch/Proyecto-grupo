@@ -124,6 +124,10 @@ export class VisitasService {
             sexo: true,
             comunidad: { select: { nombre: true } },
             expediente: { select: { numeroCifrado: true } },
+            // El numero del folder de carton. Es como el CAP pide el
+            // expediente en el archivo, asi que quien mira la sala de espera
+            // lo necesita para ir a buscarlo antes de que le toque el turno.
+            grupoFamiliar: { select: { numero: true } },
           },
         },
       },
@@ -142,6 +146,9 @@ export class VisitasService {
       numeroExpediente: v.paciente.expediente
         ? this.cifrado.descifrar(Buffer.from(v.paciente.expediente.numeroCifrado))
         : null,
+      // null cuando el paciente todavia no esta en ninguna carpeta: se puede
+      // registrar sin ella, y la pantalla tiene que poder decirlo.
+      familiaNumero: v.paciente.grupoFamiliar?.numero ?? null,
       llegadaEn: v.llegadaEn,
       esperandoMinutos: Math.max(0, Math.floor((ahora - v.llegadaEn.getTime()) / 60_000)),
       motivo: v.motivoCifrado ? this.cifrado.descifrar(Buffer.from(v.motivoCifrado)) : null,

@@ -24,6 +24,7 @@ const visita = (n: number, extra: Record<string, unknown> = {}) => ({
   sexo: 'F',
   comunidad: 'Purulha Centro',
   numeroExpediente: 'EXP-2026-00000' + n,
+  familiaNumero: 40 + n,
   llegadaEn: '2026-08-27T14:00:00.000Z',
   esperandoMinutos: 10 * n,
   motivo: null,
@@ -132,6 +133,32 @@ describe('sala de espera', () => {
     await esperarSala();
 
     expect(await screen.findByText('Control de embarazo')).toBeInTheDocument();
+  });
+
+  /**
+   * El numero del folder de carton. Quien atiende lo lee en la fila y manda a
+   * buscar el expediente al archivo antes de que le toque el turno.
+   */
+  it('muestra el numero de carpeta familiar de cada quien', async () => {
+    servidor({ sala: [visita(1), visita(2)] });
+    abrir();
+    await esperarSala();
+
+    expect(await screen.findByText('Familia No. 41')).toBeInTheDocument();
+    expect(screen.getByText('Familia No. 42')).toBeInTheDocument();
+  });
+
+  /**
+   * Se puede registrar a alguien sin meterlo en una carpeta. Escribir
+   * "Familia No. -" ocuparia el mismo sitio para decir que no hay dato.
+   */
+  it('quien no tiene carpeta no muestra el renglon', async () => {
+    servidor({ sala: [visita(1, { familiaNumero: null })] });
+    abrir();
+    await esperarSala();
+
+    await screen.findByText('Perez Caal, Juana 1');
+    expect(screen.queryByText(/Familia No\./)).not.toBeInTheDocument();
   });
 
   it('NO expone el DPI', async () => {
