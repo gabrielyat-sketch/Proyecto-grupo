@@ -191,7 +191,7 @@ export function PaginaExpediente() {
             >
               <Stack sx={{ gap: 1.5 }}>
                 {historial.data.datos.map((a) => (
-                  <EntradaHistorial key={a.id} atencion={a} />
+                  <EntradaHistorial key={a.id} atencion={a} pacienteId={p.id} />
                 ))}
               </Stack>
             </Box>

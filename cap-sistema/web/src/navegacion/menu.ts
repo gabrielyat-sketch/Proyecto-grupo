@@ -207,6 +207,11 @@ const RUTAS_FUERA_DEL_MENU: Record<string, readonly Rol[]> = {
   // NO es una consulta, es del nino, pero se lee dentro del expediente y por
   // eso entran los mismos que a la ficha.
   '/carnet': ['MEDICO', 'ENFERMERIA'],
+  // La ficha llena, para imprimirla como la hoja oficial. Entran los mismos
+  // que pueden leer una ficha (GET /v1/fichas/:id): quien atiende y quien
+  // dirige. Recepcion y Farmacia no ven el historial, asi que tampoco lo
+  // imprimen.
+  '/imprimir-ficha': ['ADMINISTRADOR', 'DIRECTOR', 'MEDICO', 'ENFERMERIA'],
   // El expediente de UN paciente. Entran los seis: lo que cambia por rol es
   // cuanto se ve dentro, no si se puede abrir.
   '/expediente': ['ADMINISTRADOR', 'DIRECTOR', 'MEDICO', 'ENFERMERIA', 'FARMACIA', 'RECEPCION'],

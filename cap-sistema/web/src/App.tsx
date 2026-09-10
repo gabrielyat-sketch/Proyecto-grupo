@@ -21,6 +21,7 @@ import { PaginaFichaNinez } from './modulos/fichas/ninez/PaginaFichaNinez';
 import { PaginaFichaPrenatal } from './modulos/fichas/prenatal/PaginaFichaPrenatal';
 import { PaginaFichaPosparto } from './modulos/fichas/prenatal/PaginaFichaPosparto';
 import { PaginaCarnetNinez } from './modulos/fichas/ninez/PaginaCarnetNinez';
+import { PaginaImprimirFicha } from './modulos/fichas/impresion/PaginaImprimirFicha';
 import { PaginaDigitalizacion } from './modulos/digitalizacion/PaginaDigitalizacion';
 import { PaginaSalaEspera } from './modulos/espera/PaginaSalaEspera';
 import { PaginaExpedientes } from './modulos/expedientes/PaginaExpedientes';
@@ -77,6 +78,22 @@ export function App() {
               element={
                 <RutaProtegida>
                   <PaginaCambiarContrasena />
+                </RutaProtegida>
+              }
+            />
+
+            {/*
+              La ficha para imprimir va FUERA del layout: sin menu ni barra
+              superior, porque lo que se imprime es la hoja oficial y nada
+              mas. Protegida igual —sesion y rol— que el resto.
+            */}
+            <Route
+              path="/pacientes/:pacienteId/fichas/:fichaId/imprimir"
+              element={
+                <RutaProtegida>
+                  <RutaPorRol ruta="/imprimir-ficha">
+                    <PaginaImprimirFicha />
+                  </RutaPorRol>
                 </RutaProtegida>
               }
             />
