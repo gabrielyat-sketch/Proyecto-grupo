@@ -9,7 +9,7 @@ import { crearPagina, fechaDelDia, normalizarPagina, type Pagina, sumarDias } fr
 import { PrismaService } from '../prisma/prisma.service';
 import { ENTORNO, Entorno } from '../config/entorno';
 import { Evento, OutboxService } from '../eventos/outbox.service';
-import { clasificarVencimiento, diasParaVencer } from '../dominio/inventario';
+import { clasificarVencimiento, diasParaVencer, semaforoVencimiento } from '../dominio/inventario';
 import { IngresarLoteDto } from './dto/ingresar-lote.dto';
 import { AjustarLoteDto } from './dto/ajustar-lote.dto';
 import { LoteDto, LotePorVencerDto, LoteVencidoDto } from './dto/respuestas.dto';
@@ -132,6 +132,7 @@ export class LotesService {
         cantidadDisponible: l.cantidadDisponible,
         diasParaVencer: diasParaVencer(l.fechaVencimiento, hoy),
         vencimiento: clasificarVencimiento(l.fechaVencimiento, hoy, this.env.DIAS_ALERTA_VENCIMIENTO),
+        semaforo: semaforoVencimiento(l.fechaVencimiento, hoy),
       })),
       total,
       consulta,

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ESTADOS_LOTE, ESTADOS_VENCIMIENTO, UNIDADES } from '../../catalogo/dto/respuestas.dto';
+import { ESTADOS_LOTE, ESTADOS_VENCIMIENTO, SEMAFORO, UNIDADES } from '../../catalogo/dto/respuestas.dto';
 
 export class LoteDto {
   @ApiProperty({ format: 'uuid' })
@@ -72,6 +72,9 @@ export class LotePorVencerDto {
 
   @ApiProperty({ enum: ESTADOS_VENCIMIENTO })
   vencimiento!: string;
+
+  @ApiProperty({ enum: SEMAFORO, description: 'Dentro de la ventana de alerta casi siempre es ROJO.' })
+  semaforo!: string;
 }
 
 /**

@@ -196,6 +196,27 @@ export const ETIQUETA_UNIDAD: Record<string, string> = {
   GRAMO: 'gramos',
 };
 
+/**
+ * El semáforo de vencimiento de las bodegas de los servicios de salud.
+ *
+ * Es la práctica real del CAP, no una invención del sistema: cada producto
+ * del estante lleva una etiqueta de color según cuánto le falta para vencer.
+ * El servidor calcula el color cada vez que se consulta, así que aquí no hay
+ * umbrales que mantener sincronizados: solo cómo se dice cada uno.
+ */
+export const ETIQUETA_SEMAFORO: Record<string, string> = {
+  ROJO: 'Rojo',
+  AMARILLO: 'Amarillo',
+  VERDE: 'Verde',
+};
+
+/** Qué significa cada color, para la leyenda del catálogo. */
+export const SIGNIFICADO_SEMAFORO: Record<string, string> = {
+  ROJO: 'vence en menos de 6 meses',
+  AMARILLO: 'vence entre 6 y 12 meses',
+  VERDE: 'vence en más de 12 meses',
+};
+
 export const ETIQUETA_ESTADO_LOTE: Record<string, string> = {
   DISPONIBLE: 'Disponible',
   AGOTADO: 'Agotado',
@@ -243,6 +264,19 @@ export function faltanPara(dias: number): string {
   if (dias < 60) return 'En ' + dias + ' dias';
   const meses = Math.round(dias / 30);
   return 'En ' + meses + ' meses';
+}
+
+/**
+ * Lo mismo, pero con el verbo: lo que acompaña al color del semáforo.
+ *
+ * Un punto rojo solo no dice si es porque vence en cinco meses o porque
+ * venció el año pasado, y con lo primero todavía se entrega. Por eso el color
+ * va siempre con su plazo al lado.
+ */
+export function venceEn(dias: number): string {
+  if (dias < 0) return dias === -1 ? 'Vencio ayer' : 'Vencio ' + vencidoHace(-dias).toLowerCase();
+  if (dias <= 1) return faltanPara(dias);
+  return 'Vence ' + faltanPara(dias).toLowerCase();
 }
 
 /** Días transcurridos desde el vencimiento, dichos igual. */

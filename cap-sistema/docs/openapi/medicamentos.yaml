@@ -977,6 +977,26 @@ components:
         bajoMinimo:
           type: boolean
           description: "false cuando el minimo es cero: la alerta esta desactivada."
+        semaforo:
+          type: string
+          enum: &a9
+            - ROJO
+            - AMARILLO
+            - VERDE
+          nullable: true
+          description: Color del lote que vence antes entre los que tienen existencia.
+            Null si no hay existencia.
+        proximoVencimiento:
+          type: object
+          format: date-time
+          nullable: true
+          description: Fecha de vencimiento del lote que vence antes. Null si no hay
+            existencia.
+        diasParaVencer:
+          type: number
+          nullable: true
+          description: Dias que le faltan a ese lote. Negativo si ya vencio.
+          example: 210
       required:
         - id
         - codigo
@@ -990,6 +1010,9 @@ components:
         - stockMinimo
         - existencia
         - bajoMinimo
+        - semaforo
+        - proximoVencimiento
+        - diasParaVencer
     MedicamentoBajoMinimoDto:
       type: object
       properties:
@@ -1035,19 +1058,28 @@ components:
           example: 120
         estado:
           type: string
-          enum: &a9
+          enum: &a10
             - DISPONIBLE
             - AGOTADO
             - VENCIDO
             - DADO_DE_BAJA
         vencimiento:
           type: string
-          enum: &a10
+          enum: &a11
             - VIGENTE
             - POR_VENCER
             - VENCIDO
           description: Calculado contra el dia de hoy en Purulha y la ventana de alerta
             configurada.
+        diasParaVencer:
+          type: number
+          description: Dias que faltan para vencer. Negativo si ya vencio.
+          example: 210
+        semaforo:
+          type: string
+          enum: *a9
+          description: Rojo a menos de 6 meses, amarillo entre 6 y 12, verde a mas de 12.
+            Se recalcula cada dia.
       required:
         - id
         - numeroLote
@@ -1055,6 +1087,8 @@ components:
         - cantidadDisponible
         - estado
         - vencimiento
+        - diasParaVencer
+        - semaforo
     MedicamentoDetalleDto:
       type: object
       properties:
@@ -1092,6 +1126,23 @@ components:
         bajoMinimo:
           type: boolean
           description: "false cuando el minimo es cero: la alerta esta desactivada."
+        semaforo:
+          type: string
+          enum: *a9
+          nullable: true
+          description: Color del lote que vence antes entre los que tienen existencia.
+            Null si no hay existencia.
+        proximoVencimiento:
+          type: object
+          format: date-time
+          nullable: true
+          description: Fecha de vencimiento del lote que vence antes. Null si no hay
+            existencia.
+        diasParaVencer:
+          type: number
+          nullable: true
+          description: Dias que le faltan a ese lote. Negativo si ya vencio.
+          example: 210
         lotes:
           description: "Ordenados por vencimiento: primero el que vence antes."
           type: array
@@ -1110,6 +1161,9 @@ components:
         - stockMinimo
         - existencia
         - bajoMinimo
+        - semaforo
+        - proximoVencimiento
+        - diasParaVencer
         - lotes
     CrearMedicamentoDto:
       type: object
@@ -1274,7 +1328,7 @@ components:
           example: 320
         estado:
           type: string
-          enum: *a9
+          enum: *a10
         motivoBaja:
           type: string
           nullable: true
@@ -1332,7 +1386,11 @@ components:
           example: 34
         vencimiento:
           type: string
-          enum: *a10
+          enum: *a11
+        semaforo:
+          type: string
+          enum: *a9
+          description: Dentro de la ventana de alerta casi siempre es ROJO.
       required:
         - id
         - numeroLote
@@ -1341,6 +1399,7 @@ components:
         - cantidadDisponible
         - diasParaVencer
         - vencimiento
+        - semaforo
     LoteVencidoDto:
       type: object
       properties:

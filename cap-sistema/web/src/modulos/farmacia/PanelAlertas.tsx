@@ -22,6 +22,7 @@ import { AvisoError } from '../../componentes/AvisoError';
 import { usarSesion } from '../sesion/contexto';
 import { desde } from '../../navegacion/usarVolver';
 import { DialogoBaja, type LoteParaBaja } from './DialogoBaja';
+import { PuntoSemaforo } from './Semaforo';
 import {
   conUnidad,
   faltanPara,
@@ -116,12 +117,16 @@ export function PanelPorVencer() {
                   {fechaCorta(l.fechaVencimiento as unknown as string)}
                 </TableCell>
                 <TableCell>
-                  <Chip
-                    size="small"
-                    label={faltanPara(l.diasParaVencer)}
-                    color={l.diasParaVencer <= URGENTE_DIAS ? 'warning' : 'default'}
-                    variant={l.diasParaVencer <= URGENTE_DIAS ? 'filled' : 'outlined'}
-                  />
+                  <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
+                    {/* La misma etiqueta de color que lleva la caja en el estante. */}
+                    <PuntoSemaforo color={l.semaforo} />
+                    <Chip
+                      size="small"
+                      label={faltanPara(l.diasParaVencer)}
+                      color={l.diasParaVencer <= URGENTE_DIAS ? 'warning' : 'default'}
+                      variant={l.diasParaVencer <= URGENTE_DIAS ? 'filled' : 'outlined'}
+                    />
+                  </Stack>
                 </TableCell>
                 <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
                   {conUnidad(l.cantidadDisponible, l.medicamento.unidad)}

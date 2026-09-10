@@ -312,6 +312,21 @@ export interface components {
             existencia: number;
             /** @description false cuando el minimo es cero: la alerta esta desactivada. */
             bajoMinimo: boolean;
+            /**
+             * @description Color del lote que vence antes entre los que tienen existencia. Null si no hay existencia.
+             * @enum {string|null}
+             */
+            semaforo: "ROJO" | "AMARILLO" | "VERDE" | null;
+            /**
+             * Format: date-time
+             * @description Fecha de vencimiento del lote que vence antes. Null si no hay existencia.
+             */
+            proximoVencimiento: Record<string, never> | null;
+            /**
+             * @description Dias que le faltan a ese lote. Negativo si ya vencio.
+             * @example 210
+             */
+            diasParaVencer: number | null;
         };
         MedicamentoBajoMinimoDto: {
             /** Format: uuid */
@@ -345,6 +360,16 @@ export interface components {
              * @enum {string}
              */
             vencimiento: "VIGENTE" | "POR_VENCER" | "VENCIDO";
+            /**
+             * @description Dias que faltan para vencer. Negativo si ya vencio.
+             * @example 210
+             */
+            diasParaVencer: number;
+            /**
+             * @description Rojo a menos de 6 meses, amarillo entre 6 y 12, verde a mas de 12. Se recalcula cada dia.
+             * @enum {string}
+             */
+            semaforo: "ROJO" | "AMARILLO" | "VERDE";
         };
         MedicamentoDetalleDto: {
             /** Format: uuid */
@@ -368,6 +393,21 @@ export interface components {
             existencia: number;
             /** @description false cuando el minimo es cero: la alerta esta desactivada. */
             bajoMinimo: boolean;
+            /**
+             * @description Color del lote que vence antes entre los que tienen existencia. Null si no hay existencia.
+             * @enum {string|null}
+             */
+            semaforo: "ROJO" | "AMARILLO" | "VERDE" | null;
+            /**
+             * Format: date-time
+             * @description Fecha de vencimiento del lote que vence antes. Null si no hay existencia.
+             */
+            proximoVencimiento: Record<string, never> | null;
+            /**
+             * @description Dias que le faltan a ese lote. Negativo si ya vencio.
+             * @example 210
+             */
+            diasParaVencer: number | null;
             /** @description Ordenados por vencimiento: primero el que vence antes. */
             lotes: components["schemas"]["LoteDelMedicamentoDto"][];
         };
@@ -496,6 +536,11 @@ export interface components {
             diasParaVencer: number;
             /** @enum {string} */
             vencimiento: "VIGENTE" | "POR_VENCER" | "VENCIDO";
+            /**
+             * @description Dentro de la ventana de alerta casi siempre es ROJO.
+             * @enum {string}
+             */
+            semaforo: "ROJO" | "AMARILLO" | "VERDE";
         };
         LoteVencidoDto: {
             /** Format: uuid */
