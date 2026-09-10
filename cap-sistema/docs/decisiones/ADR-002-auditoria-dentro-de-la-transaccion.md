@@ -84,6 +84,12 @@ Se descarta **por ahora**, entonces, no por diseño sino por orden: cuando la Et
 publicador, mover la auditoría al outbox es un cambio local en cada servicio y esta decisión debería
 revisarse. Queda anotado como la evolución esperada.
 
+> **Nota del 10 de septiembre de 2026.** El publicador y el consumidor existen desde la etapa D de
+> la ficha prenatal (`packages/shared/src/eventos/`), antes de lo previsto. La condición que este
+> ADR ponía para revisarse ya se cumple; la decisión sigue en pie hasta que alguien la revise, y
+> conviene hacerlo con la diferencia de fondo delante: con el outbox la operación se completa
+> aunque `trazabilidad` esté caída, y con la llamada síncrona no ocurre.
+
 Hay una diferencia real entre las dos, y conviene tenerla presente al decidir: con el outbox la
 operación se completa aunque `trazabilidad` esté caída, y el rastro llega después. Con la llamada
 síncrona la operación no ocurre. La segunda es más estricta; la primera es más disponible.

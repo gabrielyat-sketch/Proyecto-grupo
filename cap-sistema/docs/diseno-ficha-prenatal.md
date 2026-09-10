@@ -124,6 +124,15 @@ Por qué así y no al revés:
 - **Es el patrón que el sistema ya tiene.** Los dos servicios tienen outbox, y
   `programas` ya llama a `usuarios` (`src/pacientes/cliente-pacientes.ts`). No
   se inventa un camino nuevo.
+
+  Con una salvedad que al escribir esto se pasó por alto: los tres servicios
+  *escribían* su outbox, pero nadie lo leía. El publicador y el consumidor
+  estaban previstos para la Etapa 10, y el ADR-002 ya había rechazado apoyar
+  la auditoría en «un publicador que llegará». Un control que Programas
+  registrará «cuando exista el publicador» tampoco es un control, así que la
+  etapa D los construyó: `packages/shared/src/eventos/`, sobre el Redis que
+  `docker-compose` ya levantaba sin que nadie lo usara. Cómo funciona:
+  `docs/eventos/esquema-eventos.md`.
 - **No hay transacción entre dos bases de datos.** Escribir directamente en
   `programas` desde `usuarios` significa que si la segunda escritura falla, la
   primera ya ocurrió y nadie se entera. El outbox existe precisamente para eso.
@@ -135,8 +144,18 @@ tiene ningún efecto clínico.
 
 Si la paciente no está inscrita en el programa de embarazo, la ficha **se guarda
 igual**. El evento queda publicado y Programas decide: hoy lo descarta y lo deja
-anotado. Inscribir a alguien en un programa por un efecto secundario sería tomar
-una decisión clínica que nadie pidió.
+anotado en `evento_procesado`, con el motivo. Inscribir a alguien en un programa
+por un efecto secundario sería tomar una decisión clínica que nadie pidió.
+
+Lo que viaja en `ficha.prenatal.registrada` es lo que Programas sabe evaluar
+—presión, altura uterina, frecuencia cardíaca fetal, peso— más las semanas que
+anotó quien atendió. Nada cifrado: ni laboratorios, ni problemas detectados, ni
+examen bucodental. El bus no es un canal cifrado por campo.
+
+La evaluación del posparto **no** publica nada todavía. Programas no tiene qué
+hacer con ella: cerrar el seguimiento con su resultado es una decisión del
+personal, y automatizarla desde una hoja sería lo mismo que inscribir por
+efecto secundario.
 
 ### 4. Los controles son N, no cuatro
 
@@ -242,6 +261,7 @@ temas de consejería para `PRENATAL` y 5 para `POSPARTO`.
 - **B — el backend del posparto.** `FichaPosparto` y su catálogo. **Construida.**
 - **C — las dos pantallas**, y el motivo de consulta que elige entre ellas.
 - **D — el evento a Programas**, y su consumo del lado de `programas`.
+  **Construida**, junto con el transporte que le faltaba al sistema entero.
 
 Los endpoints no son nuevos: `POST /expedientes/:id/fichas` y `GET /fichas/:id`
 sirven a las cuatro fichas, y lo que cambia es lo que viaja dentro. El catálogo

@@ -5,7 +5,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { crearPagina, normalizarPagina, type Pagina, ServicioCifrado } from '@cap/shared';
+import {
+  crearPagina,
+  type EventoBus,
+  normalizarPagina,
+  type Pagina,
+  ServicioCifrado,
+} from '@cap/shared';
+import type { Prisma, ProgramaEmbarazo } from '../../generado';
 import { PrismaService } from '../prisma/prisma.service';
 import { SERVICIO_CIFRADO } from '../comun/cifrado.module';
 import { CLIENTE_PACIENTES, IClientePacientes } from '../pacientes/cliente-pacientes';
@@ -27,6 +34,36 @@ import {
   ProgramaEmbarazoDto,
   ProgramaEmbarazoResumenDto,
 } from './dto/respuestas.dto';
+
+/**
+ * Lo que `usuarios` manda en `ficha.prenatal.registrada`. Es SU contrato —lo
+ * escribe `fichas.service.ts` de aquel servicio— y aqui se lee con todo
+ * opcional a proposito: un campo que falte se trata como no capturado, no como
+ * un evento roto.
+ */
+interface FichaPrenatalRegistrada {
+  atencionId: string;
+  pacienteId: string;
+  comunidadId?: string;
+  fecha: string;
+  pesoKg?: number | null;
+  presionSistolica?: number | null;
+  presionDiastolica?: number | null;
+  alturaUterinaCm?: number | null;
+  fcf?: number | null;
+  semanasPorFurAu?: number | null;
+  registradaPor: string;
+}
+
+/** Lo que hace falta para saber de que hoja y de que paciente se habla. */
+function leerFichaPrenatal(datos: Record<string, unknown>): FichaPrenatalRegistrada | string {
+  for (const campo of ['atencionId', 'pacienteId', 'fecha', 'registradaPor']) {
+    if (typeof datos[campo] !== 'string' || !datos[campo]) {
+      return 'El evento no trae ' + campo + '.';
+    }
+  }
+  return datos as unknown as FichaPrenatalRegistrada;
+}
 
 /** Un embarazo no dura mas de esto; una FUM mas antigua es un error de captura. */
 const DIAS_MAXIMOS_DESDE_FUM = 320;
@@ -201,69 +238,161 @@ export class EmbarazoService {
       throw new BadRequestException('El control no puede ser anterior a la fecha de ultima menstruacion.');
     }
 
-    const semanas = semanasGestacion(programa.fum, fechaDelDia(fecha));
-    const alertas = alertasControlPrenatal({
-      semanas,
-      sistolica: dto.sistolica,
-      diastolica: dto.diastolica,
-      fcf: dto.fcf,
-      edema: dto.edema,
-    });
+    return this.prisma.$transaction((tx) =>
+      this.crearControl(tx, programa, { ...dto, fecha }, usuarioId, trazaId),
+    );
+  }
 
-    return this.prisma.$transaction(async (tx) => {
-      const control = await tx.controlPrenatal.create({
-        data: {
-          programaId,
-          fecha,
-          semanasGestacion: semanas,
-          pesoKg: dto.pesoKg,
-          sistolica: dto.sistolica,
-          diastolica: dto.diastolica,
-          alturaUterinaCm: dto.alturaUterinaCm,
-          fcf: dto.fcf,
-          edema: dto.edema,
-          alertas,
-          observacionesCifrado: dto.observaciones
-            ? new Uint8Array(this.cifrado.cifrar(dto.observaciones))
-            : null,
-          proximoControl: proximoControlPrenatal(semanas, fechaDelDia(fecha)),
-          registradoPor: usuarioId,
-        },
-      });
+  /**
+   * Un control prenatal que llego por el bus: la hoja prenatal que alguien
+   * guardo en `usuarios`. Decision 3 del diseno de esa ficha: la ficha manda,
+   * Programas escucha, y nadie captura dos veces.
+   *
+   * Lo que decide aqui, y por que se descarta en vez de fallar:
+   *
+   *  - Sin seguimiento ACTIVO para esa paciente, el evento se descarta y se
+   *    deja anotado. Inscribirla por un efecto secundario seria tomar una
+   *    decision clinica que nadie pidio.
+   *  - Una hoja anterior a la FUM del seguimiento es de OTRO embarazo —o un
+   *    error de captura— y tampoco es de este.
+   *
+   * Fallar en esos casos no arreglaria nada: el evento se reintentaria hasta
+   * apartarse, y el resultado seria el mismo con mas ruido. La idempotencia va
+   * dentro: el id del evento se escribe en `evento_procesado` en la misma
+   * transaccion que el control, y la segunda entrega del mismo evento —el bus
+   * promete «al menos una vez»— se reconoce ahi y no hace nada.
+   */
+  async registrarControlDesdeFicha(evento: EventoBus): Promise<void> {
+    const d = leerFichaPrenatal(evento.datos);
 
-      // Si el control detecta presion elevada, el embarazo pasa a alto riesgo
-      // y ya no vuelve a bajar solo. El sistema nunca reduce un riesgo por su
-      // cuenta: eso es criterio del personal.
-      if (alertas.length > 0 && programa.riesgo === 'BAJO') {
-        await tx.programaEmbarazo.update({
-          where: { id: programaId },
-          data: {
-            riesgo: 'ALTO',
-            motivoRiesgo: [programa.motivoRiesgo, ...alertas].filter(Boolean).join('; ').slice(0, 300),
-          },
+    await this.prisma.$transaction(async (tx) => {
+      if (await tx.eventoProcesado.findUnique({ where: { id: evento.id } })) return;
+
+      const anotar = (resultado: 'APLICADO' | 'DESCARTADO', detalle: string) =>
+        tx.eventoProcesado.create({
+          data: { id: evento.id, tipo: evento.tipo, origen: evento.origen, resultado, detalle },
         });
+
+      if (typeof d === 'string') {
+        await anotar('DESCARTADO', d);
+        return;
       }
 
-      await this.outbox.registrar(
-        tx,
-        Evento.PRENATAL_CONTROL,
-        {
-          controlId: control.id,
-          programaId,
-          pacienteId: programa.pacienteId,
-          comunidadId: programa.comunidadId,
-          fecha: control.fecha.toISOString(),
-          semanasGestacion: semanas,
-          sistolica: dto.sistolica ?? null,
-          diastolica: dto.diastolica ?? null,
-          conAlertas: alertas.length > 0,
-          registradoPor: usuarioId,
-        },
-        trazaId,
-      );
+      // El mismo control pudo entrar por un evento distinto —un outbox
+      // republicado con otro id no pasa, pero cuesta poco cerrarle la puerta—.
+      if (await tx.controlPrenatal.findUnique({ where: { atencionId: d.atencionId } })) {
+        await anotar('DESCARTADO', 'La ficha ' + d.atencionId + ' ya es un control.');
+        return;
+      }
 
-      return this.descifrar(control);
+      const programa = await tx.programaEmbarazo.findFirst({
+        where: { pacienteId: d.pacienteId, estado: 'ACTIVO' },
+      });
+      if (!programa) {
+        await anotar('DESCARTADO', 'La paciente no tiene un seguimiento de embarazo activo.');
+        return;
+      }
+
+      const fecha = new Date(d.fecha);
+      if (Number.isNaN(fecha.getTime()) || fecha < programa.fum) {
+        await anotar('DESCARTADO', 'La ficha es anterior a la FUM del seguimiento activo.');
+        return;
+      }
+
+      const control = await this.crearControl(
+        tx,
+        programa,
+        {
+          fecha,
+          pesoKg: d.pesoKg ?? undefined,
+          sistolica: d.presionSistolica ?? undefined,
+          diastolica: d.presionDiastolica ?? undefined,
+          alturaUterinaCm: d.alturaUterinaCm ?? undefined,
+          fcf: d.fcf ?? undefined,
+          atencionId: d.atencionId,
+        },
+        d.registradaPor,
+        evento.trazaId ?? undefined,
+      );
+      await anotar('APLICADO', 'Control ' + control.id + ' en el seguimiento ' + programa.id + '.');
     });
+  }
+
+  /**
+   * El control en si, dentro de una transaccion ya abierta. Es el mismo camino
+   * para los dos origenes —la pantalla de Programas y la ficha que llega por el
+   * bus— porque las alertas, el cambio de riesgo y el evento que sale de aqui
+   * tienen que ser identicos vengan de donde vengan.
+   */
+  private async crearControl(
+    tx: Prisma.TransactionClient,
+    programa: ProgramaEmbarazo,
+    datos: RegistrarControlPrenatalDto & { fecha: Date; atencionId?: string },
+    usuarioId: string,
+    trazaId?: string,
+  ): Promise<ControlPrenatalDto> {
+    const semanas = semanasGestacion(programa.fum, fechaDelDia(datos.fecha));
+    const alertas = alertasControlPrenatal({
+      semanas,
+      sistolica: datos.sistolica,
+      diastolica: datos.diastolica,
+      fcf: datos.fcf,
+      edema: datos.edema,
+    });
+
+    const control = await tx.controlPrenatal.create({
+      data: {
+        programaId: programa.id,
+        fecha: datos.fecha,
+        semanasGestacion: semanas,
+        pesoKg: datos.pesoKg,
+        sistolica: datos.sistolica,
+        diastolica: datos.diastolica,
+        alturaUterinaCm: datos.alturaUterinaCm,
+        fcf: datos.fcf,
+        edema: datos.edema,
+        alertas,
+        observacionesCifrado: datos.observaciones
+          ? new Uint8Array(this.cifrado.cifrar(datos.observaciones))
+          : null,
+        proximoControl: proximoControlPrenatal(semanas, fechaDelDia(datos.fecha)),
+        registradoPor: usuarioId,
+        atencionId: datos.atencionId,
+      },
+    });
+
+    // Si el control detecta presion elevada, el embarazo pasa a alto riesgo
+    // y ya no vuelve a bajar solo. El sistema nunca reduce un riesgo por su
+    // cuenta: eso es criterio del personal.
+    if (alertas.length > 0 && programa.riesgo === 'BAJO') {
+      await tx.programaEmbarazo.update({
+        where: { id: programa.id },
+        data: {
+          riesgo: 'ALTO',
+          motivoRiesgo: [programa.motivoRiesgo, ...alertas].filter(Boolean).join('; ').slice(0, 300),
+        },
+      });
+    }
+
+    await this.outbox.registrar(
+      tx,
+      Evento.PRENATAL_CONTROL,
+      {
+        controlId: control.id,
+        programaId: programa.id,
+        pacienteId: programa.pacienteId,
+        comunidadId: programa.comunidadId,
+        fecha: control.fecha.toISOString(),
+        semanasGestacion: semanas,
+        sistolica: datos.sistolica ?? null,
+        diastolica: datos.diastolica ?? null,
+        conAlertas: alertas.length > 0,
+        registradoPor: usuarioId,
+      },
+      trazaId,
+    );
+
+    return this.descifrar(control);
   }
 
   async listarControles(

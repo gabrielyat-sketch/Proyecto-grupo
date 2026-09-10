@@ -2,7 +2,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import request from 'supertest';
-import { FiltroExcepciones, Rol } from '@cap/shared';
+import { BusEventos, desdeCampos, FiltroExcepciones, Rol, STREAM_EVENTOS } from '@cap/shared';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 
@@ -111,6 +111,9 @@ describe('Ficha prenatal (e2e)', () => {
 
   afterAll(async () => {
     for (const id of creados) {
+      // Los eventos de esta paciente de prueba, publicados o no: que no se
+      // queden en el outbox de la base de desarrollo.
+      await prisma.outbox.deleteMany({ where: { datos: { path: ['pacienteId'], equals: id } } });
       await prisma.atencion.deleteMany({ where: { expediente: { pacienteId: id } } });
       await prisma.registroDigitalizacion.deleteMany({ where: { expediente: { pacienteId: id } } });
       await prisma.antecedentesObstetricos.deleteMany({ where: { pacienteId: id } });
@@ -208,6 +211,77 @@ describe('Ficha prenatal (e2e)', () => {
 
       fichaId = r.body.id;
       expect(fichaId).toBeDefined();
+    });
+
+    /**
+     * Decision 3 del diseno: la ficha manda, Programas escucha. Lo que viaja
+     * es lo que Programas sabe evaluar, mas las semanas que anoto quien
+     * atendio. Lo cifrado —laboratorios, problemas detectados, examen
+     * bucodental— NO viaja: el bus no es un canal cifrado por campo.
+     */
+    it('deja en el outbox el evento para Programas, sin datos cifrados', async () => {
+      const evento = await prisma.outbox.findFirst({
+        where: { tipo: 'ficha.prenatal.registrada', datos: { path: ['atencionId'], equals: fichaId } },
+      });
+      expect(evento).not.toBeNull();
+      expect(evento!.datos).toEqual({
+        atencionId: fichaId,
+        pacienteId,
+        comunidadId,
+        fecha: '2026-06-12T15:00:00.000Z',
+        digitalizada: false,
+        pesoKg: 60.1,
+        presionSistolica: 110,
+        presionDiastolica: 70,
+        alturaUterinaCm: 23.5,
+        fcf: 142,
+        semanasPorFurAu: 23,
+        conSignosDePeligro: false,
+        registradaPor: 'e2e-prenatal-MEDICO',
+      });
+      const claves = Object.keys(evento!.datos as object);
+      for (const cifrado of ['hemoglobinaHematocrito', 'vih', 'problemasDetectados', 'examenBucodental']) {
+        expect(claves).not.toContain(cifrado);
+      }
+    });
+
+    /**
+     * La otra mitad del patron: el publicador que arranca con la aplicacion
+     * lo lleva al stream de Redis y marca la fila. Sin esto el outbox seria
+     * una tabla que crece y nadie lee, que es lo que fue hasta hoy.
+     */
+    it('y el publicador lo lleva al bus en cuestion de segundos', async () => {
+      if (!process.env.REDIS_URL) {
+        throw new Error('Esta prueba necesita REDIS_URL en el .env del servicio.');
+      }
+      const redis = new BusEventos(process.env.REDIS_URL).conectar();
+      try {
+        let fila = null;
+        for (let i = 0; i < 40 && !fila?.publicadoEn; i++) {
+          await new Promise((r) => setTimeout(r, 250));
+          fila = await prisma.outbox.findFirst({
+            where: { tipo: 'ficha.prenatal.registrada', datos: { path: ['atencionId'], equals: fichaId } },
+          });
+        }
+        expect(fila?.publicadoEn).toBeInstanceOf(Date);
+
+        // Esta en el stream, con el sobre completo y el id de la fila.
+        const ultimos = (await redis.xrevrange(STREAM_EVENTOS, '+', '-', 'COUNT', 50)) as [
+          string,
+          string[],
+        ][];
+        const enElBus = ultimos.map(([, campos]) => desdeCampos(campos)).find(
+          (e) => !(e instanceof Error) && e.id === fila!.id,
+        );
+        expect(enElBus).toMatchObject({
+          tipo: 'ficha.prenatal.registrada',
+          origen: 'usuarios',
+          version: 1,
+          datos: { atencionId: fichaId, pacienteId },
+        });
+      } finally {
+        await redis.quit();
+      }
     });
 
     it('la devuelve descifrada, y el peso queda donde lo leen los indicadores', async () => {
@@ -332,6 +406,12 @@ describe('Ficha prenatal (e2e)', () => {
       // adultos no la leeria nunca ninguna pantalla.
       const fila = await prisma.fichaPrenatal.findUnique({ where: { atencionId: r.body.id } });
       expect(fila).toBeNull();
+
+      // Y a Programas no se le cuenta nada: no es un control prenatal.
+      const evento = await prisma.outbox.findFirst({
+        where: { tipo: 'ficha.prenatal.registrada', datos: { path: ['atencionId'], equals: r.body.id } },
+      });
+      expect(evento).toBeNull();
     });
 
     it('Recepcion no puede abrir una ficha prenatal', async () => {

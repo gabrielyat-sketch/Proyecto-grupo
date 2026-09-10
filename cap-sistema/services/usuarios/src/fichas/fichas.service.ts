@@ -273,6 +273,41 @@ export class FichasService {
         contexto.trazaId,
       );
 
+      // La hoja prenatal ademas se la cuenta a Programas, que es quien lleva
+      // el seguimiento del embarazo: con esto el control queda registrado
+      // alli sin que el personal lo capture dos veces. Va con lo que
+      // Programas sabe evaluar —presion, altura uterina, frecuencia cardiaca
+      // fetal— y con las semanas que anoto quien atendio, y SIN laboratorios,
+      // ni problemas detectados, ni nada cifrado: el bus no es un canal
+      // cifrado por campo.
+      //
+      // Si la paciente no esta inscrita en el programa, Programas descarta el
+      // evento y lo deja anotado. Inscribirla por un efecto secundario seria
+      // tomar una decision clinica que nadie pidio.
+      if (dto.tipoFicha === 'PRENATAL') {
+        const p = dto.prenatal;
+        await this.outbox.registrar(
+          tx,
+          Evento.FICHA_PRENATAL_REGISTRADA,
+          {
+            atencionId: atencion.id,
+            pacienteId: expediente.paciente.id,
+            comunidadId: expediente.paciente.comunidadId,
+            fecha: atencion.fecha.toISOString(),
+            digitalizada: dto.digitalizada ?? false,
+            pesoKg: dto.pesoKg ?? null,
+            presionSistolica: dto.presionSistolica ?? null,
+            presionDiastolica: dto.presionDiastolica ?? null,
+            alturaUterinaCm: p?.alturaUterinaCm ?? null,
+            fcf: p?.fcf ?? null,
+            semanasPorFurAu: p?.semanasPorFurAu ?? null,
+            conSignosDePeligro: (dto.signosPeligro ?? []).some((s) => s.presente),
+            registradaPor: usuarioId,
+          },
+          contexto.trazaId,
+        );
+      }
+
       // Guardar la hoja SACA la carpeta de la cola.
       //
       // Antes la dejaba en "en proceso" y habia que volver a Digitalizacion,
