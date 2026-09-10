@@ -38,7 +38,11 @@ Este servicio **no consulta a los otros servicios**. Mantiene su propia tabla de
 calculados, alimentada por eventos, más un recálculo nocturno de reconciliación.
 
 Las tablas `outbox` de `usuarios` y `programas` ya se escriben en la misma transacción que el cambio
-de negocio. Falta el publicador que las lleve al bus.
+de negocio, y el publicador y el consumidor existen en `packages/shared/src/eventos/` desde la
+etapa D de la ficha prenatal: `usuarios` ya publica y `programas` ya consume. A `reportes` le toca
+montar `ConsumidorEventos` con su propio grupo, y a `programas` y `medicamentos` conectar el
+`PublicadorOutbox` a sus outbox —son las mismas diez líneas de `PublicadorService` en `usuarios`—
+cuando exista quien los lea.
 
 ### Debe incluir las cifras que el CAP reporta al MSPAS
 

@@ -51,7 +51,7 @@ import { BloqueFicha, Dato, SeccionFicha } from './SeccionFicha';
 import { EncabezadoFicha } from './EncabezadoFicha';
 import { LineaPregunta, SelectorSiNo } from './SelectorRespuesta';
 import { usarVolver } from '../../navegacion/usarVolver';
-import { AvisoDeEdad } from './CambioDeFicha';
+import { AvisoDeEdad, HojaDeEmbarazo } from './CambioDeFicha';
 
 /**
  * Memorizadas porque la ficha entera es un solo estado.
@@ -380,6 +380,12 @@ export function PaginaFicha() {
         }
         expediente={datos.expediente.numero}
       >
+        {/*
+          La puerta de entrada a la ficha prenatal y a la del posparto. Vive
+          aqui porque estas dos hojas no las puede elegir el sistema por la
+          edad: ver `HojaDeEmbarazo`.
+        */}
+        <HojaDeEmbarazo pacienteId={pacienteId} esMujer={esMujer} />
         {hayCambios ? <Chip size="small" label="Sin guardar" color="warning" /> : null}
         <Typography
           variant="caption"

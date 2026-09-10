@@ -1051,6 +1051,7 @@ paths:
               - NEONATO
               - NINEZ
               - PRENATAL
+              - POSPARTO
             type: string
       responses:
         "200":
@@ -2399,6 +2400,7 @@ components:
             - NEONATO
             - NINEZ
             - PRENATAL
+            - POSPARTO
           nullable: true
           description: null cuando la atencion no se capturo con una ficha oficial.
         motivo:
@@ -2836,6 +2838,7 @@ components:
             - NEONATO
             - NINEZ
             - PRENATAL
+            - POSPARTO
         signosPeligro:
           type: array
           items:
@@ -3009,6 +3012,159 @@ components:
           maximum: 10
         lactanciaMaternaExclusiva:
           type: boolean
+    DatosPrenatalDto:
+      type: object
+      properties:
+        circunferenciaBrazoCm:
+          type: number
+          example: 24.5
+          description: "Circunferencia del brazo. El papel: solo si el embarazo es menor
+            de 12 semanas."
+        examenGeneralNormal:
+          type: boolean
+          description: "Una sola casilla: estado general, palidez palmar, conjuntivas y
+            unas."
+        examenBucodental:
+          type: string
+          description: Hallazgos del examen buco dental.
+        alturaUterinaCm:
+          type: number
+          example: 28.5
+          description: Altura uterina en centimetros.
+        movimientosFetales:
+          type: boolean
+          description: El papel lo acota a las 20 semanas o mas.
+        fcf:
+          type: number
+          minimum: 0
+          maximum: 250
+          description: Frecuencia cardiaca fetal.
+        presentacionLeopold:
+          type: string
+          maxLength: 60
+          example: Cefálica
+          description: Presentacion por maniobras de Leopold, a partir de las 36 semanas.
+        trazasSangre:
+          type: boolean
+        trazasSangreDescripcion:
+          type: string
+          description: El papel dice "(describa)".
+        lesionesVulvares:
+          type: boolean
+          description: Verrugas, herpes, papilomas o ulceras.
+        lesionesVulvaresDescripcion:
+          type: string
+          description: El papel dice "(describa)".
+        flujoVaginal:
+          type: boolean
+        hemoglobinaHematocrito:
+          type: string
+          example: 11.2 / 34
+        grupoRh:
+          type: string
+          example: O RH+
+        orina:
+          type: string
+          description: Proteina, glucosa y cetona.
+        glicemia:
+          type: string
+        vdrl:
+          type: string
+        vih:
+          type: string
+          description: 'El papel: "oferte prueba con consejeria".'
+        papanicolau:
+          type: string
+        infecciones:
+          type: string
+        semanasPorFurAu:
+          type: number
+          minimum: 0
+          maximum: 45
+          description: Semanas de embarazo por FUR y/o altura uterina, como las anota
+            quien atiende.
+        problemasDetectados:
+          type: string
+          description: "Esta ficha no trae matriz de problemas: se escriben."
+        sulfatoFerrosoTabletas:
+          type: number
+          minimum: 0
+          maximum: 400
+        acidoFolicoTabletas:
+          type: number
+          minimum: 0
+          maximum: 400
+        tdDosis:
+          type: number
+          minimum: 0
+          maximum: 10
+          description: Dosis de Td de este control.
+    DatosPospartoDto:
+      type: object
+      properties:
+        esPrimerControl:
+          type: boolean
+          description: El primer control tiene hoja propia y cinco preguntas que no se
+            repiten. Por defecto, false.
+        diasDespuesDelParto:
+          type: number
+          minimum: 0
+          maximum: 400
+          description: Solo en el primer control.
+        dondeAtendioParto:
+          type: string
+          maxLength: 120
+          description: Solo en el primer control.
+        quienAtendioParto:
+          type: string
+          enum:
+            - MD
+            - EP
+            - AE
+            - CT
+            - OTRO
+          description: Solo en el primer control.
+        quienAtendioPartoOtro:
+          type: string
+          maxLength: 120
+        involucionUterina:
+          type: string
+          description: El papel pide describirla, no marcarla.
+        examenMamas:
+          type: string
+        heridaOperatoria:
+          type: string
+        examenGinecologico:
+          type: string
+          description: Loquios, episiorrafia y hallazgos patologicos.
+        lactanciaMaternaExclusiva:
+          type: boolean
+        motivoSinLactancia:
+          type: string
+          description: La pregunta "¿Por que no?" del papel.
+        problemasDetectados:
+          type: string
+        sulfatoFerroso:
+          type: boolean
+        sulfatoFerrosoTabletas:
+          type: number
+          minimum: 0
+          maximum: 400
+        acidoFolico:
+          type: boolean
+        acidoFolicoTabletas:
+          type: number
+          minimum: 0
+          maximum: 400
+        td:
+          type: boolean
+        tdDosis:
+          type: number
+          minimum: 0
+          maximum: 10
+        otroMedicamento:
+          type: boolean
+          description: Cual es se registra en `medicamentos`.
     CrearFichaDto:
       type: object
       properties:
@@ -3019,6 +3175,7 @@ components:
             - NEONATO
             - NINEZ
             - PRENATAL
+            - POSPARTO
         fecha:
           format: date-time
           type: string
@@ -3099,6 +3256,10 @@ components:
             $ref: "#/components/schemas/ConsejeriaBrindadaDto"
         neonato:
           $ref: "#/components/schemas/DatosNeonatoDto"
+        prenatal:
+          $ref: "#/components/schemas/DatosPrenatalDto"
+        posparto:
+          $ref: "#/components/schemas/DatosPospartoDto"
       required:
         - tipoFicha
         - motivo
@@ -3306,6 +3467,206 @@ components:
         - tdMadre
         - tdMadreDosis
         - lactanciaMaternaExclusiva
+    FichaPrenatalDto:
+      type: object
+      properties:
+        circunferenciaBrazoCm:
+          type: string
+          nullable: true
+          description: Decimal en texto.
+        examenGeneralNormal:
+          type: boolean
+          nullable: true
+        examenBucodental:
+          type: string
+          nullable: true
+        alturaUterinaCm:
+          type: string
+          nullable: true
+          description: Decimal en texto.
+        movimientosFetales:
+          type: boolean
+          nullable: true
+        fcf:
+          type: number
+          nullable: true
+          description: Frecuencia cardiaca fetal.
+        presentacionLeopold:
+          type: string
+          nullable: true
+        trazasSangre:
+          type: boolean
+          nullable: true
+        trazasSangreDescripcion:
+          type: string
+          nullable: true
+        lesionesVulvares:
+          type: boolean
+          nullable: true
+        lesionesVulvaresDescripcion:
+          type: string
+          nullable: true
+        flujoVaginal:
+          type: boolean
+          nullable: true
+        hemoglobinaHematocrito:
+          type: string
+          nullable: true
+        grupoRh:
+          type: string
+          nullable: true
+        orina:
+          type: string
+          nullable: true
+        glicemia:
+          type: string
+          nullable: true
+        vdrl:
+          type: string
+          nullable: true
+        vih:
+          type: string
+          nullable: true
+        papanicolau:
+          type: string
+          nullable: true
+        infecciones:
+          type: string
+          nullable: true
+        semanasPorFurAu:
+          type: number
+          nullable: true
+          description: Como las anoto quien atendio.
+        problemasDetectados:
+          type: string
+          nullable: true
+        sulfatoFerrosoTabletas:
+          type: number
+          nullable: true
+        acidoFolicoTabletas:
+          type: number
+          nullable: true
+        tdDosis:
+          type: number
+          nullable: true
+        semanasGestacion:
+          type: number
+          nullable: true
+          description: Calculadas a partir de la FUR y la fecha de la consulta. Null si no
+            hay FUR.
+        fechaProbableParto:
+          type: string
+          nullable: true
+          description: Fecha probable de parto (regla de Naegele), como aaaa-mm-dd. Null
+            si no hay FUR.
+      required:
+        - circunferenciaBrazoCm
+        - examenGeneralNormal
+        - examenBucodental
+        - alturaUterinaCm
+        - movimientosFetales
+        - fcf
+        - presentacionLeopold
+        - trazasSangre
+        - trazasSangreDescripcion
+        - lesionesVulvares
+        - lesionesVulvaresDescripcion
+        - flujoVaginal
+        - hemoglobinaHematocrito
+        - grupoRh
+        - orina
+        - glicemia
+        - vdrl
+        - vih
+        - papanicolau
+        - infecciones
+        - semanasPorFurAu
+        - problemasDetectados
+        - sulfatoFerrosoTabletas
+        - acidoFolicoTabletas
+        - tdDosis
+        - semanasGestacion
+        - fechaProbableParto
+    FichaPospartoDto:
+      type: object
+      properties:
+        esPrimerControl:
+          type: boolean
+          description: El primer control pregunta cinco cosas que los demas no repiten.
+        diasDespuesDelParto:
+          type: number
+          nullable: true
+        dondeAtendioParto:
+          type: string
+          nullable: true
+        quienAtendioParto:
+          type: string
+          nullable: true
+        quienAtendioPartoOtro:
+          type: string
+          nullable: true
+        involucionUterina:
+          type: string
+          nullable: true
+        examenMamas:
+          type: string
+          nullable: true
+        heridaOperatoria:
+          type: string
+          nullable: true
+        examenGinecologico:
+          type: string
+          nullable: true
+        lactanciaMaternaExclusiva:
+          type: boolean
+          nullable: true
+        motivoSinLactancia:
+          type: string
+          nullable: true
+        problemasDetectados:
+          type: string
+          nullable: true
+        sulfatoFerroso:
+          type: boolean
+          nullable: true
+        sulfatoFerrosoTabletas:
+          type: number
+          nullable: true
+        acidoFolico:
+          type: boolean
+          nullable: true
+        acidoFolicoTabletas:
+          type: number
+          nullable: true
+        td:
+          type: boolean
+          nullable: true
+        tdDosis:
+          type: number
+          nullable: true
+        otroMedicamento:
+          type: boolean
+          nullable: true
+      required:
+        - esPrimerControl
+        - diasDespuesDelParto
+        - dondeAtendioParto
+        - quienAtendioParto
+        - quienAtendioPartoOtro
+        - involucionUterina
+        - examenMamas
+        - heridaOperatoria
+        - examenGinecologico
+        - lactanciaMaternaExclusiva
+        - motivoSinLactancia
+        - problemasDetectados
+        - sulfatoFerroso
+        - sulfatoFerrosoTabletas
+        - acidoFolico
+        - acidoFolicoTabletas
+        - td
+        - tdDosis
+        - otroMedicamento
     FichaDto:
       type: object
       properties:
@@ -3417,6 +3778,18 @@ components:
           type: object
           allOf:
             - $ref: "#/components/schemas/FichaNeonatoDto"
+        prenatal:
+          nullable: true
+          description: Solo en las fichas prenatales.
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/FichaPrenatalDto"
+        posparto:
+          nullable: true
+          description: Solo en las fichas del posparto.
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/FichaPospartoDto"
       required:
         - id
         - expedienteId
@@ -3448,6 +3821,8 @@ components:
         - medicamentos
         - consejeriaTemas
         - neonato
+        - prenatal
+        - posparto
     DosisRecomendadaDto:
       type: object
       properties:

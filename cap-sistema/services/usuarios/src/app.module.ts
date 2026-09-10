@@ -1,7 +1,13 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule, JwtModuleOptions } from '@nestjs/jwt';
-import { GuardJwt, GuardRoles, MiddlewareTraza, ModuloAuditoria } from '@cap/shared';
+import {
+  GuardJwt,
+  GuardRoles,
+  MiddlewareTraza,
+  ModuloAuditoria,
+  ModuloEventos,
+} from '@cap/shared';
 import { PrismaModule } from './prisma/prisma.module';
 import { SaludModule } from './salud/salud.module';
 import { CifradoModule } from './comun/cifrado.module';
@@ -37,6 +43,10 @@ import { leerEntorno } from './config/entorno';
         timeoutMs: env.AUDITORIA_TIMEOUT_MS,
         entorno: env.NODE_ENV,
       };
+    }),
+    ModuloEventos.paraServicio(() => {
+      const env = leerEntorno();
+      return { url: env.REDIS_URL, entorno: env.NODE_ENV };
     }),
     CifradoModule,
     EventosModule,

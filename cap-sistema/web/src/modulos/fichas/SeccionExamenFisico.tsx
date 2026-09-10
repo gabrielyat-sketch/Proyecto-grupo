@@ -36,11 +36,29 @@ const CAMPOS: { campo: CampoExamen; etiqueta: string; unidad: string }[] = [
 export function SeccionExamenFisico({
   valores,
   onCambio,
+  campos,
 }: {
   valores: ExamenFisico;
   onCambio: (campo: CampoExamen, valor: string) => void;
+  /**
+   * Que casillas dibujar, cuando la hoja no las pide todas.
+   *
+   * Por defecto, las ocho de la ficha de adultos. La hoja prenatal pide cinco y
+   * ninguna es la circunferencia de cintura: en un embarazo esa medida no
+   * significa lo que significa fuera de el, y ofrecerla seria invitar a
+   * capturar un dato que despues nadie sabria como leer.
+   */
+  campos?: readonly CampoExamen[];
 }) {
+  const visibles = campos ? CAMPOS.filter((c) => campos.includes(c.campo)) : CAMPOS;
   const imc = imcDe(valores.pesoKg, valores.tallaCm);
+
+  // El IMC solo se ensena si la hoja pide sus dos ingredientes. En la prenatal
+  // no se pide la talla, y ademas el indice deja de significar lo mismo segun
+  // avanza el embarazo: un recuadro fijo diciendo "se calcula con el peso y la
+  // talla" seria una casilla vacia invitando a llenar algo que esa hoja no
+  // pregunta.
+  const conImc = visibles.some((c) => c.campo === 'pesoKg') && visibles.some((c) => c.campo === 'tallaCm');
 
   return (
     <Stack sx={{ gap: 2 }}>
@@ -51,7 +69,7 @@ export function SeccionExamenFisico({
           gap: 2,
         }}
       >
-        {CAMPOS.map(({ campo, etiqueta, unidad }) => {
+        {visibles.map(({ campo, etiqueta, unidad }) => {
           const malo = fueraDeRango(campo, valores[campo]);
           const rango = RANGOS_EXAMEN[campo];
           const n = Number(valores[campo]);
@@ -83,6 +101,7 @@ export function SeccionExamenFisico({
         })}
       </Box>
 
+      {conImc ? (
       <Stack
         direction="row"
         aria-live="polite"
@@ -107,6 +126,7 @@ export function SeccionExamenFisico({
           {imc === null ? 'Se calcula con el peso y la talla' : clasificacionImc(imc)}
         </Typography>
       </Stack>
+      ) : null}
     </Stack>
   );
 }

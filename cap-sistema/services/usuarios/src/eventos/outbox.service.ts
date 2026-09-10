@@ -6,6 +6,12 @@ export const Evento = {
   PACIENTE_CREADO: 'paciente.creado',
   ATENCION_REGISTRADA: 'atencion.registrada',
   EXPEDIENTE_DIGITALIZADO: 'expediente.digitalizado',
+  /**
+   * Una hoja prenatal guardada. Lo consume `programas` para registrar el
+   * control en el seguimiento del embarazo sin que nadie lo capture dos
+   * veces (decision 3 de docs/diseno-ficha-prenatal.md).
+   */
+  FICHA_PRENATAL_REGISTRADA: 'ficha.prenatal.registrada',
 } as const;
 
 export type TipoEvento = (typeof Evento)[keyof typeof Evento];
@@ -18,7 +24,7 @@ export type TipoEvento = (typeof Evento)[keyof typeof Evento];
  * fuera de la transaccion, un fallo entre el COMMIT y la escritura del evento
  * dejaria el indicador desfasado de forma permanente y silenciosa.
  *
- * El publicador que lleva estos eventos al bus llega en la Etapa 10.
+ * Quien los lleva al bus es `PublicadorService`, en este mismo modulo.
  */
 @Injectable()
 export class OutboxService {
