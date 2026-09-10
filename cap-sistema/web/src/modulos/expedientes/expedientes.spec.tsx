@@ -313,6 +313,22 @@ describe('el expediente de un paciente', () => {
     expect(screen.getAllByRole('button', { name: 'Ver la ficha completa' })).toHaveLength(1);
   });
 
+  /**
+   * Imprimir abre otra pestana: quien imprime vuelve al expediente sin
+   * haberlo perdido, y el dialogo de impresion no tapa el historial.
+   */
+  it('cada ficha ofrece imprimirse como la hoja oficial, en otra pestana', async () => {
+    servidor({ historial: [atencion(1), atencion(2, { tipoFicha: 'ADULTO' })] });
+    abrir(MEDICO, '/pacientes/p-1/expediente');
+    await esperar();
+    await screen.findByText('Ficha Adulto');
+
+    const imprimir = screen.getAllByRole('link', { name: 'Imprimir' });
+    expect(imprimir).toHaveLength(1);
+    expect(imprimir[0]).toHaveAttribute('href', '/pacientes/p-1/fichas/a-2/imprimir');
+    expect(imprimir[0]).toHaveAttribute('target', '_blank');
+  });
+
   it('la ficha completa se pide al abrirla, no antes', async () => {
     servidor({ historial: [atencion(2, { tipoFicha: 'ADULTO' })] });
     const usuario = userEvent.setup();

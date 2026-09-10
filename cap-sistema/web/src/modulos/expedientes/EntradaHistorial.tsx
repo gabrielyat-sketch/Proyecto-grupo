@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Box, Button, Chip, CircularProgress, Divider, Stack, Typography } from '@mui/material';
+import PrintIcon from '@mui/icons-material/Print';
 import { AvisoError } from '../../componentes/AvisoError';
 import { fechaCorta } from '../farmacia/servicio-farmacia';
 import {
@@ -35,7 +36,14 @@ const hora = (valor: string) =>
  * diagnosticos—, que son decenas de renglones y solo se miran cuando interesa
  * esa consulta en concreto. Se pide al servidor al abrirla, no antes.
  */
-export function EntradaHistorial({ atencion }: { atencion: Atencion }) {
+export function EntradaHistorial({
+  atencion,
+  pacienteId,
+}: {
+  atencion: Atencion;
+  /** Para el enlace de impresion: la hoja necesita al paciente ademas de la ficha. */
+  pacienteId?: string;
+}) {
   const [abierta, setAbierta] = useState(false);
   const esFicha = atencion.tipoFicha !== null;
 
@@ -136,14 +144,33 @@ export function EntradaHistorial({ atencion }: { atencion: Atencion }) {
 
       {esFicha ? (
         <>
-          <Button
-            size="small"
-            onClick={() => setAbierta((v) => !v)}
-            sx={{ mt: 1, px: 0, minWidth: 0 }}
-            aria-expanded={abierta}
-          >
-            {abierta ? 'Ocultar la ficha' : 'Ver la ficha completa'}
-          </Button>
+          <Stack direction="row" sx={{ gap: 2, alignItems: 'center', mt: 1, flexWrap: 'wrap' }}>
+            <Button
+              size="small"
+              onClick={() => setAbierta((v) => !v)}
+              sx={{ px: 0, minWidth: 0 }}
+              aria-expanded={abierta}
+            >
+              {abierta ? 'Ocultar la ficha' : 'Ver la ficha completa'}
+            </Button>
+            {/*
+              Se abre en otra pestana: quien imprime vuelve al expediente sin
+              haberlo perdido, y el dialogo de impresion no tapa el historial.
+            */}
+            {pacienteId ? (
+              <Button
+                size="small"
+                component="a"
+                href={'/pacientes/' + pacienteId + '/fichas/' + atencion.id + '/imprimir'}
+                target="_blank"
+                rel="noopener"
+                startIcon={<PrintIcon />}
+                sx={{ px: 0, minWidth: 0 }}
+              >
+                Imprimir
+              </Button>
+            ) : null}
+          </Stack>
 
           {abierta ? (
             <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
