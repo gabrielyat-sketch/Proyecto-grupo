@@ -95,6 +95,17 @@ const LOTE_POR_VENCER = {
   semaforo: 'ROJO',
 };
 
+const LOTE_AMARILLO = {
+  id: 'l-5',
+  numeroLote: 'LTGT1501',
+  medicamento: { codigo: 'SF-300', nombreGenerico: 'Sulfato ferroso', unidad: 'TABLETA' },
+  fechaVencimiento: '2027-06-07',
+  cantidadDisponible: 300,
+  diasParaVencer: 270,
+  vencimiento: 'VIGENTE',
+  semaforo: 'AMARILLO',
+};
+
 const LOTE_VENCIDO = {
   id: 'l-8',
   numeroLote: 'L-1200',
@@ -136,14 +147,18 @@ function json(cuerpo: unknown, estado = 200) {
 function servidor({
   catalogo = [AMOXICILINA, SUERO],
   detalle = DETALLE as unknown,
-  porVencer = [LOTE_POR_VENCER] as unknown[],
+  rojo = [LOTE_POR_VENCER] as unknown[],
+  amarillo = [LOTE_AMARILLO] as unknown[],
+  verde = [] as unknown[],
   vencidos = [LOTE_VENCIDO] as unknown[],
   bajoMinimo = BAJO_MINIMO as unknown[],
   ajusteChoca = false,
 }: {
   catalogo?: unknown[];
   detalle?: unknown;
-  porVencer?: unknown[];
+  rojo?: unknown[];
+  amarillo?: unknown[];
+  verde?: unknown[];
   vencidos?: unknown[];
   bajoMinimo?: unknown[];
   /** Simula que alguien entrego mientras se contaba: el servidor da 409. */
@@ -160,7 +175,17 @@ function servidor({
       const ruta = url.pathname;
 
       if (ruta.endsWith('/v1/medicamentos/bajo-minimo')) return json(bajoMinimo);
-      if (ruta.endsWith('/v1/lotes/por-vencer')) return json(paginaDe(porVencer));
+      if (ruta.endsWith('/v1/lotes/semaforo/resumen')) {
+        return json({
+          rojo: rojo.length,
+          amarillo: amarillo.length,
+          verde: verde.length,
+          vencidos: vencidos.length,
+        });
+      }
+      if (ruta.endsWith('/v1/lotes/semaforo/ROJO')) return json(paginaDe(rojo));
+      if (ruta.endsWith('/v1/lotes/semaforo/AMARILLO')) return json(paginaDe(amarillo));
+      if (ruta.endsWith('/v1/lotes/semaforo/VERDE')) return json(paginaDe(verde));
       if (ruta.endsWith('/v1/lotes/vencidos')) return json(paginaDe(vencidos));
       if (/\/v1\/lotes\/[^/]+\/ajuste$/.test(ruta)) {
         return ajusteChoca
@@ -434,7 +459,9 @@ describe('quien hace que', () => {
     abrir(MEDICO);
     await esperarPanel();
 
-    expect(screen.queryByRole('tab', { name: /Por vencer/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /Rojo/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /Amarillo/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /Verde/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: /Vencidos/ })).not.toBeInTheDocument();
   });
 
@@ -485,13 +512,42 @@ describe('alertas', () => {
     expect(within(pestana).getByText('2')).toBeInTheDocument();
   });
 
-  it('los lotes por vencer salen del que vence antes, con los dias que faltan', async () => {
+  /**
+   * Las tres pestanas de color son el semaforo del estante tal cual, con el
+   * nombre con el que el personal ya llama a esas cajas. Los cuatro numeros
+   * llegan en UNA consulta, no pidiendo cada lista para leer su total.
+   */
+  it('las pestanas Rojo, Amarillo y Verde llevan su cuenta, y sale de una sola consulta', async () => {
+    servidor({ verde: [{ ...LOTE_AMARILLO, id: 'l-6', semaforo: 'VERDE' }] });
+    abrir(FARMACIA);
+    await esperarPanel();
+
+    expect(within(await screen.findByRole('tab', { name: /Rojo/ })).getByText('1')).toBeInTheDocument();
+    expect(within(screen.getByRole('tab', { name: /Amarillo/ })).getByText('1')).toBeInTheDocument();
+    expect(within(screen.getByRole('tab', { name: /Verde/ })).getByText('1')).toBeInTheDocument();
+
+    const deLotes = peticiones.filter((p) => p.url.includes('/lotes/'));
+    expect(deLotes).toHaveLength(1);
+    expect(deLotes[0].url).toMatch(/\/lotes\/semaforo\/resumen$/);
+  });
+
+  it('el orden de las pestanas es el del semaforo: Rojo, Amarillo, Verde, y luego Vencidos', async () => {
+    servidor();
+    abrir(FARMACIA);
+    await esperarPanel();
+    await screen.findByRole('tab', { name: /Rojo/ });
+
+    const nombres = screen.getAllByRole('tab').map((t) => t.textContent?.replace(/\d+$/, ''));
+    expect(nombres).toEqual(['Catalogo', 'Rojo', 'Amarillo', 'Verde', 'Vencidos', 'Bajo minimo', 'Entregas']);
+  });
+
+  it('los lotes en rojo salen del que vence antes, con los dias que faltan', async () => {
     servidor();
     const usuario = userEvent.setup();
     abrir(FARMACIA);
     await esperarPanel();
 
-    await usuario.click(await screen.findByRole('tab', { name: /Por vencer/ }));
+    await usuario.click(await screen.findByRole('tab', { name: /Rojo/ }));
 
     expect(await screen.findByText('L-4471')).toBeInTheDocument();
     expect(screen.getByText('En 18 dias')).toBeInTheDocument();
@@ -500,14 +556,39 @@ describe('alertas', () => {
     expect(screen.getByRole('img', { name: 'Semaforo rojo' })).toBeInTheDocument();
   });
 
-  it('sin vencimientos proximos lo dice, en vez de mostrar una tabla vacia', async () => {
-    servidor({ porVencer: [] });
+  it('la pestana Amarillo lista los suyos, con su plazo en meses', async () => {
+    servidor();
     const usuario = userEvent.setup();
     abrir(FARMACIA);
     await esperarPanel();
 
-    await usuario.click(await screen.findByRole('tab', { name: 'Por vencer' }));
-    expect(await screen.findByText(/Ningun lote vence/)).toBeInTheDocument();
+    await usuario.click(await screen.findByRole('tab', { name: /Amarillo/ }));
+
+    expect(await screen.findByText('LTGT1501')).toBeInTheDocument();
+    expect(screen.getByText('Sulfato ferroso')).toBeInTheDocument();
+    expect(screen.getByText('En 9 meses')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Semaforo amarillo' })).toBeInTheDocument();
+    expect(screen.getByText(/1 lote en amarillo/)).toBeInTheDocument();
+  });
+
+  it('sin lotes en rojo lo dice como buena noticia', async () => {
+    servidor({ rojo: [] });
+    const usuario = userEvent.setup();
+    abrir(FARMACIA);
+    await esperarPanel();
+
+    await usuario.click(await screen.findByRole('tab', { name: /Rojo/ }));
+    expect(await screen.findByText(/Ningun lote vence en los proximos seis meses/)).toBeInTheDocument();
+  });
+
+  it('sin lotes en verde lo dice sin alarma: no es una alerta', async () => {
+    servidor();
+    const usuario = userEvent.setup();
+    abrir(FARMACIA);
+    await esperarPanel();
+
+    await usuario.click(await screen.findByRole('tab', { name: /Verde/ }));
+    expect(await screen.findByText(/Ningun lote vence a mas de doce meses/)).toBeInTheDocument();
   });
 
   it('los vencidos avisan que ya no se pueden entregar', async () => {

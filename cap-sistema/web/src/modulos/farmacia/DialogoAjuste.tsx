@@ -58,7 +58,7 @@ export function DialogoAjuste({ lote, onCerrar }: { lote: LoteParaBaja; onCerrar
     onSuccess: () => {
       void consultas.invalidateQueries({ queryKey: ['medicamento'] });
       void consultas.invalidateQueries({ queryKey: ['catalogo'] });
-      void consultas.invalidateQueries({ queryKey: ['por-vencer'] });
+      void consultas.invalidateQueries({ queryKey: ['semaforo'] });
       void consultas.invalidateQueries({ queryKey: ['vencidos'] });
       void consultas.invalidateQueries({ queryKey: ['bajo-minimo'] });
       onCerrar();

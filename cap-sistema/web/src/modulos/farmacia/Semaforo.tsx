@@ -23,13 +23,32 @@ const BORDE: Record<string, string> = {
   VERDE: '#0f5228',
 };
 
-/** El círculo de color, solo. Con su nombre para quien no lo ve. */
-export function PuntoSemaforo({ color, tamano = 14 }: { color: string; tamano?: number }) {
+/**
+ * El círculo de color, solo. Con su nombre para quien no lo ve.
+ *
+ * `decorativo` lo esconde del lector de pantalla: en la pestaña "Rojo" el
+ * punto no añade nada a la palabra que tiene al lado, y leerlo dos veces
+ * ("Semaforo rojo, Rojo") solo estorba.
+ */
+export function PuntoSemaforo({
+  color,
+  tamano = 14,
+  decorativo = false,
+}: {
+  color: string;
+  tamano?: number;
+  decorativo?: boolean;
+}) {
   return (
     <Box
-      role="img"
-      aria-label={'Semaforo ' + (ETIQUETA_SEMAFORO[color] ?? color).toLowerCase()}
+      component="span"
+      role={decorativo ? undefined : 'img'}
+      aria-hidden={decorativo || undefined}
+      aria-label={
+        decorativo ? undefined : 'Semaforo ' + (ETIQUETA_SEMAFORO[color] ?? color).toLowerCase()
+      }
       sx={{
+        display: 'inline-block',
         width: tamano,
         height: tamano,
         borderRadius: '50%',

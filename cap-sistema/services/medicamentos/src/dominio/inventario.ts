@@ -83,9 +83,29 @@ export const SEMAFORO_MESES_AMARILLO = 12;
  */
 export function semaforoVencimiento(fechaVencimiento: Date, hoy: Date): ColorSemaforo {
   const vence = aDiaUtc(fechaVencimiento);
-  if (vence < sumarMeses(hoy, SEMAFORO_MESES_ROJO)) return 'ROJO';
-  if (vence <= sumarMeses(hoy, SEMAFORO_MESES_AMARILLO)) return 'AMARILLO';
+  const { rojoHasta, amarilloHasta } = umbralesSemaforo(hoy);
+  if (vence < rojoHasta.getTime()) return 'ROJO';
+  if (vence <= amarilloHasta.getTime()) return 'AMARILLO';
   return 'VERDE';
+}
+
+/**
+ * Las dos fechas que parten el semáforo, para consultar la base con la MISMA
+ * regla que clasifica en memoria.
+ *
+ *   ROJO      vence  <  rojoHasta
+ *   AMARILLO  rojoHasta <= vence <= amarilloHasta
+ *   VERDE     vence  >  amarilloHasta
+ *
+ * Si la lista del rojo se filtrara con `hoy + 180 días` y la etiqueta con
+ * `hoy + 6 meses`, habría lotes rojos que no salen en la lista de rojos. Los
+ * dos lados usan esta función.
+ */
+export function umbralesSemaforo(hoy: Date): { rojoHasta: Date; amarilloHasta: Date } {
+  return {
+    rojoHasta: new Date(sumarMeses(hoy, SEMAFORO_MESES_ROJO)),
+    amarilloHasta: new Date(sumarMeses(hoy, SEMAFORO_MESES_AMARILLO)),
+  };
 }
 
 /**

@@ -425,6 +425,117 @@ paths:
       security: *a4
       summary: Lotes que vencen dentro de la ventana de alerta
       tags: *a5
+  /v1/lotes/semaforo/resumen:
+    get:
+      description: Los numeros de las pestanas de Farmacia, en una sola consulta.
+      operationId: LotesController_resumenSemaforo
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumenSemaforoDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a4
+      summary: Cuantos lotes con existencia hay de cada color del semaforo
+      tags: *a5
+  /v1/lotes/semaforo/{color}:
+    get:
+      description: "ROJO vence en menos de 6 meses, AMARILLO entre 6 y 12, VERDE en
+        mas de 12. Los ya vencidos no entran: tienen su propia lista."
+      operationId: LotesController_porSemaforo
+      parameters:
+        - name: color
+          required: true
+          in: path
+          schema:
+            enum:
+              - ROJO
+              - AMARILLO
+              - VERDE
+            type: string
+        - name: pagina
+          required: false
+          in: query
+          description: Empieza en 1. Por defecto 1.
+          schema:
+            example: 1
+            type: number
+        - name: tamano
+          required: false
+          in: query
+          description: Por defecto 25. El servidor recorta cualquier valor mayor a 100.
+          schema:
+            example: 25
+            type: number
+      responses:
+        "200":
+          description: "Ordenados por vencimiento: primero el que vence antes."
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginaDto"
+                  - type: object
+                    required:
+                      - datos
+                    properties:
+                      datos:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/LotePorVencerDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a4
+      summary: Lotes con existencia de un color del semaforo
+      tags: *a5
   /v1/lotes/vencidos:
     get:
       description: "El sistema no los da de baja solo: esa decision necesita un
@@ -1400,6 +1511,30 @@ components:
         - diasParaVencer
         - vencimiento
         - semaforo
+    ResumenSemaforoDto:
+      type: object
+      properties:
+        rojo:
+          type: number
+          description: Vencen en menos de 6 meses (sin contar los ya vencidos).
+          example: 3
+        amarillo:
+          type: number
+          description: Vencen entre 6 y 12 meses.
+          example: 8
+        verde:
+          type: number
+          description: Vencen en mas de 12 meses.
+          example: 40
+        vencidos:
+          type: number
+          description: Ya vencidos y todavia con existencia.
+          example: 1
+      required:
+        - rojo
+        - amarillo
+        - verde
+        - vencidos
     LoteVencidoDto:
       type: object
       properties:

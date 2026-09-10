@@ -77,6 +77,21 @@ export class LotePorVencerDto {
   semaforo!: string;
 }
 
+/** Cuantos lotes con existencia hay de cada color, para las pestanas. */
+export class ResumenSemaforoDto {
+  @ApiProperty({ description: 'Vencen en menos de 6 meses (sin contar los ya vencidos).', example: 3 })
+  rojo!: number;
+
+  @ApiProperty({ description: 'Vencen entre 6 y 12 meses.', example: 8 })
+  amarillo!: number;
+
+  @ApiProperty({ description: 'Vencen en mas de 12 meses.', example: 40 })
+  verde!: number;
+
+  @ApiProperty({ description: 'Ya vencidos y todavia con existencia.', example: 1 })
+  vencidos!: number;
+}
+
 /**
  * Lote ya vencido que todavia figura con existencia.
  *
