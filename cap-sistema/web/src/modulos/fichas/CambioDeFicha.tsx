@@ -90,12 +90,85 @@ export function OtroIntegrante({
   );
 }
 
-/** Como se llama cada hoja, para nombrarla en el aviso. */
+/**
+ * Saltar a la hoja prenatal o a la del posparto.
+ *
+ * Las otras tres fichas las elige el sistema por la fecha de nacimiento, y
+ * acierta siempre porque la edad no es opinable. Con esta no puede: la misma
+ * mujer de 24 anos necesita la de adultos hoy y la prenatal en tres meses, y el
+ * sistema no sabe que esta embarazada hasta que alguien se lo dice.
+ *
+ * Por eso se entra desde la ficha de adultos —que es la que le toca por edad— y
+ * no al reves. La alternativa era preguntar el motivo de la consulta antes de
+ * abrir cualquier ficha de una mujer, y eso habria puesto un paso mas en TODAS
+ * las consultas, incluidas las que no tienen nada que ver con un embarazo, que
+ * son la mayoria.
+ *
+ * Solo se dibuja para pacientes registradas como mujeres. Si el sexo esta mal
+ * en el expediente, la propia hoja prenatal lo dice al abrirse y manda a
+ * corregirlo a Recepcion.
+ */
+export function HojaDeEmbarazo({
+  pacienteId,
+  esMujer,
+}: {
+  pacienteId: string;
+  esMujer: boolean;
+}) {
+  const [ancla, setAncla] = useState<null | HTMLElement>(null);
+  const navegar = useNavigate();
+
+  if (!esMujer) return null;
+
+  const hojas = [
+    {
+      ruta: '/ficha-prenatal',
+      titulo: 'Control prenatal',
+      nota: 'Paginas 1 y 2 de la hoja del MSPAS',
+    },
+    {
+      ruta: '/ficha-posparto',
+      titulo: 'Evaluacion del posparto',
+      nota: 'Paginas 3 y 4, con sus propios signos de peligro',
+    },
+  ];
+
+  return (
+    <>
+      <Button size="small" color="inherit" onClick={(e) => setAncla(e.currentTarget)}>
+        Prenatal o posparto
+      </Button>
+
+      <Menu anchorEl={ancla} open={Boolean(ancla)} onClose={() => setAncla(null)}>
+        {hojas.map((h) => (
+          <MenuItem
+            key={h.ruta}
+            onClick={() => {
+              setAncla(null);
+              navegar('/pacientes/' + pacienteId + h.ruta);
+            }}
+          >
+            <ListItemText primary={h.titulo} secondary={h.nota} />
+          </MenuItem>
+        ))}
+      </Menu>
+    </>
+  );
+}
+
+/**
+ * Como se llama cada hoja, para nombrarla en el aviso.
+ *
+ * Son cinco nombres para cuatro hojas oficiales: la evaluacion del posparto es
+ * su propio tipo de ficha, porque el papel le da encabezado, numeracion y
+ * signos de peligro propios. Ver `docs/diseno-ficha-prenatal.md`.
+ */
 const NOMBRE: Record<TipoFicha, string> = {
   ADULTO: 'Adolescente, adulto y adulto mayor',
   NEONATO: 'Menor de 28 dias',
   NINEZ: 'Lactancia y ninez',
-  PRENATAL: 'Prenatal y posparto',
+  PRENATAL: 'Prenatal',
+  POSPARTO: 'Evaluacion del posparto',
 };
 
 /**

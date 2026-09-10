@@ -18,6 +18,8 @@ import { PaginaCarpeta } from './modulos/carpetas/PaginaCarpeta';
 import { PaginaFicha } from './modulos/fichas/PaginaFicha';
 import { PaginaFichaNeonato } from './modulos/fichas/neonato/PaginaFichaNeonato';
 import { PaginaFichaNinez } from './modulos/fichas/ninez/PaginaFichaNinez';
+import { PaginaFichaPrenatal } from './modulos/fichas/prenatal/PaginaFichaPrenatal';
+import { PaginaFichaPosparto } from './modulos/fichas/prenatal/PaginaFichaPosparto';
 import { PaginaCarnetNinez } from './modulos/fichas/ninez/PaginaCarnetNinez';
 import { PaginaDigitalizacion } from './modulos/digitalizacion/PaginaDigitalizacion';
 import { PaginaSalaEspera } from './modulos/espera/PaginaSalaEspera';
@@ -223,6 +225,22 @@ export function App() {
                 element={
                   <RutaPorRol ruta="/ficha-ninez">
                     <PaginaFichaNinez />
+                  </RutaPorRol>
+                }
+              />
+              <Route
+                path="/pacientes/:pacienteId/ficha-prenatal"
+                element={
+                  <RutaPorRol ruta="/ficha-prenatal">
+                    <PaginaFichaPrenatal />
+                  </RutaPorRol>
+                }
+              />
+              <Route
+                path="/pacientes/:pacienteId/ficha-posparto"
+                element={
+                  <RutaPorRol ruta="/ficha-posparto">
+                    <PaginaFichaPosparto />
                   </RutaPorRol>
                 }
               />

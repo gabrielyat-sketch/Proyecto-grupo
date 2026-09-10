@@ -198,6 +198,11 @@ const RUTAS_FUERA_DEL_MENU: Record<string, readonly Rol[]> = {
   // mismo POST de fichas el que la guarda.
   '/ficha-neonato': ['MEDICO', 'ENFERMERIA'],
   '/ficha-ninez': ['MEDICO', 'ENFERMERIA'],
+  // Las dos hojas de la ficha prenatal. Son dos rutas y no una porque son dos
+  // tipos de ficha distintos, con su propio catalogo. Mismos roles: es el
+  // mismo POST el que las guarda.
+  '/ficha-prenatal': ['MEDICO', 'ENFERMERIA'],
+  '/ficha-posparto': ['MEDICO', 'ENFERMERIA'],
   // El carnet del lactante y ninez: vacunas, micronutrientes, padres y casa.
   // NO es una consulta, es del nino, pero se lee dentro del expediente y por
   // eso entran los mismos que a la ficha.

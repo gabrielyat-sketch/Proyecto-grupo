@@ -870,7 +870,7 @@ export interface components {
              * @description null cuando la atencion no se capturo con una ficha oficial.
              * @enum {string|null}
              */
-            tipoFicha: "ADULTO" | "NEONATO" | "NINEZ" | "PRENATAL" | null;
+            tipoFicha: "ADULTO" | "NEONATO" | "NINEZ" | "PRENATAL" | "POSPARTO" | null;
             /** @description Descifrado. En la base es ilegible. */
             motivo: string | null;
             diagnostico: string | null;
@@ -1084,7 +1084,7 @@ export interface components {
         };
         CatalogoFichaDto: {
             /** @enum {string} */
-            tipoFicha: "ADULTO" | "NEONATO" | "NINEZ" | "PRENATAL";
+            tipoFicha: "ADULTO" | "NEONATO" | "NINEZ" | "PRENATAL" | "POSPARTO";
             signosPeligro: components["schemas"]["SignoPeligroCatalogoDto"][];
             antecedentes: components["schemas"]["AntecedenteCatalogoDto"][];
             problemas: components["schemas"]["ProblemaCatalogoDto"][];
@@ -1164,9 +1164,94 @@ export interface components {
             tdMadreDosis?: number;
             lactanciaMaternaExclusiva?: boolean;
         };
+        DatosPrenatalDto: {
+            /**
+             * @description Circunferencia del brazo. El papel: solo si el embarazo es menor de 12 semanas.
+             * @example 24.5
+             */
+            circunferenciaBrazoCm?: number;
+            /** @description Una sola casilla: estado general, palidez palmar, conjuntivas y unas. */
+            examenGeneralNormal?: boolean;
+            /** @description Hallazgos del examen buco dental. */
+            examenBucodental?: string;
+            /**
+             * @description Altura uterina en centimetros.
+             * @example 28.5
+             */
+            alturaUterinaCm?: number;
+            /** @description El papel lo acota a las 20 semanas o mas. */
+            movimientosFetales?: boolean;
+            /** @description Frecuencia cardiaca fetal. */
+            fcf?: number;
+            /**
+             * @description Presentacion por maniobras de Leopold, a partir de las 36 semanas.
+             * @example Cefálica
+             */
+            presentacionLeopold?: string;
+            trazasSangre?: boolean;
+            /** @description El papel dice "(describa)". */
+            trazasSangreDescripcion?: string;
+            /** @description Verrugas, herpes, papilomas o ulceras. */
+            lesionesVulvares?: boolean;
+            /** @description El papel dice "(describa)". */
+            lesionesVulvaresDescripcion?: string;
+            flujoVaginal?: boolean;
+            /** @example 11.2 / 34 */
+            hemoglobinaHematocrito?: string;
+            /** @example O RH+ */
+            grupoRh?: string;
+            /** @description Proteina, glucosa y cetona. */
+            orina?: string;
+            glicemia?: string;
+            vdrl?: string;
+            /** @description El papel: "oferte prueba con consejeria". */
+            vih?: string;
+            papanicolau?: string;
+            infecciones?: string;
+            /** @description Semanas de embarazo por FUR y/o altura uterina, como las anota quien atiende. */
+            semanasPorFurAu?: number;
+            /** @description Esta ficha no trae matriz de problemas: se escriben. */
+            problemasDetectados?: string;
+            sulfatoFerrosoTabletas?: number;
+            acidoFolicoTabletas?: number;
+            /** @description Dosis de Td de este control. */
+            tdDosis?: number;
+        };
+        DatosPospartoDto: {
+            /** @description El primer control tiene hoja propia y cinco preguntas que no se repiten. Por defecto, false. */
+            esPrimerControl?: boolean;
+            /** @description Solo en el primer control. */
+            diasDespuesDelParto?: number;
+            /** @description Solo en el primer control. */
+            dondeAtendioParto?: string;
+            /**
+             * @description Solo en el primer control.
+             * @enum {string}
+             */
+            quienAtendioParto?: "MD" | "EP" | "AE" | "CT" | "OTRO";
+            quienAtendioPartoOtro?: string;
+            /** @description El papel pide describirla, no marcarla. */
+            involucionUterina?: string;
+            examenMamas?: string;
+            heridaOperatoria?: string;
+            /** @description Loquios, episiorrafia y hallazgos patologicos. */
+            examenGinecologico?: string;
+            lactanciaMaternaExclusiva?: boolean;
+            /** @description La pregunta "¿Por que no?" del papel. */
+            motivoSinLactancia?: string;
+            problemasDetectados?: string;
+            sulfatoFerroso?: boolean;
+            sulfatoFerrosoTabletas?: number;
+            acidoFolico?: boolean;
+            acidoFolicoTabletas?: number;
+            td?: boolean;
+            tdDosis?: number;
+            /** @description Cual es se registra en `medicamentos`. */
+            otroMedicamento?: boolean;
+        };
         CrearFichaDto: {
             /** @enum {string} */
-            tipoFicha: "ADULTO" | "NEONATO" | "NINEZ" | "PRENATAL";
+            tipoFicha: "ADULTO" | "NEONATO" | "NINEZ" | "PRENATAL" | "POSPARTO";
             /**
              * Format: date-time
              * @description Por defecto, ahora. Se indica al digitalizar papel.
@@ -1222,6 +1307,8 @@ export interface components {
             notas?: string;
             consejeriaTemas?: components["schemas"]["ConsejeriaBrindadaDto"][];
             neonato?: components["schemas"]["DatosNeonatoDto"];
+            prenatal?: components["schemas"]["DatosPrenatalDto"];
+            posparto?: components["schemas"]["DatosPospartoDto"];
         };
         FichaCreadaDto: {
             /** Format: uuid */
@@ -1291,13 +1378,70 @@ export interface components {
             tdMadreDosis: number | null;
             lactanciaMaternaExclusiva: boolean | null;
         };
+        FichaPrenatalDto: {
+            /** @description Decimal en texto. */
+            circunferenciaBrazoCm: string | null;
+            examenGeneralNormal: boolean | null;
+            examenBucodental: string | null;
+            /** @description Decimal en texto. */
+            alturaUterinaCm: string | null;
+            movimientosFetales: boolean | null;
+            /** @description Frecuencia cardiaca fetal. */
+            fcf: number | null;
+            presentacionLeopold: string | null;
+            trazasSangre: boolean | null;
+            trazasSangreDescripcion: string | null;
+            lesionesVulvares: boolean | null;
+            lesionesVulvaresDescripcion: string | null;
+            flujoVaginal: boolean | null;
+            hemoglobinaHematocrito: string | null;
+            grupoRh: string | null;
+            orina: string | null;
+            glicemia: string | null;
+            vdrl: string | null;
+            vih: string | null;
+            papanicolau: string | null;
+            infecciones: string | null;
+            /** @description Como las anoto quien atendio. */
+            semanasPorFurAu: number | null;
+            problemasDetectados: string | null;
+            sulfatoFerrosoTabletas: number | null;
+            acidoFolicoTabletas: number | null;
+            tdDosis: number | null;
+            /** @description Calculadas a partir de la FUR y la fecha de la consulta. Null si no hay FUR. */
+            semanasGestacion: number | null;
+            /** @description Fecha probable de parto (regla de Naegele), como aaaa-mm-dd. Null si no hay FUR. */
+            fechaProbableParto: string | null;
+        };
+        FichaPospartoDto: {
+            /** @description El primer control pregunta cinco cosas que los demas no repiten. */
+            esPrimerControl: boolean;
+            diasDespuesDelParto: number | null;
+            dondeAtendioParto: string | null;
+            quienAtendioParto: string | null;
+            quienAtendioPartoOtro: string | null;
+            involucionUterina: string | null;
+            examenMamas: string | null;
+            heridaOperatoria: string | null;
+            examenGinecologico: string | null;
+            lactanciaMaternaExclusiva: boolean | null;
+            motivoSinLactancia: string | null;
+            problemasDetectados: string | null;
+            sulfatoFerroso: boolean | null;
+            sulfatoFerrosoTabletas: number | null;
+            acidoFolico: boolean | null;
+            acidoFolicoTabletas: number | null;
+            td: boolean | null;
+            tdDosis: number | null;
+            otroMedicamento: boolean | null;
+        };
         FichaDto: {
             /** Format: uuid */
             id: string;
             /** Format: uuid */
             expedienteId: string;
             /** @enum {string|null} */
-            tipoFicha: "ADULTO" | "NEONATO" | "NINEZ" | "PRENATAL" | null;
+            tipoFicha: "ADULTO" | "NEONATO" | "NINEZ" | "PRENATAL" | "POSPARTO" | null;
             /** Format: date-time */
             fecha: string;
             /** Format: uuid */
@@ -1344,6 +1488,10 @@ export interface components {
             consejeriaTemas: components["schemas"]["ConsejeriaFichaDto"][];
             /** @description Solo en las fichas de menor de 28 dias. */
             neonato: components["schemas"]["FichaNeonatoDto"] | null;
+            /** @description Solo en las fichas prenatales. */
+            prenatal: components["schemas"]["FichaPrenatalDto"] | null;
+            /** @description Solo en las fichas del posparto. */
+            posparto: components["schemas"]["FichaPospartoDto"] | null;
         };
         DosisRecomendadaDto: {
             /**
@@ -2925,7 +3073,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                tipo: "ADULTO" | "NEONATO" | "NINEZ" | "PRENATAL";
+                tipo: "ADULTO" | "NEONATO" | "NINEZ" | "PRENATAL" | "POSPARTO";
             };
             cookie?: never;
         };
