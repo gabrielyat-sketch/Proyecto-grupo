@@ -98,6 +98,11 @@ const FICHA = {
     },
   ],
   medicamentos: [{ nombre: 'Amoxicilina 500 mg', dosis: '1 cada 8 horas', dias: 7 }],
+  // La API los devuelve siempre; una ficha de adultos los trae vacios.
+  consejeriaTemas: [],
+  neonato: null,
+  prenatal: null,
+  posparto: null,
 };
 
 const paginaDe = (datos: unknown[]) => ({
@@ -377,7 +382,7 @@ describe('el expediente de un paciente', () => {
           lloroAlNacer: true,
           nacioCianotico: false,
           horasTrabajoParto: 9,
-          quienAtendioParto: 'COMADRONA',
+          quienAtendioParto: 'CT',
           quienAtendioPartoOtro: null,
           rupturaPrematuraMembranas: false,
           trabajoPartoPrematuro: false,
@@ -397,7 +402,133 @@ describe('el expediente de un paciente', () => {
 
     expect(await screen.findByText('Juana Isabel Perez Caal')).toBeInTheDocument();
     expect(screen.getByText('5 lb 12 oz')).toBeInTheDocument();
-    expect(screen.getByText('Comadrona')).toBeInTheDocument();
+    // Con la sigla que guarda el enum, no con un valor inventado: la tabla de
+    // nombres tenia claves que no existian y «CT» salia a secas.
+    expect(screen.getByText('Comadrona tradicional')).toBeInTheDocument();
+  });
+
+  /**
+   * La pagina 2 de la hoja prenatal —laboratorios, examen obstetrico, semanas,
+   * problemas detectados— se guarda cifrada y la API la devuelve. Sin bloque
+   * propio, el historial la callaba y, si era lo unico llenado, decia «solo se
+   * lleno el motivo». La misma trampa que ya mordio con la de neonato.
+   */
+  it('la ficha prenatal muestra la pagina 2 y no dice que solo se lleno el motivo', async () => {
+    servidor({
+      historial: [atencion(1, { tipoFicha: 'PRENATAL' })],
+      ficha: {
+        ...FICHA,
+        tipoFicha: 'PRENATAL',
+        historiaEnfermedad: null,
+        consejeria: null,
+        signosPeligro: [],
+        problemas: [],
+        medicamentos: [],
+        consejeriaTemas: [
+          { temaId: 't-1', texto: 'Lactancia materna', brindada: true, fechaReconsulta: null },
+          { temaId: 't-2', texto: 'Planificacion familiar', brindada: false, fechaReconsulta: null },
+        ],
+        prenatal: {
+          circunferenciaBrazoCm: '24.5',
+          examenGeneralNormal: true,
+          examenBucodental: null,
+          alturaUterinaCm: '22.0',
+          movimientosFetales: true,
+          fcf: 142,
+          presentacionLeopold: null,
+          trazasSangre: false,
+          trazasSangreDescripcion: null,
+          lesionesVulvares: true,
+          lesionesVulvaresDescripcion: 'Verruga en labio mayor',
+          flujoVaginal: null,
+          hemoglobinaHematocrito: '11.2 / 34',
+          grupoRh: 'O+',
+          orina: null,
+          glicemia: null,
+          vdrl: 'No reactivo',
+          vih: 'Pendiente',
+          papanicolau: null,
+          infecciones: null,
+          semanasPorFurAu: 23,
+          problemasDetectados: 'Anemia leve',
+          sulfatoFerrosoTabletas: 30,
+          acidoFolicoTabletas: null,
+          tdDosis: 1,
+          semanasGestacion: 22,
+          fechaProbableParto: '2026-10-20',
+        },
+      },
+    });
+    const usuario = userEvent.setup();
+    abrir(MEDICO, '/pacientes/p-1/expediente');
+    await esperar();
+
+    expect(await screen.findByText('Ficha Prenatal')).toBeInTheDocument();
+    await usuario.click(await screen.findByRole('button', { name: /Ver la ficha completa/i }));
+
+    expect(await screen.findByText('Control prenatal')).toBeInTheDocument();
+    expect(screen.getByText('11.2 / 34')).toBeInTheDocument();
+    expect(screen.getByText('142 lpm')).toBeInTheDocument();
+    expect(screen.getByText('Si: Verruga en labio mayor')).toBeInTheDocument();
+    expect(screen.getByText('30 tabletas')).toBeInTheDocument();
+    // La fecha probable de parto en hora local, no corrida un dia por UTC-6.
+    expect(screen.getByText('20/10/2026')).toBeInTheDocument();
+    // Solo los temas de consejeria brindados.
+    expect(screen.getByText('Lactancia materna')).toBeInTheDocument();
+    expect(screen.queryByText('Planificacion familiar')).not.toBeInTheDocument();
+    // Lo que no se lleno no aparece con una raya: se calla.
+    expect(screen.queryByText('Papanicolau')).not.toBeInTheDocument();
+    expect(screen.queryByText(/solo se lleno el motivo/i)).not.toBeInTheDocument();
+  });
+
+  /**
+   * La suplementacion del posparto llega de dos maneras —marcada en el primer
+   * control, en tabletas en los siguientes— y el historial ensena lo que haya
+   * sin deducir una de la otra.
+   */
+  it('la evaluacion del posparto muestra el primer control y quien atendio el parto', async () => {
+    servidor({
+      historial: [atencion(1, { tipoFicha: 'POSPARTO' })],
+      ficha: {
+        ...FICHA,
+        tipoFicha: 'POSPARTO',
+        posparto: {
+          esPrimerControl: true,
+          diasDespuesDelParto: 7,
+          dondeAtendioParto: 'En su casa',
+          quienAtendioParto: 'OTRO',
+          quienAtendioPartoOtro: 'Su suegra',
+          involucionUterina: 'Adecuada',
+          examenMamas: null,
+          heridaOperatoria: null,
+          examenGinecologico: null,
+          lactanciaMaternaExclusiva: false,
+          motivoSinLactancia: 'Trabaja fuera de casa',
+          problemasDetectados: null,
+          sulfatoFerroso: true,
+          sulfatoFerrosoTabletas: null,
+          acidoFolico: null,
+          acidoFolicoTabletas: 30,
+          td: false,
+          tdDosis: null,
+          otroMedicamento: null,
+        },
+      },
+    });
+    const usuario = userEvent.setup();
+    abrir(MEDICO, '/pacientes/p-1/expediente');
+    await esperar();
+
+    expect(await screen.findByText('Ficha Posparto')).toBeInTheDocument();
+    await usuario.click(await screen.findByRole('button', { name: /Ver la ficha completa/i }));
+
+    expect(await screen.findByText('Evaluacion del posparto')).toBeInTheDocument();
+    expect(screen.getByText('Otro: Su suegra')).toBeInTheDocument();
+    expect(screen.getByText('Trabaja fuera de casa')).toBeInTheDocument();
+    // Marcada sin cantidad, cantidad sin marcar, y un «No».
+    expect(screen.getByText('Sulfato ferroso').nextSibling).toHaveTextContent('Si');
+    expect(screen.getByText('Acido folico').nextSibling).toHaveTextContent('30 tabletas');
+    expect(screen.getByText('Td').nextSibling).toHaveTextContent('No');
   });
 
   /**
