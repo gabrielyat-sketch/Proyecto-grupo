@@ -203,6 +203,171 @@ describe('Servicio medicamentos (e2e)', () => {
     });
   });
 
+  // ═══════════════════════ semaforo de vencimiento ═══════════════════════
+  describe('semaforo de vencimiento', () => {
+    // Dias de sobra respecto a los umbrales de 6 y 12 meses de calendario:
+    // 100 dias nunca llegan a seis meses y 400 siempre pasan de doce.
+    it('cada lote lleva su color: rojo, amarillo o verde', async () => {
+      const id = await crearMedicamento();
+      await ingresarLote(id, 'L-ROJO', 100, 10);
+      await ingresarLote(id, 'L-AMARILLO', 270, 10);
+      await ingresarLote(id, 'L-VERDE', 400, 10);
+
+      const r = await request(http())
+        .get('/v1/medicamentos/' + id)
+        .set('Authorization', auth(Rol.FARMACIA))
+        .expect(200);
+
+      const porLote = Object.fromEntries(
+        r.body.lotes.map((l: { numeroLote: string; semaforo: string }) => [l.numeroLote, l.semaforo]),
+      );
+      expect(porLote).toEqual({ 'L-ROJO': 'ROJO', 'L-AMARILLO': 'AMARILLO', 'L-VERDE': 'VERDE' });
+      expect(typeof r.body.lotes[0].diasParaVencer).toBe('number');
+    });
+
+    it('el medicamento toma el color del lote que vence antes, en el catalogo y en el detalle', async () => {
+      const codigo = codigoUnico();
+      const id = await crearMedicamento({ codigo });
+      await ingresarLote(id, 'L-LEJOS', 400, 100);
+      await ingresarLote(id, 'L-CERCA', 100, 5);
+
+      const detalle = await request(http())
+        .get('/v1/medicamentos/' + id)
+        .set('Authorization', auth(Rol.FARMACIA))
+        .expect(200);
+      expect(detalle.body.semaforo).toBe('ROJO');
+      expect(detalle.body.proximoVencimiento.slice(0, 10)).toBe(enDias(100));
+
+      const catalogo = await request(http())
+        .get('/v1/medicamentos?buscar=' + codigo)
+        .set('Authorization', auth(Rol.FARMACIA))
+        .expect(200);
+      expect(catalogo.body.datos).toHaveLength(1);
+      expect(catalogo.body.datos[0].semaforo).toBe('ROJO');
+      expect(catalogo.body.datos[0].diasParaVencer).toBe(100);
+    });
+
+    it('un lote agotado ya no pinta el medicamento: lo que vence es lo que hay en el estante', async () => {
+      const codigo = codigoUnico();
+      const id = await crearMedicamento({ codigo });
+      await ingresarLote(id, 'L-VERDE', 400, 100);
+      const cerca = await ingresarLote(id, 'L-CERCA', 100, 5);
+      await request(http())
+        .patch('/v1/lotes/' + cerca + '/ajuste')
+        .set('Authorization', auth(Rol.FARMACIA))
+        .send({ cantidadContada: 0, cantidadEnSistema: 5, motivo: 'Caja vacia en el conteo' })
+        .expect(200);
+
+      const catalogo = await request(http())
+        .get('/v1/medicamentos?buscar=' + codigo)
+        .set('Authorization', auth(Rol.FARMACIA))
+        .expect(200);
+      expect(catalogo.body.datos[0].semaforo).toBe('VERDE');
+    });
+
+    it('sin existencia no hay color', async () => {
+      const codigo = codigoUnico();
+      await crearMedicamento({ codigo });
+
+      const catalogo = await request(http())
+        .get('/v1/medicamentos?buscar=' + codigo)
+        .set('Authorization', auth(Rol.FARMACIA))
+        .expect(200);
+      expect(catalogo.body.datos[0].semaforo).toBeNull();
+      expect(catalogo.body.datos[0].proximoVencimiento).toBeNull();
+      expect(catalogo.body.datos[0].diasParaVencer).toBeNull();
+    });
+
+    it('cada color tiene su lista, del que vence antes al que vence despues', async () => {
+      await limpiar();
+      const id = await crearMedicamento();
+      await ingresarLote(id, 'L-V', 400, 10);
+      await ingresarLote(id, 'L-A', 270, 10);
+      await ingresarLote(id, 'L-R2', 150, 10);
+      await ingresarLote(id, 'L-R1', 20, 10);
+
+      const listar = async (color: string) => {
+        const r = await request(http())
+          .get('/v1/lotes/semaforo/' + color)
+          .set('Authorization', auth(Rol.FARMACIA))
+          .expect(200);
+        return r.body.datos.map((l: { numeroLote: string }) => l.numeroLote);
+      };
+      expect(await listar('ROJO')).toEqual(['L-R1', 'L-R2']);
+      expect(await listar('AMARILLO')).toEqual(['L-A']);
+      expect(await listar('VERDE')).toEqual(['L-V']);
+      // En minusculas tambien: es un segmento de URL, no una constante.
+      expect(await listar('verde')).toEqual(['L-V']);
+    });
+
+    it('los vencidos y los agotados no entran en ninguna lista de color', async () => {
+      await limpiar();
+      const id = await crearMedicamento();
+      const vencido = await ingresarLote(id, 'L-VENCIDO', 5, 10);
+      await prisma.lote.update({ where: { id: vencido }, data: { fechaVencimiento: diaLocal(-1) } });
+      const agotado = await ingresarLote(id, 'L-AGOTADO', 20, 5);
+      await request(http())
+        .patch('/v1/lotes/' + agotado + '/ajuste')
+        .set('Authorization', auth(Rol.FARMACIA))
+        .send({ cantidadContada: 0, cantidadEnSistema: 5, motivo: 'Caja vacia' })
+        .expect(200);
+      await ingresarLote(id, 'L-OK', 20, 10);
+
+      const r = await request(http())
+        .get('/v1/lotes/semaforo/ROJO')
+        .set('Authorization', auth(Rol.FARMACIA))
+        .expect(200);
+      expect(r.body.datos.map((l: { numeroLote: string }) => l.numeroLote)).toEqual(['L-OK']);
+    });
+
+    it('el resumen cuenta cada color y los vencidos en una sola respuesta', async () => {
+      await limpiar();
+      const id = await crearMedicamento();
+      await ingresarLote(id, 'L-R', 20, 10);
+      await ingresarLote(id, 'L-A1', 270, 10);
+      await ingresarLote(id, 'L-A2', 300, 10);
+      await ingresarLote(id, 'L-V', 400, 10);
+      const vencido = await ingresarLote(id, 'L-X', 5, 10);
+      await prisma.lote.update({ where: { id: vencido }, data: { fechaVencimiento: diaLocal(-3) } });
+
+      const r = await request(http())
+        .get('/v1/lotes/semaforo/resumen')
+        .set('Authorization', auth(Rol.FARMACIA))
+        .expect(200);
+      expect(r.body).toEqual({ rojo: 1, amarillo: 2, verde: 1, vencidos: 1 });
+    });
+
+    it('un color que no existe se rechaza', async () => {
+      await request(http())
+        .get('/v1/lotes/semaforo/AZUL')
+        .set('Authorization', auth(Rol.FARMACIA))
+        .expect(400);
+    });
+
+    it('el medico no ve las listas del semaforo: el estante no es asunto suyo', async () => {
+      await request(http())
+        .get('/v1/lotes/semaforo/ROJO')
+        .set('Authorization', auth(Rol.MEDICO))
+        .expect(403);
+      await request(http())
+        .get('/v1/lotes/semaforo/resumen')
+        .set('Authorization', auth(Rol.MEDICO))
+        .expect(403);
+    });
+
+    it('lo que esta por vencer en la ventana de alerta sale en rojo', async () => {
+      const id = await crearMedicamento();
+      await ingresarLote(id, 'L-YA', 20, 10);
+
+      const r = await request(http())
+        .get('/v1/lotes/por-vencer?dias=30')
+        .set('Authorization', auth(Rol.FARMACIA))
+        .expect(200);
+      const lote = r.body.datos.find((l: { numeroLote: string }) => l.numeroLote === 'L-YA');
+      expect(lote.semaforo).toBe('ROJO');
+    });
+  });
+
   /**
    * ─────────────────────────────────────────────────────────────────────
    *  EDICION DEL MEDICAMENTO

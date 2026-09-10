@@ -131,6 +131,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/lotes/semaforo/resumen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cuantos lotes con existencia hay de cada color del semaforo
+         * @description Los numeros de las pestanas de Farmacia, en una sola consulta.
+         */
+        get: operations["LotesController_resumenSemaforo"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/lotes/semaforo/{color}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lotes con existencia de un color del semaforo
+         * @description ROJO vence en menos de 6 meses, AMARILLO entre 6 y 12, VERDE en mas de 12. Los ya vencidos no entran: tienen su propia lista.
+         */
+        get: operations["LotesController_porSemaforo"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/lotes/vencidos": {
         parameters: {
             query?: never;
@@ -312,6 +352,21 @@ export interface components {
             existencia: number;
             /** @description false cuando el minimo es cero: la alerta esta desactivada. */
             bajoMinimo: boolean;
+            /**
+             * @description Color del lote que vence antes entre los que tienen existencia. Null si no hay existencia.
+             * @enum {string|null}
+             */
+            semaforo: "ROJO" | "AMARILLO" | "VERDE" | null;
+            /**
+             * Format: date-time
+             * @description Fecha de vencimiento del lote que vence antes. Null si no hay existencia.
+             */
+            proximoVencimiento: Record<string, never> | null;
+            /**
+             * @description Dias que le faltan a ese lote. Negativo si ya vencio.
+             * @example 210
+             */
+            diasParaVencer: number | null;
         };
         MedicamentoBajoMinimoDto: {
             /** Format: uuid */
@@ -345,6 +400,16 @@ export interface components {
              * @enum {string}
              */
             vencimiento: "VIGENTE" | "POR_VENCER" | "VENCIDO";
+            /**
+             * @description Dias que faltan para vencer. Negativo si ya vencio.
+             * @example 210
+             */
+            diasParaVencer: number;
+            /**
+             * @description Rojo a menos de 6 meses, amarillo entre 6 y 12, verde a mas de 12. Se recalcula cada dia.
+             * @enum {string}
+             */
+            semaforo: "ROJO" | "AMARILLO" | "VERDE";
         };
         MedicamentoDetalleDto: {
             /** Format: uuid */
@@ -368,6 +433,21 @@ export interface components {
             existencia: number;
             /** @description false cuando el minimo es cero: la alerta esta desactivada. */
             bajoMinimo: boolean;
+            /**
+             * @description Color del lote que vence antes entre los que tienen existencia. Null si no hay existencia.
+             * @enum {string|null}
+             */
+            semaforo: "ROJO" | "AMARILLO" | "VERDE" | null;
+            /**
+             * Format: date-time
+             * @description Fecha de vencimiento del lote que vence antes. Null si no hay existencia.
+             */
+            proximoVencimiento: Record<string, never> | null;
+            /**
+             * @description Dias que le faltan a ese lote. Negativo si ya vencio.
+             * @example 210
+             */
+            diasParaVencer: number | null;
             /** @description Ordenados por vencimiento: primero el que vence antes. */
             lotes: components["schemas"]["LoteDelMedicamentoDto"][];
         };
@@ -496,6 +576,33 @@ export interface components {
             diasParaVencer: number;
             /** @enum {string} */
             vencimiento: "VIGENTE" | "POR_VENCER" | "VENCIDO";
+            /**
+             * @description Dentro de la ventana de alerta casi siempre es ROJO.
+             * @enum {string}
+             */
+            semaforo: "ROJO" | "AMARILLO" | "VERDE";
+        };
+        ResumenSemaforoDto: {
+            /**
+             * @description Vencen en menos de 6 meses (sin contar los ya vencidos).
+             * @example 3
+             */
+            rojo: number;
+            /**
+             * @description Vencen entre 6 y 12 meses.
+             * @example 8
+             */
+            amarillo: number;
+            /**
+             * @description Vencen en mas de 12 meses.
+             * @example 40
+             */
+            verde: number;
+            /**
+             * @description Ya vencidos y todavia con existencia.
+             * @example 1
+             */
+            vencidos: number;
         };
         LoteVencidoDto: {
             /** Format: uuid */
@@ -1140,6 +1247,126 @@ export interface operations {
             };
             /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
+    LotesController_resumenSemaforo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumenSemaforoDto"];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
+    LotesController_porSemaforo: {
+        parameters: {
+            query?: {
+                /** @description Empieza en 1. Por defecto 1. */
+                pagina?: number;
+                /** @description Por defecto 25. El servidor recorta cualquier valor mayor a 100. */
+                tamano?: number;
+            };
+            header?: never;
+            path: {
+                color: "ROJO" | "AMARILLO" | "VERDE";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ordenados por vencimiento: primero el que vence antes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginaDto"] & {
+                        datos: components["schemas"]["LotePorVencerDto"][];
+                    };
+                };
+            };
+            /** @description La informacion enviada no es valida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El recurso solicitado no existe. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

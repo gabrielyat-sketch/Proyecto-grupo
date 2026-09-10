@@ -425,6 +425,117 @@ paths:
       security: *a4
       summary: Lotes que vencen dentro de la ventana de alerta
       tags: *a5
+  /v1/lotes/semaforo/resumen:
+    get:
+      description: Los numeros de las pestanas de Farmacia, en una sola consulta.
+      operationId: LotesController_resumenSemaforo
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumenSemaforoDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a4
+      summary: Cuantos lotes con existencia hay de cada color del semaforo
+      tags: *a5
+  /v1/lotes/semaforo/{color}:
+    get:
+      description: "ROJO vence en menos de 6 meses, AMARILLO entre 6 y 12, VERDE en
+        mas de 12. Los ya vencidos no entran: tienen su propia lista."
+      operationId: LotesController_porSemaforo
+      parameters:
+        - name: color
+          required: true
+          in: path
+          schema:
+            enum:
+              - ROJO
+              - AMARILLO
+              - VERDE
+            type: string
+        - name: pagina
+          required: false
+          in: query
+          description: Empieza en 1. Por defecto 1.
+          schema:
+            example: 1
+            type: number
+        - name: tamano
+          required: false
+          in: query
+          description: Por defecto 25. El servidor recorta cualquier valor mayor a 100.
+          schema:
+            example: 25
+            type: number
+      responses:
+        "200":
+          description: "Ordenados por vencimiento: primero el que vence antes."
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginaDto"
+                  - type: object
+                    required:
+                      - datos
+                    properties:
+                      datos:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/LotePorVencerDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a4
+      summary: Lotes con existencia de un color del semaforo
+      tags: *a5
   /v1/lotes/vencidos:
     get:
       description: "El sistema no los da de baja solo: esa decision necesita un
@@ -977,6 +1088,26 @@ components:
         bajoMinimo:
           type: boolean
           description: "false cuando el minimo es cero: la alerta esta desactivada."
+        semaforo:
+          type: string
+          enum: &a9
+            - ROJO
+            - AMARILLO
+            - VERDE
+          nullable: true
+          description: Color del lote que vence antes entre los que tienen existencia.
+            Null si no hay existencia.
+        proximoVencimiento:
+          type: object
+          format: date-time
+          nullable: true
+          description: Fecha de vencimiento del lote que vence antes. Null si no hay
+            existencia.
+        diasParaVencer:
+          type: number
+          nullable: true
+          description: Dias que le faltan a ese lote. Negativo si ya vencio.
+          example: 210
       required:
         - id
         - codigo
@@ -990,6 +1121,9 @@ components:
         - stockMinimo
         - existencia
         - bajoMinimo
+        - semaforo
+        - proximoVencimiento
+        - diasParaVencer
     MedicamentoBajoMinimoDto:
       type: object
       properties:
@@ -1035,19 +1169,28 @@ components:
           example: 120
         estado:
           type: string
-          enum: &a9
+          enum: &a10
             - DISPONIBLE
             - AGOTADO
             - VENCIDO
             - DADO_DE_BAJA
         vencimiento:
           type: string
-          enum: &a10
+          enum: &a11
             - VIGENTE
             - POR_VENCER
             - VENCIDO
           description: Calculado contra el dia de hoy en Purulha y la ventana de alerta
             configurada.
+        diasParaVencer:
+          type: number
+          description: Dias que faltan para vencer. Negativo si ya vencio.
+          example: 210
+        semaforo:
+          type: string
+          enum: *a9
+          description: Rojo a menos de 6 meses, amarillo entre 6 y 12, verde a mas de 12.
+            Se recalcula cada dia.
       required:
         - id
         - numeroLote
@@ -1055,6 +1198,8 @@ components:
         - cantidadDisponible
         - estado
         - vencimiento
+        - diasParaVencer
+        - semaforo
     MedicamentoDetalleDto:
       type: object
       properties:
@@ -1092,6 +1237,23 @@ components:
         bajoMinimo:
           type: boolean
           description: "false cuando el minimo es cero: la alerta esta desactivada."
+        semaforo:
+          type: string
+          enum: *a9
+          nullable: true
+          description: Color del lote que vence antes entre los que tienen existencia.
+            Null si no hay existencia.
+        proximoVencimiento:
+          type: object
+          format: date-time
+          nullable: true
+          description: Fecha de vencimiento del lote que vence antes. Null si no hay
+            existencia.
+        diasParaVencer:
+          type: number
+          nullable: true
+          description: Dias que le faltan a ese lote. Negativo si ya vencio.
+          example: 210
         lotes:
           description: "Ordenados por vencimiento: primero el que vence antes."
           type: array
@@ -1110,6 +1272,9 @@ components:
         - stockMinimo
         - existencia
         - bajoMinimo
+        - semaforo
+        - proximoVencimiento
+        - diasParaVencer
         - lotes
     CrearMedicamentoDto:
       type: object
@@ -1274,7 +1439,7 @@ components:
           example: 320
         estado:
           type: string
-          enum: *a9
+          enum: *a10
         motivoBaja:
           type: string
           nullable: true
@@ -1332,7 +1497,11 @@ components:
           example: 34
         vencimiento:
           type: string
-          enum: *a10
+          enum: *a11
+        semaforo:
+          type: string
+          enum: *a9
+          description: Dentro de la ventana de alerta casi siempre es ROJO.
       required:
         - id
         - numeroLote
@@ -1341,6 +1510,31 @@ components:
         - cantidadDisponible
         - diasParaVencer
         - vencimiento
+        - semaforo
+    ResumenSemaforoDto:
+      type: object
+      properties:
+        rojo:
+          type: number
+          description: Vencen en menos de 6 meses (sin contar los ya vencidos).
+          example: 3
+        amarillo:
+          type: number
+          description: Vencen entre 6 y 12 meses.
+          example: 8
+        verde:
+          type: number
+          description: Vencen en mas de 12 meses.
+          example: 40
+        vencidos:
+          type: number
+          description: Ya vencidos y todavia con existencia.
+          example: 1
+      required:
+        - rojo
+        - amarillo
+        - verde
+        - vencidos
     LoteVencidoDto:
       type: object
       properties:

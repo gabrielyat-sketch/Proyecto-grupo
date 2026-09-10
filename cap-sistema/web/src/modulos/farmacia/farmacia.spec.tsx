@@ -7,6 +7,7 @@ import {
   desvioEnPalabras,
   faltanPara,
   fechaCorta,
+  venceEn,
   vencidoHace,
 } from './servicio-farmacia';
 
@@ -33,6 +34,10 @@ const AMOXICILINA = {
   stockMinimo: 200,
   existencia: 320,
   bajoMinimo: false,
+  // El lote que vence antes (L-4471, 15/10/2026) manda el color.
+  semaforo: 'ROJO',
+  proximoVencimiento: '2026-10-15',
+  diasParaVencer: 18,
 };
 
 const SUERO = {
@@ -48,6 +53,9 @@ const SUERO = {
   stockMinimo: 100,
   existencia: 12,
   bajoMinimo: true,
+  semaforo: 'VERDE',
+  proximoVencimiento: '2028-01-10',
+  diasParaVencer: 470,
 };
 
 const DETALLE = {
@@ -60,6 +68,8 @@ const DETALLE = {
       cantidadDisponible: 120,
       estado: 'DISPONIBLE',
       vencimiento: 'POR_VENCER',
+      diasParaVencer: 18,
+      semaforo: 'ROJO',
     },
     {
       id: 'l-2',
@@ -68,6 +78,8 @@ const DETALLE = {
       cantidadDisponible: 200,
       estado: 'DISPONIBLE',
       vencimiento: 'VIGENTE',
+      diasParaVencer: 550,
+      semaforo: 'VERDE',
     },
   ],
 };
@@ -80,6 +92,18 @@ const LOTE_POR_VENCER = {
   cantidadDisponible: 120,
   diasParaVencer: 18,
   vencimiento: 'POR_VENCER',
+  semaforo: 'ROJO',
+};
+
+const LOTE_AMARILLO = {
+  id: 'l-5',
+  numeroLote: 'LTGT1501',
+  medicamento: { codigo: 'SF-300', nombreGenerico: 'Sulfato ferroso', unidad: 'TABLETA' },
+  fechaVencimiento: '2027-06-07',
+  cantidadDisponible: 300,
+  diasParaVencer: 270,
+  vencimiento: 'VIGENTE',
+  semaforo: 'AMARILLO',
 };
 
 const LOTE_VENCIDO = {
@@ -123,14 +147,18 @@ function json(cuerpo: unknown, estado = 200) {
 function servidor({
   catalogo = [AMOXICILINA, SUERO],
   detalle = DETALLE as unknown,
-  porVencer = [LOTE_POR_VENCER] as unknown[],
+  rojo = [LOTE_POR_VENCER] as unknown[],
+  amarillo = [LOTE_AMARILLO] as unknown[],
+  verde = [] as unknown[],
   vencidos = [LOTE_VENCIDO] as unknown[],
   bajoMinimo = BAJO_MINIMO as unknown[],
   ajusteChoca = false,
 }: {
   catalogo?: unknown[];
   detalle?: unknown;
-  porVencer?: unknown[];
+  rojo?: unknown[];
+  amarillo?: unknown[];
+  verde?: unknown[];
   vencidos?: unknown[];
   bajoMinimo?: unknown[];
   /** Simula que alguien entrego mientras se contaba: el servidor da 409. */
@@ -147,7 +175,17 @@ function servidor({
       const ruta = url.pathname;
 
       if (ruta.endsWith('/v1/medicamentos/bajo-minimo')) return json(bajoMinimo);
-      if (ruta.endsWith('/v1/lotes/por-vencer')) return json(paginaDe(porVencer));
+      if (ruta.endsWith('/v1/lotes/semaforo/resumen')) {
+        return json({
+          rojo: rojo.length,
+          amarillo: amarillo.length,
+          verde: verde.length,
+          vencidos: vencidos.length,
+        });
+      }
+      if (ruta.endsWith('/v1/lotes/semaforo/ROJO')) return json(paginaDe(rojo));
+      if (ruta.endsWith('/v1/lotes/semaforo/AMARILLO')) return json(paginaDe(amarillo));
+      if (ruta.endsWith('/v1/lotes/semaforo/VERDE')) return json(paginaDe(verde));
       if (ruta.endsWith('/v1/lotes/vencidos')) return json(paginaDe(vencidos));
       if (/\/v1\/lotes\/[^/]+\/ajuste$/.test(ruta)) {
         return ajusteChoca
@@ -235,6 +273,21 @@ describe('como se presenta el inventario', () => {
   });
 
   /**
+   * El plazo que acompana al color del semaforo. Un punto rojo solo no dice
+   * si es porque vence en cinco meses o porque vencio el anio pasado, y con lo
+   * primero todavia se entrega.
+   */
+  it('el semaforo lleva su plazo con verbo, hacia adelante y hacia atras', () => {
+    expect(venceEn(0)).toBe('Vence hoy');
+    expect(venceEn(1)).toBe('Vence manana');
+    expect(venceEn(18)).toBe('Vence en 18 dias');
+    expect(venceEn(150)).toBe('Vence en 5 meses');
+    expect(venceEn(-1)).toBe('Vencio ayer');
+    expect(venceEn(-28)).toBe('Vencio hace 28 dias');
+    expect(venceEn(-90)).toBe('Vencio hace 3 meses');
+  });
+
+  /**
    * Guatemala es UTC-6. Construir un Date con la cadena entera la interpreta
    * como medianoche UTC, que aqui es todavia el dia anterior: un lote parecia
    * vencer un dia antes de lo impreso en la caja.
@@ -257,6 +310,51 @@ describe('catalogo', () => {
     expect(await screen.findByText('Amoxicilina 500 mg')).toBeInTheDocument();
     expect(screen.getByText('320 tabletas')).toBeInTheDocument();
     expect(screen.getByText('12 sobres')).toBeInTheDocument();
+  });
+
+  /**
+   * El semaforo de las bodegas del MSPAS: rojo a menos de 6 meses, amarillo
+   * entre 6 y 12, verde a mas de 12. En el catalogo cada medicamento lleva el
+   * color de su lote que vence antes, con su plazo, y la leyenda a la vista.
+   */
+  it('cada medicamento lleva el color de su lote que vence antes, con su plazo', async () => {
+    servidor();
+    abrir(FARMACIA);
+    await esperarPanel();
+
+    const amoxicilina = (await screen.findByText('Amoxicilina 500 mg')).closest('tr')!;
+    expect(within(amoxicilina).getByRole('img', { name: 'Semaforo rojo' })).toBeInTheDocument();
+    expect(within(amoxicilina).getByText('Rojo')).toBeInTheDocument();
+    expect(within(amoxicilina).getByText('Vence en 18 dias')).toBeInTheDocument();
+
+    const suero = screen.getByText('Suero oral').closest('tr')!;
+    expect(within(suero).getByRole('img', { name: 'Semaforo verde' })).toBeInTheDocument();
+    expect(within(suero).getByText('Vence en 16 meses')).toBeInTheDocument();
+  });
+
+  it('la leyenda del semaforo esta a la vista, no escondida en un tooltip', async () => {
+    servidor();
+    abrir(FARMACIA);
+    await esperarPanel();
+    await screen.findByText('Amoxicilina 500 mg');
+
+    const leyenda = screen.getByLabelText('Leyenda del semaforo de vencimiento');
+    expect(within(leyenda).getByText(/vence en menos de 6 meses/)).toBeInTheDocument();
+    expect(within(leyenda).getByText(/vence entre 6 y 12 meses/)).toBeInTheDocument();
+    expect(within(leyenda).getByText(/vence en más de 12 meses/)).toBeInTheDocument();
+  });
+
+  it('un medicamento sin existencia no lleva color: no hay nada en el estante que etiquetar', async () => {
+    servidor({
+      catalogo: [
+        { ...SUERO, existencia: 0, semaforo: null, proximoVencimiento: null, diasParaVencer: null },
+      ],
+    });
+    abrir(FARMACIA);
+    await esperarPanel();
+
+    const suero = (await screen.findByText('Suero oral')).closest('tr')!;
+    expect(within(suero).queryByRole('img', { name: /Semaforo/ })).not.toBeInTheDocument();
   });
 
   it('marca lo que esta bajo su minimo, que es lo que hay que pedir', async () => {
@@ -361,7 +459,9 @@ describe('quien hace que', () => {
     abrir(MEDICO);
     await esperarPanel();
 
-    expect(screen.queryByRole('tab', { name: /Por vencer/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /Rojo/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /Amarillo/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /Verde/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: /Vencidos/ })).not.toBeInTheDocument();
   });
 
@@ -412,27 +512,83 @@ describe('alertas', () => {
     expect(within(pestana).getByText('2')).toBeInTheDocument();
   });
 
-  it('los lotes por vencer salen del que vence antes, con los dias que faltan', async () => {
+  /**
+   * Las tres pestanas de color son el semaforo del estante tal cual, con el
+   * nombre con el que el personal ya llama a esas cajas. Los cuatro numeros
+   * llegan en UNA consulta, no pidiendo cada lista para leer su total.
+   */
+  it('las pestanas Rojo, Amarillo y Verde llevan su cuenta, y sale de una sola consulta', async () => {
+    servidor({ verde: [{ ...LOTE_AMARILLO, id: 'l-6', semaforo: 'VERDE' }] });
+    abrir(FARMACIA);
+    await esperarPanel();
+
+    expect(within(await screen.findByRole('tab', { name: /Rojo/ })).getByText('1')).toBeInTheDocument();
+    expect(within(screen.getByRole('tab', { name: /Amarillo/ })).getByText('1')).toBeInTheDocument();
+    expect(within(screen.getByRole('tab', { name: /Verde/ })).getByText('1')).toBeInTheDocument();
+
+    const deLotes = peticiones.filter((p) => p.url.includes('/lotes/'));
+    expect(deLotes).toHaveLength(1);
+    expect(deLotes[0].url).toMatch(/\/lotes\/semaforo\/resumen$/);
+  });
+
+  it('el orden de las pestanas es el del semaforo: Rojo, Amarillo, Verde, y luego Vencidos', async () => {
+    servidor();
+    abrir(FARMACIA);
+    await esperarPanel();
+    await screen.findByRole('tab', { name: /Rojo/ });
+
+    const nombres = screen.getAllByRole('tab').map((t) => t.textContent?.replace(/\d+$/, ''));
+    expect(nombres).toEqual(['Catalogo', 'Rojo', 'Amarillo', 'Verde', 'Vencidos', 'Bajo minimo', 'Entregas']);
+  });
+
+  it('los lotes en rojo salen del que vence antes, con los dias que faltan', async () => {
     servidor();
     const usuario = userEvent.setup();
     abrir(FARMACIA);
     await esperarPanel();
 
-    await usuario.click(await screen.findByRole('tab', { name: /Por vencer/ }));
+    await usuario.click(await screen.findByRole('tab', { name: /Rojo/ }));
 
     expect(await screen.findByText('L-4471')).toBeInTheDocument();
     expect(screen.getByText('En 18 dias')).toBeInTheDocument();
     expect(screen.getByText('15/10/2026')).toBeInTheDocument();
+    // Y la misma etiqueta de color que lleva la caja en el estante.
+    expect(screen.getByRole('img', { name: 'Semaforo rojo' })).toBeInTheDocument();
   });
 
-  it('sin vencimientos proximos lo dice, en vez de mostrar una tabla vacia', async () => {
-    servidor({ porVencer: [] });
+  it('la pestana Amarillo lista los suyos, con su plazo en meses', async () => {
+    servidor();
     const usuario = userEvent.setup();
     abrir(FARMACIA);
     await esperarPanel();
 
-    await usuario.click(await screen.findByRole('tab', { name: 'Por vencer' }));
-    expect(await screen.findByText(/Ningun lote vence/)).toBeInTheDocument();
+    await usuario.click(await screen.findByRole('tab', { name: /Amarillo/ }));
+
+    expect(await screen.findByText('LTGT1501')).toBeInTheDocument();
+    expect(screen.getByText('Sulfato ferroso')).toBeInTheDocument();
+    expect(screen.getByText('En 9 meses')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Semaforo amarillo' })).toBeInTheDocument();
+    expect(screen.getByText(/1 lote en amarillo/)).toBeInTheDocument();
+  });
+
+  it('sin lotes en rojo lo dice como buena noticia', async () => {
+    servidor({ rojo: [] });
+    const usuario = userEvent.setup();
+    abrir(FARMACIA);
+    await esperarPanel();
+
+    await usuario.click(await screen.findByRole('tab', { name: /Rojo/ }));
+    expect(await screen.findByText(/Ningun lote vence en los proximos seis meses/)).toBeInTheDocument();
+  });
+
+  it('sin lotes en verde lo dice sin alarma: no es una alerta', async () => {
+    servidor();
+    const usuario = userEvent.setup();
+    abrir(FARMACIA);
+    await esperarPanel();
+
+    await usuario.click(await screen.findByRole('tab', { name: /Verde/ }));
+    expect(await screen.findByText(/Ningun lote vence a mas de doce meses/)).toBeInTheDocument();
   });
 
   it('los vencidos avisan que ya no se pueden entregar', async () => {
@@ -469,14 +625,46 @@ describe('un medicamento y sus lotes', () => {
    * el mes que viene, y lo que se hace con cada caso es distinto. Por eso los
    * lotes van a la vista y no tras un desplegable.
    */
-  it('los lotes se ven de corrido, con su vencimiento', async () => {
+  it('los lotes se ven de corrido, cada uno con su semaforo y su plazo', async () => {
     servidor();
     abrir(FARMACIA, '/farmacia/m-1');
 
-    expect(await screen.findByText('L-4471')).toBeInTheDocument();
-    expect(screen.getByText('L-9902')).toBeInTheDocument();
-    expect(screen.getByText('Por vencer')).toBeInTheDocument();
-    expect(screen.getByText('Vigente')).toBeInTheDocument();
+    const pronto = (await screen.findByText('L-4471')).closest('tr')!;
+    expect(within(pronto).getByRole('img', { name: 'Semaforo rojo' })).toBeInTheDocument();
+    expect(within(pronto).getByText('Vence en 18 dias')).toBeInTheDocument();
+
+    const lejos = screen.getByText('L-9902').closest('tr')!;
+    expect(within(lejos).getByRole('img', { name: 'Semaforo verde' })).toBeInTheDocument();
+    expect(within(lejos).getByText('Vence en 18 meses')).toBeInTheDocument();
+  });
+
+  /**
+   * En rojo todavia se entrega; vencido ya no. Esa es la diferencia que
+   * importa con el paciente enfrente, y por eso "Vencido" va aparte del
+   * semaforo y no se pierde dentro del rojo.
+   */
+  it('un lote vencido lo dice aparte del rojo: rojo se entrega, vencido no', async () => {
+    servidor({
+      detalle: {
+        ...DETALLE,
+        lotes: [{ ...DETALLE.lotes[0], vencimiento: 'VENCIDO', diasParaVencer: -12, semaforo: 'ROJO' }],
+      },
+    });
+    abrir(FARMACIA, '/farmacia/m-1');
+
+    const fila = (await screen.findByText('L-4471')).closest('tr')!;
+    expect(within(fila).getByText('Vencido')).toBeInTheDocument();
+    expect(within(fila).getByText('Vencio hace 12 dias')).toBeInTheDocument();
+    expect(within(fila).getByRole('img', { name: 'Semaforo rojo' })).toBeInTheDocument();
+  });
+
+  it('el encabezado lleva el color del lote que vence antes', async () => {
+    servidor();
+    abrir(FARMACIA, '/farmacia/m-1');
+
+    await screen.findByText('L-4471');
+    // Uno en el encabezado y uno en la fila del lote L-4471.
+    expect(screen.getAllByRole('img', { name: 'Semaforo rojo' })).toHaveLength(2);
   });
 
   it('un medicamento sin lotes lo dice: no hay existencia que entregar', async () => {

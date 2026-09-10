@@ -6,30 +6,37 @@ import LocalPharmacyIcon from '@mui/icons-material/LocalPharmacy';
 import { EncabezadoPagina } from '../../componentes/EncabezadoPagina';
 import { usarSesion } from '../sesion/contexto';
 import { PanelCatalogo } from './PanelCatalogo';
-import { PanelBajoMinimo, PanelPorVencer, PanelVencidos } from './PanelAlertas';
+import { PanelBajoMinimo, PanelSemaforo, PanelVencidos } from './PanelAlertas';
 import { PanelEntregas } from './PanelEntregas';
+import { PuntoSemaforo } from './Semaforo';
 import {
   listarBajoMinimo,
-  listarPorVencer,
-  listarVencidos,
   puede,
   PUEDE_ADMINISTRAR,
   PUEDE_VER_LOTES,
+  resumenSemaforo,
 } from './servicio-farmacia';
 import { PUEDE_VER_ENTREGAS } from './servicio-entregas';
 
 /**
  * Farmacia: el inventario del CAP.
  *
- * Cuatro vistas del MISMO inventario, no cuatro flujos distintos. Por eso van
- * en pestañas y no en pantallas separadas: quien busca un medicamento y quien
+ * Varias vistas del MISMO inventario, no flujos distintos. Por eso van en
+ * pestañas y no en pantallas separadas: quien busca un medicamento y quien
  * revisa qué se está venciendo están mirando el mismo estante desde dos
  * ángulos, y pasar de uno a otro es parte del mismo trabajo.
+ *
+ * Las tres pestañas de color son el semáforo del estante tal cual: Rojo,
+ * Amarillo y Verde, con el nombre con el que el personal ya llama a esas
+ * cajas. Vencidos va aparte del rojo porque lo que se hace con ellos es
+ * distinto: dar de baja, no gastar.
  *
  * Los contadores van en la pestaña a propósito. Sin ellos habría que entrar a
  * cada alerta para descubrir que no hay nada, y una alerta que obliga a
  * buscarla deja de avisar. Con el número a la vista, abrir Farmacia responde de
- * una sola mirada "¿hay algo que atender hoy?".
+ * una sola mirada "¿hay algo que atender hoy?". Los cuatro números de lote
+ * llegan en UNA consulta (`resumen`), no pidiendo la primera página de cada
+ * lista para leer su total.
  */
 export function PaginaFarmacia() {
   const { usuario } = usarSesion();
@@ -43,14 +50,9 @@ export function PaginaFarmacia() {
   const veEntregas = puede(usuario?.rol, PUEDE_VER_ENTREGAS);
   const despacha = puede(usuario?.rol, PUEDE_ADMINISTRAR);
 
-  const porVencer = useQuery({
-    queryKey: ['por-vencer', 1],
-    queryFn: () => listarPorVencer(1),
-    enabled: veLotes,
-  });
-  const vencidos = useQuery({
-    queryKey: ['vencidos', 1],
-    queryFn: () => listarVencidos(1),
+  const resumen = useQuery({
+    queryKey: ['semaforo', 'resumen'],
+    queryFn: resumenSemaforo,
     enabled: veLotes,
   });
   const bajoMinimo = useQuery({ queryKey: ['bajo-minimo'], queryFn: listarBajoMinimo });
@@ -59,12 +61,20 @@ export function PaginaFarmacia() {
     { etiqueta: 'Catalogo', cuenta: 0, color: 'primary' as const },
     ...(veLotes
       ? [
+          { etiqueta: 'Rojo', punto: 'ROJO', cuenta: resumen.data?.rojo ?? 0, color: 'error' as const },
           {
-            etiqueta: 'Por vencer',
-            cuenta: porVencer.data?.total ?? 0,
+            etiqueta: 'Amarillo',
+            punto: 'AMARILLO',
+            cuenta: resumen.data?.amarillo ?? 0,
             color: 'warning' as const,
           },
-          { etiqueta: 'Vencidos', cuenta: vencidos.data?.total ?? 0, color: 'error' as const },
+          {
+            etiqueta: 'Verde',
+            punto: 'VERDE',
+            cuenta: resumen.data?.verde ?? 0,
+            color: 'success' as const,
+          },
+          { etiqueta: 'Vencidos', cuenta: resumen.data?.vencidos ?? 0, color: 'error' as const },
         ]
       : []),
     { etiqueta: 'Bajo minimo', cuenta: bajoMinimo.data?.length ?? 0, color: 'warning' as const },
@@ -108,24 +118,39 @@ export function PaginaFarmacia() {
         variant="scrollable"
         scrollButtons="auto"
       >
-        {pestanas.map((p) => (
-          <Tab
-            key={p.etiqueta}
-            label={
-              p.cuenta > 0 ? (
-                <Badge badgeContent={p.cuenta} color={p.color} sx={{ pr: 2 }} max={999}>
-                  {p.etiqueta}
-                </Badge>
-              ) : (
-                p.etiqueta
-              )
-            }
-          />
-        ))}
+        {pestanas.map((p) => {
+          // La pestana de color lleva su punto delante, como la etiqueta de
+          // la caja. Decorativo: la palabra ya dice el color.
+          const titulo =
+            'punto' in p && p.punto ? (
+              <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+                <PuntoSemaforo color={p.punto} tamano={12} decorativo />
+                {p.etiqueta}
+              </Box>
+            ) : (
+              p.etiqueta
+            );
+          return (
+            <Tab
+              key={p.etiqueta}
+              label={
+                p.cuenta > 0 ? (
+                  <Badge badgeContent={p.cuenta} color={p.color} sx={{ pr: 2 }} max={999}>
+                    {titulo}
+                  </Badge>
+                ) : (
+                  titulo
+                )
+              }
+            />
+          );
+        })}
       </Tabs>
 
       {actual === 'Catalogo' ? <PanelCatalogo /> : null}
-      {actual === 'Por vencer' ? <PanelPorVencer /> : null}
+      {actual === 'Rojo' ? <PanelSemaforo color="ROJO" /> : null}
+      {actual === 'Amarillo' ? <PanelSemaforo color="AMARILLO" /> : null}
+      {actual === 'Verde' ? <PanelSemaforo color="VERDE" /> : null}
       {actual === 'Vencidos' ? <PanelVencidos /> : null}
       {actual === 'Bajo minimo' ? <PanelBajoMinimo /> : null}
       {actual === 'Entregas' ? <PanelEntregas /> : null}

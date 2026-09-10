@@ -28,6 +28,7 @@ import { DialogoEditarMedicamento } from './DialogoMedicamento';
 import { DialogoIngresarLote } from './DialogoIngresarLote';
 import { DialogoBaja, type LoteParaBaja } from './DialogoBaja';
 import { DialogoAjuste } from './DialogoAjuste';
+import { Semaforo } from './Semaforo';
 import type { LoteDelMedicamento, MedicamentoDetalle } from './servicio-farmacia';
 import {
   conUnidad,
@@ -38,18 +39,6 @@ import {
   puede,
   PUEDE_ADMINISTRAR,
 } from './servicio-farmacia';
-
-const COLOR_VENCIMIENTO: Record<string, 'default' | 'warning' | 'error'> = {
-  VIGENTE: 'default',
-  POR_VENCER: 'warning',
-  VENCIDO: 'error',
-};
-
-const ETIQUETA_VENCIMIENTO: Record<string, string> = {
-  VIGENTE: 'Vigente',
-  POR_VENCER: 'Por vencer',
-  VENCIDO: 'Vencido',
-};
 
 /**
  * Lo que los diálogos de conteo y de baja necesitan saber del lote.
@@ -194,6 +183,16 @@ export function PaginaMedicamento() {
               rotulo="Lotes con existencia"
               valor={String(conExistencia.length)}
             />
+            {/*
+              El color del medicamento es el de su lote que vence antes: es el
+              que sale primero en cada entrega y el que hay que vigilar.
+            */}
+            <Stack sx={{ gap: 0.25, minWidth: 120 }}>
+              <Typography variant="caption" color="text.secondary">
+                Semaforo
+              </Typography>
+              <Semaforo color={m.semaforo} diasParaVencer={m.diasParaVencer} />
+            </Stack>
           </Stack>
 
           {administra ? (
@@ -240,6 +239,7 @@ export function PaginaMedicamento() {
               <TableRow>
                 <TableCell>Lote</TableCell>
                 <TableCell>Vence</TableCell>
+                <TableCell>Semaforo</TableCell>
                 <TableCell>Estado</TableCell>
                 <TableCell align="right">Existencia</TableCell>
                 {administra ? <TableCell>Accion</TableCell> : null}
@@ -252,14 +252,25 @@ export function PaginaMedicamento() {
                   <TableCell sx={{ fontVariantNumeric: 'tabular-nums' }}>
                     {fechaCorta(l.fechaVencimiento as unknown as string)}
                   </TableCell>
+                  {/*
+                    El semaforo es la etiqueta de color que el CAP pega en cada
+                    caja; aqui es la misma etiqueta y se recalcula sola con el
+                    calendario. Reemplaza al chip Vigente / Por vencer: dos
+                    codigos de color en la misma fila se contradicen a la vista.
+                  */}
+                  <TableCell>
+                    <Semaforo color={l.semaforo} diasParaVencer={l.diasParaVencer} />
+                  </TableCell>
                   <TableCell>
                     <Stack direction="row" sx={{ gap: 0.5, flexWrap: 'wrap' }}>
-                      <Chip
-                        size="small"
-                        label={ETIQUETA_VENCIMIENTO[l.vencimiento] ?? l.vencimiento}
-                        color={COLOR_VENCIMIENTO[l.vencimiento] ?? 'default'}
-                        variant={l.vencimiento === 'VIGENTE' ? 'outlined' : 'filled'}
-                      />
+                      {/*
+                        Vencido si va aparte del semaforo: en rojo todavia se
+                        entrega, vencido ya no, y esa es la diferencia que
+                        importa con el paciente enfrente.
+                      */}
+                      {l.vencimiento === 'VENCIDO' ? (
+                        <Chip size="small" color="error" label="Vencido" />
+                      ) : null}
                       {l.estado !== 'DISPONIBLE' ? (
                         <Chip
                           size="small"

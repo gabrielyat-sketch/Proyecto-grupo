@@ -9,10 +9,21 @@ import { crearPagina, fechaDelDia, normalizarPagina, type Pagina, sumarDias } fr
 import { PrismaService } from '../prisma/prisma.service';
 import { ENTORNO, Entorno } from '../config/entorno';
 import { Evento, OutboxService } from '../eventos/outbox.service';
-import { clasificarVencimiento, diasParaVencer } from '../dominio/inventario';
+import {
+  clasificarVencimiento,
+  type ColorSemaforo,
+  diasParaVencer,
+  semaforoVencimiento,
+  umbralesSemaforo,
+} from '../dominio/inventario';
 import { IngresarLoteDto } from './dto/ingresar-lote.dto';
 import { AjustarLoteDto } from './dto/ajustar-lote.dto';
-import { LoteDto, LotePorVencerDto, LoteVencidoDto } from './dto/respuestas.dto';
+import {
+  LoteDto,
+  LotePorVencerDto,
+  LoteVencidoDto,
+  ResumenSemaforoDto,
+} from './dto/respuestas.dto';
 
 @Injectable()
 export class LotesService {
@@ -132,10 +143,94 @@ export class LotesService {
         cantidadDisponible: l.cantidadDisponible,
         diasParaVencer: diasParaVencer(l.fechaVencimiento, hoy),
         vencimiento: clasificarVencimiento(l.fechaVencimiento, hoy, this.env.DIAS_ALERTA_VENCIMIENTO),
+        semaforo: semaforoVencimiento(l.fechaVencimiento, hoy),
       })),
       total,
       consulta,
     );
+  }
+
+  /**
+   * Lotes con existencia de un color del semaforo, del que vence antes al que
+   * vence despues.
+   *
+   * Los ya vencidos no entran en ROJO aunque la etiqueta los pinte de rojo:
+   * tienen su propia lista, porque lo que se hace con ellos es distinto (dar de
+   * baja, no gastar). El filtro va a la base con las MISMAS fechas que usa la
+   * etiqueta (`umbralesSemaforo`), sobre el indice de `fecha_vencimiento`.
+   */
+  async porSemaforo(
+    color: ColorSemaforo,
+    consulta: { pagina?: number; tamano?: number },
+  ): Promise<Pagina<LotePorVencerDto>> {
+    const hoy = fechaDelDia(new Date());
+    const where = { ...this.conExistencia(), fechaVencimiento: this.rangoDelColor(color, hoy) };
+
+    const { tamano, saltar } = normalizarPagina(consulta);
+    const [lotes, total] = await this.prisma.$transaction([
+      this.prisma.lote.findMany({
+        where,
+        skip: saltar,
+        take: tamano,
+        orderBy: { fechaVencimiento: 'asc' },
+        include: {
+          medicamento: { select: { codigo: true, nombreGenerico: true, unidad: true } },
+        },
+      }),
+      this.prisma.lote.count({ where }),
+    ]);
+
+    return crearPagina(
+      lotes.map((l) => ({
+        id: l.id,
+        numeroLote: l.numeroLote,
+        medicamento: l.medicamento,
+        fechaVencimiento: l.fechaVencimiento,
+        cantidadDisponible: l.cantidadDisponible,
+        diasParaVencer: diasParaVencer(l.fechaVencimiento, hoy),
+        vencimiento: clasificarVencimiento(l.fechaVencimiento, hoy, this.env.DIAS_ALERTA_VENCIMIENTO),
+        semaforo: semaforoVencimiento(l.fechaVencimiento, hoy),
+      })),
+      total,
+      consulta,
+    );
+  }
+
+  /**
+   * Cuantos lotes hay de cada color, en una sola ida a la base.
+   *
+   * Es lo que va en las pestanas de Farmacia. Sin esto habria que pedir la
+   * primera pagina de cada lista solo para leer su total: cuatro consultas
+   * paginadas para cuatro numeros.
+   */
+  async resumenSemaforo(): Promise<ResumenSemaforoDto> {
+    const hoy = fechaDelDia(new Date());
+    const base = this.conExistencia();
+    const [rojo, amarillo, verde, vencidos] = await this.prisma.$transaction([
+      this.prisma.lote.count({ where: { ...base, fechaVencimiento: this.rangoDelColor('ROJO', hoy) } }),
+      this.prisma.lote.count({ where: { ...base, fechaVencimiento: this.rangoDelColor('AMARILLO', hoy) } }),
+      this.prisma.lote.count({ where: { ...base, fechaVencimiento: this.rangoDelColor('VERDE', hoy) } }),
+      this.prisma.lote.count({ where: { ...base, fechaVencimiento: { lt: hoy } } }),
+    ]);
+    return { rojo, amarillo, verde, vencidos };
+  }
+
+  /** Lo que esta en el estante: disponible y con algo que contar. */
+  private conExistencia() {
+    return { estado: 'DISPONIBLE' as const, cantidadDisponible: { gt: 0 } };
+  }
+
+  /** El tramo de fechas de vencimiento de un color, sin los ya vencidos. */
+  private rangoDelColor(color: ColorSemaforo, hoy: Date) {
+    const { rojoHasta, amarilloHasta } = umbralesSemaforo(hoy);
+    switch (color) {
+      case 'ROJO':
+        return { gte: hoy, lt: rojoHasta };
+      case 'AMARILLO':
+        return { gte: rojoHasta, lte: amarilloHasta };
+      case 'VERDE':
+        return { gt: amarilloHasta };
+    }
   }
 
   /**

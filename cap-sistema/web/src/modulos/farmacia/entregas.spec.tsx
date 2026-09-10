@@ -169,7 +169,10 @@ function servidor({
         return json(paginaDe(entregas));
       }
       if (ruta.endsWith('/v1/medicamentos/bajo-minimo')) return json([]);
-      if (ruta.endsWith('/v1/lotes/por-vencer')) return json(paginaDe([]));
+      if (ruta.endsWith('/v1/lotes/semaforo/resumen')) {
+        return json({ rojo: 0, amarillo: 0, verde: 0, vencidos: 0 });
+      }
+      if (/\/v1\/lotes\/semaforo\/[A-Z]+$/.test(ruta)) return json(paginaDe([]));
       if (ruta.endsWith('/v1/lotes/vencidos')) return json(paginaDe([]));
       if (ruta.endsWith('/v1/medicamentos')) {
         const buscar = url.searchParams.get('buscar');

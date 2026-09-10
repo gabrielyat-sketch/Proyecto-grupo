@@ -57,7 +57,7 @@ export function DialogoIngresarLote({
     onSuccess: () => {
       void consultas.invalidateQueries({ queryKey: ['medicamento', medicamento.id] });
       void consultas.invalidateQueries({ queryKey: ['catalogo'] });
-      void consultas.invalidateQueries({ queryKey: ['por-vencer'] });
+      void consultas.invalidateQueries({ queryKey: ['semaforo'] });
       void consultas.invalidateQueries({ queryKey: ['bajo-minimo'] });
       onCerrar();
     },
