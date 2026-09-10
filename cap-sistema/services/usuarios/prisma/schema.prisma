@@ -54,6 +54,15 @@ enum TipoFicha {
   NINEZ
   /// Prenatal y posparto.
   PRENATAL
+  /// La evaluacion del posparto.
+  ///
+  /// El papel grapa las dos hojas bajo un mismo titulo, pero la del posparto
+  /// reinicia la numeracion de secciones, repite su encabezado y trae OTROS
+  /// signos de peligro y OTRA consejeria. Los catalogos compartidos se
+  /// consultan por tipo de ficha: con un solo valor habria que anadir una
+  /// columna "hoja" a cuatro tablas para distinguir lo mismo que distingue
+  /// esto. Ver `docs/diseno-ficha-prenatal.md`.
+  POSPARTO
 }
 
 /// Grupo al que pertenece un antecedente dentro de la ficha.
@@ -443,6 +452,10 @@ model Atencion {
   visita        Visita?
   /// Solo en las atenciones con tipoFicha NEONATO.
   fichaNeonato  FichaNeonato?
+  /// Solo en las atenciones con tipoFicha PRENATAL.
+  fichaPrenatal FichaPrenatal?
+  /// Solo en las atenciones con tipoFicha POSPARTO.
+  fichaPosparto FichaPosparto?
 
   expediente Expediente @relation(fields: [expedienteId], references: [id])
 
@@ -938,6 +951,198 @@ model FichaNeonato {
   atencion Atencion @relation(fields: [atencionId], references: [id], onDelete: Cascade)
 
   @@map("ficha_neonato")
+}
+
+/// Lo que solo pide la hoja prenatal (paginas 1 y 2 de su ficha).
+///
+/// Cuelga de la atencion, como `FichaNeonato`: en el papel cada control es una
+/// columna de la tabla, y en el sistema cada control es una consulta. Las
+/// cuatro columnas impresas son lo que cabe en la hoja, no un limite del
+/// cuidado; aqui son las que hagan falta.
+///
+/// NO se repite aqui nada que `Atencion` ya guarde. La presion arterial, la
+/// temperatura, las respiraciones, el pulso —que en esta hoja se llama
+/// "frecuencia cardiaca materna"—, la historia de la enfermedad actual y el
+/// manejo de la referencia ya viven alli, con los mismos nombres que usan las
+/// otras tres fichas.
+///
+/// Ver `docs/diseno-ficha-prenatal.md`.
+model FichaPrenatal {
+  atencionId String @id @map("atencion_id")
+
+  // ─── Encabezado de la seccion VIII ─────────────────────────────────────
+  //
+  // El papel lo dice al lado: "solo si embarazo menor de 12 semanas". Es
+  // tamizaje nutricional de la madre y despues de ese punto ya no se mide.
+  //
+  /// Circunferencia del brazo en centimetros.
+  circunferenciaBrazoCm Decimal? @map("circunferencia_brazo_cm") @db.Decimal(4, 1)
+
+  // ─── Los signos vitales NO estan aqui ──────────────────────────────────
+  //
+  // Presion, temperatura, respiraciones y frecuencia cardiaca materna —que es
+  // el `pulso`— ya son columnas de `Atencion`. Y el PESO tambien: el papel lo
+  // pide en libras, la pantalla lo teclea en libras, y se guarda en
+  // `Atencion.pesoKg`, que es la unica columna de peso que alimenta los
+  // indicadores del sistema.
+  //
+  // Es lo que ya hacen la ficha de adultos y la del lactante y ninez. La de
+  // neonato es la excepcion, y por un motivo impreso: uno de sus signos de
+  // peligro dice "pesa menos de 5 libras 8 onzas". Aqui no hay nada asi, y una
+  // columna propia habria dejado el peso de cada control prenatal invisible
+  // para los indicadores y para el historial de peso de la propia paciente,
+  // que es adulta y ya tiene los suyos en kilos.
+
+  // ─── Examen general ────────────────────────────────────────────────────
+  //
+  // UNA casilla, no cuatro. El papel imprime "Estado general, palidez palmar,
+  // conjuntivas, unas" en una sola fila con una sola pregunta: "¿Normal?".
+  // Partirla daria una ficha que no se puede comparar con la que la enfermera
+  // lleno ayer en papel.
+  //
+  examenGeneralNormal     Boolean? @map("examen_general_normal")
+  examenBucodentalCifrado Bytes?   @map("examen_bucodental_cifrado")
+
+  // ─── Examen obstetrico ─────────────────────────────────────────────────
+  alturaUterinaCm Decimal? @map("altura_uterina_cm") @db.Decimal(4, 1)
+  /// El papel lo acota: "20 semanas o mas".
+  movimientosFetales Boolean? @map("movimientos_fetales")
+  /// Frecuencia cardiaca FETAL, latidos por minuto. "Si procede", dice la hoja.
+  fcf Int?
+  /// Presentacion por maniobras de Leopold. El papel la pide despues de las 36
+  /// semanas y se escribe con palabras: "cefalica", "podalica", "transversa".
+  presentacionLeopold String? @map("presentacion_leopold") @db.VarChar(60)
+
+  // ─── Examen ginecologico ───────────────────────────────────────────────
+  //
+  // Las dos primeras filas del papel dicen "(describa)": la casilla de SI/NO
+  // no basta, y lo que se describe es un hallazgo clinico, asi que se cifra.
+  //
+  trazasSangre                       Boolean? @map("trazas_sangre")
+  trazasSangreDescripcionCifrado     Bytes?   @map("trazas_sangre_descripcion_cifrado")
+  /// Verrugas, herpes, papilomas o ulceras. El papel las agrupa en una fila.
+  lesionesVulvares                   Boolean? @map("lesiones_vulvares")
+  lesionesVulvaresDescripcionCifrado Bytes?   @map("lesiones_vulvares_descripcion_cifrado")
+  flujoVaginal                       Boolean? @map("flujo_vaginal")
+
+  // ─── Examenes de laboratorio o pruebas de gabinete ─────────────────────
+  //
+  // Ocho filas, y en el papel las ocho son una raya para escribir: el
+  // resultado se anota como venga del laboratorio ("11.2 / 34", "no reactivo",
+  // "pendiente"). Se guardan como texto cifrado y no como numeros porque
+  // convertirlos exigiria decidir por el laboratorio que significa cada
+  // anotacion.
+  //
+  // Van cifradas TODAS, no solo VIH: la arquitectura (§9.3) cifra el contenido
+  // clinico, y un VDRL o un papanicolau dicen tanto como un diagnostico.
+  //
+  hemoglobinaHematocritoCifrado Bytes? @map("hemoglobina_hematocrito_cifrado")
+  grupoRhCifrado                Bytes? @map("grupo_rh_cifrado")
+  /// Proteina, glucosa y cetona, como las anota el laboratorio.
+  orinaCifrado                  Bytes? @map("orina_cifrado")
+  glicemiaCifrado               Bytes? @map("glicemia_cifrado")
+  vdrlCifrado                   Bytes? @map("vdrl_cifrado")
+  /// El papel anade: "oferte prueba con consejeria".
+  vihCifrado                    Bytes? @map("vih_cifrado")
+  papanicolauCifrado            Bytes? @map("papanicolau_cifrado")
+  infeccionesCifrado            Bytes? @map("infecciones_cifrado")
+
+  // ─── Clasificacion ─────────────────────────────────────────────────────
+  //
+  // Las semanas SE CAPTURAN aqui y no se calculan, aunque el sistema sepa
+  // sacarlas de la FUR. El rotulo del papel dice "Semanas embarazo por FUR
+  // Y/O AU": admite estimarlas por altura uterina cuando la paciente no
+  // recuerda su ultima regla, y eso es una lectura clinica, no una resta de
+  // fechas. Las calculadas viajan aparte en la respuesta.
+  //
+  semanasPorFurAu            Int?   @map("semanas_por_fur_au")
+  /// La prenatal no trae matriz de problemas: el papel deja una raya para
+  /// escribirlos. Ver la decision 5 del diseno.
+  problemasDetectadosCifrado Bytes? @map("problemas_detectados_cifrado")
+
+  // ─── Conducta ──────────────────────────────────────────────────────────
+  //
+  // El papel pide el NUMERO de tabletas entregadas, no si se entregaron.
+  //
+  sulfatoFerrosoTabletas Int? @map("sulfato_ferroso_tabletas")
+  acidoFolicoTabletas    Int? @map("acido_folico_tabletas")
+  /// Dosis de Td administrada a la madre en este control.
+  tdDosis                Int? @map("td_dosis")
+
+  atencion Atencion @relation(fields: [atencionId], references: [id], onDelete: Cascade)
+
+  @@map("ficha_prenatal")
+}
+
+/// Lo que solo pide la evaluacion del posparto (paginas 3 y 4 de su ficha).
+///
+/// Tabla aparte de `FichaPrenatal`, y no columnas anadidas a ella, porque son
+/// dos hojas distintas: la del posparto reinicia la numeracion de secciones y
+/// pregunta otras cosas. Una sola tabla obligaria a dejar en null la mitad de
+/// las columnas en cada control, y a que nadie supiera cual mitad.
+///
+/// Ver `docs/diseno-ficha-prenatal.md`.
+model FichaPosparto {
+  atencionId String @id @map("atencion_id")
+
+  /// El papel separa el PRIMER control —que tiene hoja propia, la pagina 3— de
+  /// los controles 2 a 5, que van en la tabla de la pagina 4. Cinco preguntas
+  /// solo se hacen la primera vez, y esta casilla es la que decide si la
+  /// pantalla las pide.
+  esPrimerControl Boolean @default(false) @map("es_primer_control")
+
+  // ─── Solo en el primer control (pagina 3) ──────────────────────────────
+  diasDespuesDelParto Int? @map("dias_despues_del_parto")
+  /// Donde fue atendido el parto. Sin cifrar: es un lugar, no un dato clinico,
+  /// igual que la comunidad del paciente.
+  dondeAtendioParto String? @map("donde_atendio_parto") @db.VarChar(120)
+  /// Quien atendio el parto. Mismo catalogo que usa la ficha de neonato, que
+  /// pregunta exactamente lo mismo desde el lado del recien nacido.
+  quienAtendioParto     QuienAtendioParto? @map("quien_atendio_parto")
+  quienAtendioPartoOtro String?            @map("quien_atendio_parto_otro") @db.VarChar(120)
+
+  // ─── En todos los controles ────────────────────────────────────────────
+  //
+  // Las cuatro son hallazgos que el papel pide describir, no marcar. Van
+  // cifradas: "episiorrafia con signos de infeccion" es un diagnostico escrito
+  // con otras palabras.
+  //
+  involucionUterinaCifrado  Bytes? @map("involucion_uterina_cifrado")
+  examenMamasCifrado        Bytes? @map("examen_mamas_cifrado")
+  heridaOperatoriaCifrado   Bytes? @map("herida_operatoria_cifrado")
+  /// Loquios, episiorrafia y hallazgos patologicos.
+  examenGinecologicoCifrado Bytes? @map("examen_ginecologico_cifrado")
+
+  /// El papel pregunta ademas "¿Por que no?", y esa respuesta es lo que decide
+  /// la consejeria que sigue.
+  lactanciaMaternaExclusiva Boolean? @map("lactancia_materna_exclusiva")
+  motivoSinLactanciaCifrado Bytes?   @map("motivo_sin_lactancia_cifrado")
+
+  /// La fila "Problemas detectados". Como en la hoja prenatal, aqui no hay
+  /// matriz: el papel deja una raya.
+  problemasDetectadosCifrado Bytes? @map("problemas_detectados_cifrado")
+
+  // ─── Conducta ──────────────────────────────────────────────────────────
+  //
+  // Las dos paginas preguntan lo mismo de dos maneras: la del primer control
+  // trae casillas de SI/NO y la tabla de los siguientes pide el numero de
+  // tabletas. Por eso hay dos columnas por suplemento y no una: en el primer
+  // control se sabe QUE se entrego pero no CUANTO, y un numero inventado ahi
+  // seria un dato que nadie escribio.
+  //
+  sulfatoFerroso         Boolean? @map("sulfato_ferroso")
+  sulfatoFerrosoTabletas Int?     @map("sulfato_ferroso_tabletas")
+  acidoFolico            Boolean? @map("acido_folico")
+  acidoFolicoTabletas    Int?     @map("acido_folico_tabletas")
+  td                     Boolean?
+  tdDosis                Int?     @map("td_dosis")
+  /// La casilla "Otro medicamento" de la pagina 3. Cual es se registra en
+  /// `MedicamentoIndicado`, que ya existe y sirve a las cuatro fichas.
+  otroMedicamento        Boolean? @map("otro_medicamento")
+
+  atencion Atencion @relation(fields: [atencionId], references: [id], onDelete: Cascade)
+
+  @@map("ficha_posparto")
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

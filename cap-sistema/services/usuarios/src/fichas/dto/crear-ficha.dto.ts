@@ -24,6 +24,8 @@ export enum TipoFichaDto {
   NEONATO = 'NEONATO',
   NINEZ = 'NINEZ',
   PRENATAL = 'PRENATAL',
+  /** La evaluacion del posparto, que es su propia hoja. */
+  POSPARTO = 'POSPARTO',
 }
 
 /** Un signo de peligro evaluado (seccion III). */
@@ -306,6 +308,335 @@ export class DatosNeonatoDto {
   lactanciaMaternaExclusiva?: boolean;
 }
 
+/**
+ * Lo que solo pide la hoja prenatal (pagina 2 de su ficha).
+ *
+ * Aqui NO viajan la presion arterial, la temperatura, las respiraciones, la
+ * frecuencia cardiaca materna —que es el `pulso`— ni el PESO: esos campos ya
+ * son de `CrearFichaDto`, como en las otras tres fichas. Mandarlos dos veces
+ * daria dos sitios donde escribir el mismo dato.
+ *
+ * El papel pide el peso en libras y la pantalla lo teclea en libras, pero
+ * viaja como `pesoKg`, que es lo que hacen la ficha de adultos y la de ninez y
+ * la unica columna de peso que alimenta los indicadores.
+ */
+export class DatosPrenatalDto {
+  @ApiPropertyOptional({
+    example: 24.5,
+    description: 'Circunferencia del brazo. El papel: solo si el embarazo es menor de 12 semanas.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 1 })
+  @Min(0)
+  @Max(80)
+  circunferenciaBrazoCm?: number;
+
+  @ApiPropertyOptional({
+    description: 'Una sola casilla: estado general, palidez palmar, conjuntivas y unas.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  examenGeneralNormal?: boolean;
+
+  @ApiPropertyOptional({ description: 'Hallazgos del examen buco dental.' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 500)
+  examenBucodental?: string;
+
+  @ApiPropertyOptional({ example: 28.5, description: 'Altura uterina en centimetros.' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 1 })
+  @Min(0)
+  @Max(60)
+  alturaUterinaCm?: number;
+
+  @ApiPropertyOptional({ description: 'El papel lo acota a las 20 semanas o mas.' })
+  @IsOptional()
+  @IsBoolean()
+  movimientosFetales?: boolean;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 250, description: 'Frecuencia cardiaca fetal.' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(250)
+  fcf?: number;
+
+  @ApiPropertyOptional({
+    maxLength: 60,
+    example: 'Cefálica',
+    description: 'Presentacion por maniobras de Leopold, a partir de las 36 semanas.',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(1, 60)
+  presentacionLeopold?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  trazasSangre?: boolean;
+
+  @ApiPropertyOptional({ description: 'El papel dice "(describa)".' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 500)
+  trazasSangreDescripcion?: string;
+
+  @ApiPropertyOptional({ description: 'Verrugas, herpes, papilomas o ulceras.' })
+  @IsOptional()
+  @IsBoolean()
+  lesionesVulvares?: boolean;
+
+  @ApiPropertyOptional({ description: 'El papel dice "(describa)".' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 500)
+  lesionesVulvaresDescripcion?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  flujoVaginal?: boolean;
+
+  // ─── Laboratorio ───────────────────────────────────────────────────────
+  //
+  // Texto y no numeros: el papel deja una raya y el resultado se anota como lo
+  // manda el laboratorio ("11.2 / 34", "no reactivo", "pendiente").
+  //
+  @ApiPropertyOptional({ example: '11.2 / 34' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 120)
+  hemoglobinaHematocrito?: string;
+
+  @ApiPropertyOptional({ example: 'O RH+' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 120)
+  grupoRh?: string;
+
+  @ApiPropertyOptional({ description: 'Proteina, glucosa y cetona.' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 200)
+  orina?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(1, 120)
+  glicemia?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(1, 120)
+  vdrl?: string;
+
+  @ApiPropertyOptional({ description: 'El papel: "oferte prueba con consejeria".' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 120)
+  vih?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(1, 200)
+  papanicolau?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(1, 300)
+  infecciones?: string;
+
+  // ─── Clasificacion ─────────────────────────────────────────────────────
+  @ApiPropertyOptional({
+    minimum: 0,
+    maximum: 45,
+    description: 'Semanas de embarazo por FUR y/o altura uterina, como las anota quien atiende.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(45)
+  semanasPorFurAu?: number;
+
+  @ApiPropertyOptional({ description: 'Esta ficha no trae matriz de problemas: se escriben.' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 1000)
+  problemasDetectados?: string;
+
+  // ─── Conducta ──────────────────────────────────────────────────────────
+  //
+  // El papel pide el NUMERO de tabletas entregadas, no si se entregaron.
+  //
+  @ApiPropertyOptional({ minimum: 0, maximum: 400 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(400)
+  sulfatoFerrosoTabletas?: number;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 400 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(400)
+  acidoFolicoTabletas?: number;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 10, description: 'Dosis de Td de este control.' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(10)
+  tdDosis?: number;
+}
+
+/**
+ * Lo que solo pide la evaluacion del posparto (paginas 3 y 4).
+ *
+ * Como en la hoja prenatal, la presion arterial, la frecuencia cardiaca y la
+ * temperatura NO viajan aqui: son campos de `CrearFichaDto`. El diagnostico y
+ * la conducta que pide la pagina 3 tampoco: son `diagnostico` y `tratamiento`,
+ * los mismos que usan las otras tres fichas.
+ */
+export class DatosPospartoDto {
+  @ApiPropertyOptional({
+    description:
+      'El primer control tiene hoja propia y cinco preguntas que no se repiten. Por defecto, false.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  esPrimerControl?: boolean;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 400, description: 'Solo en el primer control.' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(400)
+  diasDespuesDelParto?: number;
+
+  @ApiPropertyOptional({ maxLength: 120, description: 'Solo en el primer control.' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 120)
+  dondeAtendioParto?: string;
+
+  @ApiPropertyOptional({ enum: QuienAtendioPartoDto, description: 'Solo en el primer control.' })
+  @IsOptional()
+  @IsEnum(QuienAtendioPartoDto)
+  quienAtendioParto?: QuienAtendioPartoDto;
+
+  @ApiPropertyOptional({ maxLength: 120 })
+  @IsOptional()
+  @IsString()
+  @Length(1, 120)
+  quienAtendioPartoOtro?: string;
+
+  @ApiPropertyOptional({ description: 'El papel pide describirla, no marcarla.' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 500)
+  involucionUterina?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(1, 500)
+  examenMamas?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(1, 500)
+  heridaOperatoria?: string;
+
+  @ApiPropertyOptional({ description: 'Loquios, episiorrafia y hallazgos patologicos.' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 1000)
+  examenGinecologico?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  lactanciaMaternaExclusiva?: boolean;
+
+  @ApiPropertyOptional({ description: 'La pregunta "¿Por que no?" del papel.' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 500)
+  motivoSinLactancia?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(1, 1000)
+  problemasDetectados?: string;
+
+  // ─── Conducta ──────────────────────────────────────────────────────────
+  //
+  // El primer control marca SI/NO; los siguientes anotan cuantas tabletas. Las
+  // dos formas caben, y ninguna inventa la otra.
+  //
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  sulfatoFerroso?: boolean;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 400 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(400)
+  sulfatoFerrosoTabletas?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  acidoFolico?: boolean;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 400 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(400)
+  acidoFolicoTabletas?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  td?: boolean;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 10 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(10)
+  tdDosis?: number;
+
+  @ApiPropertyOptional({ description: 'Cual es se registra en `medicamentos`.' })
+  @IsOptional()
+  @IsBoolean()
+  otroMedicamento?: boolean;
+}
+
 export class CrearFichaDto {
   @ApiProperty({ enum: TipoFichaDto })
   @IsEnum(TipoFichaDto)
@@ -499,4 +830,18 @@ export class CrearFichaDto {
   @ValidateNested()
   @Type(() => DatosNeonatoDto)
   neonato?: DatosNeonatoDto;
+
+  /** Solo cuando `tipoFicha` es PRENATAL. Se ignora en las demas. */
+  @ApiPropertyOptional({ type: DatosPrenatalDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => DatosPrenatalDto)
+  prenatal?: DatosPrenatalDto;
+
+  /** Solo cuando `tipoFicha` es POSPARTO. Se ignora en las demas. */
+  @ApiPropertyOptional({ type: DatosPospartoDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => DatosPospartoDto)
+  posparto?: DatosPospartoDto;
 }

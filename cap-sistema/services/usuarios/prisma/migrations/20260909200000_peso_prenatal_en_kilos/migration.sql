@@ -1,0 +1,16 @@
+-- El peso de la ficha prenatal vuelve a `atencion.peso_kg`.
+--
+-- La migracion `20260909180000_ficha_prenatal` le dio a la hoja prenatal su
+-- propia columna de peso en libras, copiando el criterio de la ficha de
+-- neonato. Estaba mal: el neonato guarda libras y onzas porque uno de sus
+-- signos de peligro IMPRESOS dice "pesa menos de 5 libras 8 onzas", y aqui no
+-- hay nada asi. Las fichas de adultos y de ninez —que es donde encaja una
+-- embarazada— tecleaen libras y guardan kilos en `atencion.peso_kg`, la unica
+-- columna de peso que alimenta los indicadores.
+--
+-- Con la columna propia, el peso de cada control prenatal quedaba fuera de los
+-- indicadores y fuera del historial de peso de la propia paciente. Se quita
+-- antes de que exista una sola fila que dependa de ella.
+--
+-- DropColumn
+ALTER TABLE "ficha_prenatal" DROP COLUMN "peso_libras";

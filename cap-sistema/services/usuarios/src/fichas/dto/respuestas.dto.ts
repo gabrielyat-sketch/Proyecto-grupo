@@ -1,6 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-const TIPOS = ['ADULTO', 'NEONATO', 'NINEZ', 'PRENATAL'];
+/**
+ * Los tipos de ficha, para el contrato.
+ *
+ * Son CINCO para cuatro hojas oficiales: la evaluacion del posparto es su
+ * propio tipo. Ver la decision 1 de `docs/diseno-ficha-prenatal.md`.
+ *
+ * Esta lista alimenta el OpenAPI, y de ahi sale el tipo del cliente del panel:
+ * si se queda corta, el endpoint devuelve un valor que el contrato declara
+ * imposible y el panel acaba enseñando el codigo en crudo.
+ */
+const TIPOS = ['ADULTO', 'NEONATO', 'NINEZ', 'PRENATAL', 'POSPARTO'];
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  El catalogo, tal como lo necesita la pantalla para dibujarse
@@ -179,6 +189,165 @@ export class FichaNeonatoDto {
 }
 
 /** Un tema de la tabla de consejeria del pie de la ficha. */
+/**
+ * Lo que solo trae la hoja prenatal.
+ *
+ * Los dos ultimos campos no estan en la base: se calculan al responder, a
+ * partir de la FUR que el expediente ya guarda en `AntecedentesObstetricos`.
+ * Guardarlos permitiria que quedaran desfasados de la fecha de la que dicen
+ * venir, que es justo lo que le pasa al papel.
+ */
+export class FichaPrenatalDto {
+  @ApiProperty({ type: String, nullable: true, description: 'Decimal en texto.' })
+  circunferenciaBrazoCm!: string | null;
+
+  @ApiProperty({ type: Boolean, nullable: true })
+  examenGeneralNormal!: boolean | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  examenBucodental!: string | null;
+
+  @ApiProperty({ type: String, nullable: true, description: 'Decimal en texto.' })
+  alturaUterinaCm!: string | null;
+
+  @ApiProperty({ type: Boolean, nullable: true })
+  movimientosFetales!: boolean | null;
+
+  @ApiProperty({ type: Number, nullable: true, description: 'Frecuencia cardiaca fetal.' })
+  fcf!: number | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  presentacionLeopold!: string | null;
+
+  @ApiProperty({ type: Boolean, nullable: true })
+  trazasSangre!: boolean | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  trazasSangreDescripcion!: string | null;
+
+  @ApiProperty({ type: Boolean, nullable: true })
+  lesionesVulvares!: boolean | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  lesionesVulvaresDescripcion!: string | null;
+
+  @ApiProperty({ type: Boolean, nullable: true })
+  flujoVaginal!: boolean | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  hemoglobinaHematocrito!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  grupoRh!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  orina!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  glicemia!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  vdrl!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  vih!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  papanicolau!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  infecciones!: string | null;
+
+  @ApiProperty({ type: Number, nullable: true, description: 'Como las anoto quien atendio.' })
+  semanasPorFurAu!: number | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  problemasDetectados!: string | null;
+
+  @ApiProperty({ type: Number, nullable: true })
+  sulfatoFerrosoTabletas!: number | null;
+
+  @ApiProperty({ type: Number, nullable: true })
+  acidoFolicoTabletas!: number | null;
+
+  @ApiProperty({ type: Number, nullable: true })
+  tdDosis!: number | null;
+
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    description: 'Calculadas a partir de la FUR y la fecha de la consulta. Null si no hay FUR.',
+  })
+  semanasGestacion!: number | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'Fecha probable de parto (regla de Naegele), como aaaa-mm-dd. Null si no hay FUR.',
+  })
+  fechaProbableParto!: string | null;
+}
+
+/** Lo que solo trae la evaluacion del posparto. */
+export class FichaPospartoDto {
+  @ApiProperty({ description: 'El primer control pregunta cinco cosas que los demas no repiten.' })
+  esPrimerControl!: boolean;
+
+  @ApiProperty({ type: Number, nullable: true })
+  diasDespuesDelParto!: number | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  dondeAtendioParto!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  quienAtendioParto!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  quienAtendioPartoOtro!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  involucionUterina!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  examenMamas!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  heridaOperatoria!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  examenGinecologico!: string | null;
+
+  @ApiProperty({ type: Boolean, nullable: true })
+  lactanciaMaternaExclusiva!: boolean | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  motivoSinLactancia!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  problemasDetectados!: string | null;
+
+  @ApiProperty({ type: Boolean, nullable: true })
+  sulfatoFerroso!: boolean | null;
+
+  @ApiProperty({ type: Number, nullable: true })
+  sulfatoFerrosoTabletas!: number | null;
+
+  @ApiProperty({ type: Boolean, nullable: true })
+  acidoFolico!: boolean | null;
+
+  @ApiProperty({ type: Number, nullable: true })
+  acidoFolicoTabletas!: number | null;
+
+  @ApiProperty({ type: Boolean, nullable: true })
+  td!: boolean | null;
+
+  @ApiProperty({ type: Number, nullable: true })
+  tdDosis!: number | null;
+
+  @ApiProperty({ type: Boolean, nullable: true })
+  otroMedicamento!: boolean | null;
+}
+
 export class TemaConsejeriaCatalogoDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
@@ -381,6 +550,20 @@ export class FichaDto {
     description: 'Solo en las fichas de menor de 28 dias.',
   })
   neonato!: FichaNeonatoDto | null;
+
+  @ApiProperty({
+    type: FichaPrenatalDto,
+    nullable: true,
+    description: 'Solo en las fichas prenatales.',
+  })
+  prenatal!: FichaPrenatalDto | null;
+
+  @ApiProperty({
+    type: FichaPospartoDto,
+    nullable: true,
+    description: 'Solo en las fichas del posparto.',
+  })
+  posparto!: FichaPospartoDto | null;
 }
 
 export class FichaCreadaDto {

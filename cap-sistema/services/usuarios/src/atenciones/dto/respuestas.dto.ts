@@ -33,7 +33,7 @@ export class AtencionDto {
    */
   @ApiProperty({
     type: String,
-    enum: ['ADULTO', 'NEONATO', 'NINEZ', 'PRENATAL'],
+    enum: ['ADULTO', 'NEONATO', 'NINEZ', 'PRENATAL', 'POSPARTO'],
     nullable: true,
     description: 'null cuando la atencion no se capturo con una ficha oficial.',
   })
