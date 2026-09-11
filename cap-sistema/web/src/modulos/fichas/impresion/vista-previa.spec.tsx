@@ -32,11 +32,32 @@ const PACIENTE = {
 
 const sp = (n: number, textos: string[]) =>
   textos.map((t, i) => ({ id: 'sp-' + (n + i), orden: i + 1, texto: t, pideTexto: t.startsWith('Otros') }));
-const ant = (grupo: 'MEDICO' | 'FAMILIAR' | 'HABITO', textos: string[], base: number) =>
+/** Con los codigos reales del catalogo, para que la hoja los coloque donde el papel. */
+const CODIGOS: Record<string, string> = {
+  'Asma bronquial': 'MED_ASMA', 'Cardiopatía': 'MED_CARDIOPATIA', 'ITS': 'MED_ITS', 'Infecciones Urinarias': 'MED_INF_URINARIAS',
+  'Toma medicamentos': 'MED_MEDICAMENTOS', 'Trastorno Psico social': 'MED_PSICOSOCIAL', 'Violencia basada en género': 'MED_VIOLENCIA_GENERO',
+  'Antecedente de vacuna Td': 'MED_VACUNA_TD', 'Diabetes': 'MED_DIABETES', 'Cáncer': 'MED_CANCER', 'Neuropatía': 'MED_NEUROPATIA',
+  'Desnutrición': 'MED_DESNUTRICION', 'Violencia intrafamiliar': 'MED_VIOLENCIA_INTRAFAMILIAR',
+  'Conductas anormales (suicidas, alimentarias, etc.)': 'MED_CONDUCTAS_ANORMALES', 'Hipertensión arterial': 'MED_HIPERTENSION',
+  'Tb': 'MED_TB', 'Chagas': 'MED_CHAGAS', 'SR': 'MED_SR',
+  'Quirúrgicos': 'MED_QUIRURGICOS', 'Otros antecedentes': 'MED_OTROS',
+  'Fuma': 'HAB_FUMA', 'Ingiere bebidas alcohólicas': 'HAB_ALCOHOL', 'Consumo de drogas': 'HAB_DROGAS',
+  'Múltiples parejas sexuales (más de 1 pareja en los últimos tres meses)': 'HAB_MULTIPLES_PAREJAS',
+  'Usa condón en las relaciones sexuales': 'HAB_CONDON', 'Realiza actividad física: menos de 60 minutos/semana': 'HAB_ACTIVIDAD_MENOS_60',
+  'Realiza actividad física: de 60-149 minutos/semana': 'HAB_ACTIVIDAD_60_149', 'Realiza actividad física: más de 150 minutos/semana': 'HAB_ACTIVIDAD_MAS_150',
+  'Consume 5 porciones diarias de frutas y verduras': 'HAB_FRUTAS_VERDURAS',
+  'Hipertensión': 'MAT_HIPERTENSION', 'TB': 'MAT_TB', 'VIH/SIDA': 'MAT_VIH_SIDA', 'Toma o tomó algún medicamento': 'MAT_MEDICAMENTO',
+  'Otro antecedente': 'MAT_OTRO', 'Bebe alcohol en abundancia': 'MAT_ALCOHOL', 'Utiliza Drogas': 'MAT_DROGAS',
+  'HTA': 'FAM_HTA', 'Nefropatía': 'FAM_NEFROPATIA', 'Tuberculosis': 'FAM_TUBERCULOSIS', 'Otro': 'FAM_OTRO',
+};
+const ant = (grupo: 'MEDICO' | 'FAMILIAR' | 'HABITO', textos: string[], base: number, prefijo = '') =>
   textos.map((t, i) => ({
-    id: 'a-' + (base + i), codigo: 'X' + (base + i), grupo, orden: i + 1, texto: t,
-    pideDetalle: t.startsWith('Toma'), pideFecha: t.startsWith('Antecedente de vacuna'),
-    pideNumero: t === 'Fuma', permiteNoAplica: t.startsWith('Antecedente de vacuna'),
+    id: 'a-' + (base + i),
+    codigo: prefijo + (CODIGOS[t] ?? 'X' + (base + i)).replace(/^(MED|MAT|HAB|FAM)_/, prefijo ? '' : '$1_'),
+    grupo, orden: i + 1, texto: t,
+    pideDetalle: t.startsWith('Toma') || t === 'Otro' || t.startsWith('Quir') || t.startsWith('Otro'),
+    pideFecha: t.startsWith('Antecedente de vacuna'),
+    pideNumero: t === 'Fuma' || t.startsWith('Antecedente de vacuna'), permiteNoAplica: t === 'SR',
   }));
 const problema = (id: string, orden: number, nombre: string, signos: string[], dx: string[]) => ({
   id, orden, nombre, etiquetaAnotacion: null,
@@ -48,9 +69,9 @@ const CATALOGO_ADULTO = {
   tipoFicha: 'ADULTO' as const,
   signosPeligro: sp(1, ['Dificultad respiratoria', 'Inconsciencia, letargia, comportamiento extraño', 'Dolor u opresión precordial', 'Convulsiones o rigidez de cuello', 'Cefalea Intensa', 'Vómitos', 'Otros (describir)']),
   antecedentes: [
-    ...ant('MEDICO', ['Asma bronquial', 'Cardiopatía', 'ITS', 'Infecciones Urinarias', 'Toma medicamentos', 'Trastorno Psico social', 'Violencia basada en género', 'Antecedente de vacuna Td', 'Diabetes', 'Cáncer', 'Neuropatía', 'Desnutrición', 'Violencia intrafamiliar', 'Conductas anormales (suicidas, alimentarias, etc.)', 'Hipertensión arterial', 'Tb', 'Chagas'], 1),
-    ...ant('FAMILIAR', ['Diabetes', 'Tuberculosis', 'HTA', 'Nefropatía', 'Cáncer', 'Otro'], 30),
-    ...ant('HABITO', ['Fuma', 'Ingiere bebidas alcohólicas', 'Consumo de drogas', 'Múltiples parejas sexuales', 'Usa condón en las relaciones sexuales', 'Realiza actividad física', 'Consume 5 porciones diarias de frutas y verduras'], 40),
+    ...ant('MEDICO', ['Asma bronquial', 'Cardiopatía', 'ITS', 'Infecciones Urinarias', 'Toma medicamentos', 'Trastorno Psico social', 'Violencia basada en género', 'Antecedente de vacuna Td', 'Diabetes', 'Cáncer', 'Neuropatía', 'Desnutrición', 'Violencia intrafamiliar', 'Conductas anormales (suicidas, alimentarias, etc.)', 'Hipertensión arterial', 'Tb', 'Chagas', 'SR'], 1),
+    ...ant('FAMILIAR', ['Diabetes', 'Tuberculosis', 'HTA', 'Nefropatía', 'Cáncer', 'Otro'], 30).map((a) => ({ ...a, codigo: 'FAM_' + a.codigo.replace(/^\w+_/, '') })),
+    ...ant('HABITO', ['Fuma', 'Ingiere bebidas alcohólicas', 'Consumo de drogas', 'Múltiples parejas sexuales (más de 1 pareja en los últimos tres meses)', 'Usa condón en las relaciones sexuales', 'Realiza actividad física: menos de 60 minutos/semana', 'Realiza actividad física: de 60-149 minutos/semana', 'Realiza actividad física: más de 150 minutos/semana', 'Consume 5 porciones diarias de frutas y verduras'], 40),
   ],
   problemas: [
     problema('pr-1', 1, 'Tos o dificultad para respirar', ['Sibilancia', 'Tos Crónica', 'Estridores'], ['Neumonía grave', 'Neumonía', 'Resfriado', 'Tuberculosis', 'Asma', 'Otro']),
@@ -118,7 +139,10 @@ it('escribe las vistas previas', () => {
   escribir('adulto', renderToStaticMarkup(<HojaAdulto ficha={FICHA} catalogo={CATALOGO_ADULTO} paciente={PACIENTE} antecedentes={ANTECEDENTES} />));
 
   const CAT_NEO = { ...CATALOGO_ADULTO, tipoFicha: 'NEONATO' as const, signosPeligro: sp(1, ['No respira', 'Está flácido o inconsciente', 'Le cuesta respirar', 'Cianosis', 'Hipotermia', 'Fiebre', 'No succiona', 'Pesa menos de 5 libras 8 onzas', 'Letárgico', 'Convulsiones', 'No defeca en 48 horas', 'Distensión abdominal', 'Vómitos o salivación excesiva', 'Tiraje subcostal grave', 'Respiración rápida', 'Aleteo nasal', 'Quejido', 'Abombamiento de fontanela', 'Supuración de oído', 'Pústulas en la piel, mucosa']),
-    antecedentes: [...ant('MEDICO', ['Diabetes', 'Hipertensión', 'TB', 'ITS', 'VIH/SIDA', 'Toma o tomó algún medicamento'], 1), ...ant('HABITO', ['Fuma', 'Bebe alcohol en abundancia', 'Utiliza Drogas'], 20)],
+    antecedentes: [
+      ...ant('MEDICO', ['Diabetes', 'Hipertensión', 'TB', 'ITS', 'VIH/SIDA', 'Toma o tomó algún medicamento', 'Otro antecedente', 'Quirúrgicos'], 1, 'MAT_'),
+      ...ant('HABITO', ['Fuma', 'Bebe alcohol en abundancia', 'Utiliza Drogas'], 20, 'MAT_'),
+    ],
     problemas: [problema('n-1', 1, 'Diarrea', ['Ojos hundidos', 'signo de pliegue cutáneo', 'Heces sanguinolentas', 'Más de 14 días'], ['Diarrea con DHE', 'sin DHE', 'persistente', 'Disentería']), problema('n-2', 2, 'Piel', ['Ombligo eritematoso o con secreción purulenta SIN extensión a piel', 'Pústulas en piel pocas o localizadas'], ['Infección local']), problema('n-3', 3, 'ITS', ['Edema palpebral, secreción purulenta conjuntival', 'Hígado, bazo palpable, linfadenopatía, rash palmar, Ictericia'], ['Conjuntivitis Palpebral', 'Sífilis Congénita']), problema('n-4', 4, 'Nutrición', ['Peso edad', 'Se alimenta al pecho menos de 8 veces al día', 'Verificar técnica de amamantamiento'], ['Bajo peso al nacer', 'Problemas de alimentación', 'No mama suficiente', 'Estado nutricional normal']), problema('n-5', 5, 'Vacunación', ['Revisión de BCG'], ['Esquema iniciado', 'Esquema sin iniciar'])],
     temasConsejeria: ['Técnica de amamantamiento', 'Cuidados del cordón umbilical', 'Medidas preventivas de higiene', 'Monitoreo del crecimiento', 'Vacunación (Edades recomendadas para vacunación)', 'Signos generales de peligro del neonato'].map((t, i) => ({ id: 't-' + i, orden: i + 1, texto: t })),
   };
@@ -137,7 +161,7 @@ it('escribe las vistas previas', () => {
   const NINEZ = { ...FICHA, tipoFicha: 'NINEZ' as const, pesoKg: '12.5', tallaCm: '88.0', motivo: 'Diarrea de 2 días', consejeriaTemas: [{ temaId: 't-1', texto: 'Uso de sobres de rehidratación oral', brindada: true, fechaReconsulta: null }], problemas: [{ problemaId: 'n-1', nombre: 'Diarrea', presente: true, signos: ['Ojos hundidos'], diagnosticos: ['sin DHE'], otroDiagnostico: null, conducta: null, anotacion: null }], signosPeligro: CAT_NINEZ.signosPeligro.map((s) => ({ signoId: s.id, texto: s.texto, presente: false, detalle: null })) };
   escribir('ninez', renderToStaticMarkup(<HojaNinez ficha={NINEZ} catalogo={CAT_NINEZ} paciente={{ ...PACIENTE, nombres: 'Marcos', fechaNacimiento: '2024-01-05', edad: 2, sexo: 'M' }} antecedentes={null} carnet={CARNET} catalogoCarnet={CAT_CARNET} />));
 
-  const CAT_PRE = { ...CATALOGO_ADULTO, tipoFicha: 'PRENATAL' as const, signosPeligro: sp(1, ['Hemorragia vaginal', 'Dolor de cabeza severo', 'Visión borrosa', 'Convulsión', 'Dolor abdominal severo (epigastralgia)', 'Presión arterial alta', 'Fiebre', 'Presentaciones fetales anormales']), temasConsejeria: ['Alimentación durante el embarazo', 'Señales de peligro embarazo', 'Consejería pre/post prueba VIH', 'Plan de parto', 'Plan de emergencia familiar y comunitario', 'Lactancia materna exclusiva/MELA', 'Otros métodos de planificación familiar', 'Importancia del control posparto', 'Vacunación y cuidados del recién nacido/a'].map((t, i) => ({ id: 't-' + i, orden: i + 1, texto: t })) };
+  const CAT_PRE = { ...CATALOGO_ADULTO, tipoFicha: 'PRENATAL' as const, antecedentes: [...ant('MEDICO', ['Asma bronquial', 'Diabetes', 'Hipertensión arterial', 'Cardiopatía', 'Cáncer', 'Tb', 'ITS', 'Neuropatía', 'Chagas', 'Infecciones Urinarias', 'Toma medicamentos', 'Trastorno Psico social', 'Violencia intrafamiliar', 'Violencia basada en género', 'Quirúrgicos', 'Antecedente de vacuna Td', 'SR', 'Otros antecedentes'], 1), ...ant('HABITO', ['Fuma', 'Ingiere bebidas alcohólicas', 'Consumo de drogas'], 40)], signosPeligro: sp(1, ['Hemorragia vaginal', 'Dolor de cabeza severo', 'Visión borrosa', 'Convulsión', 'Dolor abdominal severo (epigastralgia)', 'Presión arterial alta', 'Fiebre', 'Presentaciones fetales anormales']), temasConsejeria: ['Alimentación durante el embarazo', 'Señales de peligro embarazo', 'Consejería pre/post prueba VIH', 'Plan de parto', 'Plan de emergencia familiar y comunitario', 'Lactancia materna exclusiva/MELA', 'Otros métodos de planificación familiar', 'Importancia del control posparto', 'Vacunación y cuidados del recién nacido/a'].map((t, i) => ({ id: 't-' + i, orden: i + 1, texto: t })) };
   const PRE = { ...FICHA, tipoFicha: 'PRENATAL' as const, motivo: null, historiaEnfermedad: 'Sin molestias.', medicamentos: [], consejeriaTemas: [{ temaId: 't-0', texto: 'Alimentación durante el embarazo', brindada: true, fechaReconsulta: null }, { temaId: 't-1', texto: 'Señales de peligro embarazo', brindada: true, fechaReconsulta: null }], signosPeligro: CAT_PRE.signosPeligro.map((s) => ({ signoId: s.id, texto: s.texto, presente: false, detalle: null })), problemas: [],
     prenatal: { circunferenciaBrazoCm: '24.0', examenGeneralNormal: true, examenBucodental: 'Caries en molar', alturaUterinaCm: '22.0', movimientosFetales: true, fcf: 140, presentacionLeopold: null, trazasSangre: false, trazasSangreDescripcion: null, lesionesVulvares: false, lesionesVulvaresDescripcion: null, flujoVaginal: false, hemoglobinaHematocrito: '11.2 / 34', grupoRh: 'O+', orina: 'Normal', glicemia: '88', vdrl: 'No reactivo', vih: 'Negativo', papanicolau: null, infecciones: null, semanasPorFurAu: 24, problemasDetectados: 'Anemia leve', sulfatoFerrosoTabletas: 30, acidoFolicoTabletas: 30, tdDosis: 1, semanasGestacion: 24, fechaProbableParto: '2026-12-06' } };
   escribir('prenatal', renderToStaticMarkup(<HojaPrenatal ficha={PRE} catalogo={CAT_PRE} paciente={PACIENTE} antecedentes={ANTECEDENTES} />));

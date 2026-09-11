@@ -50,12 +50,12 @@
   width: 216mm;
   min-height: 330mm;
   margin: 0 auto 12mm;
-  padding: 8mm 10mm;
+  padding: 7mm 10mm;
   background: #ffffff;
   color: #000000;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
   font-family: Arial, Helvetica, 'Liberation Sans', sans-serif;
-  font-size: 8pt;
+  font-size: 7.7pt;
   line-height: 1.2;
   page-break-after: always;
   break-after: page;
@@ -294,8 +294,10 @@
   display: grid;
   grid-template-columns: 1fr auto auto auto;
   column-gap: 1.5mm;
-  row-gap: 0.4mm;
+  row-gap: 0.3mm;
   align-items: baseline;
+  /* Sin esto, la columna mas corta reparte el sobrante entre sus filas y se ve espaciada. */
+  align-content: start;
 }
 
 .hoja-lista-sino-fila {
@@ -313,7 +315,7 @@
   display: inline-flex;
   gap: 1.5mm;
   align-items: baseline;
-  white-space: nowrap;
+  flex-wrap: wrap;
 }
 
 .hoja-lista-sino-extra {
@@ -355,7 +357,7 @@
 /* Los grupos de antecedentes: una linea entre uno y otro, con el rotulo montado encima. */
 .hoja-grupo + .hoja-grupo {
   border-top: 0.3mm solid #000;
-  margin-top: 1.6mm;
+  margin-top: 1.3mm;
 }
 
 .hoja-grupo .hoja-subtitulo {
@@ -374,7 +376,7 @@
 /* ─── Renglones para escribir ─────────────────────────────────────────── */
 
 .hoja-renglones {
-  --alto-renglon: 4.8mm;
+  --alto-renglon: 4.6mm;
   position: relative;
   padding: 0 1mm;
   white-space: pre-wrap;
@@ -385,8 +387,8 @@
    * con background-size: el `repeating-linear-gradient` con calc() dentro
    * salia como una banda negra gruesa al imprimir a PDF.
    */
-  background-image: linear-gradient(to bottom, transparent 0, transparent 4.55mm, #000 4.55mm, #000 4.8mm);
-  background-size: 100% 4.8mm;
+  background-image: linear-gradient(to bottom, transparent 0, transparent 4.35mm, #000 4.35mm, #000 4.6mm);
+  background-size: 100% 4.6mm;
   background-repeat: repeat-y;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
@@ -406,7 +408,7 @@
   padding: 0.6mm 1.2mm;
   vertical-align: top;
   text-align: left;
-  font-size: 7.5pt;
+  font-size: 7.3pt;
 }
 
 .hoja-tabla th {

@@ -60,8 +60,24 @@ export function Fila({ children, sinEnvolver = false }: { children: ReactNode; s
   );
 }
 
-export function Columnas({ n, children }: { n: 2 | 3; children: ReactNode }) {
-  return <div className={'hoja-columnas hoja-columnas--' + n}>{children}</div>;
+export function Columnas({
+  n,
+  anchos,
+  children,
+}: {
+  n: 2 | 3;
+  /** Proporciones de las columnas («1.3fr 1.3fr 0.8fr»); iguales si no se dan. */
+  anchos?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className={'hoja-columnas hoja-columnas--' + n}
+      style={anchos ? { gridTemplateColumns: anchos } : undefined}
+    >
+      {children}
+    </div>
+  );
 }
 
 /** Un rotulo enmarcado dentro de un cuadro: «MEDICOS», «FAMILIARES». */

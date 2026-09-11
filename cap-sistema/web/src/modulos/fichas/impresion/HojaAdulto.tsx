@@ -4,9 +4,10 @@ import type { AntecedentesPaciente, CatalogoFicha, Paciente } from '../servicio-
 import { SERVICIO_DE_SALUD } from '../servicio-fichas';
 import {
   AntecedentesObstetricos,
+  AntecedentesRestantes,
   BloqueConTitulo,
   ColumnaConducta,
-  GrupoAntecedentes,
+  ColumnasAntecedentes,
   MatrizProblemas,
   SignosPeligroSiNo,
 } from './Bloques';
@@ -27,6 +28,27 @@ import {
   fechaConBarras,
   kgALibras,
 } from './Hoja';
+
+/**
+ * Donde pone el papel cada antecedente: columna por columna, de arriba abajo.
+ * Copiado de la hoja oficial; un codigo que el catalogo no tenga se salta.
+ */
+const MEDICOS = [
+  ['MED_ASMA', 'MED_CARDIOPATIA', 'MED_ITS', 'MED_INF_URINARIAS', 'MED_MEDICAMENTOS', 'MED_PSICOSOCIAL', 'MED_VIOLENCIA_GENERO', 'MED_VACUNA_TD'],
+  ['MED_DIABETES', 'MED_CANCER', 'MED_NEUROPATIA', 'MED_DESNUTRICION', 'MED_VIOLENCIA_INTRAFAMILIAR', 'MED_CONDUCTAS_ANORMALES'],
+  ['MED_HIPERTENSION', 'MED_TB', 'MED_CHAGAS', 'MED_SR'],
+];
+const FAMILIARES = [
+  ['FAM_DIABETES', 'FAM_TUBERCULOSIS'],
+  ['FAM_HTA', 'FAM_NEFROPATIA'],
+  ['FAM_CANCER', 'FAM_OTRO'],
+];
+const HABITOS = [
+  ['HAB_FUMA', 'HAB_MULTIPLES_PAREJAS', 'HAB_ACTIVIDAD_MENOS_60', 'HAB_ACTIVIDAD_MAS_150'],
+  ['HAB_ALCOHOL', 'HAB_CONDON', 'HAB_ACTIVIDAD_60_149', 'HAB_FRUTAS_VERDURAS'],
+  ['HAB_DROGAS'],
+];
+const COLOCADOS = [...MEDICOS, ...FAMILIARES, ...HABITOS].flat();
 
 /**
  * La ficha clinica de adolescente, adulto y adulto mayor: dos hojas.
@@ -125,7 +147,7 @@ export function HojaAdulto({
         <Barra numero="VII." titulo="Antecedentes" nota="(Marque con una “X” o complete la información solicitada)" />
         <Cuadro>
           <BloqueConTitulo titulo="MÉDICOS">
-            <GrupoAntecedentes catalogo={catalogo} antecedentes={antecedentes} grupo="MEDICO" />
+            <ColumnasAntecedentes catalogo={catalogo} antecedentes={antecedentes} codigos={MEDICOS} anchos="minmax(0, 1.35fr) minmax(0, 1.35fr) minmax(0, 0.9fr)" />
           </BloqueConTitulo>
           <BloqueConTitulo titulo="GINECO/OBSTÉTRICOS">
             <AntecedentesObstetricos antecedentes={antecedentes} />
@@ -136,11 +158,12 @@ export function HojaAdulto({
             </Fila>
           </BloqueConTitulo>
           <BloqueConTitulo titulo="FAMILIARES">
-            <GrupoAntecedentes catalogo={catalogo} antecedentes={antecedentes} grupo="FAMILIAR" />
+            <ColumnasAntecedentes catalogo={catalogo} antecedentes={antecedentes} codigos={FAMILIARES} />
           </BloqueConTitulo>
           <BloqueConTitulo titulo="HÁBITOS">
-            <GrupoAntecedentes catalogo={catalogo} antecedentes={antecedentes} grupo="HABITO" columnas={2} />
+            <ColumnasAntecedentes catalogo={catalogo} antecedentes={antecedentes} codigos={HABITOS} anchos="minmax(0, 1.6fr) minmax(0, 1.4fr) minmax(0, 0.7fr)" />
           </BloqueConTitulo>
+          <AntecedentesRestantes catalogo={catalogo} antecedentes={antecedentes} colocados={COLOCADOS} />
         </Cuadro>
 
         <Barra numero="VIII." titulo="Examen físico" />
@@ -159,14 +182,14 @@ export function HojaAdulto({
           </Fila>
           <Fila>
             <span className="hoja-negrita">ANTROPOMETRÍA</span>
-            <Campo rotulo="Peso" valor={kgALibras(ficha.pesoKg)} sufijo="Lb." ancho={12} />
-            <Campo rotulo="Talla" valor={cmAMetros(ficha.tallaCm)} sufijo="mt." ancho={12} />
+            <Campo rotulo="Peso" valor={kgALibras(ficha.pesoKg)} sufijo="Lb." ancho={9} />
+            <Campo rotulo="Talla" valor={cmAMetros(ficha.tallaCm)} sufijo="mt." ancho={9} />
             <Campo
               rotulo="IMC (Índice de masa corporal)"
               valor={ficha.imc !== null ? ficha.imc.toFixed(2) : null}
-              ancho={12}
+              ancho={9}
             />
-            <Campo rotulo="Circunferencia de cintura" valor={ficha.circunferenciaCinturaCm} sufijo="cms." ancho={12} />
+            <Campo rotulo="Circunferencia de cintura" valor={ficha.circunferenciaCinturaCm} sufijo="cms." ancho={9} />
           </Fila>
         </Cuadro>
       </Pliego>

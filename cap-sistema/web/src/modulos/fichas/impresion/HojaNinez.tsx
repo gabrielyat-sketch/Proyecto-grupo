@@ -4,9 +4,9 @@ import { SERVICIO_DE_SALUD } from '../servicio-fichas';
 import type { Carnet, CatalogoCarnet } from '../ninez/servicio-carnet';
 import { COLUMNAS_DOSIS, casillasDe } from '../ninez/carnet-ninez';
 import {
+  AntecedentesRestantes,
   ColumnaConducta,
   ConsejeriaCasillas,
-  GrupoAntecedentes,
   MatrizProblemas,
   SignosPeligroCasillas,
 } from './Bloques';
@@ -289,15 +289,64 @@ export function HojaNinez({
           </tbody>
         </table>
 
+        {/*
+          La seccion 4 del papel. El sistema no captura estos antecedentes
+          para la ficha de ninez —el catalogo no los trae—, asi que sale la
+          seccion tal cual, en blanco, para llenarla a mano como hasta ahora.
+        */}
         <Barra numero="4." titulo="Antecedentes" corta />
         <Cuadro>
-          <div className="hoja-negrita">Médicos: personales (P) y familiares (F)</div>
-          <GrupoAntecedentes catalogo={catalogo} antecedentes={antecedentes} grupo="MEDICO" />
-          <GrupoAntecedentes catalogo={catalogo} antecedentes={antecedentes} grupo="FAMILIAR" />
-          <GrupoAntecedentes catalogo={catalogo} antecedentes={antecedentes} grupo="HABITO" />
+          <Fila>
+            <SiNo rotulo="Producto de embarazo normal" valor={null} />
+            <Campo valor={null} ancho={24} />
+            <SiNo rotulo="Parto Normal" valor={null} />
+          </Fila>
+          <Fila>
+            <span>Atendido en:</span>
+            {['Hospital', 'C/S', 'Domicilio', 'Vía Pública'].map((t) => (
+              <Casilla key={t} rotulo={t} marcada={false} />
+            ))}
+            <Campo rotulo="Otro" valor={null} ancho={18} />
+            <span className="hoja-negrita">Parto atendido por:</span>
+            {['Médico', 'Enfermera', 'Auxiliar', 'Comadrona'].map((t) => (
+              <Casilla key={t} rotulo={t} marcada={false} />
+            ))}
+            <Campo rotulo="Otro" valor={null} ancho={18} />
+            <Campo rotulo="Peso al nacer" valor={null} sufijo="Lb." ancho={8} />
+            <Campo valor={null} sufijo="Onz." ancho={8} />
+          </Fila>
+          <div className="hoja-negrita" style={{ marginTop: '0.6mm' }}>
+            Médicos: Marque con un círculo para antecedentes personales (P), para familiares (F):
+          </div>
+          <Fila>
+            {[
+              'Problemas de crecimiento o desnutrición',
+              'Diabetes',
+              'Hipertensión',
+              'Cáncer',
+              'Discapacidad',
+              'Nefropatía',
+              'ITS/VIH/SIDA',
+              'Tuberculosis',
+              'Otro',
+            ].map((t) => (
+              <span key={t} style={{ whiteSpace: 'nowrap' }}>
+                {t} <b>P</b> <b>F</b>
+              </span>
+            ))}
+          </Fila>
+          <Fila>
+            <Campo rotulo="Especificar:" valor={null} llena />
+          </Fila>
           <Fila>
             <Campo rotulo="Quirúrgicos:" valor={null} llena />
           </Fila>
+          <Fila>
+            <span className="hoja-negrita">Psico-sociales:</span>
+            <Casilla rotulo="Problemas de relación intrafamiliar" marcada={false} />
+            <Casilla rotulo="violencia" marcada={false} />
+          </Fila>
+          <AntecedentesRestantes catalogo={catalogo} antecedentes={antecedentes} colocados={[]} />
         </Cuadro>
       </Pliego>
 
