@@ -12,6 +12,8 @@ import {
   Encabezado,
   Fila,
   Firma,
+  LogoDrpap,
+  LogoSias,
   Pliego,
   Renglones,
   SiNo,
@@ -52,6 +54,8 @@ export function HojaAdulto({
           subtitulo="ADOLESCENTE, ADULTO Y ADULTO MAYOR"
           numeroExpediente={paciente.expediente?.numero}
           fecha={diaLocal(ficha.fecha)}
+          emblemaIzquierdo={<LogoDrpap />}
+          emblemaDerecho={<LogoSias />}
         />
 
         <Barra numero="I." titulo="Identificación del establecimiento de salud" />

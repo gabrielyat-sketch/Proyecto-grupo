@@ -302,6 +302,15 @@ export function EmblemaSias() {
   );
 }
 
+/** Los logos del papel, en imagen: DRPAP y SIAS. Se usan donde la hoja los lleva a color. */
+export function LogoDrpap() {
+  return <img className="hoja-logo" src="/emblema-drpap.jpg" alt="DRPAP" />;
+}
+
+export function LogoSias() {
+  return <img className="hoja-logo" src="/emblema-sias.jpg" alt="SIAS" />;
+}
+
 /** Titulo, emblemas y —debajo— No. Expediente y Fecha en sus recuadros. */
 export function Encabezado({
   titulo,

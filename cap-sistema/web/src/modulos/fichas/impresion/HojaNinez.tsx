@@ -59,21 +59,17 @@ const ORDINALES_ENTREGAS = ['1a.', '2a.', '3a.', '4ta.'];
 /** El papel pone la vitamina A y el desparasitante en «Dosis de»; el hierro y el acido folico en «Entregas de». */
 const esDosis = (nombre: string) => /vitamina|desparasit/i.test(nombre);
 
-/** El emblema del area de salud, en texto. */
-function EmblemaAreaDeSalud() {
-  return (
-    <div className="hoja-emblema">
-      <b>MSPAS</b>
-      Ministerio de Salud Pública
-      <br />
-      Área de Salud {SERVICIO_DE_SALUD.areaDeSalud}
-    </div>
-  );
+/** En esta hoja el encabezado lo manda el cuadro del DRPAP; los logos no deben pasar de su alto. */
+const ALTO_LOGO = { maxHeight: '14mm' };
+
+/** El emblema del Ministerio y del area de salud que lleva el papel arriba a la derecha. */
+function LogoMinisterio() {
+  return <img className="hoja-logo" style={ALTO_LOGO} src="/emblema-ministerio.jpg" alt="Ministerio de Salud Pública" />;
 }
 
-/** Los ninos del papel no se imprimen; se deja su hueco para que todo quede donde estaba. */
-function HuecoDibujo() {
-  return <div style={{ width: '22mm' }} />;
+/** Los ninos del papel, arriba a la izquierda de la hoja 1 y de la hoja de consulta. */
+function LogoNinos() {
+  return <img className="hoja-logo" style={ALTO_LOGO} src="/emblema-ninos.jpg" alt="Niños" />;
 }
 
 /**
@@ -228,12 +224,12 @@ export function HojaNinez({
   return (
     <>
       <Pliego etiqueta="Ficha clínica del lactante y niñez, hoja 1">
-        {/* El encabezado del papel: titulo arriba; fecha y expediente a la izquierda, DRPAP al centro, el area de salud a la derecha. */}
+        {/* El encabezado del papel: titulo arriba; los ninos y luego fecha y expediente a la izquierda, DRPAP al centro, el Ministerio a la derecha. */}
         <h1 className="hoja-titulo" style={{ margin: 0 }}>
           FICHA CLÍNICA DEL LACTANTE Y NIÑEZ
         </h1>
         <header style={{ display: 'grid', gridTemplateColumns: '22mm 76mm 1fr 34mm', gap: '3mm', alignItems: 'start', marginBottom: '2mm' }}>
-          <HuecoDibujo />
+          <LogoNinos />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5mm' }}>
             <RecuadroDato rotulo="Fecha:" valor={diaLocal(ficha.fecha)} ancho={50} />
             <RecuadroDato rotulo="No. Expediente:" valor={paciente.expediente?.numero} />
@@ -243,7 +239,7 @@ export function HojaNinez({
               <EmblemaDrpap />
             </div>
           </div>
-          <EmblemaAreaDeSalud />
+          <LogoMinisterio />
         </header>
 
         <div className="hoja-cuadro hoja-sombreado" style={{ padding: 0 }}>
@@ -595,7 +591,7 @@ export function HojaNinez({
 
       <Pliego etiqueta="Ficha clínica del lactante y niñez, hoja de consulta">
         <div style={{ display: 'grid', gridTemplateColumns: '22mm 1fr', gap: '3mm', alignItems: 'start' }}>
-          <HuecoDibujo />
+          <LogoNinos />
           <div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 34mm', gap: '2mm', alignItems: 'center' }}>
               <div className="hoja-recuadro hoja-sombreado" style={{ fontSize: '9.5pt', padding: '1mm 3mm' }}>

@@ -14,11 +14,10 @@ import {
   Campo,
   Casilla,
   Cuadro,
-  EmblemaDrpap,
-  EmblemaSias,
   Fila,
   Firma,
   Flecha,
+  LogoSias,
   MarcaEnRaya,
   Pliego,
   RecuadroDato,
@@ -30,6 +29,11 @@ import {
 } from './Hoja';
 
 const QUIEN_ATENDIO = ['MD', 'EP', 'AE', 'CT'] as const;
+
+/** El dibujo del bebe que lleva el papel arriba a la izquierda. */
+function LogoBebe() {
+  return <img className="hoja-logo" src="/emblema-bebe.jpg" alt="Bebé" />;
+}
 
 /** Los antecedentes maternos, en el orden y las filas del papel. */
 const MEDICOS_MATERNOS: { codigo: string; rotulo: string }[] = [
@@ -124,9 +128,9 @@ export function HojaNeonato({
   return (
     <>
       <Pliego etiqueta="Ficha clínica para menor de 28 días, hoja 1">
-        {/* El encabezado del papel: titulo al centro, expediente y fecha debajo a la izquierda, SIAS y DRPAP a la derecha. */}
+        {/* El encabezado del papel: el bebe a la izquierda, titulo al centro con expediente y fecha debajo, SIAS a la derecha. */}
         <header style={{ display: 'grid', gridTemplateColumns: '22mm 1fr 44mm', gap: '3mm', alignItems: 'start' }}>
-          <div />
+          <LogoBebe />
           <div>
             <h1 className="hoja-titulo" style={{ margin: 0 }}>
               FICHA CLÍNICA PARA
@@ -137,10 +141,7 @@ export function HojaNeonato({
               <RecuadroDato rotulo="Fecha" valor={diaLocal(ficha.fecha)} />
             </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1mm' }}>
-            <EmblemaSias />
-            <EmblemaDrpap />
-          </div>
+          <LogoSias />
         </header>
 
         {/* Las secciones 1 y 2 van en un mismo recuadro, separadas por una raya. */}

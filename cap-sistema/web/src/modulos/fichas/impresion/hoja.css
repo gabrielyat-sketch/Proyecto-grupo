@@ -123,6 +123,21 @@
   letter-spacing: 0.08em;
 }
 
+/*
+ * Los logos en imagen: caben en su columna del encabezado y se imprimen a color.
+ * El alto es el mismo que tenian los emblemas en texto, para que el cuerpo de la
+ * hoja no se mueva ni un milimetro.
+ */
+.hoja-logo {
+  display: block;
+  width: 100%;
+  max-height: 16.272mm;
+  object-fit: contain;
+  object-position: center top;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
 .hoja-cabecera-datos {
   display: flex;
   justify-content: space-between;
