@@ -292,7 +292,7 @@
  */
 .hoja-lista-sino {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto auto auto;
   column-gap: 1.5mm;
   row-gap: 0.4mm;
   align-items: baseline;
@@ -309,6 +309,13 @@
   white-space: nowrap;
 }
 
+.hoja-lista-sino-corto {
+  display: inline-flex;
+  gap: 1.5mm;
+  align-items: baseline;
+  white-space: nowrap;
+}
+
 .hoja-lista-sino-extra {
   grid-column: 1 / -1;
   display: flex;
@@ -316,6 +323,52 @@
   align-items: baseline;
   padding-left: 3mm;
   min-width: 0;
+}
+
+/* La tabla de signos de peligro: SI y NO como encabezado de su columna. */
+.hoja-tabla-sino {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.hoja-tabla-sino th {
+  font-weight: 400;
+  text-align: center;
+  width: 9mm;
+  padding: 0;
+}
+
+.hoja-tabla-sino th:first-child {
+  width: auto;
+  text-align: left;
+}
+
+.hoja-tabla-sino td {
+  padding: 0.3mm 0;
+  vertical-align: middle;
+}
+
+.hoja-tabla-sino td + td {
+  text-align: center;
+}
+
+/* Los grupos de antecedentes: una linea entre uno y otro, con el rotulo montado encima. */
+.hoja-grupo + .hoja-grupo {
+  border-top: 0.3mm solid #000;
+  margin-top: 1.6mm;
+}
+
+.hoja-grupo .hoja-subtitulo {
+  background: #fff;
+  margin-top: -2.1mm;
+  margin-left: 2mm;
+  margin-bottom: 0.4mm;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.hoja-grupo:first-child .hoja-subtitulo {
+  margin-top: 0;
 }
 
 /* ─── Renglones para escribir ─────────────────────────────────────────── */
