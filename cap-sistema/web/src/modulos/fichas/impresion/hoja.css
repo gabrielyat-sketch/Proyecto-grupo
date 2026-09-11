@@ -19,6 +19,12 @@
   margin: 0;
 }
 
+/* La grafica de peso de la ficha de ninez va de lado, como en el papel. */
+@page apaisada {
+  size: 330mm 216mm;
+  margin: 0;
+}
+
 /* ─── La vista en pantalla: las hojas sobre una mesa gris ─────────────── */
 
 .hoja-vista {
@@ -66,6 +72,12 @@
 .hoja-pliego:last-child {
   page-break-after: auto;
   break-after: auto;
+}
+
+.hoja-pliego--apaisada {
+  page: apaisada;
+  width: 330mm;
+  min-height: 216mm;
 }
 
 .hoja-pliego * {
@@ -182,6 +194,60 @@
 
 .hoja-fila--sin-envolver {
   flex-wrap: nowrap;
+}
+
+/* Las casillas del establecimiento repartidas a lo ancho, como en el papel. */
+.hoja-fila--repartida {
+  justify-content: space-between;
+  padding: 0 4mm;
+}
+
+/* Lo que el papel trae en fondo gris. Se imprime tal cual. */
+.hoja-sombreado {
+  background: #d4d4d4;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.hoja-cursiva {
+  font-style: italic;
+}
+
+.hoja-centrado {
+  text-align: center;
+}
+
+/* ─── La flecha del papel del neonato ─────────────────────────────────── */
+
+.hoja-flecha {
+  position: relative;
+  padding: 2mm 9mm 2mm 3mm;
+  font-weight: 700;
+  min-height: 12mm;
+  display: flex;
+  align-items: center;
+}
+
+.hoja-flecha--centrada .hoja-flecha-texto {
+  text-align: center;
+  width: 100%;
+}
+
+.hoja-flecha-contorno {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hoja-flecha-contorno polygon {
+  fill: none;
+  stroke: #000;
+  stroke-width: 0.35mm;
+}
+
+.hoja-flecha-texto {
+  position: relative;
 }
 
 .hoja-columnas {
@@ -354,6 +420,12 @@
   text-align: center;
 }
 
+/* La raya vertical que el papel pone entre la columna de SI y la de NO. */
+.hoja-tabla-sino th:nth-child(3),
+.hoja-tabla-sino td:nth-child(3) {
+  border-left: 0.25mm solid #000;
+}
+
 /* Los grupos de antecedentes: una linea entre uno y otro, con el rotulo montado encima. */
 .hoja-grupo + .hoja-grupo {
   border-top: 0.3mm solid #000;
@@ -442,6 +514,76 @@
   align-items: center;
 }
 
+/* «SI___» sobre «NO___», con la X sobre la raya: la matriz del neonato. */
+.hoja-sino-rayas {
+  display: inline-grid;
+  row-gap: 2mm;
+}
+
+.hoja-sino-rayas .hoja-casilla {
+  gap: 0;
+}
+
+/* En la hoja de ninez las casillas de SI y NO van debajo del nombre del problema. */
+.hoja-celda-problema .hoja-sino {
+  display: flex;
+  justify-content: center;
+  gap: 3mm;
+  margin-top: 1.5mm;
+  font-weight: 400;
+}
+
+/* Una barra de seccion dentro de una tabla: ocupa la fila entera. */
+.hoja-tabla td.hoja-celda-barra {
+  padding: 0;
+  background: #000;
+  color: #fff;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.4mm 2mm;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.hoja-tabla td.hoja-celda-barra span {
+  font-weight: 400;
+  text-transform: none;
+}
+
+/* Las rayas de «OTROS PROBLEMAS, CONTROLES U OBSERVACIONES». */
+.hoja-observaciones {
+  display: grid;
+  grid-template-columns: 28mm 1fr;
+  column-gap: 3mm;
+}
+
+.hoja-observaciones > div {
+  --alto-renglon: var(--paso, 6mm);
+  position: relative;
+  padding: 0 1mm;
+  white-space: pre-wrap;
+  line-height: var(--alto-renglon);
+  min-height: calc(var(--alto-renglon) * var(--renglones, 20));
+  /* La raya al pie de cada renglon: se dibuja desde abajo para no necesitar calc(), que se imprime mal. */
+  background-image: linear-gradient(to top, #000 0.25mm, transparent 0.25mm);
+  background-size: 100% var(--alto-renglon);
+  background-repeat: repeat-y;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.hoja-matriz--compacta th,
+.hoja-matriz--compacta td {
+  font-size: 6.8pt;
+  padding: 0.4mm 1mm;
+  line-height: 1.15;
+}
+
+/* Las secciones que el papel deja con aire: mas espacio entre renglones. */
+.hoja-cuadro--holgado .hoja-fila {
+  margin: 1.8mm 0;
+}
+
 .hoja-tabla .hoja-celda-conducta {
   width: 36mm;
   vertical-align: top;
@@ -459,6 +601,10 @@
   font-size: 7pt;
 }
 
+.hoja-tabla td.hoja-sombreado {
+  background: #d4d4d4;
+}
+
 .hoja-tabla-controles td:first-child {
   width: 62mm;
 }
@@ -470,6 +616,15 @@
 
 .hoja-opcion + .hoja-opcion::before {
   content: ', ';
+}
+
+/* En ninez y neonato cada opcion va en su renglon, sin comas. */
+.hoja-opcion--renglon {
+  display: block;
+}
+
+.hoja-opcion--renglon + .hoja-opcion--renglon::before {
+  content: none;
 }
 
 .hoja-opcion--marcada {
@@ -527,5 +682,9 @@
   .hoja-pliego {
     margin: 0;
     box-shadow: none;
+  }
+
+  .hoja-pliego--apaisada {
+    margin: 0;
   }
 }
