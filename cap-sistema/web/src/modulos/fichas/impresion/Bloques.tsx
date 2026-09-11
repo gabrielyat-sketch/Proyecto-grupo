@@ -125,6 +125,12 @@ function respuestaAntecedente(antecedentes: AntecedentesPaciente | null, anteced
  * Los antecedentes son del PACIENTE, no de la consulta: se imprimen los que
  * tiene hoy. Los que piden detalle, fecha o numero llevan su raya al lado,
  * como en el papel («Toma medicamentos: SI NO Cual: ____»).
+ *
+ * Van en columnas que se leen de arriba abajo, como el papel, y dentro de
+ * cada columna las casillas de SI y de NO forman su propia columna: el texto
+ * a la izquierda con lo que mida, y los cuadritos alineados uno debajo del
+ * otro. Con las casillas pegadas al final de cada texto quedaban a distinta
+ * altura segun el largo del nombre, y la hoja dejaba de parecer el formulario.
  */
 export function GrupoAntecedentes({
   catalogo,
@@ -139,25 +145,44 @@ export function GrupoAntecedentes({
 }) {
   const lista = catalogo.antecedentes.filter((a) => a.grupo === grupo).sort((a, b) => a.orden - b.orden);
   if (lista.length === 0) return null;
+  const porColumna = Math.ceil(lista.length / columnas);
+  const grupos = Array.from({ length: columnas }, (_, i) =>
+    lista.slice(i * porColumna, (i + 1) * porColumna),
+  );
   return (
     <Columnas n={columnas}>
-      {lista.map((a) => {
-        const r = respuestaAntecedente(antecedentes, a.id);
-        const valor = r === null ? null : r.respuesta === 'SI' ? true : r.respuesta === 'NO' ? false : null;
-        return (
-          <div key={a.id} className="hoja-fila" style={{ margin: '0.3mm 0', gap: '1mm 2mm' }}>
-            <SiNo rotulo={a.texto} valor={valor} />
-            {a.permiteNoAplica ? (
-              <Casilla marcada={r?.respuesta === 'NO_APLICA'} rotulo="No aplica" />
-            ) : null}
-            {a.pideDetalle ? <Campo rotulo="Cuál:" valor={r?.detalle} ancho={18} /> : null}
-            {a.pideNumero ? <Campo rotulo="#" valor={r?.numero} ancho={8} /> : null}
-            {a.pideFecha ? (
-              <Campo rotulo="Fecha:" valor={r?.fecha ? fechaConBarras(r.fecha) : null} ancho={18} />
-            ) : null}
-          </div>
-        );
-      })}
+      {grupos.map((g, i) => (
+        <div key={i} className="hoja-lista-sino">
+          {g.map((a) => {
+            const r = respuestaAntecedente(antecedentes, a.id);
+            const valor = r === null ? null : r.respuesta === 'SI' ? true : r.respuesta === 'NO' ? false : null;
+            return (
+              <div key={a.id} className="hoja-lista-sino-fila" role="group" aria-label={a.texto}>
+                <span>{a.texto}</span>
+                <span className="hoja-lista-sino-casilla">
+                  <Casilla marcada={valor === true} rotulo="SI" />
+                </span>
+                <span className="hoja-lista-sino-casilla">
+                  <Casilla marcada={valor === false} rotulo="NO" />
+                </span>
+                {/* Lo que pide mas que SI / NO va en su propio renglon, debajo, sin mover las casillas. */}
+                {a.permiteNoAplica || a.pideDetalle || a.pideNumero || a.pideFecha ? (
+                  <span className="hoja-lista-sino-extra">
+                    {a.permiteNoAplica ? (
+                      <Casilla marcada={r?.respuesta === 'NO_APLICA'} rotulo="No aplica" />
+                    ) : null}
+                    {a.pideDetalle ? <Campo rotulo="Cuál:" valor={r?.detalle} llena /> : null}
+                    {a.pideNumero ? <Campo rotulo="#" valor={r?.numero} ancho={8} /> : null}
+                    {a.pideFecha ? (
+                      <Campo rotulo="Fecha:" valor={r?.fecha ? fechaConBarras(r.fecha) : null} ancho={18} />
+                    ) : null}
+                  </span>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      ))}
     </Columnas>
   );
 }

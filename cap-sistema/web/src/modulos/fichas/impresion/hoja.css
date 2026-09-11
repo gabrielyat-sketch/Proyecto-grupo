@@ -282,6 +282,42 @@
   white-space: nowrap;
 }
 
+/* ─── Listas de SI / NO en columna ────────────────────────────────────── */
+
+/*
+ * Texto a la izquierda, y las casillas de SI y de NO cada una en su propia
+ * columna, alineadas de arriba abajo como en el papel. Es una cuadricula y
+ * no una tabla para que las filas con «Cual: ____» puedan estirar la ultima
+ * columna sin mover las casillas.
+ */
+.hoja-lista-sino {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  column-gap: 1.5mm;
+  row-gap: 0.4mm;
+  align-items: baseline;
+}
+
+.hoja-lista-sino-fila {
+  display: contents;
+}
+
+.hoja-lista-sino-casilla {
+  display: inline-flex;
+  gap: 0.8mm;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.hoja-lista-sino-extra {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 1.5mm;
+  align-items: baseline;
+  padding-left: 3mm;
+  min-width: 0;
+}
+
 /* ─── Renglones para escribir ─────────────────────────────────────────── */
 
 .hoja-renglones {
