@@ -18,6 +18,8 @@ import {
   Encabezado,
   Fila,
   Firma,
+  LogoDrpap,
+  LogoSias,
   Pliego,
   RecuadroDato,
   Renglones,
@@ -221,6 +223,8 @@ export function HojaPrenatal({
           subtitulo="PRENATAL Y/O POSPARTO"
           numeroExpediente={paciente.expediente?.numero}
           fecha={diaLocal(ficha.fecha)}
+          emblemaIzquierdo={<LogoDrpap />}
+          emblemaDerecho={<LogoSias />}
         />
 
         <Barra numero="I." titulo="Identificación del establecimiento de salud" />
