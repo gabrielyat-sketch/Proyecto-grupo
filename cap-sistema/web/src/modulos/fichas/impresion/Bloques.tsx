@@ -36,12 +36,12 @@ export function SignosPeligroSiNo({ catalogo, ficha }: { catalogo: CatalogoFicha
   return (
     <Columnas n={2}>
       {columnas.map((col, i) => (
-        <table key={i} className="hoja-lista-sino" style={{ borderCollapse: 'collapse', width: '100%' }}>
+        <table key={i} className="hoja-tabla-sino">
           <thead>
             <tr>
-              <th style={{ textAlign: 'left', fontWeight: 400 }} />
-              <th style={{ width: '9mm', fontWeight: 400 }}>SI</th>
-              <th style={{ width: '9mm', fontWeight: 400 }}>NO</th>
+              <th />
+              <th>SI</th>
+              <th>NO</th>
             </tr>
           </thead>
           <tbody>
@@ -50,14 +50,14 @@ export function SignosPeligroSiNo({ catalogo, ficha }: { catalogo: CatalogoFicha
               const detalle = detalleSigno(ficha, s.id);
               return (
                 <tr key={s.id}>
-                  <td style={{ padding: '0.3mm 0' }}>
+                  <td>
                     {s.texto}
                     {s.pideTexto ? <Campo valor={detalle} ancho={22} /> : null}
                   </td>
-                  <td style={{ textAlign: 'center' }}>
+                  <td>
                     <Casilla marcada={r === true} rotulo={'SI ' + s.texto} soloAccesible />
                   </td>
-                  <td style={{ textAlign: 'center' }}>
+                  <td>
                     <Casilla marcada={r === false} rotulo={'NO ' + s.texto} soloAccesible />
                   </td>
                 </tr>
@@ -165,16 +165,22 @@ export function GrupoAntecedentes({
                 <span className="hoja-lista-sino-casilla">
                   <Casilla marcada={valor === false} rotulo="NO" />
                 </span>
-                {/* Lo que pide mas que SI / NO va en su propio renglon, debajo, sin mover las casillas. */}
-                {a.permiteNoAplica || a.pideDetalle || a.pideNumero || a.pideFecha ? (
+                {/*
+                  Lo corto («# ___», «No aplica») va al lado, en su columna;
+                  lo que necesita raya larga («Cual», «Fecha») va en su propio
+                  renglon debajo. Ninguno mueve las casillas.
+                */}
+                <span className="hoja-lista-sino-corto">
+                  {a.pideNumero ? <Campo rotulo="#" valor={r?.numero} ancho={7} /> : null}
+                  {a.permiteNoAplica ? (
+                    <Casilla marcada={r?.respuesta === 'NO_APLICA'} rotulo="No aplica" />
+                  ) : null}
+                </span>
+                {a.pideDetalle || a.pideFecha ? (
                   <span className="hoja-lista-sino-extra">
-                    {a.permiteNoAplica ? (
-                      <Casilla marcada={r?.respuesta === 'NO_APLICA'} rotulo="No aplica" />
-                    ) : null}
                     {a.pideDetalle ? <Campo rotulo="Cuál:" valor={r?.detalle} llena /> : null}
-                    {a.pideNumero ? <Campo rotulo="#" valor={r?.numero} ancho={8} /> : null}
                     {a.pideFecha ? (
-                      <Campo rotulo="Fecha:" valor={r?.fecha ? fechaConBarras(r.fecha) : null} ancho={18} />
+                      <Campo rotulo="Fecha:" valor={r?.fecha ? fechaConBarras(r.fecha) : null} llena />
                     ) : null}
                   </span>
                 ) : null}
@@ -496,10 +502,14 @@ export function ConsejeriaCasillas({ catalogo, ficha }: { catalogo: CatalogoFich
   );
 }
 
-/** El grupo «Subtitulo» + su bloque, como MEDICOS / FAMILIARES / HABITOS. */
+/**
+ * Un grupo de antecedentes con su rotulo enmarcado —MEDICOS, FAMILIARES,
+ * HABITOS— montado sobre la linea que lo separa del anterior, como en el
+ * papel.
+ */
 export function BloqueConTitulo({ titulo, children }: { titulo: string; children: ReactNode }) {
   return (
-    <div>
+    <div className="hoja-grupo">
       <Subtitulo>{titulo}</Subtitulo>
       {children}
     </div>
