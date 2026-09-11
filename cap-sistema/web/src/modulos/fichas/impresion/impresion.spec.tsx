@@ -177,7 +177,10 @@ const CATALOGO_CARNET = {
     { id: 'v-1', orden: 1, nombre: 'BCG', dosis: [{ orden: 1, edadRecomendada: 'RN' }] },
     { id: 'v-2', orden: 2, nombre: 'Pentavalente', dosis: [{ orden: 1, edadRecomendada: '2 meses' }, { orden: 2, edadRecomendada: '4 meses' }, { orden: 3, edadRecomendada: '6 meses' }] },
   ],
-  micronutrientes: [],
+  micronutrientes: [
+    { id: 'm-1', orden: 1, nombre: 'Vitamina "A"', esperadas: [{ tramo: 'M6_A_A1', orden: 1 }, { tramo: 'A1_A_A2', orden: 1 }] },
+    { id: 'm-3', orden: 3, nombre: 'Sulfato Ferroso', esperadas: [{ tramo: 'M6_A_A1', orden: 1 }, { tramo: 'M6_A_A1', orden: 2 }] },
+  ],
 };
 
 function json(cuerpo: unknown, estado = 200) {
@@ -193,14 +196,15 @@ function servidor({
   ficha = FICHA_BASE as unknown,
   paciente = PACIENTE as unknown,
   antecedentes = ANTECEDENTES as unknown,
-}: { ficha?: unknown; paciente?: unknown; antecedentes?: unknown } = {}) {
+  catalogoPropio,
+}: { ficha?: unknown; paciente?: unknown; antecedentes?: unknown; catalogoPropio?: unknown } = {}) {
   const tipo = (ficha as { tipoFicha: string | null }).tipoFicha;
   vi.stubGlobal(
     'fetch',
     vi.fn(async (p: Request) => {
       peticiones.push(p);
       const ruta = new URL(p.url, 'http://local').pathname;
-      if (ruta.includes('/fichas/catalogo/')) return json(catalogo(tipo ?? 'ADULTO'));
+      if (ruta.includes('/fichas/catalogo/')) return json(catalogoPropio ?? catalogo(tipo ?? 'ADULTO'));
       if (/\/v1\/fichas\/[^/]+$/.test(ruta)) return json(ficha);
       if (ruta.endsWith('/antecedentes')) return json(antecedentes);
       if (ruta.endsWith('/carnet/catalogo')) return json(CATALOGO_CARNET);
@@ -471,6 +475,43 @@ describe('la ficha del menor de 28 dias impresa', () => {
     expect(marcada(bcg, 'SI')).toBe(true);
   });
 
+  it('los 27 signos van en tres recuadros: peligro, infeccion y malformaciones, cada uno con su flecha', async () => {
+    const signos = Array.from({ length: 27 }, (_, i) => ({ id: 'sp-' + (i + 1), orden: i + 1, texto: 'Signo ' + (i + 1), pideTexto: false }));
+    servidor({
+      ficha: { ...FICHA_NEONATO, signosPeligro: [{ signoId: 'sp-21', texto: 'Signo 21', presente: true, detalle: null }] },
+      paciente: RECIEN_NACIDO,
+      catalogoPropio: { ...catalogo('NEONATO'), signosPeligro: signos },
+    });
+    abrir(MEDICO, 'p-2');
+
+    const hoja1 = await esperarHoja(/28 días, hoja 1/);
+    expect(within(hoja1).getByText('EVALUAR INFECCIÓN')).toBeInTheDocument();
+    expect(within(hoja1).getByText('EVALUAR MALFORMACIONES')).toBeInTheDocument();
+    expect(within(hoja1).getByText('Si tiene capacidad trate o refiera')).toBeInTheDocument();
+    expect(within(hoja1).getByText('Refiera a donde corresponda')).toBeInTheDocument();
+    expect(marcada(hoja1, 'Signo 21')).toBe(true);
+    expect(marcada(hoja1, 'Signo 1')).toBe(false);
+    // Quien atendio el parto va sobre rayas, no en casillas, y la X sobre la raya elegida.
+    expect(within(hoja1).getByText('¿Quién atendió el parto?')).toBeInTheDocument();
+  });
+
+  it('VIH-SIDA no lleva SI ni NO: su diagnostico es una instruccion que cruza hasta el tratamiento', async () => {
+    const problemas = [
+      { ...catalogo('NEONATO').problemas[0], id: 'n-1', orden: 1, nombre: 'Diarrea' },
+      { ...catalogo('NEONATO').problemas[0], id: 'n-2', orden: 2, nombre: 'VIH-SIDA', signos: [{ id: 'v-s', orden: 1, texto: 'Sin madre o RN (VIH+)' }], diagnosticos: [{ id: 'v-d', orden: 1, texto: 'Verificar que esté en control', pideTexto: false }] },
+    ];
+    servidor({ ficha: { ...FICHA_NEONATO, problemas: [] }, paciente: RECIEN_NACIDO, catalogoPropio: { ...catalogo('NEONATO'), problemas } });
+    abrir(MEDICO, 'p-2');
+
+    const hoja2 = await esperarHoja(/28 días, hoja 2/);
+    const filas = within(hoja2).getAllByRole('row');
+    const diarrea = filas.find((f) => f.textContent?.includes('1. Diarrea'));
+    const vih = filas.find((f) => f.textContent?.includes('2. VIH-SIDA'));
+    expect(within(diarrea as HTMLElement).getAllByRole('checkbox', { name: /^(SI|NO)$/ })).toHaveLength(2);
+    expect(within(vih as HTMLElement).queryAllByRole('checkbox', { name: /^(SI|NO)$/ })).toHaveLength(0);
+    expect(within(vih as HTMLElement).getByText('Verificar que esté en control').closest('td')).toHaveAttribute('colspan', '2');
+  });
+
   it('la revision de problemas lleva el tratamiento en su fila y la consejeria con su reconsulta', async () => {
     servidor({ ficha: FICHA_NEONATO, paciente: RECIEN_NACIDO });
     abrir(MEDICO, 'p-2');
@@ -501,6 +542,20 @@ describe('la ficha del lactante y ninez impresa', () => {
     // 2 anios y 8 meses el dia de la consulta.
     expect(within(hoja1).getByText('2')).toBeInTheDocument();
     expect(within(hoja1).getByText('8')).toBeInTheDocument();
+  });
+
+  it('salen las cuatro hojas del papel: la del nino, la grafica de peso, la consulta y las observaciones', async () => {
+    servidor({ ficha: { ...FICHA_NINEZ, notas: 'Come poco desde hace una semana.' }, paciente: NINO });
+    abrir(MEDICO, 'p-2');
+
+    await esperarHoja(/lactante y niñez, hoja 1/);
+    const grafica = await esperarHoja(/gráfica de peso para edad/);
+    expect(within(grafica).getByRole('img', { name: 'Gráfica de peso para edad' })).toBeInTheDocument();
+    expect(within(grafica).getByText('Dosis de')).toBeInTheDocument();
+    expect(within(grafica).getByText('Entregas de')).toBeInTheDocument();
+    const observaciones = await esperarHoja(/otros problemas, controles u observaciones/);
+    expect(within(observaciones).getByText('Come poco desde hace una semana.')).toBeInTheDocument();
+    expect(within(observaciones).getByText('10 / 09 / 2026')).toBeInTheDocument();
   });
 
   it('la hoja de consulta lleva el peso en libras y la consejeria en casillas', async () => {
@@ -568,6 +623,18 @@ describe('la ficha prenatal y la del posparto impresas', () => {
     expect(within(hoja2).getByText('Uso del medicamento')).toBeInTheDocument();
   });
 
+  it('los signos de peligro se reparten como se leen en el papel: impares a la izquierda, pares a la derecha', async () => {
+    const signos = ['Hemorragia vaginal', 'Dolor abdominal severo', 'Dolor de cabeza severo', 'Presión arterial alta'].map((texto, i) => ({ id: 'sp-' + (i + 1), orden: i + 1, texto, pideTexto: false }));
+    servidor({ ficha: { ...PRENATAL, signosPeligro: [] }, catalogoPropio: { ...catalogo('PRENATAL'), signosPeligro: signos } });
+    abrir();
+
+    const hoja1 = await esperarHoja(/prenatal, hoja 1/);
+    const tablas = within(hoja1).getAllByRole('table').filter((t) => t.className.includes('hoja-tabla-sino'));
+    expect(tablas).toHaveLength(2);
+    expect(tablas[0]).toHaveTextContent(/Hemorragia vaginal.*Dolor de cabeza severo/);
+    expect(tablas[1]).toHaveTextContent(/Dolor abdominal severo.*Presión arterial alta/);
+  });
+
   it('en la hoja 1 el motivo marca Embarazo y los antecedentes obstetricos van completos', async () => {
     servidor({ ficha: PRENATAL });
     abrir();
@@ -576,7 +643,8 @@ describe('la ficha prenatal y la del posparto impresas', () => {
     expect(marcada(hoja1, 'Embarazo')).toBe(true);
     expect(marcada(hoja1, 'Posparto')).toBe(false);
     expect(within(hoja1).getByText('01 / 03 / 2026')).toBeInTheDocument();
-    expect(marcada(hoja1, 'Papanicolau')).toBe(true);
+    // La hoja prenatal lo escribe «Papanicolaou», como el papel.
+    expect(marcada(hoja1, 'Papanicolaou')).toBe(true);
     expect(marcada(hoja1, 'RH (+)')).toBe(true);
   });
 
@@ -615,6 +683,37 @@ describe('la ficha prenatal y la del posparto impresas', () => {
     expect(within(hoja).getByText('En casa')).toBeInTheDocument();
     expect(within(hoja).getByText('Loquios normales')).toBeInTheDocument();
     expect(within(hoja).getByText('30')).toBeInTheDocument();
+  });
+
+  it('la consejeria del primer control sale con las cuatro frases del papel, contestadas desde el catalogo', async () => {
+    const temas = ['Lactancia materna exclusiva/MELA', 'Planificación familiar posparto', 'Alimentación de la madre lactante', 'Lactancia materna a madre VIH +', 'Mujer VIH +'].map((texto, i) => ({ id: 't-' + (i + 1), orden: i + 1, texto }));
+    servidor({
+      ficha: {
+        ...FICHA_BASE,
+        tipoFicha: 'POSPARTO',
+        consejeriaTemas: [
+          { temaId: 't-1', texto: 'Lactancia materna exclusiva/MELA', brindada: false, fechaReconsulta: null },
+          { temaId: 't-3', texto: 'Alimentación de la madre lactante', brindada: true, fechaReconsulta: null },
+          { temaId: 't-5', texto: 'Mujer VIH +', brindada: false, fechaReconsulta: null },
+        ],
+        posparto: { esPrimerControl: true, diasDespuesDelParto: 5, dondeAtendioParto: null, quienAtendioParto: null, quienAtendioPartoOtro: null, involucionUterina: null, examenMamas: null, heridaOperatoria: null, examenGinecologico: null, lactanciaMaternaExclusiva: null, motivoSinLactancia: null, problemasDetectados: null, sulfatoFerroso: null, sulfatoFerrosoTabletas: null, acidoFolico: null, acidoFolicoTabletas: null, td: null, tdDosis: null, otroMedicamento: null },
+      },
+      catalogoPropio: { ...catalogo('POSPARTO'), temasConsejeria: temas },
+    });
+    abrir();
+
+    const hoja = await esperarHoja(/posparto, primer control/);
+    const fila = (texto: string) => within(hoja).getByText(texto).closest('tr') as HTMLElement;
+    // Lactancia + alimentacion: con una brindada, SI.
+    const lactancia = fila('Consejería en lactancia materna exclusiva y alimentación de la mujer lactante');
+    expect(within(lactancia).getAllByRole('checkbox', { name: 'SI' }).at(-1)?.getAttribute('aria-checked')).toBe('true');
+    // Mujer VIH+: NO.
+    const vih = fila('Consejería a mujer VIH +');
+    expect(within(vih).getAllByRole('checkbox', { name: 'NO' }).at(-1)?.getAttribute('aria-checked')).toBe('true');
+    // PF posparto: sin contestar, ninguna marcada.
+    const pf = fila('Consejería en PF posparto');
+    expect(within(pf).getAllByRole('checkbox', { name: 'SI' }).at(-1)?.getAttribute('aria-checked')).toBe('false');
+    expect(within(pf).getAllByRole('checkbox', { name: 'NO' }).at(-1)?.getAttribute('aria-checked')).toBe('false');
   });
 
   it('un control posterior sale en la tabla de controles', async () => {

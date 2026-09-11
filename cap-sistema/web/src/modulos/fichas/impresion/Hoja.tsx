@@ -14,10 +14,23 @@ import './hoja.css';
  * Nada de MUI aqui a proposito: el tema del panel no manda en el papel.
  */
 
-/** Una hoja fisica. Cada una es una pagina al imprimir. */
-export function Pliego({ children, etiqueta }: { children: ReactNode; etiqueta: string }) {
+/**
+ * Una hoja fisica. Cada una es una pagina al imprimir.
+ *
+ * `apaisada` la gira: es para la grafica de peso de la ficha de ninez, que el
+ * papel trae de lado. Chrome respeta el tamano de pagina por nombre.
+ */
+export function Pliego({
+  children,
+  etiqueta,
+  apaisada = false,
+}: {
+  children: ReactNode;
+  etiqueta: string;
+  apaisada?: boolean;
+}) {
   return (
-    <section className="hoja-pliego" aria-label={etiqueta}>
+    <section className={'hoja-pliego' + (apaisada ? ' hoja-pliego--apaisada' : '')} aria-label={etiqueta}>
       {children}
     </section>
   );
@@ -157,6 +170,64 @@ export function Casilla({
 }
 
 /**
+ * «MD___» con una X sobre la raya si se eligio: es como el papel del neonato
+ * pregunta quien atendio el parto. Para el lector de pantalla es una casilla.
+ */
+export function MarcaEnRaya({ rotulo, marcada, ancho = 5 }: { rotulo: string; marcada: boolean; ancho?: number }) {
+  return (
+    <span className="hoja-casilla" style={{ gap: 0, alignItems: 'baseline' }}>
+      <span>{rotulo}</span>
+      <span
+        className="hoja-campo-valor hoja-valor hoja-centrado"
+        style={{ minWidth: ancho + 'mm', padding: 0, lineHeight: 1.2 }}
+        role="checkbox"
+        aria-checked={marcada}
+        aria-label={rotulo}
+      >
+        {marcada ? 'X' : ' '}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * El recuadro en forma de flecha del papel del neonato: «Si presenta alguno
+ * de estos problemas, TIENE ENFERMEDAD GRAVE...». El contorno es un SVG
+ * estirado al tamano del texto, asi la punta siempre queda a la derecha.
+ */
+export function Flecha({ children, centrado = false }: { children: ReactNode; centrado?: boolean }) {
+  return (
+    <div className={'hoja-flecha' + (centrado ? ' hoja-flecha--centrada' : '')}>
+      <svg className="hoja-flecha-contorno" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
+        <polygon points="0.5,8 82,8 82,0.5 99.5,20 82,39.5 82,32 0.5,32" vectorEffect="non-scaling-stroke" />
+      </svg>
+      <div className="hoja-flecha-texto">{children}</div>
+    </div>
+  );
+}
+
+/** «No. Expediente: ____» o «Fecha: dd / mm / aaaa» en su recuadro. */
+export function RecuadroDato({
+  rotulo,
+  valor,
+  ancho,
+}: {
+  rotulo: string;
+  valor: string | null | undefined;
+  /** Ancho del recuadro en mm; si no se da, estira. */
+  ancho?: number;
+}) {
+  return (
+    <div className="hoja-recuadro" style={ancho ? { width: ancho + 'mm', flex: '0 0 auto' } : { flex: '1 1 auto' }}>
+      <span>{rotulo}</span>
+      <span className="hoja-campo-valor hoja-valor" style={{ flex: 1 }}>
+        {valor ?? ' '}
+      </span>
+    </div>
+  );
+}
+
+/**
  * «Rotulo   SI [ ]  NO [ ]».
  *
  * Con `null` las dos casillas quedan vacias: no se marca NO por lo que no se
@@ -279,13 +350,22 @@ export function Encabezado({
  * Cada hoja trae su propia lista —la de adultos tiene nueve, la del neonato
  * seis— asi que se recibe entera y solo se marca la del CAP.
  */
-export function TipoEstablecimiento({ opciones, marcada }: { opciones: string[]; marcada: string }) {
+export function TipoEstablecimiento({
+  opciones,
+  marcada,
+  repartidas = false,
+}: {
+  opciones: string[];
+  marcada: string;
+  /** Repartidas a lo ancho de la fila, como en las hojas del neonato y de ninez. */
+  repartidas?: boolean;
+}) {
   return (
-    <Fila>
+    <div className={'hoja-fila' + (repartidas ? ' hoja-fila--repartida' : '')}>
       {opciones.map((o) => (
         <Casilla key={o} rotulo={o} marcada={o === marcada} />
       ))}
-    </Fila>
+    </div>
   );
 }
 

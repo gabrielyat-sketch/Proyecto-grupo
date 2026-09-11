@@ -40,14 +40,25 @@ impresión en hojas oficio de todos los formularios en blanco y negro».
   consulta, y se imprimen como están ahora. Una ficha de hace un año sale con
   los antecedentes actuales; en el papel también se actualizan encima.
 - **La hoja 2 de la prenatal (cuatro controles) sale con UN control lleno**:
-  el de esta ficha, encabezado con su fecha en vez de «Control 1». En el
-  sistema cada control es una ficha; el papel acompaña a la mujer todo el
-  embarazo. Las otras tres columnas quedan en blanco para que la hoja se lea
-  igual que la original y se pueda seguir llenando a mano.
-- **No se imprime la gráfica de peso para edad** (hoja 2 de la de niñez) ni
-  las hojas de renglones libres (hoja 4 de niñez, «otros controles» del
-  posparto). La gráfica es la etapa C de la ficha de niñez, que no tiene las
-  bandas de la OMS todavía; cuando las tenga, se imprime.
+  el de esta ficha, en la columna «Control 1», con la fecha en «Fecha de la
+  visita». En el sistema cada control es una ficha; el papel acompaña a la
+  mujer todo el embarazo. Las otras tres columnas quedan en blanco para que
+  la hoja se lea igual que la original y se pueda seguir llenando a mano.
+- **La gráfica de peso para edad (hoja 2 de niñez, apaisada) sale con la
+  cuadrícula del papel y el peso de hoy marcado, sin las curvas de
+  referencia**: no tenemos sus datos y trazarlas a ojo sería inventar un
+  patrón de crecimiento. Cuando la pantalla tenga las bandas de la OMS (etapa
+  C), se pintan aquí con los mismos números.
+- **Las hojas de renglones libres** (hoja 4 de niñez, «otros controles» del
+  posparto) salen con sus rayas y las notas de la ficha en el primer renglón.
+- **Lo que el papel trae en un solo recuadro y el sistema no distingue** se
+  resuelve por posición o por nombre, y queda dicho en el código: los 27
+  signos del neonato se reparten 20 / 3 / 4 entre «Evalué signos de peligro»,
+  «Evaluar infección» y «Evaluar malformaciones» por su orden en el catálogo;
+  «VIH-SIDA» (neonato) y «Presenta problemas el / la acompañante» (niñez) no
+  llevan SI / NO por su nombre; las cuatro frases de consejería del primer
+  control posparto se contestan buscando los temas del catálogo por palabra
+  clave (la de lactancia junta dos temas: SI si alguno se brindó).
 
 ## Dirección visual
 
@@ -103,21 +114,24 @@ logos a color en el original y en negro no se reconocerían.
 | Archivo | Qué es |
 |---|---|
 | `hoja.css` | Los tokens de arriba, la vista en pantalla (hojas sobre mesa gris) y `@media print` |
-| `Hoja.tsx` | Las piezas: `Pliego`, `Barra`, `Cuadro`, `Fila`, `Campo`, `Casilla`, `SiNo`, `Renglones`, `Firma`, `Encabezado`, emblemas, y las conversiones (kg → lb, cm → m, fechas con barras, edad en días y en años/meses) |
-| `Bloques.tsx` | Lo que las cuatro hojas comparten: signos de peligro (SI/NO y de una casilla), antecedentes por grupo, gineco-obstétricos, la matriz de problemas, la columna de conducta, la tabla de consejería |
+| `Hoja.tsx` | Las piezas: `Pliego` (con variante apaisada), `Barra`, `Cuadro`, `Fila`, `Campo`, `Casilla`, `MarcaEnRaya` («MD___» con su X), `SiNo`, `Renglones`, `Firma`, `Flecha` (los recuadros con punta del neonato), `RecuadroDato`, `Encabezado`, emblemas, y las conversiones (kg → lb, cm → m, fechas con barras, edad en días y en años/meses) |
+| `Bloques.tsx` | Lo que las cuatro hojas comparten: signos de peligro (SI/NO —en el orden de columna o intercalado como se lee el papel— y de una casilla), antecedentes en columnas o en línea, la matriz de problemas (SI/NO en casillas, en rayas o bajo el nombre; filas sin SI/NO; texto fijo del papel), la columna de conducta, la tabla de consejería |
+| `AntecedentesAdulto.tsx` | La sección VII de adultos, renglón por renglón como el papel |
+| `GraficaPeso.tsx` | «Gráfica de peso para edad» en SVG: cuadrícula en escalera 0–36 meses y 38–60 meses, con el peso de hoy |
 | `HojaAdulto.tsx` | Dos hojas: secciones I–VIII y IX–X |
-| `HojaNeonato.tsx` | Dos hojas: madre y parto; examen, matriz con tratamiento por fila, consejería con reconsulta |
-| `HojaNinez.tsx` | Dos hojas: la del niño (carnet: padres, casa, vacunas) y la de la consulta |
-| `HojaPrenatal.tsx` | `HojaPrenatal` (hojas 1 y 2) y `HojaPosparto` (primer control, o la tabla de controles) |
+| `HojaNeonato.tsx` | Dos hojas: los tres recuadros de la sección 3 con sus flechas, madre y parto; examen, matriz con SI___/NO___ y tratamiento por fila, consejería con reconsulta |
+| `HojaNinez.tsx` | Cuatro hojas: la del niño (carnet: padres, casa, esquema de vacunas con sus grises), la gráfica apaisada con las tablas de micronutrientes, la de la consulta (14 problemas en una cara) y «Otros problemas, controles u observaciones» |
+| `HojaPrenatal.tsx` | `HojaPrenatal` (hojas 1 y 2: la tabla de controles con sus barras dentro) y `HojaPosparto` (primer control con las cuatro frases del papel, o la tabla de controles con «Otros controles y observaciones») |
 | `PaginaImprimirFicha.tsx` | La ruta: pide ficha, paciente, catálogo, antecedentes (y carnet en niñez), barra con «Imprimir» y «Expediente» |
-| `impresion.spec.tsx` | 27 pruebas |
-| `vista-previa.spec.tsx` | Genera las hojas como HTML estático con datos de ejemplo, para mirarlas con Chrome sin ventana |
+| `impresion.spec.tsx` | 32 pruebas |
+| `vista-previa.spec.tsx` | Genera las hojas como HTML estático con datos de ejemplo y los catálogos copiados de las semillas reales, para mirarlas con Chrome sin ventana |
 
 Modificados: `App.tsx` (ruta `/pacientes/:pacienteId/fichas/:fichaId/imprimir`,
 **fuera del layout**: sin menú ni barra), `navegacion/menu.ts`
 (`/imprimir-ficha`, mismos roles que `GET /v1/fichas/:id`),
-`expedientes/EntradaHistorial.tsx` (botón «Imprimir» en cada ficha, en otra
-pestaña), `expedientes/PaginaExpediente.tsx` (pasa el `pacienteId`).
+`expedientes/EntradaHistorial.tsx` (botón «Imprimir» en cada ficha, en la
+misma pestaña: la sesión vive en memoria), `expedientes/PaginaExpediente.tsx`
+(pasa el `pacienteId`).
 
 Sin cambios en el backend: todo lo que la hoja necesita ya lo devolvía la API.
 
@@ -165,17 +179,20 @@ npx vitest run src/modulos/fichas src/modulos/expedientes   214 + 1 (todo verde)
 tsc --noEmit                                                 limpio
 ```
 
-**Sí se verificó visualmente**, aunque sin navegador con sesión: las seis
-hojas (adulto, neonato, niñez, prenatal, posparto primer control, posparto
-control posterior) se generaron como HTML estático con datos de ejemplo
-(`vista-previa.spec.tsx`), se imprimieron a PDF con Chrome sin ventana y se
-miraron página por página junto al PDF original. Cada una sale en 216 × 330 mm
-y en el número de páginas del papel. De esa revisión salieron tres arreglos:
-los rótulos de las casillas SI/NO se dibujaban en las tablas (ahora son solo
-para el lector de pantalla), el `repeating-linear-gradient` con `calc()` de
-los renglones salía como una banda negra al imprimir (se cambió por un
-degradado simple con `background-size`), y la hoja 1 de adultos se pasaba a
-una tercera página (se apretó el espaciado vertical).
+**Sí se verificó visualmente**, aunque sin navegador con sesión: las hojas
+(adulto, neonato, niñez, prenatal, posparto primer control, posparto control
+posterior) se generaron como HTML estático con datos de ejemplo y los
+catálogos reales (`vista-previa.spec.tsx`), se imprimieron a PDF con Chrome
+sin ventana y se miraron página por página junto al PDF original, hasta que
+cada sección, casilla, raya y título quedó donde el papel lo pone. Cada una
+sale en 216 × 330 mm (la gráfica de niñez en 330 × 216) y en el número de
+páginas del papel: 2, 2, 4 y 2 + 1. De esa revisión salieron, entre otros: los
+rótulos de las casillas SI/NO se dibujaban en las tablas (ahora son solo para
+el lector de pantalla); los degradados con `calc()` de los renglones salían
+como una banda negra al imprimir (se dibujan desde abajo, sin `calc()`); una
+raya vacía dibujada con un espacio en blanco se colapsa y queda a media
+altura (se usa un espacio duro); y un `flex-basis` en milímetros dentro de
+una columna flex es ALTO, no ancho.
 
 Lo que NO se ha hecho todavía: imprimir en una impresora real del CAP. El
 diálogo de impresión debe quedar en «Oficio» y sin encabezados; `@page` lo
@@ -186,8 +203,8 @@ propone, pero el usuario puede cambiarlo.
 1. **Nombre de quien atendió.** Hoy se firma a mano. Si el CAP quiere el
    nombre impreso, hace falta que `usuarios` conozca el nombre del personal
    (vive en `auth`) o que la impresión lo pida a `auth`.
-2. **Gráfica de peso para edad** en la de niñez: cuando tenga las bandas de la
-   OMS (etapa C), imprimirla en la hoja 2.
+2. **Curvas de la gráfica de peso para edad**: la cuadrícula ya se imprime;
+   cuando la pantalla tenga las bandas de la OMS (etapa C), pintarlas aquí.
 3. **Distrito y comunidad del servicio** (`SERVICIO_DE_SALUD`): siguen sin
    confirmar y salen en blanco. No se inventa.
 4. **Antecedentes históricos.** Se imprimen los actuales del paciente; si el

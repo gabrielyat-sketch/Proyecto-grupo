@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { Ficha } from '../../expedientes/servicio-expedientes';
 import type { AntecedentesPaciente, CatalogoFicha } from '../servicio-fichas';
-import { Campo, Casilla, Columnas, Fila, SiNo, Subtitulo, fechaConBarras } from './Hoja';
+import { Campo, Casilla, Columnas, Fila, MarcaEnRaya, Subtitulo, fechaConBarras } from './Hoja';
 
 /**
  * Los bloques que las cuatro hojas comparten: signos de peligro, antecedentes,
@@ -29,10 +29,25 @@ function detalleSigno(ficha: Ficha, signoId: string): string | null {
  * La lista de SI / NO en dos columnas, como en las hojas de adulto y prenatal.
  * Los signos que piden texto («Otros: describa») llevan su raya.
  */
-export function SignosPeligroSiNo({ catalogo, ficha }: { catalogo: CatalogoFicha; ficha: Ficha }) {
+export function SignosPeligroSiNo({
+  catalogo,
+  ficha,
+  intercalados = false,
+}: {
+  catalogo: CatalogoFicha;
+  ficha: Ficha;
+  /**
+   * El catalogo prenatal esta en el orden en que se LEE el papel, renglon a
+   * renglon: 1 a la izquierda, 2 a la derecha, 3 a la izquierda... El de
+   * adultos va columna por columna. Cada hoja dice cual es el suyo.
+   */
+  intercalados?: boolean;
+}) {
   const signos = [...catalogo.signosPeligro].sort((a, b) => a.orden - b.orden);
   const mitad = Math.ceil(signos.length / 2);
-  const columnas = [signos.slice(0, mitad), signos.slice(mitad)];
+  const columnas = intercalados
+    ? [signos.filter((_, i) => i % 2 === 0), signos.filter((_, i) => i % 2 === 1)]
+    : [signos.slice(0, mitad), signos.slice(mitad)];
   return (
     <Columnas n={2}>
       {columnas.map((col, i) => (
@@ -78,28 +93,59 @@ export function SignosPeligroCasillas({
   catalogo,
   ficha,
   columnas = 2,
+  signos: subconjunto,
+  negrita = true,
+  casillaPegada = false,
+  separador = false,
 }: {
   catalogo: CatalogoFicha;
   ficha: Ficha;
-  columnas?: 2 | 3;
+  columnas?: 1 | 2 | 3;
+  /** Solo estos signos (la hoja del neonato los reparte en tres recuadros); todos si no se dan. */
+  signos?: CatalogoFicha['signosPeligro'];
+  negrita?: boolean;
+  /** La casilla pegada al texto en vez de al borde derecho, como en la hoja de ninez. */
+  casillaPegada?: boolean;
+  /** Una raya vertical entre columnas. */
+  separador?: boolean;
 }) {
-  const signos = [...catalogo.signosPeligro].sort((a, b) => a.orden - b.orden);
+  const signos = [...(subconjunto ?? catalogo.signosPeligro)].sort((a, b) => a.orden - b.orden);
   const porColumna = Math.ceil(signos.length / columnas);
   const grupos = Array.from({ length: columnas }, (_, i) =>
     signos.slice(i * porColumna, (i + 1) * porColumna),
   );
-  return (
-    <Columnas n={columnas}>
+  const lista = (
+    <>
       {grupos.map((g, i) => (
-        <ol key={i} style={{ margin: 0, padding: 0, listStyle: 'none', fontWeight: 700 }}>
+        <ol
+          key={i}
+          style={{
+            margin: 0,
+            padding: separador && i > 0 ? '0 0 0 3mm' : 0,
+            listStyle: 'none',
+            fontWeight: negrita ? 700 : 400,
+            borderLeft: separador && i > 0 ? '0.25mm solid #000' : undefined,
+          }}
+        >
           {g.map((s, j) => {
             const r = respuestaSigno(ficha, s.id);
             const detalle = detalleSigno(ficha, s.id);
             return (
-              <li key={s.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '2mm' }}>
-                <span>
-                  {i * porColumna + j + 1}. {s.texto}
-                  {s.pideTexto && detalle ? <span className="hoja-valor">: {detalle}</span> : null}
+              <li
+                key={s.id}
+                style={{
+                  display: 'flex',
+                  justifyContent: casillaPegada ? 'flex-start' : 'space-between',
+                  gap: '3mm',
+                  margin: '0.4mm 0',
+                }}
+              >
+                <span style={{ display: 'inline-flex', gap: '1.5mm' }}>
+                  <span style={{ minWidth: '4mm' }}>{i * porColumna + j + 1}.</span>
+                  <span>
+                    {s.texto}
+                    {s.pideTexto && detalle ? <span className="hoja-valor">: {detalle}</span> : null}
+                  </span>
                 </span>
                 <Casilla marcada={r === true} rotulo={s.texto} soloAccesible />
               </li>
@@ -107,13 +153,13 @@ export function SignosPeligroCasillas({
           })}
         </ol>
       ))}
-    </Columnas>
+    </>
   );
+  if (columnas === 1) return lista;
+  return <Columnas n={columnas}>{lista}</Columnas>;
 }
 
 // ───────────────────────────── antecedentes ─────────────────────────────
-
-type Grupo = 'MEDICO' | 'FAMILIAR' | 'HABITO';
 
 function respuestaAntecedente(antecedentes: AntecedentesPaciente | null, antecedenteId: string) {
   return antecedentes?.marcados.find((m) => m.antecedenteId === antecedenteId) ?? null;
@@ -216,12 +262,20 @@ export function SiNoAntecedente({
   antecedentes,
   codigo,
   rotulo,
+  rotuloDetalle = 'Cuál:',
+  anchoDetalle = 24,
+  soloNoAplicaMarcado = false,
 }: {
   catalogo: CatalogoFicha;
   antecedentes: AntecedentesPaciente | null;
   codigo: string;
   /** Si el papel lo llama distinto que el catalogo. */
   rotulo?: string;
+  /** «Cuál:» o «¿Cuál?», como lo escriba el papel. */
+  rotuloDetalle?: string;
+  anchoDetalle?: number;
+  /** El papel prenatal no trae «No aplica»: solo se dibuja si se marco. */
+  soloNoAplicaMarcado?: boolean;
 }) {
   const { a, r, valor } = antecedentePorCodigo(catalogo, antecedentes, codigo);
   if (!a) return null;
@@ -231,8 +285,10 @@ export function SiNoAntecedente({
       <Casilla marcada={valor === true} rotulo="SI" />
       <Casilla marcada={valor === false} rotulo="NO" />
       <ExtrasCortos a={a} r={r} />
-      {a.permiteNoAplica ? <Casilla marcada={r?.respuesta === 'NO_APLICA'} rotulo="No aplica" /> : null}
-      {a.pideDetalle ? <Campo rotulo="Cuál:" valor={r?.detalle} ancho={24} /> : null}
+      {a.permiteNoAplica && (!soloNoAplicaMarcado || r?.respuesta === 'NO_APLICA') ? (
+        <Casilla marcada={r?.respuesta === 'NO_APLICA'} rotulo="No aplica" />
+      ) : null}
+      {a.pideDetalle ? <Campo rotulo={rotuloDetalle} valor={r?.detalle} ancho={anchoDetalle} /> : null}
       {a.pideFecha ? (
         <Campo rotulo="Fecha de última dosis:" valor={r?.fecha ? fechaConBarras(r.fecha) : null} ancho={20} />
       ) : null}
@@ -284,99 +340,11 @@ export function AntecedentesRestantes({
   return <ColumnasAntecedentes catalogo={catalogo} antecedentes={antecedentes} codigos={codigos} />;
 }
 
-/** Compatibilidad: un grupo entero repartido en columnas, en el orden del catalogo. */
-export function GrupoAntecedentes({
-  catalogo,
-  antecedentes,
-  grupo,
-  columnas = 3,
-}: {
-  catalogo: CatalogoFicha;
-  antecedentes: AntecedentesPaciente | null;
-  grupo: Grupo;
-  columnas?: 2 | 3;
-}) {
-  const lista = catalogo.antecedentes.filter((a) => a.grupo === grupo).sort((a, b) => a.orden - b.orden);
-  if (lista.length === 0) return null;
-  const porColumna = Math.ceil(lista.length / columnas);
-  const codigos = Array.from({ length: columnas }, (_, i) =>
-    lista.slice(i * porColumna, (i + 1) * porColumna).map((a) => a.codigo),
-  );
-  return <ColumnasAntecedentes catalogo={catalogo} antecedentes={antecedentes} codigos={codigos} />;
-}
-
-/** El bloque gineco-obstetrico de la hoja de adultos y de la prenatal. */
-export function AntecedentesObstetricos({
-  antecedentes,
-  completo = false,
-}: {
-  antecedentes: AntecedentesPaciente | null;
-  /** La hoja prenatal pide mas renglones que la de adultos. */
-  completo?: boolean;
-}) {
-  const o = antecedentes?.obstetricos ?? null;
-  return (
-    <>
-      <Fila>
-        <Campo rotulo="FUR:" valor={o?.fur ? fechaConBarras(o.fur) : null} ancho={20} />
-        <Campo rotulo="# Gestas:" valor={o?.gestas} ancho={8} />
-        <Campo rotulo="Partos:" valor={o?.partos} ancho={8} />
-        <Campo rotulo="AB:" valor={o?.abortos} ancho={8} />
-        {completo ? (
-          <>
-            <SiNo rotulo="AB consecutivos:" valor={o?.abortosConsecutivos} />
-            <Campo rotulo="# LIU:" valor={o?.legradosLiu} ancho={8} />
-          </>
-        ) : null}
-      </Fila>
-      {completo ? (
-        <>
-          <Fila>
-            <Campo rotulo="# Nacidos Vivos:" valor={o?.nacidosVivos} ancho={8} />
-            <Campo rotulo="# Nacidos Muertos:" valor={o?.nacidosMuertos} ancho={8} />
-            <Campo rotulo="# Hijos Vivos:" valor={o?.hijosVivos} ancho={8} />
-            <Campo rotulo="# Hijos Muertos:" valor={o?.hijosMuertos} ancho={8} />
-            <Campo rotulo="# de Cesáreas:" valor={o?.cesareas} ancho={8} />
-          </Fila>
-          <Fila>
-            <SiNo rotulo="Embarazos múltiples:" valor={o?.embarazosMultiples} />
-            <Campo
-              rotulo="Fecha último parto:"
-              valor={o?.fechaUltimoParto ? fechaConBarras(o.fechaUltimoParto) : null}
-              ancho={20}
-            />
-            <Campo rotulo="# Niños(as) nacidos antes de los 8 meses:" valor={o?.prematurosAntes8Meses} ancho={8} />
-          </Fila>
-          <Fila>
-            <SiNo rotulo="Preeclampsia:" valor={o?.preeclampsia} />
-          </Fila>
-        </>
-      ) : null}
-      <Fila>
-        <span>Detección de cáncer de cérvix:</span>
-        <Casilla rotulo="Papanicolau" marcada={o?.tamizajeCervix === 'PAPANICOLAU'} />
-        <Casilla rotulo="IVAA" marcada={o?.tamizajeCervix === 'IVAA'} />
-        <Campo rotulo="Fecha:" valor={o?.tamizajeFecha ? fechaConBarras(o.tamizajeFecha) : null} ancho={20} />
-        <SiNo rotulo="Resultado Normal:" valor={o?.tamizajeNormal} />
-      </Fila>
-      <Fila>
-        <SiNo rotulo="Utiliza o ha utilizado algún método de Planificación Familiar:" valor={o?.usaPlanificacion} />
-        <Campo rotulo="Cuál:" valor={o?.metodoPlanificacion} ancho={30} />
-      </Fila>
-      <Fila>
-        <Campo rotulo="Tipo de Sangre: Grupo" valor={o?.tipoSangre} ancho={10} />
-        <Casilla rotulo="RH (+)" marcada={o?.rhPositivo === true} />
-        <Casilla rotulo="RH (-)" marcada={o?.rhPositivo === false} />
-      </Fila>
-    </>
-  );
-}
-
 // ─────────────────────────── matriz de problemas ───────────────────────────
 
 /** Una opcion del papel, subrayada si la ficha la marco. */
-function Opcion({ texto, marcada }: { texto: string; marcada: boolean }) {
-  return <span className={'hoja-opcion' + (marcada ? ' hoja-opcion--marcada' : '')}>{texto}</span>;
+function Opcion({ texto, marcada, clase = 'hoja-opcion' }: { texto: string; marcada: boolean; clase?: string }) {
+  return <span className={clase + (marcada ? ' hoja-opcion--marcada' : '')}>{texto}</span>;
 }
 
 export interface EncabezadosMatriz {
@@ -385,6 +353,8 @@ export interface EncabezadosMatriz {
   clasificar: ReactNode;
   conducta: ReactNode;
 }
+
+type ProblemaCatalogo = CatalogoFicha['problemas'][number];
 
 /**
  * La revision de problemas: la tabla grande de todas las hojas.
@@ -395,6 +365,10 @@ export interface EncabezadosMatriz {
  * derecha cambia segun la hoja: en adultos y ninez es UNA columna que abarca
  * todas las filas (medicamento 1 al 4, vacuna, referencia...), y en el neonato
  * es una celda por problema con su tratamiento. `conductaPorFila` decide.
+ *
+ * El SI / NO tambien cambia de forma: en adultos son casillas en su propia
+ * columna; en el neonato son rayas («SI___», «NO___») en su columna; en ninez
+ * las casillas van debajo del nombre del problema. `sino` lo dice.
  */
 export function MatrizProblemas({
   catalogo,
@@ -402,6 +376,15 @@ export function MatrizProblemas({
   encabezados,
   conductaPorFila = false,
   columnaConducta,
+  sino = 'columna',
+  filasSinSiNo = [],
+  opcionesEnLineas = false,
+  anotacionBajoProblema = [],
+  extraInvestigue,
+  extraClasificar,
+  anchos = {},
+  compacta = false,
+  altoFila,
 }: {
   catalogo: CatalogoFicha;
   ficha: Ficha;
@@ -409,21 +392,78 @@ export function MatrizProblemas({
   conductaPorFila?: boolean;
   /** Lo que va en la columna derecha cuando abarca todas las filas. */
   columnaConducta?: ReactNode;
+  sino?: 'columna' | 'rayas' | 'bajoProblema';
+  /**
+   * Problemas que en el papel no llevan SI / NO y cuyo «diagnostico» es una
+   * instruccion que se extiende hasta la columna de tratamiento (VIH-SIDA en
+   * el neonato). Por nombre, porque el catalogo no lo distingue.
+   */
+  filasSinSiNo?: string[];
+  /** Cada signo y cada diagnostico en su renglon, como en las hojas de ninez y neonato. */
+  opcionesEnLineas?: boolean;
+  /** Problemas cuya raya («Cuanto tiempo hace») va debajo del SI / NO y no en la columna de investigar. */
+  anotacionBajoProblema?: string[];
+  /** Texto fijo del papel que el catalogo no trae, a poner al principio de la columna de investigar. */
+  extraInvestigue?: (p: ProblemaCatalogo) => ReactNode;
+  /** Idem, al final de la columna de clasificar. */
+  extraClasificar?: (p: ProblemaCatalogo) => ReactNode;
+  /** Anchos de columna en mm, donde el papel se aparta de los de adultos. */
+  anchos?: { problema?: number; clasificar?: number; conducta?: number };
+  /** Letra y margenes mas apretados: la hoja de ninez tiene catorce problemas en una cara. */
+  compacta?: boolean;
+  /** Alto minimo de cada fila en mm, para que la tabla llene la hoja como el papel. */
+  altoFila?: number;
 }) {
   const problemas = [...catalogo.problemas].sort((a, b) => a.orden - b.orden);
+  const conColumnaSino = sino !== 'bajoProblema';
+  const sinSiNo = new Set(filasSinSiNo);
+  const anotacionAbajo = new Set(anotacionBajoProblema);
+  const claseOpciones = 'hoja-opcion' + (opcionesEnLineas ? ' hoja-opcion--renglon' : '');
+
+  const casillas = (presente: boolean | null) =>
+    sino === 'rayas' ? (
+      <span className="hoja-sino-rayas">
+        <MarcaEnRaya rotulo="SI" marcada={presente === true} ancho={5} />
+        <MarcaEnRaya rotulo="NO" marcada={presente === false} ancho={5} />
+      </span>
+    ) : sino === 'bajoProblema' ? (
+      <span className="hoja-sino">
+        <Casilla marcada={presente === true} rotulo="SI" />
+        <Casilla marcada={presente === false} rotulo="NO" />
+      </span>
+    ) : (
+      <div className="hoja-sino-vertical">
+        <span>SI</span>
+        <Casilla marcada={presente === true} rotulo="SI" soloAccesible />
+        <span>NO</span>
+        <Casilla marcada={presente === false} rotulo="NO" soloAccesible />
+      </div>
+    );
+
   return (
-    <table className="hoja-tabla">
+    <table className={'hoja-tabla hoja-matriz' + (compacta ? ' hoja-matriz--compacta' : '')}>
       <thead>
         <tr>
-          <th className="hoja-encabezado-columna" style={{ width: '24mm' }}>
+          <th
+            className="hoja-encabezado-columna"
+            style={{ width: (anchos.problema ?? (conColumnaSino ? 24 : 30)) + 'mm' }}
+            colSpan={sino === 'rayas' ? 2 : 1}
+          >
             {encabezados.problema}
           </th>
-          <th className="hoja-encabezado-columna" style={{ width: '11mm' }} aria-label="SI o NO" />
+          {sino === 'columna' ? (
+            <th className="hoja-encabezado-columna" style={{ width: '11mm' }} aria-label="SI o NO" />
+          ) : null}
           <th className="hoja-encabezado-columna">{encabezados.evaluar}</th>
-          <th className="hoja-encabezado-columna" style={{ width: '44mm' }}>
+          <th className="hoja-encabezado-columna" style={{ width: (anchos.clasificar ?? 44) + 'mm' }}>
             {encabezados.clasificar}
           </th>
-          <th className="hoja-encabezado-columna hoja-celda-conducta">{encabezados.conducta}</th>
+          <th
+            className="hoja-encabezado-columna hoja-celda-conducta"
+            style={anchos.conducta ? { width: anchos.conducta + 'mm' } : undefined}
+          >
+            {encabezados.conducta}
+          </th>
         </tr>
       </thead>
       <tbody>
@@ -437,49 +477,65 @@ export function MatrizProblemas({
           // «Otro: ____» va con su raya, no en la lista de opciones.
           const diagnosticos = todosLosDx.filter((d) => !d.pideTexto);
           const conTexto = todosLosDx.filter((d) => d.pideTexto);
+          const lleva = !sinSiNo.has(p.nombre);
+          const anotacion = p.etiquetaAnotacion ? (
+            <div style={{ fontWeight: 400 }}>
+              <Campo rotulo={p.etiquetaAnotacion} valor={r?.anotacion} ancho={14} />
+            </div>
+          ) : null;
+          const anotacionEnProblema = anotacion && anotacionAbajo.has(p.nombre);
           return (
-            <tr key={p.id}>
-              <td className="hoja-celda-problema">
+            <tr key={p.id} style={altoFila ? { height: altoFila + 'mm' } : undefined}>
+              <td className="hoja-celda-problema" style={anchos.problema ? { width: anchos.problema + 'mm' } : undefined}>
                 {p.orden}. {p.nombre}
-                {p.etiquetaAnotacion ? (
-                  <div style={{ fontWeight: 400 }}>
-                    <Campo rotulo={p.etiquetaAnotacion} valor={r?.anotacion} ancho={10} />
-                  </div>
-                ) : null}
+                {sino === 'bajoProblema' && lleva ? casillas(presente) : null}
+                {anotacionEnProblema ? anotacion : null}
               </td>
-              {/* SI arriba, NO abajo, centrados en la fila y con las casillas en linea. */}
-              <td className="hoja-celda-sino">
-                <div className="hoja-sino-vertical">
-                  <span>SI</span>
-                  <Casilla marcada={presente === true} rotulo="SI" soloAccesible />
-                  <span>NO</span>
-                  <Casilla marcada={presente === false} rotulo="NO" soloAccesible />
-                </div>
-              </td>
+              {conColumnaSino ? <td className="hoja-celda-sino">{lleva ? casillas(presente) : null}</td> : null}
               <td>
+                {anotacion && !anotacionEnProblema ? anotacion : null}
+                {extraInvestigue?.(p)}
                 {signos.map((s) => (
-                  <Opcion key={s.id} texto={s.texto} marcada={signosMarcados.has(s.texto)} />
+                  <Opcion key={s.id} texto={s.texto} marcada={signosMarcados.has(s.texto)} clase={claseOpciones} />
                 ))}
               </td>
-              <td>
+              <td colSpan={!lleva && conductaPorFila ? 2 : 1}>
                 {diagnosticos.map((d) => (
-                  <Opcion key={d.id} texto={d.texto} marcada={diagnosticosMarcados.has(d.texto)} />
+                  <Opcion
+                    key={d.id}
+                    texto={d.texto}
+                    marcada={diagnosticosMarcados.has(d.texto)}
+                    clase={claseOpciones}
+                  />
                 ))}
-                {conTexto.map((d) => (
-                  <div key={d.id}>
-                    <Campo rotulo={d.texto + ':'} valor={r?.otroDiagnostico} ancho={18} />
-                  </div>
-                ))}
+                {/* «Otro: ____» en adultos; en neonato y ninez el papel pone el texto y debajo un parentesis para escribir. */}
+                {conTexto.map((d) =>
+                  opcionesEnLineas ? (
+                    <div key={d.id}>
+                      <Opcion texto={d.texto} marcada={diagnosticosMarcados.has(d.texto)} clase={claseOpciones} />
+                      <div>
+                        (<Campo valor={r?.otroDiagnostico} ancho={30} />)
+                      </div>
+                    </div>
+                  ) : (
+                    <div key={d.id}>
+                      <Campo rotulo={d.texto + ':'} valor={r?.otroDiagnostico} ancho={18} />
+                    </div>
+                  ),
+                )}
                 {conTexto.length === 0 && r?.otroDiagnostico ? (
                   <div>
                     <Campo rotulo="Otro:" valor={r.otroDiagnostico} ancho={18} />
                   </div>
                 ) : null}
+                {extraClasificar?.(p)}
               </td>
               {conductaPorFila ? (
-                <td className="hoja-celda-conducta">
-                  <span className="hoja-valor">{r?.conducta ?? ''}</span>
-                </td>
+                lleva ? (
+                  <td className="hoja-celda-conducta">
+                    <span className="hoja-valor">{r?.conducta ?? ''}</span>
+                  </td>
+                ) : null
               ) : i === 0 ? (
                 <td className="hoja-celda-conducta" rowSpan={problemas.length}>
                   {columnaConducta}
@@ -500,10 +556,16 @@ export function MatrizProblemas({
 export function ColumnaConducta({
   ficha,
   consejeriaBrindada,
+  lineasReferencia = 1,
+  firma,
 }: {
   ficha: Ficha;
   /** Lo que la hoja pone en «Consejeria brindada»; la de ninez trae casillas. */
   consejeriaBrindada?: ReactNode;
+  /** Cuantas rayas deja el papel bajo «Referencia a:». */
+  lineasReferencia?: number;
+  /** La hoja de ninez cierra la columna con «Nombre de la persona que atendio la consulta:». */
+  firma?: string;
 }) {
   const medicamentos = [0, 1, 2, 3].map((i) => ficha.medicamentos[i] ?? null);
   return (
@@ -543,6 +605,11 @@ export function ColumnaConducta({
         <span className={'hoja-campo-valor' + (ficha.referencia ? ' hoja-valor' : '')}>
           {ficha.referencia ?? ' '}
         </span>
+        {Array.from({ length: lineasReferencia - 1 }, (_, i) => (
+          <span key={i} className="hoja-campo-valor">
+            {' '}
+          </span>
+        ))}
       </div>
       {/*
         En adultos la consejeria va en su propia seccion (X), asi que aqui
@@ -558,13 +625,26 @@ export function ColumnaConducta({
           {fechaConBarras(ficha.fechaProximaVisita)}
         </span>
       </div>
+      {firma ? (
+        <div className="hoja-conducta-bloque" style={{ marginTop: '4mm' }}>
+          <span>{firma}</span>
+          <span className="hoja-campo-valor"> </span>
+          <span className="hoja-campo-valor"> </span>
+        </div>
+      ) : null}
     </div>
   );
 }
 
 // ──────────────────────────────── consejeria ────────────────────────────────
 
-/** La tabla CONSEJERIA / FECHA RECONSULTA de las hojas del neonato y de ninez. */
+/**
+ * La tabla CONSEJERIA / FECHA RECONSULTA de la hoja del neonato.
+ *
+ * El papel no trae casilla: la persona subraya el tema que explico y anota la
+ * fecha. Aqui lo brindado sale subrayado, con la misma convencion que los
+ * hallazgos de la matriz; para el lector de pantalla sigue siendo una casilla.
+ */
 export function TablaConsejeria({ catalogo, ficha }: { catalogo: CatalogoFicha; ficha: Ficha }) {
   const temas = [...catalogo.temasConsejeria].sort((a, b) => a.orden - b.orden);
   return (
@@ -572,20 +652,26 @@ export function TablaConsejeria({ catalogo, ficha }: { catalogo: CatalogoFicha; 
       <thead>
         <tr>
           <th>CONSEJERÍA</th>
-          <th style={{ width: '18mm' }}>Brindada</th>
-          <th style={{ width: '34mm' }}>FECHA RECONSULTA</th>
+          <th style={{ width: '44mm' }}>FECHA RECONSULTA</th>
         </tr>
       </thead>
       <tbody>
         {temas.map((t) => {
           const r = ficha.consejeriaTemas.find((x) => x.temaId === t.id) ?? null;
+          const brindada = r?.brindada === true;
           return (
             <tr key={t.id}>
-              <td>{t.texto}</td>
-              <td className="hoja-centrado">
-                <Casilla marcada={r?.brindada === true} rotulo={t.texto} soloAccesible />
+              <td>
+                <span
+                  className={'hoja-opcion' + (brindada ? ' hoja-opcion--marcada' : '')}
+                  role="checkbox"
+                  aria-checked={brindada}
+                  aria-label={t.texto}
+                >
+                  {t.texto}
+                </span>
               </td>
-              <td className={r?.fechaReconsulta ? 'hoja-valor' : ''}>
+              <td className={'hoja-centrado' + (r?.fechaReconsulta ? ' hoja-valor' : '')}>
                 {r?.fechaReconsulta ? fechaConBarras(r.fechaReconsulta) : ''}
               </td>
             </tr>
