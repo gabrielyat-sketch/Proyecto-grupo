@@ -24,6 +24,7 @@ export enum IdiomaDto {
   ESPANOL = 'ESPANOL',
   POQOMCHI = 'POQOMCHI',
   QEQCHI = 'QEQCHI',
+  ACHI = 'ACHI',
   OTRO = 'OTRO',
 }
 
@@ -45,15 +46,24 @@ export class CarpetaNuevaDto {
 }
 
 export class CrearPacienteDto {
-  @ApiPropertyOptional({
+  /**
+   * El CUI o DPI, y es OBLIGATORIO.
+   *
+   * Era opcional porque los ninos no tienen el carnet del DPI. Pero lo que el
+   * CAP pide no es el carnet, es el numero: el CUI que RENAP asigna al
+   * inscribir el nacimiento es el mismo que despues aparece impreso en el DPI
+   * del adulto, asi que un menor tambien lo tiene.
+   *
+   * Deja fuera a quien no esta inscrito en RENAP. Es una decision del CAP, no
+   * una limitacion tecnica.
+   */
+  @ApiProperty({
     example: '1234567890101',
-    description:
-      'DPI de 13 digitos. OPCIONAL: los ninos y parte de la poblacion rural no lo tienen.',
+    description: 'CUI o DPI de 13 digitos. El CUI del menor sirve igual que el DPI del adulto.',
   })
-  @IsOptional()
   @IsString()
-  @Matches(/^[0-9]{13}$/, { message: 'El DPI debe tener exactamente 13 digitos.' })
-  dpi?: string;
+  @Matches(/^[0-9]{13}$/, { message: 'El CUI o DPI debe tener exactamente 13 digitos.' })
+  dpi!: string;
 
   @ApiProperty({ example: 'Juana Isabel' })
   @IsString()
@@ -152,6 +162,18 @@ export class CrearPacienteDto {
   @IsString()
   @Length(1, 160)
   lugarOrigen?: string;
+
+  /**
+   * Nombre del esposo o conviviente. Lo pregunta la ficha oficial.
+   *
+   * OBLIGATORIO, y el CAP lo pidio asi sabiendo el costo: por este mismo
+   * endpoint se registran recien nacidos, hombres y solteras, y a todos se les
+   * exige ahora una respuesta.
+   */
+  @ApiProperty({ maxLength: 160, description: 'Nombre del esposo o conviviente.' })
+  @IsString()
+  @Length(1, 160)
+  esposo!: string;
 
   /**
    * Si es alergico a algun medicamento.

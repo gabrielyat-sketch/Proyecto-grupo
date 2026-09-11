@@ -67,6 +67,16 @@ export class VisitaEnEsperaDto {
   @ApiProperty({ type: String, nullable: true, example: 'EXP-2026-000123' })
   numeroExpediente!: string | null;
 
+  /**
+   * El numero del folder de carton donde vive el expediente de papel.
+   *
+   * Nulo cuando el paciente todavia no esta en ninguna carpeta: registrar a
+   * alguien sin ella esta permitido, y la pantalla tiene que distinguir «no
+   * tiene» de «no lo sabemos».
+   */
+  @ApiProperty({ type: Number, nullable: true, example: 47 })
+  familiaNumero!: number | null;
+
   @ApiProperty({ format: 'date-time' })
   llegadaEn!: Date;
 

@@ -206,18 +206,37 @@ export function PaginaCarpeta() {
                     <TableCell>{p.sexo}</TableCell>
                     <TableCell>
                       {/*
+                        El NUMERO, y debajo el enlace.
+
+                        Quien abre esta pantalla suele estar a punto de ir al
+                        archivo, y ahi los historiales se piden por su numero:
+                        con solo el enlace habia que entrar a cada integrante
+                        para anotarlos uno por uno.
+
                         La carpeta agrupa personas; las fichas viven en el
                         expediente de cada una. Por eso se sale de aqui hacia
                         el expediente y no hacia una ficha concreta: cual toca
                         depende de la edad y de para que se le atiende.
                       */}
-                      <Link
-                        component={EnlaceRuta}
-                        to={'/pacientes/' + p.id + '/expediente'}
-                        state={desde('/carpetas/' + c.id, 'la carpeta')}
-                      >
-                        Ver expediente
-                      </Link>
+                      <Stack sx={{ gap: 0.25 }}>
+                        {p.numeroExpediente ? (
+                          <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                            {p.numeroExpediente}
+                          </Typography>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">
+                            Sin expediente
+                          </Typography>
+                        )}
+                        <Link
+                          component={EnlaceRuta}
+                          to={'/pacientes/' + p.id + '/expediente'}
+                          state={desde('/carpetas/' + c.id, 'la carpeta')}
+                          variant="body2"
+                        >
+                          Ver expediente
+                        </Link>
+                      </Stack>
                     </TableCell>
                   </TableRow>
                 ))}

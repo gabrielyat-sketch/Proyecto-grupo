@@ -197,22 +197,23 @@ export class PacientesService {
       }
     }
 
-    const dpiIndice = dto.dpi ? this.cifrado.indiceCiego(dto.dpi) : null;
+    // El CUI o DPI es obligatorio, asi que el indice existe siempre y el
+    // control de duplicados se hace en todas las altas, no solo en las que
+    // traian el dato.
+    const dpiIndice = this.cifrado.indiceCiego(dto.dpi);
 
-    if (dpiIndice) {
-      const existe = await this.prisma.paciente.findUnique({
-        where: { dpiIndice: new Uint8Array(dpiIndice) },
-        select: { id: true },
+    const repetido = await this.prisma.paciente.findUnique({
+      where: { dpiIndice: new Uint8Array(dpiIndice) },
+      select: { id: true },
+    });
+    if (repetido) {
+      // El id va en detalles y no como campo suelto: el formato de error es
+      // uno solo en los ocho servicios, y el frontend lo usa para ofrecer
+      // "abrir el expediente existente" en vez de dejar al usuario atascado.
+      throw new ConflictException({
+        mensaje: 'Ya existe un paciente registrado con ese DPI.',
+        detalles: ['pacienteId:' + repetido.id],
       });
-      if (existe) {
-        // El id va en detalles y no como campo suelto: el formato de error es
-        // uno solo en los ocho servicios, y el frontend lo usa para ofrecer
-        // "abrir el expediente existente" en vez de dejar al usuario atascado.
-        throw new ConflictException({
-          mensaje: 'Ya existe un paciente registrado con ese DPI.',
-          detalles: ['pacienteId:' + existe.id],
-        });
-      }
     }
 
     const numero = dto.numeroExpediente?.trim() || (await this.siguienteNumeroExpediente());
@@ -263,8 +264,8 @@ export class PacientesService {
 
       const paciente = await tx.paciente.create({
         data: {
-          dpiCifrado: dto.dpi ? new Uint8Array(this.cifrado.cifrar(dto.dpi)) : null,
-          dpiIndice: dpiIndice ? new Uint8Array(dpiIndice) : null,
+          dpiCifrado: new Uint8Array(this.cifrado.cifrar(dto.dpi)),
+          dpiIndice: new Uint8Array(dpiIndice),
           nombres: dto.nombres.trim(),
           apellidos: dto.apellidos.trim(),
           nombreBusqueda: textoDeBusqueda(dto.apellidos, dto.nombres),
@@ -277,6 +278,7 @@ export class PacientesService {
           lugarId: dto.lugarId,
           migrante: dto.migrante ?? false,
           lugarOrigen: dto.lugarOrigen?.trim(),
+          esposo: dto.esposo.trim(),
           // Sin enviarlo queda en null: "no se ha preguntado", que no es lo
           // mismo que "no tiene".
           tieneAlergias: dto.tieneAlergias,

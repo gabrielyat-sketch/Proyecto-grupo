@@ -1,11 +1,13 @@
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { crearPagina, normalizarPagina } from '@cap/shared';
+import { ServicioCifrado, crearPagina, normalizarPagina } from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { SERVICIO_CIFRADO } from '../comun/cifrado.module';
 import { PacientesService } from '../pacientes/pacientes.service';
 import { CrearGrupoDto } from './dto/crear-grupo.dto';
 import { ConsultarGruposDto } from './dto/consultar-grupos.dto';
@@ -25,7 +27,10 @@ import { serieDe } from './serie';
  */
 @Injectable()
 export class GruposService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(SERVICIO_CIFRADO) private readonly cifrado: ServicioCifrado,
+  ) {}
 
   async listar(consulta: ConsultarGruposDto) {
     const { tamano, saltar } = normalizarPagina(consulta);
@@ -100,6 +105,11 @@ export class GruposService {
             fechaNacimiento: true,
             sexo: true,
             fallecido: true,
+            // El numero del expediente de cada integrante. Va cifrado en la
+            // base, asi que se trae el sobre y se abre abajo: quien va al
+            // archivo a sacar las carpetas necesita LEER los numeros, no
+            // entrar uno por uno a cada expediente para verlos.
+            expediente: { select: { numeroCifrado: true } },
           },
         },
       },
@@ -114,9 +124,15 @@ export class GruposService {
       telefono: g.telefono,
       comunidad: g.comunidad,
       lugar: g.lugar,
-      integrantes: g.pacientes.map((p) => ({
+      integrantes: g.pacientes.map(({ expediente, ...p }) => ({
         ...p,
         edad: PacientesService.edad(p.fechaNacimiento),
+        // null cuando el paciente todavia no tiene expediente abierto. La
+        // pantalla lo dice; inventar un guion ahi seria un numero que nadie
+        // puede buscar en el archivo.
+        numeroExpediente: expediente
+          ? this.cifrado.descifrar(Buffer.from(expediente.numeroCifrado))
+          : null,
       })),
     };
   }
