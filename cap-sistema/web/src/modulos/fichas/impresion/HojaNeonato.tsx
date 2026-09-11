@@ -1,7 +1,14 @@
 import type { Ficha } from '../../expedientes/servicio-expedientes';
 import type { AntecedentesPaciente, CatalogoFicha, Paciente } from '../servicio-fichas';
 import { SERVICIO_DE_SALUD } from '../servicio-fichas';
-import { GrupoAntecedentes, MatrizProblemas, SignosPeligroCasillas, TablaConsejeria } from './Bloques';
+import {
+  AntecedentesRestantes,
+  LineaAntecedente,
+  MatrizProblemas,
+  SiNoAntecedente,
+  SignosPeligroCasillas,
+  TablaConsejeria,
+} from './Bloques';
 import {
   Barra,
   Campo,
@@ -21,6 +28,11 @@ import {
 } from './Hoja';
 
 const QUIEN_ATENDIO = ['MD', 'EP', 'AE', 'CT'] as const;
+
+/** Los antecedentes maternos, en el orden y las filas del papel. */
+const MEDICOS_MATERNOS = ['MAT_DIABETES', 'MAT_HIPERTENSION', 'MAT_TB', 'MAT_ITS', 'MAT_VIH_SIDA'];
+const HABITOS_MATERNOS = ['MAT_FUMA', 'MAT_ALCOHOL', 'MAT_DROGAS'];
+const COLOCADOS = [...MEDICOS_MATERNOS, 'MAT_MEDICAMENTO', 'MAT_OTRO', ...HABITOS_MATERNOS, 'MAT_QUIRURGICOS'];
 const TIPOS_DE_PARTO: { clave: string; texto: string }[] = [
   { clave: 'NORMAL', texto: 'Normal' },
   { clave: 'CESAREA', texto: 'Cesárea' },
@@ -128,18 +140,24 @@ export function HojaNeonato({
         />
         <Cuadro>
           <div className="hoja-negrita">Antecedentes Maternos:</div>
-          <div className="hoja-negrita" style={{ marginTop: '0.5mm' }}>
-            Médicos:
-          </div>
-          <GrupoAntecedentes catalogo={catalogo} antecedentes={antecedentes} grupo="MEDICO" />
-          <div className="hoja-negrita" style={{ marginTop: '0.5mm' }}>
-            Hábitos:
-          </div>
-          <GrupoAntecedentes catalogo={catalogo} antecedentes={antecedentes} grupo="HABITO" />
-          <GrupoAntecedentes catalogo={catalogo} antecedentes={antecedentes} grupo="FAMILIAR" />
           <Fila>
-            <Campo rotulo="Quirúrgicos:" valor={null} llena />
+            <span className="hoja-negrita">Médicos:</span>
+            {MEDICOS_MATERNOS.map((c) => (
+              <SiNoAntecedente key={c} catalogo={catalogo} antecedentes={antecedentes} codigo={c} />
+            ))}
           </Fila>
+          <Fila>
+            <SiNoAntecedente catalogo={catalogo} antecedentes={antecedentes} codigo="MAT_MEDICAMENTO" />
+          </Fila>
+          <LineaAntecedente catalogo={catalogo} antecedentes={antecedentes} codigo="MAT_OTRO" rotulo="Otro antecedente" />
+          <Fila>
+            <span className="hoja-negrita">Hábitos:</span>
+            {HABITOS_MATERNOS.map((c) => (
+              <SiNoAntecedente key={c} catalogo={catalogo} antecedentes={antecedentes} codigo={c} />
+            ))}
+          </Fila>
+          <LineaAntecedente catalogo={catalogo} antecedentes={antecedentes} codigo="MAT_QUIRURGICOS" rotulo="Quirúrgicos:" />
+          <AntecedentesRestantes catalogo={catalogo} antecedentes={antecedentes} colocados={COLOCADOS} />
 
           <div className="hoja-negrita" style={{ marginTop: '1mm' }}>
             Antecedentes del Parto:

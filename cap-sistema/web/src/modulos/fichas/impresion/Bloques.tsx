@@ -119,19 +119,172 @@ function respuestaAntecedente(antecedentes: AntecedentesPaciente | null, anteced
   return antecedentes?.marcados.find((m) => m.antecedenteId === antecedenteId) ?? null;
 }
 
+/** Lo que hay que saber de un antecedente para dibujarlo: su fila del catalogo y su respuesta. */
+function antecedentePorCodigo(
+  catalogo: CatalogoFicha,
+  antecedentes: AntecedentesPaciente | null,
+  codigo: string,
+) {
+  const a = catalogo.antecedentes.find((x) => x.codigo === codigo) ?? null;
+  const r = a ? respuestaAntecedente(antecedentes, a.id) : null;
+  const valor = r === null ? null : r.respuesta === 'SI' ? true : r.respuesta === 'NO' ? false : null;
+  return { a, r, valor };
+}
+
+/** Lo corto que acompana a un antecedente en su misma linea: «# ___». */
+function ExtrasCortos({ a, r }: { a: CatalogoFicha['antecedentes'][number]; r: ReturnType<typeof respuestaAntecedente> }) {
+  return a.pideNumero ? <Campo rotulo="#" valor={r?.numero} ancho={7} /> : null;
+}
+
+const tieneExtrasLargos = (a: CatalogoFicha['antecedentes'][number]) =>
+  a.pideDetalle || a.pideFecha || a.permiteNoAplica;
+
+/** Lo que va en su propio renglon: «Cual: ____», «Fecha: __/__/__», «No aplica». */
+function ExtrasLargos({ a, r }: { a: CatalogoFicha['antecedentes'][number]; r: ReturnType<typeof respuestaAntecedente> }) {
+  return (
+    <>
+      {a.pideDetalle ? <Campo rotulo="Cuál:" valor={r?.detalle} llena /> : null}
+      {a.pideFecha ? (
+        <Campo rotulo="Fecha:" valor={r?.fecha ? fechaConBarras(r.fecha) : null} llena />
+      ) : null}
+      {a.permiteNoAplica ? <Casilla marcada={r?.respuesta === 'NO_APLICA'} rotulo="No aplica" /> : null}
+    </>
+  );
+}
+
 /**
- * Un grupo de antecedentes del catalogo con lo que el paciente tiene marcado.
+ * Antecedentes en columnas, cada uno donde lo pone el papel.
+ *
+ * `codigos` son las columnas, y dentro de cada una el orden de arriba abajo,
+ * copiados de la hoja oficial. Dentro de cada columna las casillas de SI y
+ * de NO forman su propia columna: el texto a la izquierda con lo que mida y
+ * los cuadritos alineados uno debajo del otro. Un codigo que el catalogo no
+ * tenga se salta sin dejar hueco.
  *
  * Los antecedentes son del PACIENTE, no de la consulta: se imprimen los que
- * tiene hoy. Los que piden detalle, fecha o numero llevan su raya al lado,
- * como en el papel («Toma medicamentos: SI NO Cual: ____»).
- *
- * Van en columnas que se leen de arriba abajo, como el papel, y dentro de
- * cada columna las casillas de SI y de NO forman su propia columna: el texto
- * a la izquierda con lo que mida, y los cuadritos alineados uno debajo del
- * otro. Con las casillas pegadas al final de cada texto quedaban a distinta
- * altura segun el largo del nombre, y la hoja dejaba de parecer el formulario.
+ * tiene hoy.
  */
+export function ColumnasAntecedentes({
+  catalogo,
+  antecedentes,
+  codigos,
+  anchos,
+}: {
+  catalogo: CatalogoFicha;
+  antecedentes: AntecedentesPaciente | null;
+  codigos: string[][];
+  /** Proporciones de las columnas, como en el papel; iguales si no se dan. */
+  anchos?: string;
+}) {
+  const n = codigos.length as 2 | 3;
+  return (
+    <Columnas n={n} anchos={anchos}>
+      {codigos.map((columna, i) => (
+        <div key={i} className="hoja-lista-sino">
+          {columna.map((codigo) => {
+            const { a, r, valor } = antecedentePorCodigo(catalogo, antecedentes, codigo);
+            if (!a) return null;
+            return (
+              <div key={a.id} className="hoja-lista-sino-fila" role="group" aria-label={a.texto}>
+                <span>{a.texto}</span>
+                <span className="hoja-lista-sino-casilla">
+                  <Casilla marcada={valor === true} rotulo="SI" />
+                </span>
+                <span className="hoja-lista-sino-casilla">
+                  <Casilla marcada={valor === false} rotulo="NO" />
+                </span>
+                <span className="hoja-lista-sino-corto">
+                  <ExtrasCortos a={a} r={r} />
+                </span>
+                {tieneExtrasLargos(a) ? (
+                  <span className="hoja-lista-sino-extra">
+                    <ExtrasLargos a={a} r={r} />
+                  </span>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </Columnas>
+  );
+}
+
+/** Un antecedente en linea, «Texto SI [ ] NO [ ] Cual: ____», para las filas sueltas del papel. */
+export function SiNoAntecedente({
+  catalogo,
+  antecedentes,
+  codigo,
+  rotulo,
+}: {
+  catalogo: CatalogoFicha;
+  antecedentes: AntecedentesPaciente | null;
+  codigo: string;
+  /** Si el papel lo llama distinto que el catalogo. */
+  rotulo?: string;
+}) {
+  const { a, r, valor } = antecedentePorCodigo(catalogo, antecedentes, codigo);
+  if (!a) return null;
+  return (
+    <span className="hoja-sino" role="group" aria-label={a.texto}>
+      <span>{rotulo ?? a.texto}</span>
+      <Casilla marcada={valor === true} rotulo="SI" />
+      <Casilla marcada={valor === false} rotulo="NO" />
+      <ExtrasCortos a={a} r={r} />
+      {a.permiteNoAplica ? <Casilla marcada={r?.respuesta === 'NO_APLICA'} rotulo="No aplica" /> : null}
+      {a.pideDetalle ? <Campo rotulo="Cuál:" valor={r?.detalle} ancho={24} /> : null}
+      {a.pideFecha ? (
+        <Campo rotulo="Fecha de última dosis:" valor={r?.fecha ? fechaConBarras(r.fecha) : null} ancho={20} />
+      ) : null}
+    </span>
+  );
+}
+
+/** Un antecedente que en el papel es solo una raya: «Quirurgicos: ____». */
+export function LineaAntecedente({
+  catalogo,
+  antecedentes,
+  codigo,
+  rotulo,
+}: {
+  catalogo: CatalogoFicha;
+  antecedentes: AntecedentesPaciente | null;
+  codigo: string;
+  rotulo: string;
+}) {
+  const { a, r } = antecedentePorCodigo(catalogo, antecedentes, codigo);
+  return (
+    <Fila>
+      <Campo rotulo={rotulo} valor={a ? r?.detalle : null} llena />
+    </Fila>
+  );
+}
+
+/**
+ * Lo que el catalogo tenga y la hoja no haya colocado a mano.
+ *
+ * Si el CAP anade un antecedente nuevo al catalogo, sale aqui —al final del
+ * grupo, en columnas— en vez de perderse. La hoja deja de ser identica al
+ * papel en ese renglon, que es preferible a imprimir un dato de menos.
+ */
+export function AntecedentesRestantes({
+  catalogo,
+  antecedentes,
+  colocados,
+}: {
+  catalogo: CatalogoFicha;
+  antecedentes: AntecedentesPaciente | null;
+  colocados: string[];
+}) {
+  const puestos = new Set(colocados);
+  const restantes = catalogo.antecedentes.filter((a) => !puestos.has(a.codigo)).sort((a, b) => a.orden - b.orden);
+  if (restantes.length === 0) return null;
+  const porColumna = Math.ceil(restantes.length / 3);
+  const codigos = [0, 1, 2].map((i) => restantes.slice(i * porColumna, (i + 1) * porColumna).map((a) => a.codigo));
+  return <ColumnasAntecedentes catalogo={catalogo} antecedentes={antecedentes} codigos={codigos} />;
+}
+
+/** Compatibilidad: un grupo entero repartido en columnas, en el orden del catalogo. */
 export function GrupoAntecedentes({
   catalogo,
   antecedentes,
@@ -146,51 +299,10 @@ export function GrupoAntecedentes({
   const lista = catalogo.antecedentes.filter((a) => a.grupo === grupo).sort((a, b) => a.orden - b.orden);
   if (lista.length === 0) return null;
   const porColumna = Math.ceil(lista.length / columnas);
-  const grupos = Array.from({ length: columnas }, (_, i) =>
-    lista.slice(i * porColumna, (i + 1) * porColumna),
+  const codigos = Array.from({ length: columnas }, (_, i) =>
+    lista.slice(i * porColumna, (i + 1) * porColumna).map((a) => a.codigo),
   );
-  return (
-    <Columnas n={columnas}>
-      {grupos.map((g, i) => (
-        <div key={i} className="hoja-lista-sino">
-          {g.map((a) => {
-            const r = respuestaAntecedente(antecedentes, a.id);
-            const valor = r === null ? null : r.respuesta === 'SI' ? true : r.respuesta === 'NO' ? false : null;
-            return (
-              <div key={a.id} className="hoja-lista-sino-fila" role="group" aria-label={a.texto}>
-                <span>{a.texto}</span>
-                <span className="hoja-lista-sino-casilla">
-                  <Casilla marcada={valor === true} rotulo="SI" />
-                </span>
-                <span className="hoja-lista-sino-casilla">
-                  <Casilla marcada={valor === false} rotulo="NO" />
-                </span>
-                {/*
-                  Lo corto («# ___», «No aplica») va al lado, en su columna;
-                  lo que necesita raya larga («Cual», «Fecha») va en su propio
-                  renglon debajo. Ninguno mueve las casillas.
-                */}
-                <span className="hoja-lista-sino-corto">
-                  {a.pideNumero ? <Campo rotulo="#" valor={r?.numero} ancho={7} /> : null}
-                  {a.permiteNoAplica ? (
-                    <Casilla marcada={r?.respuesta === 'NO_APLICA'} rotulo="No aplica" />
-                  ) : null}
-                </span>
-                {a.pideDetalle || a.pideFecha ? (
-                  <span className="hoja-lista-sino-extra">
-                    {a.pideDetalle ? <Campo rotulo="Cuál:" valor={r?.detalle} llena /> : null}
-                    {a.pideFecha ? (
-                      <Campo rotulo="Fecha:" valor={r?.fecha ? fechaConBarras(r.fecha) : null} llena />
-                    ) : null}
-                  </span>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-      ))}
-    </Columnas>
-  );
+  return <ColumnasAntecedentes catalogo={catalogo} antecedentes={antecedentes} codigos={codigos} />;
 }
 
 /** El bloque gineco-obstetrico de la hoja de adultos y de la prenatal. */

@@ -3,7 +3,14 @@ import type { Ficha } from '../../expedientes/servicio-expedientes';
 import { presion } from '../../expedientes/servicio-expedientes';
 import type { AntecedentesPaciente, CatalogoFicha, Paciente } from '../servicio-fichas';
 import { SERVICIO_DE_SALUD } from '../servicio-fichas';
-import { AntecedentesObstetricos, GrupoAntecedentes, SignosPeligroSiNo } from './Bloques';
+import {
+  AntecedentesObstetricos,
+  AntecedentesRestantes,
+  ColumnasAntecedentes,
+  LineaAntecedente,
+  SiNoAntecedente,
+  SignosPeligroSiNo,
+} from './Bloques';
 import {
   Barra,
   Campo,
@@ -21,6 +28,26 @@ import {
   kgALibras,
   siNoTexto,
 } from './Hoja';
+
+/** Donde pone la hoja prenatal cada antecedente medico: dos columnas y luego filas sueltas. */
+const MEDICOS = [
+  ['MED_ASMA', 'MED_HIPERTENSION', 'MED_CANCER', 'MED_ITS', 'MED_CHAGAS'],
+  ['MED_DIABETES', 'MED_CARDIOPATIA', 'MED_TB', 'MED_NEUROPATIA', 'MED_INF_URINARIAS'],
+];
+const EN_FILAS = [
+  'MED_MEDICAMENTOS',
+  'MED_PSICOSOCIAL',
+  'MED_VIOLENCIA_INTRAFAMILIAR',
+  'MED_VIOLENCIA_GENERO',
+  'MED_QUIRURGICOS',
+  'HAB_FUMA',
+  'HAB_ALCOHOL',
+  'HAB_DROGAS',
+  'MED_VACUNA_TD',
+  'MED_SR',
+  'MED_OTROS',
+];
+const COLOCADOS = [...MEDICOS.flat(), ...EN_FILAS];
 
 const QUIEN_ATENDIO: Record<string, string> = {
   MD: 'Médico',
@@ -184,18 +211,28 @@ export function HojaPrenatal({
           <div className="hoja-negrita" style={{ marginTop: '1mm' }}>
             MÉDICOS
           </div>
-          <GrupoAntecedentes catalogo={catalogo} antecedentes={antecedentes} grupo="MEDICO" />
-          <GrupoAntecedentes catalogo={catalogo} antecedentes={antecedentes} grupo="FAMILIAR" />
+          <ColumnasAntecedentes catalogo={catalogo} antecedentes={antecedentes} codigos={MEDICOS} />
           <Fila>
-            <Campo rotulo="Quirúrgicos:" valor={null} llena />
+            <SiNoAntecedente catalogo={catalogo} antecedentes={antecedentes} codigo="MED_MEDICAMENTOS" />
           </Fila>
-          <div className="hoja-negrita" style={{ marginTop: '0.5mm' }}>
-            Hábitos:
-          </div>
-          <GrupoAntecedentes catalogo={catalogo} antecedentes={antecedentes} grupo="HABITO" />
           <Fila>
-            <Campo rotulo="Otros antecedentes:" valor={null} llena />
+            <SiNoAntecedente catalogo={catalogo} antecedentes={antecedentes} codigo="MED_PSICOSOCIAL" rotulo="Trastorno Psico social" />
+            <SiNoAntecedente catalogo={catalogo} antecedentes={antecedentes} codigo="MED_VIOLENCIA_INTRAFAMILIAR" />
+            <SiNoAntecedente catalogo={catalogo} antecedentes={antecedentes} codigo="MED_VIOLENCIA_GENERO" />
           </Fila>
+          <LineaAntecedente catalogo={catalogo} antecedentes={antecedentes} codigo="MED_QUIRURGICOS" rotulo="Quirúrgicos:" />
+          <Fila>
+            <span className="hoja-negrita">Hábitos:</span>
+            <SiNoAntecedente catalogo={catalogo} antecedentes={antecedentes} codigo="HAB_FUMA" />
+            <SiNoAntecedente catalogo={catalogo} antecedentes={antecedentes} codigo="HAB_ALCOHOL" />
+            <SiNoAntecedente catalogo={catalogo} antecedentes={antecedentes} codigo="HAB_DROGAS" />
+          </Fila>
+          <Fila>
+            <SiNoAntecedente catalogo={catalogo} antecedentes={antecedentes} codigo="MED_VACUNA_TD" />
+            <SiNoAntecedente catalogo={catalogo} antecedentes={antecedentes} codigo="MED_SR" />
+          </Fila>
+          <LineaAntecedente catalogo={catalogo} antecedentes={antecedentes} codigo="MED_OTROS" rotulo="Otros antecedentes:" />
+          <AntecedentesRestantes catalogo={catalogo} antecedentes={antecedentes} colocados={COLOCADOS} />
         </Cuadro>
       </Pliego>
 
