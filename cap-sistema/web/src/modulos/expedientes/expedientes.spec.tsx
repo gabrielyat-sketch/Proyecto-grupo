@@ -314,10 +314,10 @@ describe('el expediente de un paciente', () => {
   });
 
   /**
-   * Imprimir abre otra pestana: quien imprime vuelve al expediente sin
-   * haberlo perdido, y el dialogo de impresion no tapa el historial.
+   * Imprimir va en la MISMA pestana: la sesion vive solo en memoria de la
+   * pestana, y una nueva naceria sin sesion y pediria entrar otra vez.
    */
-  it('cada ficha ofrece imprimirse como la hoja oficial, en otra pestana', async () => {
+  it('cada ficha ofrece imprimirse como la hoja oficial, sin cambiar de pestana', async () => {
     servidor({ historial: [atencion(1), atencion(2, { tipoFicha: 'ADULTO' })] });
     abrir(MEDICO, '/pacientes/p-1/expediente');
     await esperar();
@@ -326,7 +326,7 @@ describe('el expediente de un paciente', () => {
     const imprimir = screen.getAllByRole('link', { name: 'Imprimir' });
     expect(imprimir).toHaveLength(1);
     expect(imprimir[0]).toHaveAttribute('href', '/pacientes/p-1/fichas/a-2/imprimir');
-    expect(imprimir[0]).toHaveAttribute('target', '_blank');
+    expect(imprimir[0]).not.toHaveAttribute('target');
   });
 
   it('la ficha completa se pide al abrirla, no antes', async () => {

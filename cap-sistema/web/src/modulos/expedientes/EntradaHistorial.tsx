@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Link as EnlaceRuta } from 'react-router-dom';
 import { Box, Button, Chip, CircularProgress, Divider, Stack, Typography } from '@mui/material';
 import PrintIcon from '@mui/icons-material/Print';
 import { AvisoError } from '../../componentes/AvisoError';
@@ -154,16 +155,16 @@ export function EntradaHistorial({
               {abierta ? 'Ocultar la ficha' : 'Ver la ficha completa'}
             </Button>
             {/*
-              Se abre en otra pestana: quien imprime vuelve al expediente sin
-              haberlo perdido, y el dialogo de impresion no tapa el historial.
+              En la MISMA pestana. La sesion vive solo en memoria de la
+              pestana —nada en localStorage, a proposito—, asi que una
+              pestana nueva nace sin sesion y pide entrar otra vez. La hoja
+              trae su boton para volver al expediente.
             */}
             {pacienteId ? (
               <Button
                 size="small"
-                component="a"
-                href={'/pacientes/' + pacienteId + '/fichas/' + atencion.id + '/imprimir'}
-                target="_blank"
-                rel="noopener"
+                component={EnlaceRuta}
+                to={'/pacientes/' + pacienteId + '/fichas/' + atencion.id + '/imprimir'}
                 startIcon={<PrintIcon />}
                 sx={{ px: 0, minWidth: 0 }}
               >
