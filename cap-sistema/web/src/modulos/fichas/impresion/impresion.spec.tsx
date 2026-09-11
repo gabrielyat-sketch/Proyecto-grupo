@@ -341,7 +341,8 @@ describe('la ficha de adulto impresa', () => {
     abrir();
 
     const hoja1 = await esperarHoja(/hoja 1/);
-    const diabetes = within(hoja1).getByLabelText('Diabetes');
+    // Diabetes esta dos veces en la hoja: en MEDICOS y en FAMILIARES. La primera es la del paciente.
+    const diabetes = within(hoja1).getAllByLabelText('Diabetes')[0];
     expect(marcada(diabetes, 'SI')).toBe(true);
     expect(within(hoja1).getByText('Metformina')).toBeInTheDocument();
     // Lo que no se ha registrado queda con las dos casillas vacias.
