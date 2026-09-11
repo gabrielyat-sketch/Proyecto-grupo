@@ -329,12 +329,13 @@ export function MatrizProblemas({
                   </div>
                 ) : null}
               </td>
+              {/* SI arriba, NO abajo, centrados en la fila y con las casillas en linea. */}
               <td className="hoja-celda-sino">
-                <div>
-                  <Casilla marcada={presente === true} rotulo="SI" />
-                </div>
-                <div>
-                  <Casilla marcada={presente === false} rotulo="NO" />
+                <div className="hoja-sino-vertical">
+                  <span>SI</span>
+                  <Casilla marcada={presente === true} rotulo="SI" soloAccesible />
+                  <span>NO</span>
+                  <Casilla marcada={presente === false} rotulo="NO" soloAccesible />
                 </div>
               </td>
               <td>

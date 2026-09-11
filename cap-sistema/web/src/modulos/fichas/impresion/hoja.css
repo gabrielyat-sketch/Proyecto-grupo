@@ -375,6 +375,16 @@
 .hoja-tabla .hoja-celda-sino {
   width: 11mm;
   white-space: nowrap;
+  vertical-align: middle;
+}
+
+/* «SI □» sobre «NO □», con los cuadritos uno debajo del otro. */
+.hoja-sino-vertical {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  column-gap: 1mm;
+  row-gap: 0.8mm;
+  align-items: center;
 }
 
 .hoja-tabla .hoja-celda-conducta {
