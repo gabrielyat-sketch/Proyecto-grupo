@@ -1,0 +1,705 @@
+/*
+ * La hoja oficial del MSPAS, en pantalla y en papel.
+ *
+ * Aqui no manda el tema del panel: manda el formulario impreso. Es Arial —la
+ * letra del papel— a 8 puntos, barras negras con numeral romano, casillas
+ * cuadradas y rayas para escribir. Todo en negro sobre blanco, porque el CAP
+ * imprime en blanco y negro y porque lo que sale de aqui se engrapa en un
+ * expediente de papel junto a hojas llenadas a mano: tiene que reconocerse
+ * como la misma ficha.
+ *
+ * Medidas en milimetros y puntos, no en pixeles: son las unidades del papel, y
+ * el navegador las respeta al imprimir. La hoja es OFICIO (21.6 x 33 cm), que
+ * es la que usa el CAP; el formulario original esta maquetado en A4/carta y
+ * cabe con margen.
+ */
+
+@page {
+  size: 216mm 330mm;
+  margin: 0;
+}
+
+/* La grafica de peso de la ficha de ninez va de lado, como en el papel. */
+@page apaisada {
+  size: 330mm 216mm;
+  margin: 0;
+}
+
+/* ─── La vista en pantalla: las hojas sobre una mesa gris ─────────────── */
+
+.hoja-vista {
+  background: #d9dde0;
+  min-height: 100vh;
+  padding: 16px 16px 48px;
+  /* La hoja mide 21.6 cm; en una pantalla mas angosta se desplaza, no se rompe. */
+  overflow-x: auto;
+}
+
+.hoja-barra-herramientas {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: -16px -16px 16px;
+  padding: 10px 16px;
+  background: #ffffff;
+  border-bottom: 1px solid #b8bec2;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* ─── El pliego ───────────────────────────────────────────────────────── */
+
+.hoja-pliego {
+  box-sizing: border-box;
+  width: 216mm;
+  min-height: 330mm;
+  margin: 0 auto 12mm;
+  padding: 7mm 10mm;
+  background: #ffffff;
+  color: #000000;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  font-family: Arial, Helvetica, 'Liberation Sans', sans-serif;
+  font-size: 7.7pt;
+  line-height: 1.2;
+  page-break-after: always;
+  break-after: page;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.hoja-pliego:last-child {
+  page-break-after: auto;
+  break-after: auto;
+}
+
+.hoja-pliego--apaisada {
+  page: apaisada;
+  width: 330mm;
+  min-height: 216mm;
+}
+
+.hoja-pliego * {
+  box-sizing: border-box;
+}
+
+/* ─── Encabezado ──────────────────────────────────────────────────────── */
+
+.hoja-encabezado {
+  display: grid;
+  grid-template-columns: 34mm 1fr 34mm;
+  gap: 3mm;
+  align-items: start;
+  margin-bottom: 2.5mm;
+}
+
+.hoja-titulo {
+  text-align: center;
+  font-size: 12.5pt;
+  font-weight: 700;
+  line-height: 1.15;
+  padding-top: 1mm;
+}
+
+.hoja-titulo small {
+  display: block;
+  font-size: 10pt;
+  font-weight: 700;
+}
+
+/* Los emblemas del papel (DRPAP, SIAS, MSPAS) en texto: no hay logos en negro. */
+.hoja-emblema {
+  border: 0.3mm solid #000;
+  padding: 1mm 1.5mm;
+  font-size: 6pt;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.hoja-emblema b {
+  display: block;
+  font-size: 8.5pt;
+  letter-spacing: 0.08em;
+}
+
+/*
+ * Los logos en imagen: caben en su columna del encabezado y se imprimen a color.
+ * El alto es el mismo que tenian los emblemas en texto, para que el cuerpo de la
+ * hoja no se mueva ni un milimetro.
+ */
+.hoja-logo {
+  display: block;
+  width: 100%;
+  max-height: 16.272mm;
+  object-fit: contain;
+  object-position: center top;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.hoja-cabecera-datos {
+  display: flex;
+  justify-content: space-between;
+  gap: 4mm;
+  margin-bottom: 2mm;
+}
+
+.hoja-recuadro {
+  border: 0.35mm solid #000;
+  padding: 1.2mm 2mm;
+  display: flex;
+  gap: 2mm;
+  align-items: baseline;
+  font-weight: 700;
+}
+
+/* ─── Barras de seccion ───────────────────────────────────────────────── */
+
+.hoja-barra {
+  background: #000000;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 8.5pt;
+  text-transform: uppercase;
+  padding: 0.5mm 2mm;
+  margin-top: 1.4mm;
+  width: 78%;
+  display: flex;
+  gap: 3mm;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.hoja-barra--ancha {
+  width: 100%;
+}
+
+.hoja-barra--corta {
+  width: auto;
+  display: inline-flex;
+  padding-right: 4mm;
+}
+
+.hoja-barra-nota {
+  font-weight: 400;
+  text-transform: none;
+  color: #ffffff;
+}
+
+/* ─── Cuadros y filas ─────────────────────────────────────────────────── */
+
+.hoja-cuadro {
+  border: 0.35mm solid #000;
+  padding: 1mm 2mm;
+  margin-bottom: 0.3mm;
+}
+
+.hoja-cuadro--pegado {
+  margin-top: -0.35mm;
+}
+
+.hoja-fila {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1mm 5mm;
+  align-items: baseline;
+  margin: 0.4mm 0;
+}
+
+.hoja-fila--sin-envolver {
+  flex-wrap: nowrap;
+}
+
+/* Las casillas del establecimiento repartidas a lo ancho, como en el papel. */
+.hoja-fila--repartida {
+  justify-content: space-between;
+  padding: 0 4mm;
+}
+
+/* Lo que el papel trae en fondo gris. Se imprime tal cual. */
+.hoja-sombreado {
+  background: #d4d4d4;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.hoja-cursiva {
+  font-style: italic;
+}
+
+.hoja-centrado {
+  text-align: center;
+}
+
+/* ─── La flecha del papel del neonato ─────────────────────────────────── */
+
+.hoja-flecha {
+  position: relative;
+  padding: 2mm 9mm 2mm 3mm;
+  font-weight: 700;
+  min-height: 12mm;
+  display: flex;
+  align-items: center;
+}
+
+.hoja-flecha--centrada .hoja-flecha-texto {
+  text-align: center;
+  width: 100%;
+}
+
+.hoja-flecha-contorno {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hoja-flecha-contorno polygon {
+  fill: none;
+  stroke: #000;
+  stroke-width: 0.35mm;
+}
+
+.hoja-flecha-texto {
+  position: relative;
+}
+
+.hoja-columnas {
+  display: grid;
+  gap: 0 6mm;
+}
+
+.hoja-columnas--2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.hoja-columnas--3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.hoja-nota {
+  font-size: 7pt;
+}
+
+.hoja-negrita {
+  font-weight: 700;
+}
+
+.hoja-subtitulo {
+  display: inline-block;
+  border: 0.3mm solid #000;
+  padding: 0.2mm 2mm;
+  font-weight: 700;
+  font-size: 7.5pt;
+  margin: 0.6mm 0 0.3mm;
+}
+
+/* ─── Un campo con su raya ────────────────────────────────────────────── */
+
+.hoja-campo {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 1mm;
+  min-width: 0;
+}
+
+.hoja-campo--llena {
+  flex: 1 1 auto;
+}
+
+.hoja-campo-rotulo {
+  white-space: nowrap;
+}
+
+.hoja-campo-valor {
+  display: inline-block;
+  border-bottom: 0.25mm solid #000;
+  min-width: 14mm;
+  padding: 0 1mm;
+  line-height: 1.35;
+  flex: 1 1 auto;
+}
+
+/*
+ * Lo que se lleno va en negrita. En el papel, lo escrito a mano se distingue
+ * de lo impreso por la letra; aqui todo sale de la misma impresora, y sin esta
+ * marca un valor y un rotulo se confunden.
+ */
+.hoja-valor {
+  font-weight: 700;
+}
+
+/* ─── Casillas ────────────────────────────────────────────────────────── */
+
+.hoja-casilla {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8mm;
+  white-space: nowrap;
+}
+
+.hoja-caja {
+  display: inline-block;
+  width: 3.2mm;
+  height: 3.2mm;
+  border: 0.3mm solid #000;
+  vertical-align: middle;
+  text-align: center;
+  font-size: 8pt;
+  font-weight: 700;
+  line-height: 2.6mm;
+  flex-shrink: 0;
+}
+
+.hoja-caja--marcada::before {
+  content: 'X';
+}
+
+.hoja-sino {
+  display: inline-flex;
+  gap: 1.5mm;
+  align-items: center;
+  white-space: nowrap;
+}
+
+/* ─── Listas de SI / NO en columna ────────────────────────────────────── */
+
+/*
+ * Texto a la izquierda, y las casillas de SI y de NO cada una en su propia
+ * columna, alineadas de arriba abajo como en el papel. Es una cuadricula y
+ * no una tabla para que las filas con «Cual: ____» puedan estirar la ultima
+ * columna sin mover las casillas.
+ */
+.hoja-lista-sino {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  column-gap: 1.5mm;
+  row-gap: 0.3mm;
+  align-items: baseline;
+  /* Sin esto, la columna mas corta reparte el sobrante entre sus filas y se ve espaciada. */
+  align-content: start;
+}
+
+.hoja-lista-sino-fila {
+  display: contents;
+}
+
+.hoja-lista-sino-casilla {
+  display: inline-flex;
+  gap: 0.8mm;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.hoja-lista-sino-corto {
+  display: inline-flex;
+  gap: 1.5mm;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.hoja-lista-sino-extra {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 1.5mm;
+  align-items: baseline;
+  padding-left: 3mm;
+  min-width: 0;
+}
+
+/* La tabla de signos de peligro: SI y NO como encabezado de su columna. */
+.hoja-tabla-sino {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.hoja-tabla-sino th {
+  font-weight: 400;
+  text-align: center;
+  width: 9mm;
+  padding: 0;
+}
+
+.hoja-tabla-sino th:first-child {
+  width: auto;
+  text-align: left;
+}
+
+.hoja-tabla-sino td {
+  padding: 0.3mm 0;
+  vertical-align: middle;
+}
+
+.hoja-tabla-sino td + td {
+  text-align: center;
+}
+
+/* La raya vertical que el papel pone entre la columna de SI y la de NO. */
+.hoja-tabla-sino th:nth-child(3),
+.hoja-tabla-sino td:nth-child(3) {
+  border-left: 0.25mm solid #000;
+}
+
+/* Los grupos de antecedentes: una linea entre uno y otro, con el rotulo montado encima. */
+.hoja-grupo + .hoja-grupo {
+  border-top: 0.3mm solid #000;
+  margin-top: 1.3mm;
+}
+
+.hoja-grupo .hoja-subtitulo {
+  background: #fff;
+  margin-top: -2.1mm;
+  margin-left: 2mm;
+  margin-bottom: 0.4mm;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.hoja-grupo:first-child .hoja-subtitulo {
+  margin-top: 0;
+}
+
+/* ─── Renglones para escribir ─────────────────────────────────────────── */
+
+.hoja-renglones {
+  --alto-renglon: 4.6mm;
+  position: relative;
+  padding: 0 1mm;
+  white-space: pre-wrap;
+  line-height: var(--alto-renglon);
+  min-height: calc(var(--alto-renglon) * var(--renglones, 2));
+  /*
+   * Una raya cada renglon. Un solo degradado del alto del renglon, repetido
+   * con background-size: el `repeating-linear-gradient` con calc() dentro
+   * salia como una banda negra gruesa al imprimir a PDF.
+   */
+  background-image: linear-gradient(to bottom, transparent 0, transparent 4.35mm, #000 4.35mm, #000 4.6mm);
+  background-size: 100% 4.6mm;
+  background-repeat: repeat-y;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* ─── Tablas ──────────────────────────────────────────────────────────── */
+
+.hoja-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.5mm;
+}
+
+.hoja-tabla th,
+.hoja-tabla td {
+  border: 0.3mm solid #000;
+  padding: 0.6mm 1.2mm;
+  vertical-align: top;
+  text-align: left;
+  font-size: 7.3pt;
+}
+
+.hoja-tabla th {
+  text-align: center;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.hoja-tabla td.hoja-centrado,
+.hoja-tabla th.hoja-centrado {
+  text-align: center;
+}
+
+.hoja-tabla .hoja-celda-problema {
+  font-weight: 700;
+  width: 24mm;
+}
+
+.hoja-tabla .hoja-celda-sino {
+  width: 11mm;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+/* «SI □» sobre «NO □», con los cuadritos uno debajo del otro. */
+.hoja-sino-vertical {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  column-gap: 1mm;
+  row-gap: 0.8mm;
+  align-items: center;
+}
+
+/* «SI___» sobre «NO___», con la X sobre la raya: la matriz del neonato. */
+.hoja-sino-rayas {
+  display: inline-grid;
+  row-gap: 2mm;
+}
+
+.hoja-sino-rayas .hoja-casilla {
+  gap: 0;
+}
+
+/* En la hoja de ninez las casillas de SI y NO van debajo del nombre del problema. */
+.hoja-celda-problema .hoja-sino {
+  display: flex;
+  justify-content: center;
+  gap: 3mm;
+  margin-top: 1.5mm;
+  font-weight: 400;
+}
+
+/* Una barra de seccion dentro de una tabla: ocupa la fila entera. */
+.hoja-tabla td.hoja-celda-barra {
+  padding: 0;
+  background: #000;
+  color: #fff;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.4mm 2mm;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.hoja-tabla td.hoja-celda-barra span {
+  font-weight: 400;
+  text-transform: none;
+}
+
+/* Las rayas de «OTROS PROBLEMAS, CONTROLES U OBSERVACIONES». */
+.hoja-observaciones {
+  display: grid;
+  grid-template-columns: 28mm 1fr;
+  column-gap: 3mm;
+}
+
+.hoja-observaciones > div {
+  --alto-renglon: var(--paso, 6mm);
+  position: relative;
+  padding: 0 1mm;
+  white-space: pre-wrap;
+  line-height: var(--alto-renglon);
+  min-height: calc(var(--alto-renglon) * var(--renglones, 20));
+  /* La raya al pie de cada renglon: se dibuja desde abajo para no necesitar calc(), que se imprime mal. */
+  background-image: linear-gradient(to top, #000 0.25mm, transparent 0.25mm);
+  background-size: 100% var(--alto-renglon);
+  background-repeat: repeat-y;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.hoja-matriz--compacta th,
+.hoja-matriz--compacta td {
+  font-size: 6.8pt;
+  padding: 0.4mm 1mm;
+  line-height: 1.15;
+}
+
+/* Las secciones que el papel deja con aire: mas espacio entre renglones. */
+.hoja-cuadro--holgado .hoja-fila {
+  margin: 1.8mm 0;
+}
+
+.hoja-tabla .hoja-celda-conducta {
+  width: 36mm;
+  vertical-align: top;
+}
+
+/* La segunda linea de un encabezado: «(Subraye el diagnostico)», «Meses de embarazo». */
+.hoja-tabla th small {
+  display: block;
+  font-weight: 400;
+  font-size: 6.5pt;
+}
+
+.hoja-tabla-controles th,
+.hoja-tabla-controles td {
+  font-size: 7pt;
+}
+
+.hoja-tabla td.hoja-sombreado {
+  background: #d4d4d4;
+}
+
+.hoja-tabla-controles td:first-child {
+  width: 62mm;
+}
+
+/* Lo que en el papel se subraya. */
+.hoja-opcion {
+  display: inline;
+}
+
+.hoja-opcion + .hoja-opcion::before {
+  content: ', ';
+}
+
+/* En ninez y neonato cada opcion va en su renglon, sin comas. */
+.hoja-opcion--renglon {
+  display: block;
+}
+
+.hoja-opcion--renglon + .hoja-opcion--renglon::before {
+  content: none;
+}
+
+.hoja-opcion--marcada {
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 0.35mm;
+}
+
+.hoja-conducta-bloque {
+  margin-bottom: 1.6mm;
+}
+
+.hoja-conducta-bloque b {
+  display: block;
+}
+
+.hoja-conducta-bloque .hoja-campo-valor {
+  display: block;
+  min-height: 3.6mm;
+}
+
+/* ─── Firma ───────────────────────────────────────────────────────────── */
+
+.hoja-firma {
+  margin-top: 3mm;
+  font-weight: 700;
+  display: flex;
+  gap: 2mm;
+  align-items: baseline;
+}
+
+.hoja-firma .hoja-campo-valor {
+  font-weight: 400;
+}
+
+.hoja-pie {
+  margin-top: 2mm;
+  font-size: 7pt;
+}
+
+/* ─── Impresion ───────────────────────────────────────────────────────── */
+
+@media print {
+  .hoja-vista {
+    background: none;
+    padding: 0;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .hoja-barra-herramientas {
+    display: none;
+  }
+
+  .hoja-pliego {
+    margin: 0;
+    box-shadow: none;
+  }
+
+  .hoja-pliego--apaisada {
+    margin: 0;
+  }
+}

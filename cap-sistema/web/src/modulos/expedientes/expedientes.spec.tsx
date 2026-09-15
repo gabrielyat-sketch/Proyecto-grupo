@@ -313,6 +313,22 @@ describe('el expediente de un paciente', () => {
     expect(screen.getAllByRole('button', { name: 'Ver la ficha completa' })).toHaveLength(1);
   });
 
+  /**
+   * Imprimir va en la MISMA pestana: la sesion vive solo en memoria de la
+   * pestana, y una nueva naceria sin sesion y pediria entrar otra vez.
+   */
+  it('cada ficha ofrece imprimirse como la hoja oficial, sin cambiar de pestana', async () => {
+    servidor({ historial: [atencion(1), atencion(2, { tipoFicha: 'ADULTO' })] });
+    abrir(MEDICO, '/pacientes/p-1/expediente');
+    await esperar();
+    await screen.findByText('Ficha Adulto');
+
+    const imprimir = screen.getAllByRole('link', { name: 'Imprimir' });
+    expect(imprimir).toHaveLength(1);
+    expect(imprimir[0]).toHaveAttribute('href', '/pacientes/p-1/fichas/a-2/imprimir');
+    expect(imprimir[0]).not.toHaveAttribute('target');
+  });
+
   it('la ficha completa se pide al abrirla, no antes', async () => {
     servidor({ historial: [atencion(2, { tipoFicha: 'ADULTO' })] });
     const usuario = userEvent.setup();
