@@ -21,7 +21,7 @@ import { AvisoError } from '../../componentes/AvisoError';
 import { NotaPagina } from '../../componentes/EncabezadoPagina';
 import { desde, usarVolver } from '../../navegacion/usarVolver';
 import { ETIQUETA_TIPO_LUGAR } from '../recepcion/servicio-pacientes';
-import { obtenerCarpeta } from './servicio-carpetas';
+import { nombresDeCarpeta, obtenerCarpeta } from './servicio-carpetas';
 import ChildCareOutlinedIcon from '@mui/icons-material/ChildCareOutlined';
 import { usarSesion } from '../sesion/contexto';
 import { puedeEntrar } from '../../navegacion/menu';
@@ -133,6 +133,10 @@ export function PaginaCarpeta() {
             <Typography variant="h5" component="h1" sx={{ fontWeight: 700 }}>
               Familia {c.apellidos}
             </Typography>
+            {/* Los nombres de la tapa, debajo del apellido, como en el folder. */}
+            {nombresDeCarpeta(c) ? (
+              <Typography sx={{ fontWeight: 500 }}>{nombresDeCarpeta(c)}</Typography>
+            ) : null}
             <Typography color="text.secondary">
               {(lugar ? lugar + ' · ' : '') + c.comunidad.nombre}
             </Typography>

@@ -68,9 +68,32 @@ La sostiene `GruposService`, que es el unico sitio que crea carpetas. Se
 prefirio eso a perder la garantia de unicidad, que es la que impide que dos
 familias distintas acaben con el mismo numero en el mismo barrio.
 
+### Los nombres de la tapa (14 sep 2026)
+
+El CAP escribe en la tapa, debajo del apellido, los nombres del esposo y la
+esposa: «Familia Lopez Ac — Juan Lopez Tzul y Maria Ac Caal». Son lo que
+distingue dos carpetas del mismo apellido en el mismo lugar, que es justo el
+caso en que Recepcion tiene que elegir.
+
+| Columna | Cambio | Por que |
+|---|---|---|
+| `esposo` | **nueva**, `VARCHAR(120) NULL` | El nombre tal como va en la tapa |
+| `esposa` | **nueva**, `VARCHAR(120) NULL` | Idem |
+
+Son texto y no una relacion con `Paciente`: el esposo puede no registrarse
+nunca porque no se atiende aqui. Nulas porque hay madres solas, viudas y
+abuelas a cargo de nietos, y porque las carpetas ya abiertas no los tienen.
+En blanco se guardan como `NULL`, no como cadena vacia.
+
+Se piden solo al abrir una carpeta (Recepcion → «No, hay que abrirla»); la que
+ya existe ya los tiene escritos. Salen en la pagina de la carpeta, en el
+listado y en el desplegable «¿Cual carpeta?».
+
 ## Migraciones
 
 `20260901093000_carpeta_familiar` — **no aplicada todavia**.
+
+`20260914100000_esposos_en_carpeta` — dos `ADD COLUMN` nulas; no toca filas.
 
 Las tres columnas entran como `NOT NULL` **sin valor por defecto**, a
 proposito: si la tabla tuviera filas, la migracion falla en vez de rellenar

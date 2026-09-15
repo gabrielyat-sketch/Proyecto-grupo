@@ -26,6 +26,8 @@ const carpeta = (id: string, numero: number, apellidos: string, integrantes = 4)
   id,
   numero,
   apellidos,
+  esposo: null,
+  esposa: null,
   direccion: null,
   telefono: null,
   comunidad: { id: 'c-1', nombre: 'Purulha Centro' },
@@ -35,6 +37,8 @@ const carpeta = (id: string, numero: number, apellidos: string, integrantes = 4)
 
 const CON_FAMILIA = {
   ...carpeta('g-1', 3, 'Lopez Ac'),
+  esposo: 'Juan Lopez Tzul',
+  esposa: 'Maria Ac Caal',
   integrantes: [
     {
       id: 'p-1',
@@ -192,6 +196,8 @@ describe('el archivero de carpetas', () => {
 
     expect(await screen.findByRole('heading', { name: /Familia Lopez Ac/ })).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
+    // Los nombres de la tapa, debajo del apellido, como en el folder.
+    expect(screen.getByText('Juan Lopez Tzul y Maria Ac Caal')).toBeInTheDocument();
 
     const fila = await screen.findByRole('row', { name: /Juana Isabel/ });
     expect(within(fila).getByRole('link', { name: /Ver expediente/i })).toHaveAttribute(

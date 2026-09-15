@@ -1998,6 +1998,14 @@ components:
           type: string
           example: Lopez Ac
           description: El apellido con que se rotula el folder.
+        esposo:
+          type: string
+          example: Juan Lopez Tzul
+          description: El nombre del esposo en la tapa.
+        esposa:
+          type: string
+          example: Maria Ac Caal
+          description: El nombre de la esposa en la tapa.
         numero:
           type: number
           description: El numero de la pestana. Si se omite, se usa el siguiente libre de
@@ -2126,6 +2134,14 @@ components:
           type: string
           example: Lopez Ac
           description: El apellido con que se rotula.
+        esposo:
+          type: string
+          nullable: true
+          example: Juan Lopez Tzul
+        esposa:
+          type: string
+          nullable: true
+          example: Maria Ac Caal
         direccion:
           type: string
           nullable: true
@@ -2148,6 +2164,8 @@ components:
         - id
         - numero
         - apellidos
+        - esposo
+        - esposa
         - direccion
         - telefono
         - comunidad
@@ -2208,6 +2226,14 @@ components:
         apellidos:
           type: string
           example: Lopez Ac
+        esposo:
+          type: string
+          nullable: true
+          example: Juan Lopez Tzul
+        esposa:
+          type: string
+          nullable: true
+          example: Maria Ac Caal
         direccion:
           type: string
           nullable: true
@@ -2230,6 +2256,8 @@ components:
         - id
         - numero
         - apellidos
+        - esposo
+        - esposa
         - direccion
         - telefono
         - comunidad
@@ -2245,6 +2273,14 @@ components:
           type: string
           example: Lopez Ac
           description: El apellido con que se rotula la carpeta.
+        esposo:
+          type: string
+          example: Juan Lopez Tzul
+          description: El nombre del esposo en la tapa.
+        esposa:
+          type: string
+          example: Maria Ac Caal
+          description: El nombre de la esposa en la tapa.
         comunidadId:
           type: string
         lugarId:
@@ -2270,6 +2306,14 @@ components:
         apellidos:
           type: string
           example: Lopez Ac
+        esposo:
+          type: string
+          nullable: true
+          example: Juan Lopez Tzul
+        esposa:
+          type: string
+          nullable: true
+          example: Maria Ac Caal
         direccion:
           type: string
           nullable: true
@@ -2287,6 +2331,8 @@ components:
         - id
         - numero
         - apellidos
+        - esposo
+        - esposa
         - direccion
         - telefono
         - comunidadId

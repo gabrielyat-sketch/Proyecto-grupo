@@ -23,6 +23,23 @@ export class CrearGrupoDto {
   @Length(1, 120)
   apellidos!: string;
 
+  /*
+    Los nombres de la tapa del folder. Opcionales: hay madres solas, viudas y
+    abuelas a cargo de nietos, y obligar a inventar un nombre seria peor que
+    dejarlo en blanco.
+  */
+  @ApiPropertyOptional({ example: 'Juan Lopez Tzul', description: 'El nombre del esposo en la tapa.' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 120)
+  esposo?: string;
+
+  @ApiPropertyOptional({ example: 'Maria Ac Caal', description: 'El nombre de la esposa en la tapa.' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 120)
+  esposa?: string;
+
   @ApiProperty()
   @IsString()
   comunidadId!: string;

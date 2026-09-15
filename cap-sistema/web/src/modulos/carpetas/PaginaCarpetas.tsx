@@ -25,7 +25,7 @@ import { EncabezadoPagina, NotaPagina } from '../../componentes/EncabezadoPagina
 import { MENU_FILTRO } from '../../componentes/menuFiltro';
 import { desde } from '../../navegacion/usarVolver';
 import { listarComunidades, listarLugares } from '../recepcion/servicio-pacientes';
-import { listarCarpetas } from './servicio-carpetas';
+import { listarCarpetas, nombresDeCarpeta } from './servicio-carpetas';
 
 /** En plural, porque titula un grupo y no una fila. */
 const ETIQUETA_GRUPO_LUGAR: Record<string, string> = {
@@ -234,7 +234,16 @@ export function PaginaCarpetas() {
                         {c.numero}
                       </Link>
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Familia {c.apellidos}</TableCell>
+                    <TableCell>
+                      <Typography component="span" sx={{ fontWeight: 600, display: 'block' }}>
+                        Familia {c.apellidos}
+                      </Typography>
+                      {nombresDeCarpeta(c) ? (
+                        <Typography variant="body2" color="text.secondary">
+                          {nombresDeCarpeta(c)}
+                        </Typography>
+                      ) : null}
+                    </TableCell>
                     <TableCell>{c.lugar?.nombre ?? '—'}</TableCell>
                     <TableCell>{c.comunidad.nombre}</TableCell>
                     <TableCell align="right">

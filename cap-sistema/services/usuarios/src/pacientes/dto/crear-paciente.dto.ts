@@ -34,6 +34,18 @@ export class CarpetaNuevaDto {
   @Length(1, 120)
   apellidos!: string;
 
+  @ApiPropertyOptional({ example: 'Juan Lopez Tzul', description: 'El nombre del esposo en la tapa.' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 120)
+  esposo?: string;
+
+  @ApiPropertyOptional({ example: 'Maria Ac Caal', description: 'El nombre de la esposa en la tapa.' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 120)
+  esposa?: string;
+
   @ApiPropertyOptional({
     description: 'El numero de la pestana. Si se omite, se usa el siguiente libre de la serie.',
   })

@@ -664,6 +664,16 @@ export interface components {
              * @example Lopez Ac
              */
             apellidos: string;
+            /**
+             * @description El nombre del esposo en la tapa.
+             * @example Juan Lopez Tzul
+             */
+            esposo?: string;
+            /**
+             * @description El nombre de la esposa en la tapa.
+             * @example Maria Ac Caal
+             */
+            esposa?: string;
             /** @description El numero de la pestana. Si se omite, se usa el siguiente libre de la serie. */
             numero?: number;
         };
@@ -740,6 +750,10 @@ export interface components {
              * @example Lopez Ac
              */
             apellidos: string;
+            /** @example Juan Lopez Tzul */
+            esposo: string | null;
+            /** @example Maria Ac Caal */
+            esposa: string | null;
             direccion: string | null;
             telefono: string | null;
             comunidad: components["schemas"]["ComunidadResumenDto"];
@@ -782,6 +796,10 @@ export interface components {
             numero: number;
             /** @example Lopez Ac */
             apellidos: string;
+            /** @example Juan Lopez Tzul */
+            esposo: string | null;
+            /** @example Maria Ac Caal */
+            esposa: string | null;
             direccion: string | null;
             telefono: string | null;
             comunidad: components["schemas"]["ComunidadResumenDto"];
@@ -797,6 +815,16 @@ export interface components {
              * @example Lopez Ac
              */
             apellidos: string;
+            /**
+             * @description El nombre del esposo en la tapa.
+             * @example Juan Lopez Tzul
+             */
+            esposo?: string;
+            /**
+             * @description El nombre de la esposa en la tapa.
+             * @example Maria Ac Caal
+             */
+            esposa?: string;
             comunidadId: string;
             /** @description El barrio o caserio. Define la serie de numeracion. */
             lugarId?: string;
@@ -811,6 +839,10 @@ export interface components {
             numero: number;
             /** @example Lopez Ac */
             apellidos: string;
+            /** @example Juan Lopez Tzul */
+            esposo: string | null;
+            /** @example Maria Ac Caal */
+            esposa: string | null;
             direccion: string | null;
             telefono: string | null;
             /** Format: uuid */
