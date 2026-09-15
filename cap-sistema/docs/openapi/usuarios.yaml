@@ -1602,6 +1602,67 @@ paths:
       security: *a18
       summary: Quienes esperan ahora, por orden de llegada
       tags: *a19
+  /v1/visitas/{id}/orden:
+    patch:
+      description: Llega una emergencia y hay que pasarla adelante. Se renumera toda
+        la sala de hoy y se devuelve como queda.
+      operationId: VisitasController_cambiarOrden
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CambiarOrdenDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VisitaEnEsperaDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "409":
+          description: Esa visita ya no esta en la sala de espera.
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a18
+      summary: Cambia el turno de alguien en la sala
+      tags: *a19
   /v1/visitas/{id}/retiro:
     patch:
       description: 'El motivo es obligatorio: "se fue" no le sirve a nadie dentro de
@@ -4594,6 +4655,15 @@ components:
           type: string
           nullable: true
           description: Descifrado al vuelo.
+        orden:
+          type: number
+          example: 1
+          description: "El turno: la posicion en la sala de hoy."
+        motivoPrioridad:
+          type: string
+          nullable: true
+          description: Por que se le paso adelante. Nulo si nadie lo adelanto.
+          example: Dolor de pecho
       required:
         - id
         - pacienteId
@@ -4607,6 +4677,22 @@ components:
         - llegadaEn
         - esperandoMinutos
         - motivo
+        - orden
+        - motivoPrioridad
+    CambiarOrdenDto:
+      type: object
+      properties:
+        posicion:
+          type: number
+          example: 1
+          description: La posicion que va a ocupar, empezando en 1.
+        motivo:
+          type: string
+          description: Por que se le adelanta. Se guarda cifrado y sale en la sala como
+            aviso.
+          example: Dolor de pecho
+      required:
+        - posicion
     RetirarVisitaDto:
       type: object
       properties:

@@ -1434,6 +1434,22 @@ model Visita {
   /// son datos de salud, y esta lista se ve con la sala llena de gente.
   motivoCifrado Bytes? @map("motivo_cifrado")
 
+  /// El turno: la posicion en la sala de hoy.
+  ///
+  /// Nace como el orden de llegada —el siguiente al mayor de los que esperan—
+  /// y se puede cambiar: llega una emergencia y hay que pasarla adelante. Sin
+  /// esta columna el orden seria solo `llegadaEn`, y para adelantar a alguien
+  /// habria que mentir sobre la hora a la que llego.
+  ///
+  /// Se renumera 1..n cada vez que alguien se mueve; entre los que quedan
+  /// cerrados puede haber huecos, y no importa: solo cuentan los que esperan.
+  orden Int
+
+  /// Por que se le paso adelante. Solo cuando alguien lo adelanto con motivo;
+  /// cifrado como el motivo de la visita, porque dice lo mismo: "dolor de
+  /// pecho" es un dato de salud.
+  motivoPrioridadCifrado Bytes? @map("motivo_prioridad_cifrado")
+
   cerradaEn DateTime? @map("cerrada_en")
   cerradaPor String?  @map("cerrada_por")
 
@@ -1448,6 +1464,8 @@ model Visita {
 
   /// La consulta de la sala de espera: los que esperan, por orden de llegada.
   @@index([estado, llegadaEn])
+  /// La misma consulta, por turno.
+  @@index([estado, orden])
   @@index([pacienteId])
   @@map("visita")
 }
