@@ -1,7 +1,7 @@
-import { cargarEntorno, esquemaBase, esquemaCifrado } from '@cap/shared';
+import { cargarEntorno, esquemaAuditoria, esquemaBase, esquemaCifrado } from '@cap/shared';
 import { z } from 'zod';
 
-const esquema = esquemaBase.merge(esquemaCifrado).extend({
+const esquema = esquemaBase.merge(esquemaCifrado).merge(esquemaAuditoria).extend({
   DIRECT_URL: z.string().optional(),
   NOMBRE_SERVICIO: z.string().default('auth'),
 

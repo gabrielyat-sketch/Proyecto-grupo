@@ -1186,6 +1186,7 @@ components:
             - NO_ENCONTRADO
             - CONFLICTO
             - DEMASIADAS_PETICIONES
+            - AUDITORIA_NO_DISPONIBLE
             - ERROR_INTERNO
           example: VALIDACION
         mensaje:

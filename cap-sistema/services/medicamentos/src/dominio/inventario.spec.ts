@@ -4,6 +4,7 @@ import {
   diasParaVencer,
   LoteDisponible,
   seleccionarFefo,
+  semaforoVencimiento,
 } from './inventario';
 
 const utc = (a: number, m: number, d: number) => new Date(Date.UTC(a, m - 1, d));
@@ -64,6 +65,56 @@ describe('diasParaVencer', () => {
 
   it('es 0 el dia del vencimiento', () => {
     expect(diasParaVencer(HOY, HOY)).toBe(0);
+  });
+});
+
+describe('semaforoVencimiento', () => {
+  // HOY es 15 de junio de 2026: seis meses son el 15 de diciembre de 2026 y
+  // doce, el 15 de junio de 2027.
+
+  it('a menos de seis meses es ROJO', () => {
+    expect(semaforoVencimiento(utc(2026, 12, 14), HOY)).toBe('ROJO');
+    expect(semaforoVencimiento(utc(2026, 7, 1), HOY)).toBe('ROJO');
+  });
+
+  it('lo ya vencido tambien es ROJO: no hay un cuarto color', () => {
+    expect(semaforoVencimiento(utc(2025, 1, 1), HOY)).toBe('ROJO');
+    expect(semaforoVencimiento(HOY, HOY)).toBe('ROJO');
+  });
+
+  it('entre seis y doce meses es AMARILLO', () => {
+    expect(semaforoVencimiento(utc(2027, 1, 20), HOY)).toBe('AMARILLO');
+    expect(semaforoVencimiento(utc(2027, 5, 30), HOY)).toBe('AMARILLO');
+  });
+
+  it('a mas de doce meses es VERDE', () => {
+    expect(semaforoVencimiento(utc(2027, 6, 16), HOY)).toBe('VERDE');
+    expect(semaforoVencimiento(utc(2029, 1, 1), HOY)).toBe('VERDE');
+  });
+
+  it('los umbrales son meses de calendario: justo a los seis y a los doce es AMARILLO', () => {
+    expect(semaforoVencimiento(utc(2026, 12, 15), HOY)).toBe('AMARILLO');
+    expect(semaforoVencimiento(utc(2027, 6, 15), HOY)).toBe('AMARILLO');
+  });
+
+  it('el color cambia solo con el calendario, sin tocar el lote', () => {
+    // El mismo lote, mirado en tres fechas distintas.
+    const vence = utc(2027, 3, 1);
+    expect(semaforoVencimiento(vence, utc(2026, 1, 1))).toBe('VERDE');
+    expect(semaforoVencimiento(vence, utc(2026, 6, 15))).toBe('AMARILLO');
+    expect(semaforoVencimiento(vence, utc(2026, 10, 1))).toBe('ROJO');
+  });
+
+  it('31 de enero mas seis meses no desborda a agosto', () => {
+    // Enero 31 + 6 meses cae en julio 31; sin recorte, un 31 de agosto que
+    // no existe se desbordaria y correria el umbral.
+    const finDeEnero = utc(2026, 1, 31);
+    expect(semaforoVencimiento(utc(2026, 7, 30), finDeEnero)).toBe('ROJO');
+    expect(semaforoVencimiento(utc(2026, 7, 31), finDeEnero)).toBe('AMARILLO');
+    // Agosto 31 + 6 meses: febrero no tiene 31, se queda en el 28.
+    const finDeAgosto = utc(2026, 8, 31);
+    expect(semaforoVencimiento(utc(2027, 2, 27), finDeAgosto)).toBe('ROJO');
+    expect(semaforoVencimiento(utc(2027, 2, 28), finDeAgosto)).toBe('AMARILLO');
   });
 });
 

@@ -33,6 +33,7 @@ import {
 } from '../servicio-fichas';
 import type { AvanceSeccion } from '../borrador';
 import { ALTO_BARRA } from '../../../tema';
+import { AvisoDeEdad } from '../CambioDeFicha';
 import {
   borradorNinezVacio,
   cuerpoDeFichaNinez,
@@ -240,10 +241,19 @@ export function PaginaFichaNinez() {
 
   return (
     <Box>
+      <AvisoDeEdad
+        fechaNacimiento={datos.fechaNacimiento as unknown as string}
+        pacienteId={pacienteId!}
+        nombres={datos.nombres}
+        tipoDeEstaFicha="NINEZ"
+      />
+
       <EncabezadoFicha
         titulo="Ficha clínica del lactante y niñez"
         volverA={volverA}
         volverTexto="Expediente"
+        pacienteId={pacienteId}
+        grupoFamiliarId={datos.grupoFamiliar?.id}
         nombre={datos.apellidos + ', ' + datos.nombres}
         resumen={
           edadDicha(meses) +

@@ -1,6 +1,21 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
-import { crearPagina, exigeMfa, hashContrasena, normalizarPagina, Rol } from '@cap/shared';
+import {
+  CLIENTE_AUDITORIA,
+  ContextoAuditoria,
+  crearPagina,
+  exigeMfa,
+  hashContrasena,
+  IClienteAuditoria,
+  normalizarPagina,
+  Rol,
+} from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { TokensService } from '../tokens/tokens.service';
 import { MfaService } from '../mfa/mfa.service';
@@ -63,7 +78,19 @@ export class UsuariosService {
     private readonly prisma: PrismaService,
     private readonly tokens: TokensService,
     private readonly mfa: MfaService,
+    @Inject(CLIENTE_AUDITORIA) private readonly auditoria: IClienteAuditoria,
   ) {}
+
+  /**
+   * Presupuesto de las transacciones que esperan a la bitacora.
+   *
+   * El valor por defecto de Prisma son 5 s, y dentro de la transaccion cabe
+   * una llamada HTTP de hasta `AUDITORIA_TIMEOUT_MS` (tope 5 s). Sin ampliarlo,
+   * el caso que importa —trazabilidad tarda pero acaba respondiendo— moriria
+   * por el limite de la transaccion y no por el del cliente, con un error que
+   * no dice lo que paso.
+   */
+  private static readonly MS_TRANSACCION = 10_000;
 
   /**
    * Contrasena temporal legible: se dicta o se entrega en papel al personal.
@@ -75,7 +102,7 @@ export class UsuariosService {
     return Array.from(bytes, (b) => alfabeto[b % alfabeto.length]).join('');
   }
 
-  async crear(dto: CrearUsuarioDto) {
+  async crear(dto: CrearUsuarioDto, contexto: ContextoAuditoria) {
     const usuario = dto.usuario.toLowerCase();
 
     const existe = await this.prisma.usuario.findUnique({ where: { usuario } });
@@ -84,18 +111,50 @@ export class UsuariosService {
     }
 
     const contrasenaTemporal = UsuariosService.generarContrasenaTemporal();
+    // El hash se calcula FUERA de la transaccion: tarda cientos de
+    // milisegundos a proposito, y dentro se comeria el presupuesto que hace
+    // falta para esperar a la bitacora.
+    const contrasenaHash = await hashContrasena(contrasenaTemporal);
 
-    const creado = await this.prisma.usuario.create({
-      data: {
-        usuario,
-        nombres: dto.nombres.trim(),
-        apellidos: dto.apellidos.trim(),
-        rol: dto.rol,
-        contrasenaHash: await hashContrasena(contrasenaTemporal),
-        debeCambiarContrasena: true,
+    const creado = await this.prisma.$transaction(
+      async (tx) => {
+        const creado = await tx.usuario.create({
+          data: {
+            usuario,
+            nombres: dto.nombres.trim(),
+            apellidos: dto.apellidos.trim(),
+            rol: dto.rol,
+            contrasenaHash,
+            debeCambiarContrasena: true,
+          },
+          select: CAMPOS_PUBLICOS,
+        });
+
+        // Dentro de la transaccion: si la bitacora no responde, la cuenta no
+        // llega a existir. Una cuenta creada sin rastro de quien la creo es
+        // exactamente lo que el RF-09 esta para impedir.
+        await this.auditoria.registrar(
+          {
+            servicio: 'auth',
+            accion: 'CREACION',
+            entidad: 'cuenta',
+            entidadId: creado.id,
+            motivo: 'Alta de cuenta desde Administracion',
+            valorNuevo: JSON.stringify({
+              usuario: creado.usuario,
+              rol: creado.rol,
+              nombres: creado.nombres,
+              apellidos: creado.apellidos,
+            }),
+          },
+          contexto.autorizacion,
+          contexto.trazaId,
+        );
+
+        return creado;
       },
-      select: CAMPOS_PUBLICOS,
-    });
+      { timeout: UsuariosService.MS_TRANSACCION },
+    );
 
     // Es la unica vez que esta contrasena existe en claro.
     return { ...comoSePresenta(creado), contrasenaTemporal };
@@ -141,7 +200,12 @@ export class UsuariosService {
     return comoSePresenta(usuario);
   }
 
-  async actualizar(id: string, dto: ActualizarUsuarioDto, idQuienEdita: string) {
+  async actualizar(
+    id: string,
+    dto: ActualizarUsuarioDto,
+    idQuienEdita: string,
+    contexto: ContextoAuditoria,
+  ) {
     const usuario = await this.prisma.usuario.findUnique({ where: { id } });
     if (!usuario) throw new NotFoundException('No existe esa cuenta.');
 
@@ -156,16 +220,53 @@ export class UsuariosService {
       }
     }
 
-    const actualizado = await this.prisma.usuario.update({
-      where: { id },
-      data: {
-        ...(dto.nombres !== undefined ? { nombres: dto.nombres.trim() } : {}),
-        ...(dto.apellidos !== undefined ? { apellidos: dto.apellidos.trim() } : {}),
-        ...(dto.rol !== undefined ? { rol: dto.rol } : {}),
-        ...(dto.activo !== undefined ? { activo: dto.activo } : {}),
+    const data = {
+      ...(dto.nombres !== undefined ? { nombres: dto.nombres.trim() } : {}),
+      ...(dto.apellidos !== undefined ? { apellidos: dto.apellidos.trim() } : {}),
+      ...(dto.rol !== undefined ? { rol: dto.rol } : {}),
+      ...(dto.activo !== undefined ? { activo: dto.activo } : {}),
+    };
+
+    const actualizado = await this.prisma.$transaction(
+      async (tx) => {
+        const actualizado = await tx.usuario.update({
+          where: { id },
+          data,
+          select: CAMPOS_PUBLICOS,
+        });
+
+        // Solo los campos que de verdad cambian. Volcar la cuenta entera
+        // obligaria a quien audita a comparar dos bloques largos para
+        // encontrar el unico dato distinto, que suele ser el rol.
+        const anterior: Record<string, unknown> = {};
+        const nuevo: Record<string, unknown> = {};
+        for (const campo of Object.keys(data) as (keyof typeof data)[]) {
+          const antes = (usuario as Record<string, unknown>)[campo];
+          const despues = (actualizado as Record<string, unknown>)[campo];
+          if (antes !== despues) {
+            anterior[campo] = antes;
+            nuevo[campo] = despues;
+          }
+        }
+
+        await this.auditoria.registrar(
+          {
+            servicio: 'auth',
+            accion: 'MODIFICACION',
+            entidad: 'cuenta',
+            entidadId: id,
+            motivo: 'Cambio de datos, rol o estado desde Administracion',
+            valorAnterior: JSON.stringify(anterior),
+            valorNuevo: JSON.stringify(nuevo),
+          },
+          contexto.autorizacion,
+          contexto.trazaId,
+        );
+
+        return actualizado;
       },
-      select: CAMPOS_PUBLICOS,
-    });
+      { timeout: UsuariosService.MS_TRANSACCION },
+    );
 
     // Desactivar o cambiar de rol debe surtir efecto ya, no en 15 minutos
     // cuando expire el token de acceso que la persona tenga abierto.
@@ -187,11 +288,37 @@ export class UsuariosService {
    * Tambien cierra sus sesiones: si quedara alguna abierta, seguiria dentro
    * con un segundo factor que acaba de dejar de existir.
    */
-  async reiniciarMfa(id: string) {
+  async reiniciarMfa(id: string, contexto: ContextoAuditoria) {
     const usuario = await this.prisma.usuario.findUnique({ where: { id } });
     if (!usuario) throw new NotFoundException('No existe esa cuenta.');
 
-    const tenia = await this.mfa.reiniciar(id);
+    const tenia = await this.prisma.$transaction(
+      async (tx) => {
+        // `tx` entra en el reinicio para que el borrado del segundo factor y su
+        // registro sean la misma transaccion. Reiniciar el MFA de una cuenta
+        // ajena es la accion mas delicada del modulo: deja entrar a quien la
+        // pida sin el factor que la protegia.
+        const tenia = await this.mfa.reiniciar(id, tx);
+        if (!tenia) return false;
+
+        await this.auditoria.registrar(
+          {
+            servicio: 'auth',
+            accion: 'ELIMINACION',
+            entidad: 'segundo_factor',
+            entidadId: id,
+            motivo: 'Reinicio del segundo factor desde Administracion',
+            valorAnterior: JSON.stringify({ usuario: usuario.usuario, mfaActivo: true }),
+          },
+          contexto.autorizacion,
+          contexto.trazaId,
+        );
+
+        return true;
+      },
+      { timeout: UsuariosService.MS_TRANSACCION },
+    );
+
     if (!tenia) {
       throw new BadRequestException('Esa cuenta no tiene segundo factor configurado.');
     }
@@ -206,20 +333,37 @@ export class UsuariosService {
     };
   }
 
-  async restablecerContrasena(id: string) {
+  async restablecerContrasena(id: string, contexto: ContextoAuditoria) {
     const usuario = await this.prisma.usuario.findUnique({ where: { id } });
     if (!usuario) throw new NotFoundException('No existe esa cuenta.');
 
     const contrasenaTemporal = UsuariosService.generarContrasenaTemporal();
+    const contrasenaHash = await hashContrasena(contrasenaTemporal);
 
-    await this.prisma.usuario.update({
-      where: { id },
-      data: {
-        contrasenaHash: await hashContrasena(contrasenaTemporal),
-        debeCambiarContrasena: true,
-        bloqueadoHasta: null,
+    await this.prisma.$transaction(
+      async (tx) => {
+        await tx.usuario.update({
+          where: { id },
+          data: { contrasenaHash, debeCambiarContrasena: true, bloqueadoHasta: null },
+        });
+
+        // Ni la contrasena ni su hash entran en la bitacora: queda constancia
+        // de QUE se restablecio y de quien lo hizo, que es lo que se audita.
+        await this.auditoria.registrar(
+          {
+            servicio: 'auth',
+            accion: 'MODIFICACION',
+            entidad: 'contrasena',
+            entidadId: id,
+            motivo: 'Restablecimiento de contrasena desde Administracion',
+            valorNuevo: JSON.stringify({ usuario: usuario.usuario, debeCambiarContrasena: true }),
+          },
+          contexto.autorizacion,
+          contexto.trazaId,
+        );
       },
-    });
+      { timeout: UsuariosService.MS_TRANSACCION },
+    );
 
     await this.tokens.revocarTodasDelUsuario(id, 'restablecimiento');
 

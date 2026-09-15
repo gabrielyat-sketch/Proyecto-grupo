@@ -1,5 +1,11 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { ServicioCifrado } from '@cap/shared';
+import {
+  CLIENTE_AUDITORIA,
+  ContextoAuditoria,
+  IClienteAuditoria,
+  registrarConsulta,
+  ServicioCifrado,
+} from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { SERVICIO_CIFRADO } from '../comun/cifrado.module';
 import {
@@ -53,6 +59,7 @@ export class CarnetService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(SERVICIO_CIFRADO) private readonly cifrado: ServicioCifrado,
+    @Inject(CLIENTE_AUDITORIA) private readonly auditoria: IClienteAuditoria,
   ) {}
 
   private cifrar(valor: string | undefined): Uint8Array<ArrayBuffer> | null {
@@ -143,12 +150,31 @@ export class CarnetService {
   }
 
   /** El carnet de un nino: lo que ya se le anoto. */
-  async obtener(pacienteId: string): Promise<CarnetDto> {
+  /**
+   * `contexto` en null: la lectura es el paso final de un guardado, que ya se
+   * registro como MODIFICACION. Ver el mismo caso en `AntecedentesService`.
+   */
+  async obtener(pacienteId: string, contexto: ContextoAuditoria | null): Promise<CarnetDto> {
     const paciente = await this.prisma.paciente.findUnique({
       where: { id: pacienteId },
       select: { id: true, fechaNacimiento: true, grupoFamiliarId: true },
     });
     if (!paciente) throw new NotFoundException('El paciente no existe.');
+
+    // Solo cuando la lectura la pidio alguien: al final de un guardado esto es
+    // el eco de una MODIFICACION que ya quedo registrada.
+    if (contexto) {
+      registrarConsulta(
+        this.auditoria,
+        {
+          servicio: 'usuarios',
+          entidad: 'carnet',
+          entidadId: pacienteId,
+          motivo: 'Consulta del carnet del nino',
+        },
+        contexto,
+      );
+    }
 
     const [vacunas, micronutrientes, datos, hogar] = await Promise.all([
       this.prisma.vacunaAplicada.findMany({
@@ -225,6 +251,7 @@ export class CarnetService {
     pacienteId: string,
     dto: GuardarCarnetDto,
     usuarioId: string,
+    contexto: ContextoAuditoria,
   ): Promise<CarnetDto> {
     const paciente = await this.prisma.paciente.findUnique({
       where: { id: pacienteId },
@@ -339,27 +366,24 @@ export class CarnetService {
       // ── El agua y las excretas, que son de la CASA ───────────────────
       const h = dto.hogar;
       if (h) {
-        let grupoId = paciente.grupoFamiliarId;
+        /*
+          La carpeta tiene que existir; aqui ya no se crea sola.
 
-        // El grupo familiar estaba a cero en todo el padron cuando se
-        // construyo esto. Se crea al vuelo para que la seccion sirva desde el
-        // primer dia; cuando recepcion pueda enlazar hermanos, el dato ya
-        // esta en el sitio bueno y no hay que moverlo.
+          Antes se creaba al vuelo, con un codigo inventado a partir del id del
+          paciente, porque no habia ninguna pantalla que abriera carpetas y sin
+          eso la seccion del hogar no habria servido para nada.
+
+          Ahora recepcion las abre, y el numero de la carpeta es el que esta
+          escrito en la pestana del folder del archivero. Que el sistema
+          inventara uno al guardar el agua y las excretas pondria un numero que
+          no existe en ningun archivero, y el dia que alguien busque el folder
+          fisico no va a estar. Mas vale pedirla que fabricarla.
+        */
+        const grupoId = paciente.grupoFamiliarId;
         if (!grupoId) {
-          const creado = await tx.grupoFamiliar.create({
-            data: {
-              // Provisional y trazable hasta su hermano: el CAP todavia no
-              // asigna codigos de hogar, asi que sale del propio paciente.
-              codigo: 'HOGAR-' + pacienteId.replace(/-/g, '').slice(0, 12).toUpperCase(),
-              comunidadId: paciente.comunidadId,
-            },
-            select: { id: true },
-          });
-          grupoId = creado.id;
-          await tx.paciente.update({
-            where: { id: pacienteId },
-            data: { grupoFamiliarId: grupoId },
-          });
+          throw new BadRequestException(
+            'Para guardar los datos del hogar hay que asignarle antes una carpeta familiar a este paciente.',
+          );
         }
 
         const campos = {
@@ -374,9 +398,34 @@ export class CarnetService {
           update: { registradoPor: usuarioId, ...campos },
         });
       }
+
+      // Que partes del carnet se tocaron. Una dosis con fecha null se BORRA
+      // —asi se corrige una casilla mal anotada— y ese borrado tiene que
+      // quedar registrado como cualquier otro cambio: es el unico caso del
+      // modulo en el que un dato clinico desaparece.
+      await this.auditoria.registrar(
+        {
+          servicio: 'usuarios',
+          accion: 'MODIFICACION',
+          entidad: 'carnet',
+          entidadId: pacienteId,
+          motivo: 'Anotacion o correccion del carnet',
+          valorNuevo: JSON.stringify({
+            vacunas: (dto.vacunas ?? []).map((v) => ({
+              vacunaId: v.vacunaId,
+              orden: v.orden,
+              borrada: v.fecha === null || v.fecha === undefined,
+            })),
+            micronutrientes: (dto.micronutrientes ?? []).length,
+            hogar: dto.hogar !== undefined,
+          }),
+        },
+        contexto.autorizacion,
+        contexto.trazaId,
+      );
     });
 
-    return this.obtener(pacienteId);
+    return this.obtener(pacienteId, null);
   }
 
 
@@ -396,12 +445,25 @@ export class CarnetService {
    * desnutricion— y aqui sale en LIBRAS, que es como el papel dibuja la
    * grafica y como el personal lo lee.
    */
-  async crecimiento(pacienteId: string): Promise<CrecimientoDto> {
+  async crecimiento(pacienteId: string, contexto: ContextoAuditoria): Promise<CrecimientoDto> {
     const paciente = await this.prisma.paciente.findUnique({
       where: { id: pacienteId },
       select: { id: true, fechaNacimiento: true, expediente: { select: { id: true } } },
     });
     if (!paciente) throw new NotFoundException('El paciente no existe.');
+
+    // La grafica no captura nada, pero sale de los pesos de todas las
+    // atenciones: es una lectura del expediente aunque no lo parezca.
+    registrarConsulta(
+      this.auditoria,
+      {
+        servicio: 'usuarios',
+        entidad: 'crecimiento',
+        entidadId: pacienteId,
+        motivo: 'Consulta de la grafica de peso para edad',
+      },
+      contexto,
+    );
 
     if (!paciente.expediente) return { pacienteId, puntos: [] };
 

@@ -3,6 +3,7 @@ import { generateSecret, generateURI, verifySync } from 'otplib';
 import { randomBytes } from 'node:crypto';
 import { hashContrasena, ServicioCifrado, verificarContrasena } from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import type { Prisma } from '../../generado';
 import { SERVICIO_CIFRADO } from '../comun/cifrado.module';
 
 const CANTIDAD_CODIGOS_RESPALDO = 8;
@@ -137,14 +138,20 @@ export class MfaService {
    * con los papeles viejos despues de un reinicio pedido justamente porque
    * esos papeles se perdieron.
    */
-  async reiniciar(usuarioId: string): Promise<boolean> {
-    const config = await this.prisma.configuracionMfa.findUnique({ where: { usuarioId } });
+  async reiniciar(usuarioId: string, tx?: Prisma.TransactionClient): Promise<boolean> {
+    // Sin transaccion propia se abre una: borrar los codigos de respaldo y
+    // dejar la configuracion, o al reves, deja la cuenta en un estado que
+    // ninguna pantalla sabe representar.
+    //
+    // Con `tx` se une a la que ya esta abierta, y eso es lo que permite que el
+    // reinicio y su registro en la bitacora caigan o se salven juntos.
+    if (!tx) return this.prisma.$transaction((t) => this.reiniciar(usuarioId, t));
+
+    const config = await tx.configuracionMfa.findUnique({ where: { usuarioId } });
     if (!config) return false;
 
-    await this.prisma.$transaction([
-      this.prisma.codigoRespaldo.deleteMany({ where: { usuarioId } }),
-      this.prisma.configuracionMfa.delete({ where: { usuarioId } }),
-    ]);
+    await tx.codigoRespaldo.deleteMany({ where: { usuarioId } });
+    await tx.configuracionMfa.delete({ where: { usuarioId } });
     return true;
   }
 

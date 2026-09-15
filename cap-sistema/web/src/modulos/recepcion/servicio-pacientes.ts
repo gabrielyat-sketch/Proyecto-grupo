@@ -19,6 +19,7 @@ export const ETIQUETA_IDIOMA: Record<string, string> = {
   ESPANOL: 'Espanol',
   POQOMCHI: "Poqomchi'",
   QEQCHI: "Q'eqchi'",
+  ACHI: "Achi'",
   OTRO: 'Otro',
 };
 

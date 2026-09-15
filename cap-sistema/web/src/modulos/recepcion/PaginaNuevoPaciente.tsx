@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { Link as EnlaceRuta, useNavigate } from 'react-router-dom';
+import { Link as EnlaceRuta, useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -27,11 +27,19 @@ import {
 } from './servicio-pacientes';
 import { MENU_FILTRO } from '../../componentes/menuFiltro';
 import { PRIMARIO } from '../../tema';
+import { NotaPagina } from '../../componentes/EncabezadoPagina';
+import {
+  buscarCarpetas,
+  nombresDeCarpeta,
+  rotuloDeCarpeta,
+  siguienteNumeroDeCarpeta,
+} from '../carpetas/servicio-carpetas';
 
 const IDIOMAS = [
   { valor: 'ESPANOL', etiqueta: 'Espanol' },
   { valor: 'POQOMCHI', etiqueta: 'Poqomchi' },
   { valor: 'QEQCHI', etiqueta: 'Qeqchi' },
+  { valor: 'ACHI', etiqueta: "Achi'" },
   { valor: 'OTRO', etiqueta: 'Otro' },
 ];
 
@@ -39,17 +47,24 @@ const hoy = () => new Date().toISOString().slice(0, 10);
 
 
 /**
- * Reglas identicas a CrearPacienteDto del backend.
+ * Reglas del formulario de alta.
  *
- * El DPI es OPCIONAL a proposito: los ninos y buena parte de la poblacion rural
- * de Purulha no lo tienen. Exigirlo dejaria fuera del sistema justo a quienes
- * mas atiende el CAP.
+ * El CUI o DPI es OBLIGATORIO, y el CAP lo pidio asi. La casilla se llamaba
+ * «DPI» y se dejaba vacia porque los ninos no tienen el carnet — pero lo que
+ * pide el CAP no es el carnet, es el numero: el CUI que RENAP asigna al
+ * inscribir el nacimiento es el mismo que luego aparece impreso en el DPI del
+ * adulto. Por eso la casilla se llama ahora «CUI o DPI»: son trece digitos que
+ * un menor tambien tiene.
+ *
+ * Lo que esto sigue dejando fuera es a quien no esta inscrito en RENAP. Es una
+ * decision del CAP, no una limitacion tecnica, y esta anotada como tal.
  */
 const esquema = z.object({
   dpi: z
     .string()
     .trim()
-    .refine((v) => v === '' || /^[0-9]{13}$/.test(v), 'El DPI debe tener exactamente 13 digitos'),
+    .min(1, 'Escriba el CUI o DPI')
+    .regex(/^[0-9]{13}$/, 'El CUI o DPI debe tener exactamente 13 digitos'),
   nombres: z.string().trim().min(1, 'Escriba los nombres').max(120),
   apellidos: z.string().trim().min(1, 'Escriba los apellidos').max(120),
   fechaNacimiento: z
@@ -57,7 +72,7 @@ const esquema = z.object({
     .min(1, 'Indique la fecha de nacimiento')
     .refine((v) => v <= hoy(), 'La fecha no puede estar en el futuro'),
   sexo: z.enum(['M', 'F']),
-  idioma: z.enum(['ESPANOL', 'POQOMCHI', 'QEQCHI', 'OTRO']),
+  idioma: z.enum(['ESPANOL', 'POQOMCHI', 'QEQCHI', 'ACHI', 'OTRO']),
   comunidadId: z.string().min(1, 'Elija la comunidad'),
   telefono: z
     .string()
@@ -70,11 +85,45 @@ const esquema = z.object({
   digitalizado: z.boolean(),
 
   /**
+   * El nombre del esposo o conviviente, que pide la ficha oficial.
+   *
+   * OBLIGATORIO, y el CAP lo pidio asi sabiendo el costo: este mismo
+   * formulario registra recien nacidos, hombres y solteras, y a todos les
+   * pide ahora una respuesta en esta casilla.
+   */
+  esposo: z
+    .string()
+    .trim()
+    .min(1, 'Escriba el nombre del esposo o conviviente')
+    .max(160, 'El nombre no puede pasar de 160 caracteres'),
+
+  /**
    * El barrio, caserío o aldea. Opcional porque hay comunidades cuyos lugares
    * el CAP todavía no ha declarado, y exigirlo impediría registrar a alguien
    * por un catálogo incompleto.
    */
   lugarId: z.string(),
+
+  /**
+   * La carpeta familiar del archivero.
+   *
+   * '' es "no se dijo", y se acepta: hay altas —una digitalizacion de
+   * expedientes viejos— donde todavia no se sabe en que folder va la persona,
+   * y bloquear el registro por eso dejaria al paciente fuera del sistema.
+   */
+  carpetaExiste: z.enum(['', 'SI', 'NO']),
+  /** El apellido con que se rotula el folder: «Familia Lopez Ac». */
+  familia: z.string().trim().max(120),
+  /**
+   * Los nombres de la tapa, debajo del apellido. Opcionales: hay madres solas,
+   * viudas y abuelas a cargo de nietos.
+   */
+  carpetaEsposo: z.string().trim().max(120),
+  carpetaEsposa: z.string().trim().max(120),
+  /** El numero de la pestana. Texto en el formulario, entero al enviar. */
+  carpetaNumero: z.string().trim(),
+  /** La carpeta elegida cuando ya existe. */
+  grupoFamiliarId: z.string(),
 
   migrante: z.boolean(),
   lugarOrigen: z.string().trim().max(160),
@@ -131,7 +180,40 @@ function TituloSeccion({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Con que nombre se guarda un recien nacido que todavia no tiene.
+ *
+ * En el area rural el nombre se decide en los dias siguientes, y a veces
+ * despues del bautizo. Exigirlo para poder registrarlo dejaria al nino fuera
+ * del sistema justo en las semanas en que mas se le vigila.
+ *
+ * Se escribe asi y no en blanco para que la lista de recepcion se pueda leer:
+ * «Recien nacido» junto al apellido de la familia ya dice de quien se trata.
+ * Se corrige desde el propio expediente cuando lo tenga.
+ */
+const NOMBRE_PROVISIONAL = 'Recien nacido';
+
 export function PaginaNuevoPaciente() {
+  /*
+    Lo que trae el boton «Registrar recien nacido» de la carpeta familiar.
+
+    Viene en el estado de la ruta y no en la direccion porque son cuatro datos
+    y ninguno es un identificador que alguien quiera copiar o guardar: la
+    direccion seguiria siendo `/recepcion/nuevo`, que es lo que es.
+  */
+  const { state } = useLocation();
+  const recienNacido =
+    (
+      (state ?? null) as {
+        recienNacido?: {
+          apellidos?: string;
+          comunidadId?: string;
+          lugarId?: string;
+          grupoFamiliarId?: string;
+        };
+      } | null
+    )?.recienNacido ?? null;
+
   const navegar = useNavigate();
   const clienteConsultas = useQueryClient();
   const [creado, setCreado] = useState<PacienteCreado | null>(null);
@@ -155,16 +237,25 @@ export function PaginaNuevoPaciente() {
     resolver: zodResolver(esquema),
     defaultValues: {
       dpi: '',
-      nombres: '',
-      apellidos: '',
-      fechaNacimiento: '',
+      nombres: recienNacido ? NOMBRE_PROVISIONAL : '',
+      apellidos: recienNacido?.apellidos ?? '',
+      // Hoy, que es lo que suele ser: se corrige si nacio hace unos dias.
+      fechaNacimiento: recienNacido ? hoy() : '',
       sexo: 'F',
       idioma: 'ESPANOL',
-      comunidadId: '',
+      comunidadId: recienNacido?.comunidadId ?? '',
       telefono: '',
       numeroExpediente: '',
       digitalizado: false,
-      lugarId: '',
+      esposo: '',
+      lugarId: recienNacido?.lugarId ?? '',
+      // La carpeta ya existe y es la de su familia: es de donde se vino.
+      carpetaExiste: recienNacido ? 'SI' : '',
+      familia: recienNacido?.apellidos ?? '',
+      carpetaEsposo: '',
+      carpetaEsposa: '',
+      carpetaNumero: '',
+      grupoFamiliarId: recienNacido?.grupoFamiliarId ?? '',
       migrante: false,
       lugarOrigen: '',
       tieneAlergias: '',
@@ -176,6 +267,15 @@ export function PaginaNuevoPaciente() {
   // de Purulha Centro a alguien que vive en Chilasco.
   const comunidadId = watch('comunidadId');
   const migrante = watch('migrante');
+
+  /*
+    La entrada del catalogo donde va quien NO es de Purulha.
+
+    Se reconoce por su codigo y no por su nombre: el nombre es texto que
+    alguien puede querer cambiar, y el dia que lo cambie una comparacion por
+    nombre dejaria de casar sin que nada avise.
+  */
+  const comunidadDeFuera = (comunidades.data ?? []).find((c) => c.codigo === 'FUERA');
   const tieneAlergias = watch('tieneAlergias');
 
   const lugares = useQuery({
@@ -183,6 +283,37 @@ export function PaginaNuevoPaciente() {
     queryFn: () => listarLugares(comunidadId),
     enabled: comunidadId !== '',
     staleTime: 30 * 60_000,
+  });
+
+  const carpetaExiste = watch('carpetaExiste');
+  const familia = watch('familia');
+  const lugarId = watch('lugarId');
+
+  /*
+    El siguiente numero libre, para no tener que ir al archivero a mirarlo.
+
+    Depende del lugar y no solo de la comunidad: el CAP numera por barrio y
+    caserio, asi que el «siguiente» de El Calvario no es el de San Jose. Solo
+    se pide cuando hace falta —al abrir una carpeta nueva—, porque en el otro
+    camino nadie lo va a leer.
+  */
+  const siguienteNumero = useQuery({
+    queryKey: ['siguiente-numero-carpeta', comunidadId, lugarId],
+    queryFn: () => siguienteNumeroDeCarpeta(comunidadId, lugarId || undefined),
+    enabled: comunidadId !== '' && carpetaExiste === 'NO',
+    staleTime: 0,
+  });
+
+  /*
+    Las carpetas que coinciden, cuando la familia ya tiene una.
+
+    Se piden desde dos letras: con una sola, en un caserio entero, la lista
+    seria casi todo el archivero y no ayudaria a elegir.
+  */
+  const carpetas = useQuery({
+    queryKey: ['carpetas', comunidadId, lugarId, familia.trim()],
+    queryFn: () => buscarCarpetas(comunidadId, familia.trim(), lugarId || undefined),
+    enabled: comunidadId !== '' && carpetaExiste === 'SI' && familia.trim().length >= 2,
   });
 
   /*
@@ -234,8 +365,31 @@ export function PaginaNuevoPaciente() {
 
   function enviar(campos: Campos) {
     setCreado(null);
+
+    /*
+      O la carpeta ya existe y se dice cual, o no existe y se dice como
+      llamarla. Nunca las dos: el servidor tomaria una y la otra quedaria
+      escrita sin efecto, que es peor que un error.
+
+      La carpeta nueva se abre en la MISMA transaccion del alta. Hacerlo en dos
+      llamadas dejaria, si el alta falla, un folder vacio ocupando un numero
+      del archivero.
+    */
+    const carpeta =
+      campos.carpetaExiste === 'SI' && campos.grupoFamiliarId
+        ? { grupoFamiliarId: campos.grupoFamiliarId }
+        : campos.carpetaExiste === 'NO' && campos.familia
+          ? {
+              carpetaNueva: {
+                apellidos: campos.familia,
+                ...(campos.carpetaEsposo ? { esposo: campos.carpetaEsposo } : {}),
+                ...(campos.carpetaEsposa ? { esposa: campos.carpetaEsposa } : {}),
+                ...(campos.carpetaNumero ? { numero: Number(campos.carpetaNumero) } : {}),
+              },
+            }
+          : {};
     alta.mutate({
-      ...(campos.dpi ? { dpi: campos.dpi } : {}),
+      dpi: campos.dpi,
       nombres: campos.nombres,
       apellidos: campos.apellidos,
       // El campo de fecha entrega 'aaaa-mm-dd' y se manda tal cual. Construir un
@@ -251,12 +405,14 @@ export function PaginaNuevoPaciente() {
       ...(campos.lugarId ? { lugarId: campos.lugarId } : {}),
       migrante: campos.migrante,
       ...(campos.lugarOrigen ? { lugarOrigen: campos.lugarOrigen } : {}),
+      esposo: campos.esposo,
       // Sin respuesta no viaja el campo: en el servidor queda como "no se
       // pregunto", que no es lo mismo que "no tiene".
       ...(campos.tieneAlergias ? { tieneAlergias: campos.tieneAlergias === 'SI' } : {}),
       ...(campos.tieneAlergias === 'SI' && campos.alergias
         ? { alergias: campos.alergias }
         : {}),
+      ...carpeta,
     } as never);
   }
 
@@ -292,6 +448,26 @@ export function PaginaNuevoPaciente() {
           </Typography>
           <Typography variant="caption">
             Anotelo en la carpeta de papel. El formulario quedo listo para el siguiente.
+          </Typography>
+        </Alert>
+      ) : null}
+
+      {/*
+        Se dice por que el formulario viene medio lleno.
+
+        Sin esto, quien lo abre se encuentra un nombre que no escribio y una
+        fecha de hoy, y lo primero que piensa es que el sistema se confundio de
+        persona. Decirlo convierte lo mismo en una ayuda.
+      */}
+      {recienNacido ? (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            Registrando a un recién nacido de la familia {recienNacido.apellidos}
+          </Typography>
+          <Typography variant="caption">
+            Ya van puestos el apellido, la dirección y la carpeta de la familia. El nombre queda
+            como «{NOMBRE_PROVISIONAL}» hasta que lo tenga: se corrige desde su expediente. Revise
+            la fecha de nacimiento, que viene con la de hoy.
           </Typography>
         </Alert>
       ) : null}
@@ -337,12 +513,13 @@ export function PaginaNuevoPaciente() {
 
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
             <TextField
-              label="DPI"
+              label="CUI o DPI *"
               fullWidth
               inputMode="numeric"
               error={Boolean(errors.dpi)}
               helperText={
-                errors.dpi?.message ?? 'Opcional: ninos y parte de la poblacion no lo tienen'
+                errors.dpi?.message ??
+                'Obligatorio: 13 digitos. El CUI del menor sirve igual que el DPI del adulto'
               }
               {...register('dpi')}
             />
@@ -381,15 +558,33 @@ export function PaginaNuevoPaciente() {
           </Stack>
 
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+            {/*
+              Controlado, no con `register`.
+
+              Lo elige tambien la casilla de «no es de Purulha», y con un campo
+              no controlado `setValue` cambia el valor del formulario pero no lo
+              que se ve: quedaba puesto por dentro y vacio en pantalla, que es
+              la peor de las dos.
+            */}
             <TextField
               select
               label="Comunidad *"
               fullWidth
-              defaultValue=""
+              value={comunidadId}
+              onChange={(e) => {
+                setValue('comunidadId', e.target.value);
+                // Los lugares son de la comunidad anterior.
+                setValue('lugarId', '');
+              }}
+              disabled={migrante}
               error={Boolean(errors.comunidadId)}
-              helperText={errors.comunidadId?.message}
+              helperText={
+                errors.comunidadId?.message ??
+                (migrante
+                  ? 'Quien no es de Purulhá va aquí; anote de dónde viene abajo'
+                  : 'Si no es de Purulhá, márquelo en Procedencia')
+              }
               slotProps={{ select: { MenuProps: MENU_FILTRO } }}
-              {...register('comunidadId')}
             >
               {(comunidades.data ?? []).map((c) => (
                 <MenuItem key={c.id} value={c.id}>
@@ -471,7 +666,173 @@ export function PaginaNuevoPaciente() {
                 )),
               ])}
             </TextField>
+
+            {/*
+              El nombre del esposo o conviviente, que pide la ficha oficial.
+
+              Va aqui y no entre los datos de identidad porque es un dato de
+              contacto —como el telefono—, no uno que identifique al paciente.
+            */}
+            <TextField
+              label="Nombre del esposo o conviviente *"
+              fullWidth
+              error={Boolean(errors.esposo)}
+              // Sin texto de ayuda: la casilla se explica sola con su
+              // etiqueta, y el asterisco ya dice que hay que llenarla.
+              helperText={errors.esposo?.message}
+              {...register('esposo')}
+            />
           </Stack>
+
+          <TituloSeccion>Carpeta familiar</TituloSeccion>
+
+          {/*
+            El CAP no archiva por persona sino por FAMILIA: un folder de carton
+            con un numero en la pestana, rotulado con el apellido y guardado
+            por el lugar donde vive. Registrar a alguien es meterlo en su
+            carpeta, y el sistema no lo recogia.
+
+            Va DESPUES de la comunidad y el barrio a proposito: la carpeta se
+            guarda donde vive la familia, asi que esos dos datos tienen que
+            estar puestos antes de poder decir cual carpeta es o que numero le
+            toca.
+          */}
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+            <TextField
+              select
+              label="¿Existe la carpeta?"
+              sx={{ minWidth: 240 }}
+              value={carpetaExiste}
+              onChange={(e) => {
+                setValue('carpetaExiste', e.target.value as '' | 'SI' | 'NO');
+                // Lo elegido en el otro camino deja de valer: la carpeta
+                // marcada no es la que se va a crear, ni al reves.
+                setValue('grupoFamiliarId', '');
+                setValue('carpetaNumero', '');
+              }}
+              disabled={comunidadId === ''}
+              helperText={
+                comunidadId === ''
+                  ? 'Elija primero la comunidad'
+                  : 'Dejarlo sin responder registra al paciente sin carpeta'
+              }
+            >
+              <MenuItem value="">No se preguntó</MenuItem>
+              <MenuItem value="SI">Sí, ya existe</MenuItem>
+              <MenuItem value="NO">No, hay que abrirla</MenuItem>
+            </TextField>
+
+            {carpetaExiste !== '' ? (
+              <TextField
+                label="Familia"
+                fullWidth
+                value={familia}
+                onChange={(e) => setValue('familia', e.target.value)}
+                error={Boolean(errors.familia)}
+                helperText={
+                  errors.familia?.message ??
+                  (carpetaExiste === 'SI'
+                    ? 'Escriba el apellido para buscar la carpeta'
+                    : 'El apellido con que se rotula: «Familia López Ac»')
+                }
+              />
+            ) : null}
+
+            {carpetaExiste === 'NO' ? (
+              <TextField
+                label="No. de carpeta"
+                sx={{ minWidth: 200 }}
+                value={watch('carpetaNumero')}
+                onChange={(e) =>
+                  setValue('carpetaNumero', e.target.value.replace(/[^0-9]/g, ''))
+                }
+                placeholder={
+                  siguienteNumero.data !== undefined ? String(siguienteNumero.data) : ''
+                }
+                helperText={
+                  siguienteNumero.isPending
+                    ? 'Consultando...'
+                    : siguienteNumero.data !== undefined
+                      ? 'Siguiente libre aquí: ' + siguienteNumero.data
+                      : 'El número escrito en la pestaña del folder'
+                }
+              />
+            ) : null}
+          </Stack>
+
+          {/*
+            Los nombres de la tapa del folder, debajo del apellido: «Familia
+            López Ac — Juan López Tzul y María Ac Caal». Solo al abrir una
+            carpeta: la que ya existe ya los tiene escritos.
+
+            Ninguno es obligatorio. Hay madres solas, viudas y abuelas a cargo
+            de nietos, y obligar a inventar un nombre seria peor que dejarlo en
+            blanco.
+          */}
+          {carpetaExiste === 'NO' ? (
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <TextField
+                label="Esposo"
+                fullWidth
+                value={watch('carpetaEsposo')}
+                onChange={(e) => setValue('carpetaEsposo', e.target.value)}
+                error={Boolean(errors.carpetaEsposo)}
+                helperText={errors.carpetaEsposo?.message ?? 'Como va escrito en la tapa del folder'}
+              />
+              <TextField
+                label="Esposa"
+                fullWidth
+                value={watch('carpetaEsposa')}
+                onChange={(e) => setValue('carpetaEsposa', e.target.value)}
+                error={Boolean(errors.carpetaEsposa)}
+                helperText={errors.carpetaEsposa?.message ?? 'Puede quedar en blanco'}
+              />
+            </Stack>
+          ) : null}
+
+          {/*
+            Cuando la carpeta ya existe hay que ELEGIRLA, no adivinarla.
+
+            Dos familias del mismo apellido pueden vivir en el mismo caserio
+            sin ser parientes. Meter a alguien en la carpeta equivocada mezcla
+            dos historias clinicas, y eso no se nota hasta que alguien lee un
+            antecedente que no es de quien tiene delante.
+          */}
+          {carpetaExiste === 'SI' ? (
+            <Stack spacing={1}>
+              {familia.trim().length < 2 ? (
+                <NotaPagina>Escriba al menos dos letras del apellido para buscar.</NotaPagina>
+              ) : carpetas.isPending ? (
+                <NotaPagina>Buscando carpetas...</NotaPagina>
+              ) : (carpetas.data ?? []).length === 0 ? (
+                <Alert severity="warning">
+                  No hay ninguna carpeta de «{familia.trim()}» en ese lugar. Si es la primera vez
+                  que viene esta familia, marque «No, hay que abrirla».
+                </Alert>
+              ) : (
+                <TextField
+                  select
+                  label="¿Cuál carpeta?"
+                  fullWidth
+                  value={watch('grupoFamiliarId')}
+                  onChange={(e) => setValue('grupoFamiliarId', e.target.value)}
+                  error={Boolean(errors.grupoFamiliarId)}
+                  helperText={errors.grupoFamiliarId?.message ?? 'Elija el folder donde va la ficha'}
+                >
+                  {(carpetas.data ?? []).map((c) => (
+                    <MenuItem key={c.id} value={c.id}>
+                      {rotuloDeCarpeta(c) +
+                        // Los nombres de la tapa son lo que separa dos
+                        // carpetas del mismo apellido en el mismo lugar.
+                        (nombresDeCarpeta(c) ? ' · ' + nombresDeCarpeta(c) : '') +
+                        ' · ' +
+                        (c.integrantes === 1 ? '1 integrante' : c.integrantes + ' integrantes')}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            </Stack>
+          ) : null}
 
           <TituloSeccion>Procedencia</TituloSeccion>
 
@@ -486,11 +847,33 @@ export function PaginaNuevoPaciente() {
               spacing={2}
               sx={{ alignItems: { md: 'center' } }}
             >
+              {/*
+                Marcarlo RESUELVE la comunidad, no choca con ella.
+
+                La comunidad es obligatoria —de ella cuelgan la busqueda, la
+                cola de digitalizacion y la serie de las carpetas—, asi que
+                quien no es de Purulha no se podia registrar: la casilla estaba
+                aqui abajo y el formulario seguia exigiendo elegir una de las
+                del municipio. Ahora al marcarla se pone sola la entrada «Fuera
+                de Purulha» y el campo queda fijo, porque elegir ademas un
+                barrio de Purulha seria decir dos cosas incompatibles.
+              */}
               <FormControlLabel
                 control={
                   <Checkbox
                     checked={migrante}
-                    onChange={(e) => setValue('migrante', e.target.checked)}
+                    onChange={(e) => {
+                      const marcado = e.target.checked;
+                      setValue('migrante', marcado);
+                      if (marcado && comunidadDeFuera) {
+                        setValue('comunidadId', comunidadDeFuera.id);
+                        setValue('lugarId', '');
+                      } else if (!marcado && comunidadId === comunidadDeFuera?.id) {
+                        // Se desmarca: la comunidad que puso el sistema deja de
+                        // valer, y hay que volver a preguntarla.
+                        setValue('comunidadId', '');
+                      }
+                    }}
                   />
                 }
                 label="No es de Purulhá (población migrante)"

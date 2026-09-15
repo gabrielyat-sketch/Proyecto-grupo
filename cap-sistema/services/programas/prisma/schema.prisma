@@ -97,14 +97,14 @@ model ControlHipertension {
   programaId String   @map("programa_id")
   fecha      DateTime @default(now())
 
-  sistolica  Int
-  diastolica Int
+  sistolica     Int
+  diastolica    Int
   /// Calculada a partir de las cifras, nunca tecleada.
   clasificacion ClasificacionPresion
   /// true si la lectura alcanza la meta acordada con el paciente.
-  enMeta Boolean
+  enMeta        Boolean
 
-  pesoKg Decimal? @map("peso_kg") @db.Decimal(5, 2)
+  pesoKg     Decimal? @map("peso_kg") @db.Decimal(5, 2)
   /// Si el paciente refiere estar tomando el tratamiento indicado.
   adherencia Boolean?
 
@@ -138,7 +138,7 @@ model ProgramaEmbarazo {
   riesgo          RiesgoEmbarazo @default(BAJO)
   /// Por que se clasifico como alto riesgo. Se guarda el motivo para que el
   /// personal siguiente sepa a que atenerse.
-  motivoRiesgo String? @map("motivo_riesgo") @db.VarChar(300)
+  motivoRiesgo    String?        @map("motivo_riesgo") @db.VarChar(300)
 
   estado      EstadoPrograma     @default(ACTIVO)
   resultado   ResultadoEmbarazo?
@@ -164,14 +164,14 @@ model ControlPrenatal {
   /// Calculadas a partir de la FUM y la fecha del control.
   semanasGestacion Int @map("semanas_gestacion")
 
-  pesoKg     Decimal? @map("peso_kg") @db.Decimal(5, 2)
-  sistolica  Int?
-  diastolica Int?
+  pesoKg          Decimal? @map("peso_kg") @db.Decimal(5, 2)
+  sistolica       Int?
+  diastolica      Int?
   /// Altura uterina en centimetros.
   alturaUterinaCm Decimal? @map("altura_uterina_cm") @db.Decimal(4, 1)
   /// Frecuencia cardiaca fetal, latidos por minuto.
-  fcf   Int?
-  edema Boolean?
+  fcf             Int?
+  edema           Boolean?
 
   observacionesCifrado Bytes? @map("observaciones_cifrado")
 
@@ -179,6 +179,11 @@ model ControlPrenatal {
   alertas        String[]  @default([])
   proximoControl DateTime? @map("proximo_control") @db.Date
   registradoPor  String    @map("registrado_por")
+
+  /// La ficha prenatal de `usuarios` de la que salio este control, cuando
+  /// vino por el bus y no de la pantalla de Programas. Unica: el evento llega
+  /// «al menos una vez», y la misma hoja no puede ser dos controles.
+  atencionId String? @unique @map("atencion_id")
 
   programa ProgramaEmbarazo @relation(fields: [programaId], references: [id], onDelete: Cascade)
 
@@ -189,9 +194,9 @@ model ControlPrenatal {
 
 /// Bandeja de salida de eventos (patron outbox), igual que en `usuarios`.
 model Outbox {
-  id      String @id @default(uuid())
-  tipo    String @db.VarChar(60)
-  version Int    @default(1)
+  id          String    @id @default(uuid())
+  tipo        String    @db.VarChar(60)
+  version     Int       @default(1)
   /// NUNCA lleva observaciones clinicas.
   datos       Json
   trazaId     String?   @map("traza_id") @db.VarChar(64)
@@ -201,4 +206,37 @@ model Outbox {
 
   @@index([publicadoEn, ocurridoEn])
   @@map("outbox")
+}
+
+/// Que se hizo con cada evento del bus.
+///
+/// Es la idempotencia que exige docs/eventos/esquema-eventos.md: el bus entrega
+/// «al menos una vez», y la segunda entrega de un evento ya procesado se
+/// reconoce por su id, aqui. Se escribe en la MISMA transaccion que el cambio
+/// de negocio que el evento provoco; si se escribiera despues, un fallo entre
+/// las dos dejaria el control registrado dos veces.
+///
+/// Tambien guarda los descartados con su motivo, porque «Programas decide, y
+/// hoy lo descarta y lo deja anotado» (decision 3 del diseno de la ficha
+/// prenatal): una hoja de una paciente sin seguimiento activo no se pierde en
+/// silencio, queda aqui con el porque.
+model EventoProcesado {
+  /// El id del evento, que es el de la fila del outbox que lo origino.
+  id          String          @id
+  tipo        String          @db.VarChar(60)
+  origen      String          @db.VarChar(30)
+  procesadoEn DateTime        @default(now()) @map("procesado_en")
+  resultado   ResultadoEvento
+  /// El id de lo que se creo, o el motivo del descarte. Nunca un dato clinico.
+  detalle     String?         @db.VarChar(300)
+
+  @@index([tipo, procesadoEn])
+  @@map("evento_procesado")
+}
+
+enum ResultadoEvento {
+  /// El evento produjo un cambio: un control registrado, por ejemplo.
+  APLICADO
+  /// Se leyo, se decidio no hacer nada, y `detalle` dice por que.
+  DESCARTADO
 }

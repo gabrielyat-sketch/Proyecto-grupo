@@ -110,7 +110,7 @@ export function PaginaEntrega() {
       // El inventario acaba de cambiar: todo lo que lo muestre queda viejo.
       void consultas.invalidateQueries({ queryKey: ['catalogo'] });
       void consultas.invalidateQueries({ queryKey: ['medicamento'] });
-      void consultas.invalidateQueries({ queryKey: ['por-vencer'] });
+      void consultas.invalidateQueries({ queryKey: ['semaforo'] });
       void consultas.invalidateQueries({ queryKey: ['bajo-minimo'] });
       void consultas.invalidateQueries({ queryKey: ['entregas'] });
       setComprobante(entrega);

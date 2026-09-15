@@ -1,10 +1,21 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
@@ -13,7 +24,14 @@ import { LotesService } from './lotes.service';
 import { IngresarLoteDto } from './dto/ingresar-lote.dto';
 import { DarDeBajaLoteDto } from './dto/dar-de-baja.dto';
 import { AjustarLoteDto } from './dto/ajustar-lote.dto';
-import { LoteDto, LotePorVencerDto, LoteVencidoDto } from './dto/respuestas.dto';
+import {
+  LoteDto,
+  LotePorVencerDto,
+  LoteVencidoDto,
+  ResumenSemaforoDto,
+} from './dto/respuestas.dto';
+import { SEMAFORO } from '../catalogo/dto/respuestas.dto';
+import type { ColorSemaforo } from '../dominio/inventario';
 
 @ApiTags('lotes')
 @ApiBearerAuth()
@@ -55,6 +73,42 @@ export class LotesController {
     @Query('tamano') tamano?: string,
   ): Promise<Pagina<LotePorVencerDto>> {
     return this.servicio.porVencer(dias ? Number(dias) : undefined, {
+      pagina: Number(pagina),
+      tamano: Number(tamano),
+    });
+  }
+
+  @Get('lotes/semaforo/resumen')
+  @Roles(Rol.FARMACIA, Rol.ADMINISTRADOR, Rol.DIRECTOR)
+  @ApiOperation({
+    summary: 'Cuantos lotes con existencia hay de cada color del semaforo',
+    description: 'Los numeros de las pestanas de Farmacia, en una sola consulta.',
+  })
+  @ApiOkResponse({ type: ResumenSemaforoDto })
+  resumenSemaforo(): Promise<ResumenSemaforoDto> {
+    return this.servicio.resumenSemaforo();
+  }
+
+  @Get('lotes/semaforo/:color')
+  @Roles(Rol.FARMACIA, Rol.ADMINISTRADOR, Rol.DIRECTOR)
+  @ApiOperation({
+    summary: 'Lotes con existencia de un color del semaforo',
+    description:
+      'ROJO vence en menos de 6 meses, AMARILLO entre 6 y 12, VERDE en mas de 12. Los ya vencidos no entran: tienen su propia lista.',
+  })
+  @ApiParam({ name: 'color', enum: SEMAFORO })
+  @ApiPaginaDe(LotePorVencerDto, 'Ordenados por vencimiento: primero el que vence antes.')
+  @ApiParametrosPagina()
+  porSemaforo(
+    @Param('color') color: string,
+    @Query('pagina') pagina?: string,
+    @Query('tamano') tamano?: string,
+  ): Promise<Pagina<LotePorVencerDto>> {
+    const mayusculas = color.toUpperCase();
+    if (!SEMAFORO.includes(mayusculas)) {
+      throw new BadRequestException('El color debe ser ROJO, AMARILLO o VERDE.');
+    }
+    return this.servicio.porSemaforo(mayusculas as ColorSemaforo, {
       pagina: Number(pagina),
       tamano: Number(tamano),
     });

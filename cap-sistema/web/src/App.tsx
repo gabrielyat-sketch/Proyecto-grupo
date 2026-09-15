@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import { tema } from './tema';
@@ -12,10 +12,16 @@ import { Inicio } from './rutas/Inicio';
 import { EnConstruccion } from './rutas/EnConstruccion';
 import { PaginaRecepcion } from './modulos/recepcion/PaginaRecepcion';
 import { PaginaNuevoPaciente } from './modulos/recepcion/PaginaNuevoPaciente';
+import { PaginaNoEncontrada } from './rutas/PaginaNoDisponible';
+import { PaginaCarpetas } from './modulos/carpetas/PaginaCarpetas';
+import { PaginaCarpeta } from './modulos/carpetas/PaginaCarpeta';
 import { PaginaFicha } from './modulos/fichas/PaginaFicha';
 import { PaginaFichaNeonato } from './modulos/fichas/neonato/PaginaFichaNeonato';
 import { PaginaFichaNinez } from './modulos/fichas/ninez/PaginaFichaNinez';
+import { PaginaFichaPrenatal } from './modulos/fichas/prenatal/PaginaFichaPrenatal';
+import { PaginaFichaPosparto } from './modulos/fichas/prenatal/PaginaFichaPosparto';
 import { PaginaCarnetNinez } from './modulos/fichas/ninez/PaginaCarnetNinez';
+import { PaginaImprimirFicha } from './modulos/fichas/impresion/PaginaImprimirFicha';
 import { PaginaDigitalizacion } from './modulos/digitalizacion/PaginaDigitalizacion';
 import { PaginaSalaEspera } from './modulos/espera/PaginaSalaEspera';
 import { PaginaExpedientes } from './modulos/expedientes/PaginaExpedientes';
@@ -76,6 +82,22 @@ export function App() {
               }
             />
 
+            {/*
+              La ficha para imprimir va FUERA del layout: sin menu ni barra
+              superior, porque lo que se imprime es la hoja oficial y nada
+              mas. Protegida igual —sesion y rol— que el resto.
+            */}
+            <Route
+              path="/pacientes/:pacienteId/fichas/:fichaId/imprimir"
+              element={
+                <RutaProtegida>
+                  <RutaPorRol ruta="/imprimir-ficha">
+                    <PaginaImprimirFicha />
+                  </RutaPorRol>
+                </RutaProtegida>
+              }
+            />
+
             <Route
               element={
                 <RutaProtegida>
@@ -102,6 +124,27 @@ export function App() {
                 element={
                   <RutaPorRol ruta="/recepcion/nuevo">
                     <PaginaNuevoPaciente />
+                  </RutaPorRol>
+                }
+              />
+              <Route
+                path="/carpetas"
+                element={
+                  <RutaPorRol ruta="/carpetas">
+                    <PaginaCarpetas />
+                  </RutaPorRol>
+                }
+              />
+              {/*
+                Una carpeta concreta. Va DESPUES del listado: declarada antes,
+                `/carpetas` entraria por `:carpetaId` y se buscaria una carpeta
+                cuyo identificador es la palabra vacia.
+              */}
+              <Route
+                path="/carpetas/:carpetaId"
+                element={
+                  <RutaPorRol ruta="/carpetas">
+                    <PaginaCarpeta />
                   </RutaPorRol>
                 }
               />
@@ -203,6 +246,22 @@ export function App() {
                 }
               />
               <Route
+                path="/pacientes/:pacienteId/ficha-prenatal"
+                element={
+                  <RutaPorRol ruta="/ficha-prenatal">
+                    <PaginaFichaPrenatal />
+                  </RutaPorRol>
+                }
+              />
+              <Route
+                path="/pacientes/:pacienteId/ficha-posparto"
+                element={
+                  <RutaPorRol ruta="/ficha-posparto">
+                    <PaginaFichaPosparto />
+                  </RutaPorRol>
+                }
+              />
+              <Route
                 path="/pacientes/:pacienteId/carnet"
                 element={
                   <RutaPorRol ruta="/carnet">
@@ -240,9 +299,18 @@ export function App() {
                   }
                 />
               ))}
-            </Route>
 
-            <Route path="*" element={<Navigate to="/" replace />} />
+              {/*
+                Cualquier otra direccion, DENTRO del armazon.
+
+                Antes estaba fuera y era `Navigate to="/"`: una direccion mal
+                escrita devolvia al inicio sin una palabra. Aqui dentro, el 404
+                se ve con el menu al lado, asi que se puede ir a otro sitio sin
+                volver a escribir nada. Va al final: en react-router gana la
+                primera ruta que casa, y `*` casa con todo.
+              */}
+              <Route path="*" element={<PaginaNoEncontrada />} />
+            </Route>
           </Routes>
         </BrowserRouter>
       </ThemeProvider>

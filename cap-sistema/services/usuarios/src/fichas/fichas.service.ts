@@ -1,15 +1,25 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { ServicioCifrado } from '@cap/shared';
+import {
+  CLIENTE_AUDITORIA,
+  ContextoAuditoria,
+  IClienteAuditoria,
+  registrarConsulta,
+  ServicioCifrado,
+} from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { SERVICIO_CIFRADO } from '../comun/cifrado.module';
 import { Evento, OutboxService } from '../eventos/outbox.service';
 import { CrearFichaDto, type TipoFichaDto } from './dto/crear-ficha.dto';
+import { marcarCarpetaTranscrita } from '../digitalizacion/marcar-transcrito';
+import { fechaProbableParto, semanasDeGestacion } from './gestacion';
 import type {
   CatalogoFichaDto,
   ConsejeriaFichaDto,
   FichaCreadaDto,
   FichaDto,
   FichaNeonatoDto,
+  FichaPospartoDto,
+  FichaPrenatalDto,
   MedicamentoFichaDto,
   ProblemaFichaRegistradoDto,
   SignoPeligroFichaDto,
@@ -24,6 +34,7 @@ export class FichasService {
     private readonly prisma: PrismaService,
     @Inject(SERVICIO_CIFRADO) private readonly cifrado: ServicioCifrado,
     private readonly outbox: OutboxService,
+    @Inject(CLIENTE_AUDITORIA) private readonly auditoria: IClienteAuditoria,
   ) {}
 
   /**
@@ -86,7 +97,24 @@ export class FichasService {
       }),
     ]);
 
-    if (problemas.length === 0) {
+    // Un catalogo sin sembrar es un catalogo que no se puede dibujar, y hay que
+    // decirlo en vez de servir una hoja vacia que alguien llenaria a medias.
+    //
+    // Que se comprueba depende de la ficha, y no es un capricho: TRES de las
+    // cinco traen matriz de problemas y sin ella la hoja no existe —es su
+    // cuerpo entero—, mientras que la prenatal y la del posparto no la tienen
+    // en el papel: ahi el MSPAS deja una raya para escribirlos.
+    //
+    // La primera version de esto miraba solo los problemas, y daba 404 en una
+    // ficha prenatal perfectamente sembrada. La segunda pedia que TODO
+    // estuviera vacio, y con eso una ficha de adultos a la que le faltara la
+    // matriz —una siembra a medias— pasaba por buena y se servia sin ella.
+    const sinMatriz = tipoFicha === 'PRENATAL' || tipoFicha === 'POSPARTO';
+    const vacio = sinMatriz
+      ? signosPeligro.length === 0 && temasConsejeria.length === 0
+      : problemas.length === 0;
+
+    if (vacio) {
       throw new NotFoundException(
         'La ficha ' + tipoFicha + ' todavia no tiene catalogo cargado en el sistema.',
       );
@@ -123,7 +151,7 @@ export class FichasService {
     expedienteId: string,
     dto: CrearFichaDto,
     usuarioId: string,
-    trazaId?: string,
+    contexto: ContextoAuditoria,
   ): Promise<FichaCreadaDto> {
     const expediente = await this.prisma.expediente.findUnique({
       where: { id: expedienteId },
@@ -242,27 +270,52 @@ export class FichasService {
           presionDiastolica: dto.presionDiastolica ?? null,
           registradaPor: usuarioId,
         },
-        trazaId,
+        contexto.trazaId,
       );
 
-      // Lo que el panel de digitalizacion cuenta como avance. Sin esto, una
-      // jornada entera de transcripcion dejaria el contador en cero y el
-      // personal no veria progresar lo que si esta haciendo, que es
-      // exactamente como se abandona una digitalizacion (riesgo R-6).
-      if (dto.digitalizada) {
-        await tx.registroDigitalizacion.updateMany({
-          where: { expedienteId },
-          data: { atencionesTranscritas: { increment: 1 } },
-        });
+      // La hoja prenatal ademas se la cuenta a Programas, que es quien lleva
+      // el seguimiento del embarazo: con esto el control queda registrado
+      // alli sin que el personal lo capture dos veces. Va con lo que
+      // Programas sabe evaluar —presion, altura uterina, frecuencia cardiaca
+      // fetal— y con las semanas que anoto quien atendio, y SIN laboratorios,
+      // ni problemas detectados, ni nada cifrado: el bus no es un canal
+      // cifrado por campo.
+      //
+      // Si la paciente no esta inscrita en el programa, Programas descarta el
+      // evento y lo deja anotado. Inscribirla por un efecto secundario seria
+      // tomar una decision clinica que nadie pidio.
+      if (dto.tipoFicha === 'PRENATAL') {
+        const p = dto.prenatal;
+        await this.outbox.registrar(
+          tx,
+          Evento.FICHA_PRENATAL_REGISTRADA,
+          {
+            atencionId: atencion.id,
+            pacienteId: expediente.paciente.id,
+            comunidadId: expediente.paciente.comunidadId,
+            fecha: atencion.fecha.toISOString(),
+            digitalizada: dto.digitalizada ?? false,
+            pesoKg: dto.pesoKg ?? null,
+            presionSistolica: dto.presionSistolica ?? null,
+            presionDiastolica: dto.presionDiastolica ?? null,
+            alturaUterinaCm: p?.alturaUterinaCm ?? null,
+            fcf: p?.fcf ?? null,
+            semanasPorFurAu: p?.semanasPorFurAu ?? null,
+            conSignosDePeligro: (dto.signosPeligro ?? []).some((s) => s.presente),
+            registradaPor: usuarioId,
+          },
+          contexto.trazaId,
+        );
+      }
 
-        // La primera hoja transcrita mueve la carpeta a "en proceso" y sella
-        // quien y cuando la empezo. Es el unico de los cuatro estados que el
-        // sistema puede deducir por si mismo: los otros dependen de mirar el
-        // papel, y por eso los declara una persona.
-        await tx.registroDigitalizacion.updateMany({
-          where: { expedienteId, estado: 'PENDIENTE' },
-          data: { estado: 'EN_PROCESO', iniciadoEn: new Date(), digitalizadoPor: usuarioId },
-        });
+      // Guardar la hoja SACA la carpeta de la cola.
+      //
+      // Antes la dejaba en "en proceso" y habia que volver a Digitalizacion,
+      // buscarla otra vez entre miles y cerrarla a mano. Ver
+      // `marcarCarpetaTranscrita` para el porque de completarla con la primera
+      // hoja y no esperar a que se declaren todas.
+      if (dto.digitalizada) {
+        await marcarCarpetaTranscrita(tx, expedienteId, usuarioId);
       }
 
       // ── La tabla de consejeria del pie de la ficha ──────────────────
@@ -318,6 +371,85 @@ export class FichasService {
         });
       }
 
+      // ── Lo que solo trae la hoja prenatal ───────────────────────────
+      //
+      // Mismo criterio que el neonato: solo si la ficha ES prenatal. La hoja
+      // del posparto escribe en `ficha_posparto`, que es otra tabla, asi que un
+      // cuerpo con `prenatal` dentro de una ficha POSPARTO se ignora en vez de
+      // dejar una fila colgada de una atencion que nadie va a leer por ahi.
+      if (dto.tipoFicha === 'PRENATAL' && dto.prenatal) {
+        const p = dto.prenatal;
+        await tx.fichaPrenatal.create({
+          data: {
+            atencionId: atencion.id,
+            circunferenciaBrazoCm: p.circunferenciaBrazoCm,
+
+            examenGeneralNormal: p.examenGeneralNormal,
+            examenBucodentalCifrado: this.cifrar(p.examenBucodental),
+
+            alturaUterinaCm: p.alturaUterinaCm,
+            movimientosFetales: p.movimientosFetales,
+            fcf: p.fcf,
+            presentacionLeopold: p.presentacionLeopold,
+
+            trazasSangre: p.trazasSangre,
+            trazasSangreDescripcionCifrado: this.cifrar(p.trazasSangreDescripcion),
+            lesionesVulvares: p.lesionesVulvares,
+            lesionesVulvaresDescripcionCifrado: this.cifrar(p.lesionesVulvaresDescripcion),
+            flujoVaginal: p.flujoVaginal,
+
+            hemoglobinaHematocritoCifrado: this.cifrar(p.hemoglobinaHematocrito),
+            grupoRhCifrado: this.cifrar(p.grupoRh),
+            orinaCifrado: this.cifrar(p.orina),
+            glicemiaCifrado: this.cifrar(p.glicemia),
+            vdrlCifrado: this.cifrar(p.vdrl),
+            vihCifrado: this.cifrar(p.vih),
+            papanicolauCifrado: this.cifrar(p.papanicolau),
+            infeccionesCifrado: this.cifrar(p.infecciones),
+
+            semanasPorFurAu: p.semanasPorFurAu,
+            problemasDetectadosCifrado: this.cifrar(p.problemasDetectados),
+
+            sulfatoFerrosoTabletas: p.sulfatoFerrosoTabletas,
+            acidoFolicoTabletas: p.acidoFolicoTabletas,
+            tdDosis: p.tdDosis,
+          },
+        });
+      }
+
+      // ── Lo que solo trae la evaluacion del posparto ─────────────────
+      if (dto.tipoFicha === 'POSPARTO' && dto.posparto) {
+        const s = dto.posparto;
+        await tx.fichaPosparto.create({
+          data: {
+            atencionId: atencion.id,
+            esPrimerControl: s.esPrimerControl ?? false,
+
+            diasDespuesDelParto: s.diasDespuesDelParto,
+            dondeAtendioParto: s.dondeAtendioParto,
+            quienAtendioParto: s.quienAtendioParto,
+            quienAtendioPartoOtro: s.quienAtendioPartoOtro,
+
+            involucionUterinaCifrado: this.cifrar(s.involucionUterina),
+            examenMamasCifrado: this.cifrar(s.examenMamas),
+            heridaOperatoriaCifrado: this.cifrar(s.heridaOperatoria),
+            examenGinecologicoCifrado: this.cifrar(s.examenGinecologico),
+
+            lactanciaMaternaExclusiva: s.lactanciaMaternaExclusiva,
+            motivoSinLactanciaCifrado: this.cifrar(s.motivoSinLactancia),
+            problemasDetectadosCifrado: this.cifrar(s.problemasDetectados),
+
+            sulfatoFerroso: s.sulfatoFerroso,
+            sulfatoFerrosoTabletas: s.sulfatoFerrosoTabletas,
+            acidoFolico: s.acidoFolico,
+            acidoFolicoTabletas: s.acidoFolicoTabletas,
+            td: s.td,
+            tdDosis: s.tdDosis,
+            otroMedicamento: s.otroMedicamento,
+          },
+        });
+      }
+
       /**
        * Si el paciente estaba en la sala de espera, esta ficha lo atiende.
        *
@@ -341,6 +473,30 @@ export class FichasService {
           atencionId: atencion.id,
         },
       });
+
+      // Una hoja del MSPAS son ~200 campos. No se copian aqui: la ficha
+      // completa ya vive en el expediente, y duplicarla en una tabla
+      // append-only multiplicaria la que mas crece del sistema (arquitectura
+      // 9.5) por una copia que ademas nadie podria corregir nunca. Queda el
+      // QUE, el QUIEN y el CUANDO, que es lo que se audita.
+      await this.auditoria.registrar(
+        {
+          servicio: 'usuarios',
+          accion: 'CREACION',
+          entidad: 'ficha',
+          entidadId: atencion.id,
+          motivo: 'Registro de ficha clinica completa',
+          valorNuevo: JSON.stringify({
+            expedienteId,
+            pacienteId: expediente.paciente.id,
+            tipoFicha: dto.tipoFicha,
+            fecha: atencion.fecha.toISOString(),
+            digitalizada: dto.digitalizada ?? false,
+          }),
+        },
+        contexto.autorizacion,
+        contexto.trazaId,
+      );
 
       return atencion;
     });
@@ -442,7 +598,7 @@ export class FichasService {
   }
 
   /** Una ficha completa, con el texto descifrado y el catalogo resuelto. */
-  async obtener(id: string): Promise<FichaDto> {
+  async obtener(id: string, contexto: ContextoAuditoria): Promise<FichaDto> {
     const a = await this.prisma.atencion.findUnique({
       where: { id },
       include: {
@@ -457,9 +613,28 @@ export class FichasService {
         medicamentos: { orderBy: { orden: 'asc' } },
         consejeria: { include: { tema: { select: { texto: true, orden: true } } } },
         fichaNeonato: true,
+        fichaPrenatal: true,
+        fichaPosparto: true,
+        // Para la FUR: las semanas de gestacion se calculan al responder y la
+        // fecha vive en los antecedentes del paciente, no en la ficha.
+        expediente: { select: { pacienteId: true } },
       },
     });
     if (!a) throw new NotFoundException('No existe esa ficha.');
+
+    // Abrir una ficha descifra la hoja entera: es una consulta de expediente
+    // en el sentido pleno del RF-09.
+    registrarConsulta(
+      this.auditoria,
+      {
+        servicio: 'usuarios',
+        entidad: 'ficha',
+        entidadId: id,
+        motivo: 'Apertura de una ficha clinica',
+        valorNuevo: JSON.stringify({ expedienteId: a.expedienteId, tipoFicha: a.tipoFicha }),
+      },
+      contexto,
+    );
 
     const signosPeligro: SignoPeligroFichaDto[] = a.signosPeligro
       .sort((x, y) => x.signo.orden - y.signo.orden)
@@ -527,15 +702,106 @@ export class FichasService {
         }
       : null;
 
+    // Decimal de Prisma: viaja como texto en JSON. Se convierte explicito para
+    // que el tipo declarado sea cierto.
+    const decimal = (v: unknown) => (v === null || v === undefined ? null : String(v));
+
+    const p = a.fichaPrenatal;
+    let prenatal: FichaPrenatalDto | null = null;
+    if (p) {
+      // La FUR es del paciente, no de la consulta: una mujer con cuatro
+      // controles tiene cuatro fichas y una sola ultima regla.
+      const obstetricos = await this.prisma.antecedentesObstetricos.findUnique({
+        where: { pacienteId: a.expediente.pacienteId },
+        select: { fur: true },
+      });
+      const fur = obstetricos?.fur ?? null;
+      // `a.fecha` es un instante con hora, y la cuenta es por dias de
+      // calendario en Purulha. Ver `gestacion.ts`.
+      const semanas = fur ? semanasDeGestacion(fur, a.fecha) : null;
+
+      prenatal = {
+        circunferenciaBrazoCm: decimal(p.circunferenciaBrazoCm),
+
+        examenGeneralNormal: p.examenGeneralNormal,
+        examenBucodental: this.descifrar(p.examenBucodentalCifrado),
+
+        alturaUterinaCm: decimal(p.alturaUterinaCm),
+        movimientosFetales: p.movimientosFetales,
+        fcf: p.fcf,
+        presentacionLeopold: p.presentacionLeopold,
+
+        trazasSangre: p.trazasSangre,
+        trazasSangreDescripcion: this.descifrar(p.trazasSangreDescripcionCifrado),
+        lesionesVulvares: p.lesionesVulvares,
+        lesionesVulvaresDescripcion: this.descifrar(p.lesionesVulvaresDescripcionCifrado),
+        flujoVaginal: p.flujoVaginal,
+
+        hemoglobinaHematocrito: this.descifrar(p.hemoglobinaHematocritoCifrado),
+        grupoRh: this.descifrar(p.grupoRhCifrado),
+        orina: this.descifrar(p.orinaCifrado),
+        glicemia: this.descifrar(p.glicemiaCifrado),
+        vdrl: this.descifrar(p.vdrlCifrado),
+        vih: this.descifrar(p.vihCifrado),
+        papanicolau: this.descifrar(p.papanicolauCifrado),
+        infecciones: this.descifrar(p.infeccionesCifrado),
+
+        semanasPorFurAu: p.semanasPorFurAu,
+        problemasDetectados: this.descifrar(p.problemasDetectadosCifrado),
+
+        sulfatoFerrosoTabletas: p.sulfatoFerrosoTabletas,
+        acidoFolicoTabletas: p.acidoFolicoTabletas,
+        tdDosis: p.tdDosis,
+
+        // Sin FUR no hay cuenta que hacer, y ninguna de las dos se inventa.
+        //
+        // Las dos van juntas a proposito. La FUR es del PACIENTE y hay una
+        // sola: si esa mujer se embaraza otra vez y alguien la actualiza,
+        // los controles del embarazo anterior quedan apuntando a la ultima
+        // regla del siguiente. Cuando eso pasa, la consulta es anterior a la
+        // FUR y `semanasDeGestacion` devuelve null; la fecha probable de parto
+        // tiene que callarse tambien, porque calcularla igual pondria en una
+        // ficha de 2026 la fecha de parto de un embarazo de 2027 con toda la
+        // pinta de haberse calculado para ella.
+        semanasGestacion: semanas,
+        fechaProbableParto:
+          fur && semanas !== null ? fechaProbableParto(fur).toISOString().slice(0, 10) : null,
+      };
+    }
+
+    const s = a.fichaPosparto;
+    const posparto: FichaPospartoDto | null = s
+      ? {
+          esPrimerControl: s.esPrimerControl,
+          diasDespuesDelParto: s.diasDespuesDelParto,
+          dondeAtendioParto: s.dondeAtendioParto,
+          quienAtendioParto: s.quienAtendioParto,
+          quienAtendioPartoOtro: s.quienAtendioPartoOtro,
+
+          involucionUterina: this.descifrar(s.involucionUterinaCifrado),
+          examenMamas: this.descifrar(s.examenMamasCifrado),
+          heridaOperatoria: this.descifrar(s.heridaOperatoriaCifrado),
+          examenGinecologico: this.descifrar(s.examenGinecologicoCifrado),
+
+          lactanciaMaternaExclusiva: s.lactanciaMaternaExclusiva,
+          motivoSinLactancia: this.descifrar(s.motivoSinLactanciaCifrado),
+          problemasDetectados: this.descifrar(s.problemasDetectadosCifrado),
+
+          sulfatoFerroso: s.sulfatoFerroso,
+          sulfatoFerrosoTabletas: s.sulfatoFerrosoTabletas,
+          acidoFolico: s.acidoFolico,
+          acidoFolicoTabletas: s.acidoFolicoTabletas,
+          td: s.td,
+          tdDosis: s.tdDosis,
+          otroMedicamento: s.otroMedicamento,
+        }
+      : null;
+
     const medicamentos: MedicamentoFichaDto[] = a.medicamentos.map((m) => ({
       nombre: this.descifrar(m.nombreCifrado) ?? '',
       dosis: this.descifrar(m.dosisCifrado),
       dias: m.dias,
     }));
-
-    // Decimal de Prisma: viaja como texto en JSON. Se convierte explicito para
-    // que el tipo declarado sea cierto.
-    const decimal = (v: unknown) => (v === null || v === undefined ? null : String(v));
 
     return {
       id: a.id,
@@ -554,6 +820,8 @@ export class FichasService {
       consejeria: this.descifrar(a.consejeriaCifrado),
       consejeriaTemas,
       neonato,
+      prenatal,
+      posparto,
       referencia: this.descifrar(a.referenciaCifrado),
       vacunaAdministrada: this.descifrar(a.vacunaAdministradaCifrado),
 

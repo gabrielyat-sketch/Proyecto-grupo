@@ -1,6 +1,6 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Rol, Roles } from '@cap/shared';
+import { Autorizacion, Rol, Roles } from '@cap/shared';
 import { ExpedientesService } from './expedientes.service';
 import { ExpedienteEncontradoDto } from './dto/respuestas.dto';
 
@@ -17,7 +17,11 @@ export class ExpedientesController {
     description: 'El numero esta cifrado en la base; se resuelve por su indice ciego.',
   })
   @ApiOkResponse({ type: ExpedienteEncontradoDto })
-  porNumero(@Query('numero') numero: string): Promise<ExpedienteEncontradoDto> {
-    return this.servicio.porNumero(numero ?? '');
+  porNumero(
+    @Query('numero') numero: string,
+    @Autorizacion() autorizacion: string,
+    @Req() req: { trazaId?: string },
+  ): Promise<ExpedienteEncontradoDto> {
+    return this.servicio.porNumero(numero ?? '', { autorizacion, trazaId: req.trazaId });
   }
 }

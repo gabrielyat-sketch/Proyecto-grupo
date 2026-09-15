@@ -5,6 +5,8 @@ export const UNIDADES = [
 ];
 export const ESTADOS_LOTE = ['DISPONIBLE', 'AGOTADO', 'VENCIDO', 'DADO_DE_BAJA'];
 export const ESTADOS_VENCIMIENTO = ['VIGENTE', 'POR_VENCER', 'VENCIDO'];
+/** Semaforo de vencimiento de las bodegas del MSPAS: rojo < 6 meses, amarillo 6-12, verde > 12. */
+export const SEMAFORO = ['ROJO', 'AMARILLO', 'VERDE'];
 
 /** El medicamento tal como esta en la base, sin existencia calculada. */
 export class MedicamentoDto {
@@ -82,6 +84,33 @@ export class MedicamentoConExistenciaDto {
 
   @ApiProperty({ description: 'false cuando el minimo es cero: la alerta esta desactivada.' })
   bajoMinimo!: boolean;
+
+  /**
+   * El semaforo del medicamento es el de su lote mas proximo a vencer con
+   * existencia: es el que se entrega primero (FEFO) y el que hay que vigilar.
+   */
+  @ApiProperty({
+    enum: SEMAFORO,
+    nullable: true,
+    description:
+      'Color del lote que vence antes entre los que tienen existencia. Null si no hay existencia.',
+  })
+  semaforo!: string | null;
+
+  @ApiProperty({
+    format: 'date-time',
+    nullable: true,
+    description: 'Fecha de vencimiento del lote que vence antes. Null si no hay existencia.',
+  })
+  proximoVencimiento!: Date | null;
+
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    description: 'Dias que le faltan a ese lote. Negativo si ya vencio.',
+    example: 210,
+  })
+  diasParaVencer!: number | null;
 }
 
 export class LoteDelMedicamentoDto {
@@ -105,6 +134,15 @@ export class LoteDelMedicamentoDto {
     description: 'Calculado contra el dia de hoy en Purulha y la ventana de alerta configurada.',
   })
   vencimiento!: string;
+
+  @ApiProperty({ description: 'Dias que faltan para vencer. Negativo si ya vencio.', example: 210 })
+  diasParaVencer!: number;
+
+  @ApiProperty({
+    enum: SEMAFORO,
+    description: 'Rojo a menos de 6 meses, amarillo entre 6 y 12, verde a mas de 12. Se recalcula cada dia.',
+  })
+  semaforo!: string;
 }
 
 /** Detalle del medicamento con sus lotes. Es la pantalla de farmacia. */

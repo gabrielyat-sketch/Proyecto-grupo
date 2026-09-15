@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsUUID, Length } from 'class-validator';
+import { IsInt, IsOptional, IsString, IsUUID, Length, Min } from 'class-validator';
 
 /** Marcar que alguien llego al CAP. */
 export class MarcarLlegadaDto {
@@ -28,6 +28,30 @@ export class RetirarVisitaDto {
   @IsString()
   @Length(3, 200)
   motivo!: string;
+}
+
+/**
+ * Cambiar el turno de alguien en la sala.
+ *
+ * Llega una emergencia y hay que pasarla adelante. El motivo es opcional en
+ * la API —mover un puesto arriba o abajo no necesita explicacion— pero la
+ * pantalla lo exige al pasar a alguien al frente: quien lleva una hora sentado
+ * merece saber por que le pasaron adelante.
+ */
+export class CambiarOrdenDto {
+  @ApiProperty({ example: 1, description: 'La posicion que va a ocupar, empezando en 1.' })
+  @IsInt()
+  @Min(1)
+  posicion!: number;
+
+  @ApiPropertyOptional({
+    description: 'Por que se le adelanta. Se guarda cifrado y sale en la sala como aviso.',
+    example: 'Dolor de pecho',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(1, 200)
+  motivo?: string;
 }
 
 export class VisitaEnEsperaDto {
@@ -67,6 +91,16 @@ export class VisitaEnEsperaDto {
   @ApiProperty({ type: String, nullable: true, example: 'EXP-2026-000123' })
   numeroExpediente!: string | null;
 
+  /**
+   * El numero del folder de carton donde vive el expediente de papel.
+   *
+   * Nulo cuando el paciente todavia no esta en ninguna carpeta: registrar a
+   * alguien sin ella esta permitido, y la pantalla tiene que distinguir «no
+   * tiene» de «no lo sabemos».
+   */
+  @ApiProperty({ type: Number, nullable: true, example: 47 })
+  familiaNumero!: number | null;
+
   @ApiProperty({ format: 'date-time' })
   llegadaEn!: Date;
 
@@ -75,6 +109,17 @@ export class VisitaEnEsperaDto {
 
   @ApiProperty({ type: String, nullable: true, description: 'Descifrado al vuelo.' })
   motivo!: string | null;
+
+  @ApiProperty({ example: 1, description: 'El turno: la posicion en la sala de hoy.' })
+  orden!: number;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'Por que se le paso adelante. Nulo si nadie lo adelanto.',
+    example: 'Dolor de pecho',
+  })
+  motivoPrioridad!: string | null;
 }
 
 export class VisitaDto {

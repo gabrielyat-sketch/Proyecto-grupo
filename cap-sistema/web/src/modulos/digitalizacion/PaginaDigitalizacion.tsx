@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
   Box,
   CircularProgress,
   Divider,
+  ListSubheader,
   MenuItem,
   Paper,
   Stack,
@@ -20,6 +21,7 @@ import { BarraAvance, Cifra } from './BarraAvance';
 import { ColaTrabajo } from './ColaTrabajo';
 import { DialogoEstado } from './DialogoEstado';
 import { ListaComunidades } from './ListaComunidades';
+import { listarLugares } from '../recepcion/servicio-pacientes';
 import {
   ETIQUETA_ESTADO,
   marcarExpediente,
@@ -52,11 +54,21 @@ const ESTADOS = ['PENDIENTE', 'EN_PROCESO', 'COMPLETO', 'NO_LOCALIZADO'];
  *
  * Un tablero que solo dijera "faltan 94,000" seria exacto y serviria para nada.
  */
+/** En plural, porque titula un grupo y no una fila. */
+const ETIQUETA_GRUPO_LUGAR: Record<string, string> = {
+  ALDEA: 'Aldeas',
+  BARRIO: 'Barrios',
+  CASERIO: 'Caserios',
+  OTRO: 'Otros',
+};
+const ORDEN_GRUPOS = ['ALDEA', 'BARRIO', 'CASERIO', 'OTRO'];
+
 export function PaginaDigitalizacion() {
   const { usuario } = usarSesion();
   const clienteConsultas = useQueryClient();
 
   const [comunidadId, setComunidadId] = useState('');
+  const [lugarId, setLugarId] = useState('');
   const [estado, setEstado] = useState('');
   const [pagina, setPagina] = useState(1);
   const [marcando, setMarcando] = useState<ExpedienteEnCola | null>(null);
@@ -71,11 +83,37 @@ export function PaginaDigitalizacion() {
     staleTime: 60_000,
   });
 
+  /*
+    Los barrios y caserios de la comunidad elegida.
+
+    Purulha Centro son siete barrios y los caserios cuarenta y seis: la cola de
+    la comunidad a secas es el municipio entero, y no ayuda a decidir que cajon
+    del archivo se abre hoy.
+  */
+  const lugares = useQuery({
+    queryKey: ['lugares', comunidadId],
+    queryFn: () => listarLugares(comunidadId),
+    enabled: comunidadId !== '',
+    staleTime: 30 * 60_000,
+  });
+
+  const gruposDeLugares = useMemo(() => {
+    const lista = lugares.data ?? [];
+    const posicion = (t: string) => {
+      const i = ORDEN_GRUPOS.indexOf(t);
+      return i === -1 ? ORDEN_GRUPOS.length : i;
+    };
+    return [...new Set(lista.map((l) => l.tipo))]
+      .sort((a, b) => posicion(a) - posicion(b))
+      .map((tipo) => ({ tipo, lugares: lista.filter((l) => l.tipo === tipo) }));
+  }, [lugares.data]);
+
   const expedientes = useQuery({
-    queryKey: ['digitalizacion', 'cola', comunidadId, estado, pagina],
+    queryKey: ['digitalizacion', 'cola', comunidadId, lugarId, estado, pagina],
     queryFn: () =>
       obtenerCola({
         comunidadId: comunidadId || undefined,
+        lugarId: lugarId || undefined,
         estado: (estado || undefined) as never,
         pagina,
       }),
@@ -105,6 +143,9 @@ export function PaginaDigitalizacion() {
 
   function cambiarComunidad(id: string) {
     setComunidadId(id);
+    // El barrio elegido era de la comunidad anterior: dejarlo puesto devolveria
+    // una cola vacia sin decir por que.
+    setLugarId('');
     setPagina(1);
     irAlPrincipioDeLaCola();
   }
@@ -235,6 +276,42 @@ export function PaginaDigitalizacion() {
                   {ETIQUETA_ESTADO[e]}
                 </MenuItem>
               ))}
+            </TextField>
+
+            <TextField
+              select
+              size="small"
+              label="Barrio o caserio"
+              value={lugarId}
+              onChange={(e) => {
+                setLugarId(e.target.value);
+                setPagina(1);
+              }}
+              disabled={comunidadId === ''}
+              sx={{ minWidth: 220 }}
+              helperText={comunidadId === '' ? 'Elija primero la comunidad' : 'Todo el sitio'}
+              slotProps={{ select: { MenuProps: MENU_FILTRO } }}
+            >
+              <MenuItem value="">Toda la comunidad</MenuItem>
+              {gruposDeLugares.flatMap((grupo) => [
+                <ListSubheader
+                  key={'grupo-' + grupo.tipo}
+                  sx={{
+                    fontWeight: 700,
+                    color: 'text.primary',
+                    textDecoration: 'underline',
+                    textUnderlineOffset: 4,
+                    lineHeight: 2.6,
+                  }}
+                >
+                  {ETIQUETA_GRUPO_LUGAR[grupo.tipo] ?? grupo.tipo}
+                </ListSubheader>,
+                ...grupo.lugares.map((l) => (
+                  <MenuItem key={l.id} value={l.id} sx={{ pl: 3 }}>
+                    {l.nombre}
+                  </MenuItem>
+                )),
+              ])}
             </TextField>
 
             {puedeTranscribir ? (

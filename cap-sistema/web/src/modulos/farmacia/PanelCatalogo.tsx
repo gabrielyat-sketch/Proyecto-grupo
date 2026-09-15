@@ -29,6 +29,7 @@ import { usarAtajo } from '../../navegacion/usarAtajo';
 import { usarSesion } from '../sesion/contexto';
 import { desde } from '../../navegacion/usarVolver';
 import { DialogoNuevoMedicamento } from './DialogoMedicamento';
+import { LeyendaSemaforo, Semaforo } from './Semaforo';
 import {
   conUnidad,
   listarCatalogo,
@@ -148,11 +149,17 @@ export function PanelCatalogo() {
           </Typography>
         ) : (
           <>
-            <Typography variant="body2" color="text.secondary">
-              {catalogo.data.total === 1
-                ? '1 medicamento'
-                : catalogo.data.total + ' medicamentos'}
-            </Typography>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              sx={{ gap: 1, justifyContent: 'space-between', alignItems: { sm: 'center' } }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                {catalogo.data.total === 1
+                  ? '1 medicamento'
+                  : catalogo.data.total + ' medicamentos'}
+              </Typography>
+              <LeyendaSemaforo />
+            </Stack>
 
             <TableContainer
               component={Paper}
@@ -166,6 +173,7 @@ export function PanelCatalogo() {
                     <TableCell>Medicamento</TableCell>
                     <TableCell>Presentacion</TableCell>
                     <TableCell align="right">Existencia</TableCell>
+                    <TableCell>Semaforo</TableCell>
                     <TableCell align="right">Minimo</TableCell>
                     <TableCell>Estado</TableCell>
                   </TableRow>
@@ -209,6 +217,14 @@ export function PanelCatalogo() {
                       */}
                       <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
                         {conUnidad(m.existencia, m.unidad)}
+                      </TableCell>
+                      {/*
+                        El color del lote que vence antes entre los que tienen
+                        existencia. Es el que sale primero en cada entrega, asi
+                        que es el que responde "¿esto hay que gastarlo ya?".
+                      */}
+                      <TableCell>
+                        <Semaforo color={m.semaforo} diasParaVencer={m.diasParaVencer} />
                       </TableCell>
                       <TableCell
                         align="right"

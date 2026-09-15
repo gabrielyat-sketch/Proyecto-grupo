@@ -3,6 +3,7 @@ export * from './auth';
 export * from './config';
 export * from './crypto';
 export * from './errores';
+export * from './eventos';
 export * from './fechas';
 export * from './logging';
 export * from './openapi';

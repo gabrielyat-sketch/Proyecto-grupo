@@ -1,6 +1,6 @@
-import { Body, Controller, Get, Param, Patch } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Rol, Roles, Usuario } from '@cap/shared';
+import { Autorizacion, Rol, Roles, Usuario } from '@cap/shared';
 import { CarnetService } from './carnet.service';
 import {
   CarnetDto,
@@ -48,8 +48,12 @@ export class CarnetController {
       'papel hay que escribirla porque no se puede restar.',
   })
   @ApiOkResponse({ type: CarnetDto })
-  obtener(@Param('pacienteId') pacienteId: string): Promise<CarnetDto> {
-    return this.servicio.obtener(pacienteId);
+  obtener(
+    @Param('pacienteId') pacienteId: string,
+    @Autorizacion() autorizacion: string,
+    @Req() req: { trazaId?: string },
+  ): Promise<CarnetDto> {
+    return this.servicio.obtener(pacienteId, { autorizacion, trazaId: req.trazaId });
   }
 
   @Get('pacientes/:pacienteId/crecimiento')
@@ -62,8 +66,12 @@ export class CarnetController {
       '—que es lo que dice la leyenda impresa, y no depende de donde cae el punto—.',
   })
   @ApiOkResponse({ type: CrecimientoDto })
-  crecimiento(@Param('pacienteId') pacienteId: string): Promise<CrecimientoDto> {
-    return this.servicio.crecimiento(pacienteId);
+  crecimiento(
+    @Param('pacienteId') pacienteId: string,
+    @Autorizacion() autorizacion: string,
+    @Req() req: { trazaId?: string },
+  ): Promise<CrecimientoDto> {
+    return this.servicio.crecimiento(pacienteId, { autorizacion, trazaId: req.trazaId });
   }
 
   @Patch('pacientes/:pacienteId/carnet')
@@ -81,7 +89,12 @@ export class CarnetController {
     @Param('pacienteId') pacienteId: string,
     @Body() dto: GuardarCarnetDto,
     @Usuario('id') usuarioId: string,
+    @Autorizacion() autorizacion: string,
+    @Req() req: { trazaId?: string },
   ): Promise<CarnetDto> {
-    return this.servicio.guardar(pacienteId, dto, usuarioId);
+    return this.servicio.guardar(pacienteId, dto, usuarioId, {
+      autorizacion,
+      trazaId: req.trazaId,
+    });
   }
 }

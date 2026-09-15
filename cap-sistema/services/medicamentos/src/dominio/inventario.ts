@@ -54,6 +54,78 @@ export function diasParaVencer(fechaVencimiento: Date, hoy: Date): number {
 }
 
 /**
+ * El semáforo de vencimiento que usan las bodegas de los servicios de salud
+ * (puestos, CAP, CAIMI): cada producto lleva una etiqueta de color según
+ * cuánto le falta para vencer.
+ *
+ *   ROJO      vence en menos de 6 meses (o ya venció)
+ *   AMARILLO  vence entre 6 y 12 meses
+ *   VERDE     vence en más de 12 meses
+ */
+export type ColorSemaforo = 'ROJO' | 'AMARILLO' | 'VERDE';
+
+/** Umbrales del semáforo, en meses de calendario. */
+export const SEMAFORO_MESES_ROJO = 6;
+export const SEMAFORO_MESES_AMARILLO = 12;
+
+/**
+ * Color del semáforo de un lote, calculado contra el día de hoy.
+ *
+ * Se calcula al leer y **no se guarda**: la etiqueta cambia sola con el
+ * calendario. Un lote que se ingresa en amarillo pasa a rojo seis meses
+ * después sin que nadie tenga que tocarlo, que es justamente lo que una
+ * etiqueta de papel no puede hacer.
+ *
+ * Los umbrales son meses de calendario, no 180 y 365 días: es como los cuenta
+ * quien mira la fecha impresa en la caja. Un lote que vence justo a los seis
+ * meses todavía es amarillo; a los doce, todavía amarillo. Rojo y verde son
+ * los extremos estrictos.
+ */
+export function semaforoVencimiento(fechaVencimiento: Date, hoy: Date): ColorSemaforo {
+  const vence = aDiaUtc(fechaVencimiento);
+  const { rojoHasta, amarilloHasta } = umbralesSemaforo(hoy);
+  if (vence < rojoHasta.getTime()) return 'ROJO';
+  if (vence <= amarilloHasta.getTime()) return 'AMARILLO';
+  return 'VERDE';
+}
+
+/**
+ * Las dos fechas que parten el semáforo, para consultar la base con la MISMA
+ * regla que clasifica en memoria.
+ *
+ *   ROJO      vence  <  rojoHasta
+ *   AMARILLO  rojoHasta <= vence <= amarilloHasta
+ *   VERDE     vence  >  amarilloHasta
+ *
+ * Si la lista del rojo se filtrara con `hoy + 180 días` y la etiqueta con
+ * `hoy + 6 meses`, habría lotes rojos que no salen en la lista de rojos. Los
+ * dos lados usan esta función.
+ */
+export function umbralesSemaforo(hoy: Date): { rojoHasta: Date; amarilloHasta: Date } {
+  return {
+    rojoHasta: new Date(sumarMeses(hoy, SEMAFORO_MESES_ROJO)),
+    amarilloHasta: new Date(sumarMeses(hoy, SEMAFORO_MESES_AMARILLO)),
+  };
+}
+
+/**
+ * Suma meses de calendario a una fecha sin hora, como milisegundos UTC.
+ *
+ * Si el día no existe en el mes destino (31 de enero + 1 mes), se queda en el
+ * último día de ese mes en vez de desbordar al siguiente.
+ */
+function sumarMeses(fecha: Date, meses: number): number {
+  const anio = fecha.getUTCFullYear();
+  const mes = fecha.getUTCMonth() + meses;
+  const ultimoDia = new Date(Date.UTC(anio, mes + 1, 0)).getUTCDate();
+  return Date.UTC(anio, mes, Math.min(fecha.getUTCDate(), ultimoDia));
+}
+
+function aDiaUtc(f: Date): number {
+  return Date.UTC(f.getUTCFullYear(), f.getUTCMonth(), f.getUTCDate());
+}
+
+/**
  * Selecciona de qué lotes descontar, con criterio **FEFO**
  * (First Expired, First Out): primero el que vence antes.
  *

@@ -61,6 +61,7 @@ export const NOMBRE_FICHA: Record<string, string> = {
   NEONATO: 'Neonato',
   NINEZ: 'Ninez',
   PRENATAL: 'Prenatal',
+  POSPARTO: 'Posparto',
 };
 
 /**

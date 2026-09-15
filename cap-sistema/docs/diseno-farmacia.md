@@ -24,7 +24,9 @@ usa el personal.
 | Ruta | Pregunta que responde |
 |---|---|
 | `/farmacia` · Catálogo | "¿Hay de esto?" |
-| `/farmacia` · Por vencer | "¿Qué tengo que gastar antes de que se pierda?" |
+| `/farmacia` · 🔴 Rojo | "¿Qué tengo que gastar antes de que se pierda?" (vence en menos de 6 meses) |
+| `/farmacia` · 🟡 Amarillo | "¿Qué viene después?" (entre 6 y 12 meses) |
+| `/farmacia` · 🟢 Verde | "¿Qué tengo con tiempo?" (más de 12 meses) |
 | `/farmacia` · Vencidos | "¿Qué hay que sacar del estante?" |
 | `/farmacia` · Bajo mínimo | "¿Qué le pido al almacén departamental?" |
 | `/farmacia` · Entregas | "¿Qué salió del inventario?" |
@@ -51,8 +53,10 @@ Sin el contador habría que entrar a cada alerta para descubrir que no hay nada,
 y **una alerta que obliga a buscarla deja de avisar**. Con el número a la vista,
 abrir Farmacia responde de una sola mirada si hay algo que atender hoy.
 
-Cuesta tres consultas al abrir la pantalla, y las tres están paginadas o
-acotadas por el servidor.
+Cuesta dos consultas al abrir la pantalla: `GET /v1/lotes/semaforo/resumen`
+trae los cuatro números de lote (rojo, amarillo, verde, vencidos) de una vez, y
+`bajo-minimo` viene acotado por el servidor. Antes eran tres; con cinco
+pestañas contadas habrían sido cinco páginas pedidas solo para leer su total.
 
 ### Aquí sí se busca mientras se escribe
 
@@ -92,6 +96,83 @@ con ese lote.
 Los que quedan a **menos de 30 días** van marcados: por debajo de un mes ya no
 da tiempo a devolverlos al proveedor ni a redistribuirlos a otro servicio de
 salud, así que o se usan o se pierden.
+
+### El semáforo de vencimiento es el del estante, no uno inventado
+
+Las bodegas de los servicios de salud (puestos, CAP, CAIMI) etiquetan cada
+producto con un color según cuánto le falta para vencer, y el personal ya lo
+lee así. El sistema usa **exactamente esa regla**, sin un cuarto color ni
+umbrales propios:
+
+| Color | Fecha de vencimiento |
+|---|---|
+| 🔴 Rojo | a menos de 6 meses (incluye lo ya vencido) |
+| 🟡 Amarillo | entre 6 y 12 meses |
+| 🟢 Verde | a más de 12 meses |
+
+Los umbrales son **meses de calendario**, no 180 y 365 días: es como los
+cuenta quien mira la fecha impresa en la caja. Justo a los seis meses todavía
+es amarillo; justo a los doce, también. `semaforoVencimiento` en
+`dominio/inventario.ts` es una función pura con esa regla y sus pruebas de
+borde (incluido el 31 de enero más seis meses, que no desborda a agosto).
+
+**El color no se guarda: se calcula cada vez que se consulta.** Es la ventaja
+que la etiqueta de papel no tiene. La norma misma lo advierte: "al momento de
+la creación de una tarjeta, el medicamento puede estar en amarillo, pero
+transcurridos seis meses será rojo", y por eso pide etiquetas reemplazables. En
+pantalla el cambio ocurre solo, el día que corresponde, sin que nadie tenga que
+tocar el lote ni que un proceso nocturno lo recorra.
+
+El semáforo es **por lote**, como la tarjeta de la norma (nombre genérico,
+concentración, número de lote, fecha de vencimiento, color). En el detalle del
+medicamento cada lote lleva el suyo. En el catálogo, donde hay una fila por
+medicamento, se muestra el color de **su lote que vence antes entre los que
+tienen existencia**: es el que sale primero en cada entrega (FEFO) y el que
+responde "¿esto hay que gastarlo ya?". Un lote agotado o dado de baja no pinta
+nada: lo que vence es lo que hay en el estante. Sin existencia no hay color.
+
+Dos decisiones de pantalla:
+
+- **El color va siempre con su palabra y su plazo**: `Rojo · Vence en 4 meses`.
+  Es la regla de todo el panel (ver `tema.ts`), y aquí además un punto rojo
+  solo no distingue "vence en cinco meses" de "venció el año pasado", y con lo
+  primero todavía se entrega.
+- **Reemplaza al chip Vigente / Por vencer en las tablas de lotes.** Dos
+  códigos de color en la misma fila —un chip ámbar "Por vencer" a 80 días y un
+  punto rojo por estar a menos de 6 meses— se contradicen a la vista. La
+  etiqueta **Vencido** sí se conserva aparte: en rojo todavía se entrega,
+  vencido ya no, y esa es la diferencia que importa con el paciente enfrente.
+
+### Las pestañas de color son el estante, no otra lista
+
+Ramiro pidió una pestaña por color, y **Rojo · Amarillo · Verde** son sus
+nombres: es como el personal ya llama a esas cajas («los amarillos», «pásame
+uno verde»), y ponerles otro nombre obliga a traducir. El punto de color va
+delante en la pestaña, decorativo, porque la palabra ya lo dice.
+
+La pestaña **Por vencer** (90 días) desapareció dentro del Rojo. Con amarillo y
+verde con pestaña, un rojo a medias —≤ 90 días— habría dejado a un lote de
+cuatro meses sin aparecer en ninguna lista de color. El marcado de urgente a
+≤ 30 días se conserva dentro del rojo: por debajo de un mes ya no da tiempo a
+devolver ni redistribuir. `DIAS_ALERTA_VENCIMIENTO` y `GET /v1/lotes/por-vencer`
+siguen existiendo para el campo `vencimiento` y para quien los consuma; el
+panel ya no los usa.
+
+**Vencidos sigue aparte del rojo** aunque la etiqueta los pinte de rojo: lo que
+se hace con ellos es distinto (dar de baja, no gastar), y mezclarlos en la
+lista de "lo que hay que gastar ya" invitaría a entregarlos. `GET
+/v1/lotes/semaforo/:color` no los incluye.
+
+La lista de cada color se filtra en la base con las **mismas fechas** que usa
+la etiqueta (`umbralesSemaforo`), sobre el índice de `fecha_vencimiento`. Si
+la lista usara `hoy + 180 días` y la etiqueta `hoy + 6 meses`, habría lotes
+rojos que no salen en la lista de rojos.
+
+El amarillo del punto no es el ámbar del tema: ese está oscurecido para servir
+de texto legible y como relleno de un círculo se lee marrón. La etiqueta del
+CAP es amarilla, y la de la pantalla tiene que ser la misma para que se
+reconozcan como la misma cosa; el borde ámbar oscuro le da el contraste que el
+amarillo puro no tiene sobre blanco.
 
 ### Lo que no se puede editar de un medicamento
 
@@ -343,7 +424,7 @@ límite.
 | `web/src/modulos/farmacia/servicio-farmacia.ts` | Llamadas al servicio y cómo se presenta cada dato |
 | `web/src/modulos/farmacia/PaginaFarmacia.tsx` | Las cuatro pestañas y sus contadores |
 | `web/src/modulos/farmacia/PanelCatalogo.tsx` | Búsqueda y tabla del catálogo |
-| `web/src/modulos/farmacia/PanelAlertas.tsx` | Por vencer, vencidos y bajo mínimo |
+| `web/src/modulos/farmacia/PanelAlertas.tsx` | Rojo, amarillo, verde (`PanelSemaforo`), vencidos y bajo mínimo |
 | `web/src/modulos/farmacia/PaginaMedicamento.tsx` | Un medicamento y sus lotes |
 | `web/src/modulos/farmacia/DialogoMedicamento.tsx` | Alta y edición |
 | `web/src/modulos/farmacia/DialogoIngresarLote.tsx` | Ingreso de lote |
@@ -353,6 +434,7 @@ límite.
 | `web/src/modulos/farmacia/PaginaEntrega.tsx` | El despacho, en tres bloques |
 | `web/src/modulos/farmacia/SelectorPaciente.tsx` | A quién se le entrega |
 | `web/src/modulos/farmacia/SelectorMedicamentos.tsx` | Qué se le entrega |
+| `web/src/modulos/farmacia/Semaforo.tsx` | El punto de color con su palabra y su plazo, y la leyenda |
 | `web/src/modulos/farmacia/PanelEntregas.tsx` | Historial de entregas |
 | `web/src/modulos/farmacia/entregas.spec.tsx` | 24 pruebas de pantalla |
 | `web/src/modulos/farmacia/farmacia.spec.tsx` | 45 pruebas de pantalla |
@@ -455,7 +537,6 @@ Preguntas reales para el CAP. No están respondidas.
    rechaza entera y no queda constancia de que el paciente vino y se fue sin su
    tratamiento. Un CAP con abastecimiento irregular probablemente necesite ese
    dato — es justo lo que explica por qué un tratamiento no se completó.
-
 ---
 
 ## Lo que salió del entorno de pruebas

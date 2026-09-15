@@ -9,6 +9,7 @@ import MedicationIcon from '@mui/icons-material/Medication';
 import InsightsIcon from '@mui/icons-material/Insights';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import HistoryEduIcon from '@mui/icons-material/HistoryEdu';
+import FolderCopyIcon from '@mui/icons-material/FolderCopy';
 
 /**
  * Los seis roles del sistema (arquitectura §10.3).
@@ -103,6 +104,17 @@ export const MENU: readonly ElementoMenu[] = [
     roles: TODO_EL_PERSONAL,
   },
   {
+    ruta: '/carpetas',
+    color: '#00838f', // cian
+    descripcion:
+      'El archivero del CAP: las carpetas familiares con su numero, su apellido y el lugar donde viven. Dentro de cada una, la familia y sus expedientes.',
+    etiqueta: 'Carpetas',
+    icono: FolderCopyIcon,
+    // Los mismos cinco del controlador. Farmacia no: la carpeta dice quien
+    // vive con quien, y eso es informacion del paciente, no del medicamento.
+    roles: ['ADMINISTRADOR', 'DIRECTOR', 'RECEPCION', 'ENFERMERIA', 'MEDICO'],
+  },
+  {
     ruta: '/digitalizacion',
     color: '#1565c0', // azul
     descripcion:
@@ -186,17 +198,36 @@ const RUTAS_FUERA_DEL_MENU: Record<string, readonly Rol[]> = {
   // mismo POST de fichas el que la guarda.
   '/ficha-neonato': ['MEDICO', 'ENFERMERIA'],
   '/ficha-ninez': ['MEDICO', 'ENFERMERIA'],
+  // Las dos hojas de la ficha prenatal. Son dos rutas y no una porque son dos
+  // tipos de ficha distintos, con su propio catalogo. Mismos roles: es el
+  // mismo POST el que las guarda.
+  '/ficha-prenatal': ['MEDICO', 'ENFERMERIA'],
+  '/ficha-posparto': ['MEDICO', 'ENFERMERIA'],
   // El carnet del lactante y ninez: vacunas, micronutrientes, padres y casa.
   // NO es una consulta, es del nino, pero se lee dentro del expediente y por
   // eso entran los mismos que a la ficha.
   '/carnet': ['MEDICO', 'ENFERMERIA'],
+  // La ficha llena, para imprimirla como la hoja oficial. Entran los mismos
+  // que pueden leer una ficha (GET /v1/fichas/:id): quien atiende y quien
+  // dirige. Recepcion y Farmacia no ven el historial, asi que tampoco lo
+  // imprimen.
+  '/imprimir-ficha': ['ADMINISTRADOR', 'DIRECTOR', 'MEDICO', 'ENFERMERIA'],
   // El expediente de UN paciente. Entran los seis: lo que cambia por rol es
   // cuanto se ve dentro, no si se puede abrir.
   '/expediente': ['ADMINISTRADOR', 'DIRECTOR', 'MEDICO', 'ENFERMERIA', 'FARMACIA', 'RECEPCION'],
-  // Dar de alta a un paciente es de Recepcion. Todo el personal puede
-  // BUSCARLO —por eso /recepcion es de los seis roles— pero solo recepcion y
-  // administracion lo registran, que es lo que dice el controlador.
-  '/recepcion/nuevo': ['RECEPCION', 'ADMINISTRADOR'],
+  /*
+    Dar de alta es de Recepcion, Enfermeria y Administracion.
+
+    Todo el personal puede BUSCAR a un paciente —por eso `/recepcion` es de los
+    seis roles— pero registrarlo es de estos tres, que es lo que dice el
+    controlador.
+
+    Enfermeria entra por el recien nacido: es quien llena la ficha de menor de
+    28 dias, y ese paciente no existe hasta que alguien lo registra. Mandarla a
+    recepcion a media consulta es lo que hace que el dato acabe en un papel
+    suelto.
+  */
+  '/recepcion/nuevo': ['RECEPCION', 'ENFERMERIA', 'ADMINISTRADOR'],
   // Un medicamento concreto. Entran los mismos cinco roles que a Farmacia: lo
   // que cambia por rol es que se puede HACER dentro —solo Farmacia y
   // Administracion ingresan lotes o dan de baja— no si se puede abrir.

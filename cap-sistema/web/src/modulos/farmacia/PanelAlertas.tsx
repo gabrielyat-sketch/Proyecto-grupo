@@ -22,12 +22,15 @@ import { AvisoError } from '../../componentes/AvisoError';
 import { usarSesion } from '../sesion/contexto';
 import { desde } from '../../navegacion/usarVolver';
 import { DialogoBaja, type LoteParaBaja } from './DialogoBaja';
+import { PuntoSemaforo } from './Semaforo';
 import {
+  type ColorSemaforo,
   conUnidad,
+  ETIQUETA_SEMAFORO,
   faltanPara,
   fechaCorta,
   listarBajoMinimo,
-  listarPorVencer,
+  listarPorSemaforo,
   listarVencidos,
   puede,
   PUEDE_ADMINISTRAR,
@@ -49,19 +52,32 @@ const marco = {
   overflowX: 'auto',
 } as const;
 
+/** Qué se dice cuando una lista de color está vacía. */
+const SIN_LOTES: Record<ColorSemaforo, { texto: string; tono: 'success' | 'info' }> = {
+  ROJO: {
+    texto: 'Ningun lote vence en los proximos seis meses. Nada que gastar con prisa ni que redistribuir.',
+    tono: 'success',
+  },
+  AMARILLO: { texto: 'Ningun lote vence entre seis y doce meses.', tono: 'info' },
+  VERDE: { texto: 'Ningun lote vence a mas de doce meses.', tono: 'info' },
+};
+
 /**
- * Lotes que vencen dentro de la ventana de alerta (90 días por defecto).
+ * Los lotes de un color del semáforo: la misma lista que el personal haría
+ * recorriendo el estante y apartando las cajas con esa etiqueta.
  *
  * Ordenados por vencimiento, primero el que vence antes, que es el orden en
- * que hay que gastarlos. Los que quedan a menos de un mes van marcados: por
- * debajo de treinta días ya no da tiempo a devolverlos al proveedor ni a
- * redistribuirlos a otro servicio de salud, así que o se usan o se pierden.
+ * que hay que gastarlos. En el rojo, los que quedan a menos de un mes van
+ * marcados: por debajo de treinta días ya no da tiempo a devolverlos al
+ * proveedor ni a redistribuirlos a otro servicio de salud, así que o se usan
+ * o se pierden. Los ya vencidos no están aquí: tienen su propia pestaña,
+ * porque lo que se hace con ellos es distinto.
  */
-export function PanelPorVencer() {
+export function PanelSemaforo({ color }: { color: ColorSemaforo }) {
   const [pagina, setPagina] = useState(1);
   const lotes = useQuery({
-    queryKey: ['por-vencer', pagina],
-    queryFn: () => listarPorVencer(pagina),
+    queryKey: ['semaforo', color, pagina],
+    queryFn: () => listarPorSemaforo(color, pagina),
   });
 
   if (lotes.isPending) return <Cargando />;
@@ -69,18 +85,16 @@ export function PanelPorVencer() {
   if (!lotes.data) return null;
 
   if (lotes.data.total === 0) {
-    return (
-      <Alert severity="success">
-        Ningun lote vence en los proximos meses. Nada que redistribuir por ahora.
-      </Alert>
-    );
+    return <Alert severity={SIN_LOTES[color].tono}>{SIN_LOTES[color].texto}</Alert>;
   }
+
+  const nombre = ETIQUETA_SEMAFORO[color].toLowerCase();
 
   return (
     <Stack sx={{ gap: 2 }}>
       <Typography variant="body2" color="text.secondary">
-        {lotes.data.total === 1 ? '1 lote por vencer' : lotes.data.total + ' lotes por vencer'}, del
-        que vence antes al que vence despues
+        {lotes.data.total === 1 ? '1 lote en ' + nombre : lotes.data.total + ' lotes en ' + nombre},
+        del que vence antes al que vence despues
       </Typography>
 
       <TableContainer component={Paper} elevation={0} sx={marco}>
@@ -116,12 +130,16 @@ export function PanelPorVencer() {
                   {fechaCorta(l.fechaVencimiento as unknown as string)}
                 </TableCell>
                 <TableCell>
-                  <Chip
-                    size="small"
-                    label={faltanPara(l.diasParaVencer)}
-                    color={l.diasParaVencer <= URGENTE_DIAS ? 'warning' : 'default'}
-                    variant={l.diasParaVencer <= URGENTE_DIAS ? 'filled' : 'outlined'}
-                  />
+                  <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
+                    {/* La misma etiqueta de color que lleva la caja en el estante. */}
+                    <PuntoSemaforo color={l.semaforo} />
+                    <Chip
+                      size="small"
+                      label={faltanPara(l.diasParaVencer)}
+                      color={l.diasParaVencer <= URGENTE_DIAS ? 'warning' : 'default'}
+                      variant={l.diasParaVencer <= URGENTE_DIAS ? 'filled' : 'outlined'}
+                    />
+                  </Stack>
                 </TableCell>
                 <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
                   {conUnidad(l.cantidadDisponible, l.medicamento.unidad)}

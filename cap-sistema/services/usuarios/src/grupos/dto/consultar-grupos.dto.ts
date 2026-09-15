@@ -9,11 +9,29 @@ export class ConsultarGruposDto {
   @IsString()
   comunidadId?: string;
 
-  @ApiPropertyOptional({ description: 'Busca por inicio del codigo del grupo.' })
+  @ApiPropertyOptional({ description: 'El barrio o caserio.' })
   @IsOptional()
   @IsString()
-  @Length(1, 30)
-  codigo?: string;
+  lugarId?: string;
+
+  /**
+   * El apellido de la carpeta, por coincidencia parcial.
+   *
+   * Parcial y no exacta porque quien busca escribe «Lopez» y la carpeta dice
+   * «Lopez Ac»; exigir el rotulo completo obligaria a acertarlo de memoria.
+   */
+  @ApiPropertyOptional({ description: 'Coincidencia parcial, sin distinguir mayusculas.' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 120)
+  apellidos?: string;
+
+  @ApiPropertyOptional({ description: 'El numero de la pestana, exacto.' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  numero?: number;
 
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()

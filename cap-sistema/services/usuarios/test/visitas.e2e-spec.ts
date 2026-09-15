@@ -7,6 +7,15 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 /**
+ * DPIs de prueba, unicos por llamada y fuera del rango de la carga sintetica.
+ *
+ * Uno fijo no sirve: el CUI o DPI es obligatorio y unico, asi que el segundo
+ * paciente que creara esta suite chocaria contra el control de duplicados.
+ */
+let siguienteDpiPrueba = 9400000000000;
+const nuevoDpi = () => String(++siguienteDpiPrueba);
+
+/**
  * Sala de espera: quien esta AHORA en el CAP.
  *
  * Es la pieza que faltaba para separar dos trabajos que se estaban
@@ -44,6 +53,8 @@ describe('Sala de espera (e2e)', () => {
       .post('/v1/pacientes')
       .set(como(Rol.RECEPCION))
       .send({
+        dpi: nuevoDpi(),
+        esposo: 'Carlos Chub Caal',
         nombres,
         apellidos: 'Zzespera Prueba',
         fechaNacimiento: '1988-02-20',
@@ -199,7 +210,7 @@ describe('Sala de espera (e2e)', () => {
       // Sin esto la lista acumularia gente de otros dias y dejaria de mirarse.
       const ayer = new Date(Date.now() - 30 * 60 * 60 * 1000);
       const vieja = await prisma.visita.create({
-        data: { pacienteId, registradaPor: 'e2e', llegadaEn: ayer, estado: 'ATENDIDA' },
+        data: { pacienteId, registradaPor: 'e2e', orden: 0, llegadaEn: ayer, estado: 'ATENDIDA' },
       });
 
       const r = await request(http())
@@ -230,11 +241,14 @@ describe('Sala de espera (e2e)', () => {
       // parcial solo admite UNA visita ESPERANDO por paciente. Sin esto, el
       // resultado dependeria del orden en que corran.
       await prisma.visita.deleteMany({ where: { pacienteId, estado: 'ESPERANDO' } });
-      const anoche = new Date(Date.now() - 20 * 60 * 60 * 1000);
+      // 30 horas y no 20: con 20, corrida despues de las 8 de la noche la
+      // visita caia en la madrugada de HOY y la prueba fallaba por la hora.
+      const anoche = new Date(Date.now() - 30 * 60 * 60 * 1000);
       const vieja = await prisma.visita.create({
         data: {
           pacienteId,
           registradaPor: 'e2e',
+          orden: 0,
           llegadaEn: anoche,
           estado: 'ESPERANDO',
         },
@@ -267,6 +281,7 @@ describe('Sala de espera (e2e)', () => {
         data: {
           pacienteId,
           registradaPor: 'e2e',
+          orden: 0,
           llegadaEn: anteayer,
           estado: 'ESPERANDO',
         },
@@ -314,6 +329,7 @@ describe('Sala de espera (e2e)', () => {
         data: {
           pacienteId,
           registradaPor: 'e2e',
+          orden: 0,
           llegadaEn: ayer,
           estado: 'ATENDIDA',
           cerradaEn: ayer,
@@ -331,6 +347,106 @@ describe('Sala de espera (e2e)', () => {
 
     it('Farmacia no ve la sala: dice quien vino al medico y a que', async () => {
       await request(http()).get('/v1/visitas/espera').set(como(Rol.FARMACIA)).expect(403);
+    });
+  });
+
+  /**
+   * El turno se puede cambiar. Llega una emergencia y hay que pasarla
+   * adelante; sin esto la unica forma seria mentir sobre la hora de llegada.
+   */
+  describe('cambiar el turno', () => {
+    const idDe = async (pid: string) =>
+      (await prisma.visita.findFirst({ where: { pacienteId: pid, estado: 'ESPERANDO' } }))!.id;
+
+    // Hacen falta al menos dos en la sala para que mover signifique algo. Se
+    // asegura aqui en vez de heredar lo que dejaran las pruebas anteriores.
+    beforeAll(async () => {
+      for (const pid of [pacienteId, otroPacienteId]) {
+        await prisma.visita.deleteMany({ where: { pacienteId: pid, estado: 'ESPERANDO' } });
+        await request(http()).post('/v1/visitas').set(como(Rol.RECEPCION)).send({ pacienteId: pid }).expect(201);
+      }
+    });
+
+    it('pasar a alguien al frente lo pone de primero, con su motivo a la vista', async () => {
+      const r = await request(http())
+        .patch('/v1/visitas/' + (await idDe(otroPacienteId)) + '/orden')
+        .set(como(Rol.ENFERMERIA))
+        .send({ posicion: 1, motivo: 'Dolor de pecho' })
+        .expect(200);
+
+      // Devuelve la sala como queda, ya renumerada 1..n.
+      expect(r.body[0].pacienteId).toBe(otroPacienteId);
+      expect(r.body[0].orden).toBe(1);
+      expect(r.body[0].motivoPrioridad).toBe('Dolor de pecho');
+      expect(r.body.map((v: { orden: number }) => v.orden)).toEqual(
+        r.body.map((_: unknown, i: number) => i + 1),
+      );
+    });
+
+    it('el motivo de la prioridad NO es legible con un SELECT directo', async () => {
+      const fila = await prisma.visita.findFirst({
+        where: { pacienteId: otroPacienteId, estado: 'ESPERANDO' },
+      });
+      const enBruto = Buffer.from(fila!.motivoPrioridadCifrado ?? []).toString('utf8');
+      expect(enBruto).not.toContain('pecho');
+    });
+
+    it('la sala sale por turno, no por hora de llegada', async () => {
+      const r = await request(http())
+        .get('/v1/visitas/espera')
+        .set(como(Rol.ENFERMERIA))
+        .expect(200);
+      expect(r.body[0].pacienteId).toBe(otroPacienteId);
+    });
+
+    it('mandarlo al final sin motivo le quita la prioridad', async () => {
+      const sala = await request(http()).get('/v1/visitas/espera').set(como(Rol.ENFERMERIA));
+      const r = await request(http())
+        .patch('/v1/visitas/' + (await idDe(otroPacienteId)) + '/orden')
+        .set(como(Rol.RECEPCION))
+        .send({ posicion: sala.body.length })
+        .expect(200);
+
+      const ultimo = r.body[r.body.length - 1];
+      expect(ultimo.pacienteId).toBe(otroPacienteId);
+      expect(ultimo.motivoPrioridad).toBeNull();
+    });
+
+    it('una posicion que no existe se rechaza diciendo cuantos hay', async () => {
+      const r = await request(http())
+        .patch('/v1/visitas/' + (await idDe(otroPacienteId)) + '/orden')
+        .set(como(Rol.ENFERMERIA))
+        .send({ posicion: 999 })
+        .expect(400);
+      expect(r.body.mensaje).toMatch(/Solo hay \d+ en la sala/);
+    });
+
+    it('el director mira la sala pero no mueve a nadie', async () => {
+      await request(http())
+        .patch('/v1/visitas/' + (await idDe(otroPacienteId)) + '/orden')
+        .set(como(Rol.DIRECTOR))
+        .send({ posicion: 1 })
+        .expect(403);
+    });
+
+    it('una visita ya cerrada no se puede mover', async () => {
+      const ayer = new Date(Date.now() - 30 * 60 * 60 * 1000);
+      const cerrada = await prisma.visita.create({
+        data: {
+          pacienteId,
+          registradaPor: 'e2e',
+          orden: 0,
+          llegadaEn: ayer,
+          estado: 'ATENDIDA',
+          cerradaEn: ayer,
+        },
+      });
+      await request(http())
+        .patch('/v1/visitas/' + cerrada.id + '/orden')
+        .set(como(Rol.ENFERMERIA))
+        .send({ posicion: 1 })
+        .expect(409);
+      await prisma.visita.delete({ where: { id: cerrada.id } });
     });
   });
 

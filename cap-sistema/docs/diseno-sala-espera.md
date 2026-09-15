@@ -164,24 +164,54 @@ Ahora usa `inicioDelDiaLocal()` de `@cap/shared`, que es el complemento de
 días entre sí; la otra la medianoche **local** como instante, que es lo único
 comparable contra una columna de marca de tiempo.
 
+## El turno se puede cambiar (14 sep 2026)
+
+El CAP lo pidió: llega una emergencia y hay que pasarla adelante. Hasta aquí
+el orden era el de llegada y nada más, y la única forma de adelantar a alguien
+habría sido atenderlo "por fuera", con la numeración de la sala mintiendo.
+
+**`orden` es el turno**, no la hora. Nace como el orden de llegada —el
+siguiente al mayor de los que esperan hoy— y se renumera 1..n cada vez que
+alguien se mueve, en una sola transacción: a medias quedarían dos con el mismo
+número. La sala es de cinco o diez personas; reescribir todos los turnos es
+más barato, y más simple de razonar, que mover solo los de en medio.
+
+**Mover un puesto no pide explicación; pasar al frente sí.** Subir o bajar uno
+es "salió un momento, que pase el de atrás". Pasar al frente es saltarse a
+toda la fila, y quien lleva una hora sentado merece saber por qué: el motivo
+es obligatorio en la pantalla y sale en la lista como aviso rojo
+("Urgente · Dolor de pecho"). Va cifrado, como el motivo de la visita, porque
+dice lo mismo.
+
+**Mandarlo hacia atrás sin motivo le quita la prioridad.** Ya no está
+adelantado; dejarle el aviso sería mentir.
+
+**El director mira, no mueve.** Mueven Recepción (ve llegar la emergencia),
+Enfermería y Médico (la van a atender) y Administración.
+
+Las visitas que ya existían recibieron su turno por orden de llegada en la
+migración `20260914120000_orden_en_sala_de_espera`, para que nada cambiara de
+sitio al desplegar.
+
 ## Endpoints
 
 ```
 POST  /v1/visitas             marca que un paciente llegó
-GET   /v1/visitas/espera      quiénes esperan ahora
+GET   /v1/visitas/espera      quiénes esperan ahora, por turno
+PATCH /v1/visitas/:id/orden   cambia el turno (posición 1..n, motivo opcional)
 PATCH /v1/visitas/:id/retiro  se fue sin atención (motivo obligatorio)
 ```
 
 ## Permisos
 
-| | Ver la sala | Marcar llegada | Sacar sin ficha | Atender |
-|---|---|---|---|---|
-| Administrador | sí | sí | sí | no |
-| Director | sí | no | no | no |
-| Recepción | sí | **sí** | sí | no |
-| Enfermería | sí | no | sí | **sí** |
-| Médico | sí | no | no | sí |
-| Farmacia | no | no | no | no |
+| | Ver la sala | Marcar llegada | Sacar sin ficha | Cambiar el turno | Atender |
+|---|---|---|---|---|---|
+| Administrador | sí | sí | sí | sí | no |
+| Director | sí | no | no | no | no |
+| Recepción | sí | **sí** | sí | sí | no |
+| Enfermería | sí | no | sí | sí | **sí** |
+| Médico | sí | no | no | sí | sí |
+| Farmacia | no | no | no | no | no |
 
 Marcar la llegada es de quien está en la ventanilla y ve entrar a la gente.
 Farmacia no entra: la sala dice quién vino al médico y a qué, y eso es

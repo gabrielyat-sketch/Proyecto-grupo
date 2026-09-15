@@ -21,12 +21,25 @@ export class ExpedienteDePacienteDto extends ExpedienteResumenDto {
   aperturaEn!: Date | null;
 }
 
+/**
+ * La carpeta familiar de un paciente, tal como se rotula el folder.
+ *
+ * Lleva el lugar y no solo el numero porque el numero solo no identifica: el
+ * CAP numera por barrio y caserio, asi que hay un «No. 3» en El Calvario y
+ * otro en San Jose. «Familia Lopez Ac · El Calvario · No. 3» si es unico.
+ */
 export class GrupoResumenDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
 
-  @ApiProperty({ example: 'GF-2026-000045' })
-  codigo!: string;
+  @ApiProperty({ example: 3, description: 'El numero escrito en la pestana del folder.' })
+  numero!: number;
+
+  @ApiProperty({ example: 'Lopez Ac' })
+  apellidos!: string;
+
+  @ApiProperty({ type: LugarResumenDto, nullable: true })
+  lugar!: LugarResumenDto | null;
 }
 
 /**

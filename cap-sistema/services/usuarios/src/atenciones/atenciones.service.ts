@@ -1,9 +1,18 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { crearPagina, normalizarPagina, ServicioCifrado } from '@cap/shared';
+import {
+  CLIENTE_AUDITORIA,
+  ContextoAuditoria,
+  crearPagina,
+  IClienteAuditoria,
+  normalizarPagina,
+  registrarConsulta,
+  ServicioCifrado,
+} from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { SERVICIO_CIFRADO } from '../comun/cifrado.module';
 import { Evento, OutboxService } from '../eventos/outbox.service';
 import { RegistrarAtencionDto } from './dto/registrar-atencion.dto';
+import { marcarCarpetaTranscrita } from '../digitalizacion/marcar-transcrito';
 
 @Injectable()
 export class AtencionesService {
@@ -11,6 +20,7 @@ export class AtencionesService {
     private readonly prisma: PrismaService,
     private readonly outbox: OutboxService,
     @Inject(SERVICIO_CIFRADO) private readonly cifrado: ServicioCifrado,
+    @Inject(CLIENTE_AUDITORIA) private readonly auditoria: IClienteAuditoria,
   ) {}
 
   /**
@@ -20,7 +30,11 @@ export class AtencionesService {
    * controles puede tener cientos de atenciones, y cada una hay que
    * descifrarla.
    */
-  async listar(expedienteId: string, consulta: { pagina?: number; tamano?: number }) {
+  async listar(
+    expedienteId: string,
+    consulta: { pagina?: number; tamano?: number },
+    contexto: ContextoAuditoria,
+  ) {
     if (!(await this.prisma.expediente.findUnique({ where: { id: expedienteId }, select: { id: true } }))) {
       throw new NotFoundException('No existe ese expediente.');
     }
@@ -37,6 +51,20 @@ export class AtencionesService {
       this.prisma.atencion.count({ where: { expedienteId } }),
     ]);
 
+    // El historial es LA consulta de expediente del RF-09: aqui se descifran
+    // los diagnosticos y las notas de todas las atenciones de la pagina.
+    registrarConsulta(
+      this.auditoria,
+      {
+        servicio: 'usuarios',
+        entidad: 'expediente',
+        entidadId: expedienteId,
+        motivo: 'Consulta del historial del expediente',
+        valorNuevo: JSON.stringify({ atenciones: datos.length, total }),
+      },
+      contexto,
+    );
+
     return crearPagina(datos.map((a) => this.descifrar(a)), total, consulta);
   }
 
@@ -44,7 +72,7 @@ export class AtencionesService {
     expedienteId: string,
     dto: RegistrarAtencionDto,
     usuarioId: string,
-    trazaId?: string,
+    contexto: ContextoAuditoria,
   ) {
     const expediente = await this.prisma.expediente.findUnique({
       where: { id: expedienteId },
@@ -98,14 +126,38 @@ export class AtencionesService {
           presionDiastolica: dto.presionDiastolica ?? null,
           registradaPor: usuarioId,
         },
-        trazaId,
+        contexto.trazaId,
       );
 
+      // El RF-09 pide constancia de QUE se registro una atencion y de QUIEN lo
+      // hizo. El motivo, el diagnostico y las notas no se copian aqui: ya viven
+      // cifrados en la propia atencion, y la bitacora es append-only —una copia
+      // ahi no se puede corregir nunca, asi que un diagnostico mal tecleado
+      // quedaria fijado para siempre en el unico sitio que nadie puede tocar.
+      await this.auditoria.registrar(
+        {
+          servicio: 'usuarios',
+          accion: 'CREACION',
+          entidad: 'atencion',
+          entidadId: atencion.id,
+          motivo: 'Registro de atencion en el expediente',
+          valorNuevo: JSON.stringify({
+            expedienteId,
+            pacienteId: expediente.paciente.id,
+            fecha: atencion.fecha.toISOString(),
+            digitalizada: atencion.digitalizada,
+          }),
+        },
+        contexto.autorizacion,
+        contexto.trazaId,
+      );
+
+      // La misma regla que al guardar una ficha completa: transcribir una hoja
+      // saca la carpeta de la cola. Que el camino corto la dejara dentro y el
+      // largo no seria una diferencia que nadie puede adivinar desde la
+      // pantalla.
       if (dto.digitalizada) {
-        await tx.registroDigitalizacion.updateMany({
-          where: { expedienteId },
-          data: { atencionesTranscritas: { increment: 1 } },
-        });
+        await marcarCarpetaTranscrita(tx, expedienteId, usuarioId);
       }
 
       return this.descifrar(atencion);

@@ -98,6 +98,11 @@ const FICHA = {
     },
   ],
   medicamentos: [{ nombre: 'Amoxicilina 500 mg', dosis: '1 cada 8 horas', dias: 7 }],
+  // La API los devuelve siempre; una ficha de adultos los trae vacios.
+  consejeriaTemas: [],
+  neonato: null,
+  prenatal: null,
+  posparto: null,
 };
 
 const paginaDe = (datos: unknown[]) => ({
@@ -121,7 +126,13 @@ function servidor({
   historial = [atencion(1)],
   expedienteBuscado = null as unknown,
   paciente = PACIENTE,
-}: { historial?: unknown[]; expedienteBuscado?: unknown; paciente?: unknown } = {}) {
+  ficha = FICHA,
+}: {
+  historial?: unknown[];
+  expedienteBuscado?: unknown;
+  paciente?: unknown;
+  ficha?: unknown;
+} = {}) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (p: Request) => {
@@ -143,7 +154,7 @@ function servidor({
             );
       }
       if (url.pathname.endsWith('/atenciones')) return json(paginaDe(historial));
-      if (url.pathname.includes('/v1/fichas/')) return json(FICHA);
+      if (url.pathname.includes('/v1/fichas/')) return json(ficha);
       if (url.pathname.includes('/v1/pacientes/')) return json(paciente);
       return json({}, 404);
     }),
@@ -302,6 +313,22 @@ describe('el expediente de un paciente', () => {
     expect(screen.getAllByRole('button', { name: 'Ver la ficha completa' })).toHaveLength(1);
   });
 
+  /**
+   * Imprimir va en la MISMA pestana: la sesion vive solo en memoria de la
+   * pestana, y una nueva naceria sin sesion y pediria entrar otra vez.
+   */
+  it('cada ficha ofrece imprimirse como la hoja oficial, sin cambiar de pestana', async () => {
+    servidor({ historial: [atencion(1), atencion(2, { tipoFicha: 'ADULTO' })] });
+    abrir(MEDICO, '/pacientes/p-1/expediente');
+    await esperar();
+    await screen.findByText('Ficha Adulto');
+
+    const imprimir = screen.getAllByRole('link', { name: 'Imprimir' });
+    expect(imprimir).toHaveLength(1);
+    expect(imprimir[0]).toHaveAttribute('href', '/pacientes/p-1/fichas/a-2/imprimir');
+    expect(imprimir[0]).not.toHaveAttribute('target');
+  });
+
   it('la ficha completa se pide al abrirla, no antes', async () => {
     servidor({ historial: [atencion(2, { tipoFicha: 'ADULTO' })] });
     const usuario = userEvent.setup();
@@ -344,6 +371,205 @@ describe('el expediente de un paciente', () => {
     expect(
       await screen.findByText(/todavia no tiene ninguna atencion registrada/),
     ).toBeInTheDocument();
+  });
+
+  /**
+   * La ficha de menor de 28 dias guarda cosas que ninguna otra tiene: el
+   * nombre de la madre, el peso al nacer, quien atendio el parto. El servidor
+   * las guardaba desde el primer dia, pero esta pantalla solo pintaba los
+   * campos comunes, asi que media ficha se escribia y no se podia volver a
+   * leer. Desde fuera eso no se distingue de que no se guardara.
+   */
+  it('la ficha de neonato muestra a la madre y el parto', async () => {
+    servidor({
+      // Con tipo de ficha: es lo que hace que la atencion se pueda desplegar.
+      historial: [atencion(1, { tipoFicha: 'NEONATO' })],
+      ficha: {
+        ...FICHA,
+        tipoFicha: 'NEONATO',
+        neonato: {
+          nombreMadre: 'Juana Isabel Perez Caal',
+          pesoLibras: 6,
+          pesoOnzas: 4,
+          perimetroBraquialCm: null,
+          circunferenciaCefalicaCm: '34.0',
+          pesoNacerLibras: 5,
+          pesoNacerOnzas: 12,
+          lloroAlNacer: true,
+          nacioCianotico: false,
+          horasTrabajoParto: 9,
+          quienAtendioParto: 'CT',
+          quienAtendioPartoOtro: null,
+          rupturaPrematuraMembranas: false,
+          trabajoPartoPrematuro: false,
+          partoProlongado: null,
+          tipoParto: 'EUTOCICO',
+          bcg: true,
+          tdMadre: true,
+          tdMadreDosis: 2,
+        },
+      },
+    });
+    const usuario = userEvent.setup();
+    abrir(MEDICO, '/pacientes/p-1/expediente');
+    await esperar();
+
+    await usuario.click(await screen.findByRole('button', { name: /Ver la ficha completa/i }));
+
+    expect(await screen.findByText('Juana Isabel Perez Caal')).toBeInTheDocument();
+    expect(screen.getByText('5 lb 12 oz')).toBeInTheDocument();
+    // Con la sigla que guarda el enum, no con un valor inventado: la tabla de
+    // nombres tenia claves que no existian y «CT» salia a secas.
+    expect(screen.getByText('Comadrona tradicional')).toBeInTheDocument();
+  });
+
+  /**
+   * La pagina 2 de la hoja prenatal —laboratorios, examen obstetrico, semanas,
+   * problemas detectados— se guarda cifrada y la API la devuelve. Sin bloque
+   * propio, el historial la callaba y, si era lo unico llenado, decia «solo se
+   * lleno el motivo». La misma trampa que ya mordio con la de neonato.
+   */
+  it('la ficha prenatal muestra la pagina 2 y no dice que solo se lleno el motivo', async () => {
+    servidor({
+      historial: [atencion(1, { tipoFicha: 'PRENATAL' })],
+      ficha: {
+        ...FICHA,
+        tipoFicha: 'PRENATAL',
+        historiaEnfermedad: null,
+        consejeria: null,
+        signosPeligro: [],
+        problemas: [],
+        medicamentos: [],
+        consejeriaTemas: [
+          { temaId: 't-1', texto: 'Lactancia materna', brindada: true, fechaReconsulta: null },
+          { temaId: 't-2', texto: 'Planificacion familiar', brindada: false, fechaReconsulta: null },
+        ],
+        prenatal: {
+          circunferenciaBrazoCm: '24.5',
+          examenGeneralNormal: true,
+          examenBucodental: null,
+          alturaUterinaCm: '22.0',
+          movimientosFetales: true,
+          fcf: 142,
+          presentacionLeopold: null,
+          trazasSangre: false,
+          trazasSangreDescripcion: null,
+          lesionesVulvares: true,
+          lesionesVulvaresDescripcion: 'Verruga en labio mayor',
+          flujoVaginal: null,
+          hemoglobinaHematocrito: '11.2 / 34',
+          grupoRh: 'O+',
+          orina: null,
+          glicemia: null,
+          vdrl: 'No reactivo',
+          vih: 'Pendiente',
+          papanicolau: null,
+          infecciones: null,
+          semanasPorFurAu: 23,
+          problemasDetectados: 'Anemia leve',
+          sulfatoFerrosoTabletas: 30,
+          acidoFolicoTabletas: null,
+          tdDosis: 1,
+          semanasGestacion: 22,
+          fechaProbableParto: '2026-10-20',
+        },
+      },
+    });
+    const usuario = userEvent.setup();
+    abrir(MEDICO, '/pacientes/p-1/expediente');
+    await esperar();
+
+    expect(await screen.findByText('Ficha Prenatal')).toBeInTheDocument();
+    await usuario.click(await screen.findByRole('button', { name: /Ver la ficha completa/i }));
+
+    expect(await screen.findByText('Control prenatal')).toBeInTheDocument();
+    expect(screen.getByText('11.2 / 34')).toBeInTheDocument();
+    expect(screen.getByText('142 lpm')).toBeInTheDocument();
+    expect(screen.getByText('Si: Verruga en labio mayor')).toBeInTheDocument();
+    expect(screen.getByText('30 tabletas')).toBeInTheDocument();
+    // La fecha probable de parto en hora local, no corrida un dia por UTC-6.
+    expect(screen.getByText('20/10/2026')).toBeInTheDocument();
+    // Solo los temas de consejeria brindados.
+    expect(screen.getByText('Lactancia materna')).toBeInTheDocument();
+    expect(screen.queryByText('Planificacion familiar')).not.toBeInTheDocument();
+    // Lo que no se lleno no aparece con una raya: se calla.
+    expect(screen.queryByText('Papanicolau')).not.toBeInTheDocument();
+    expect(screen.queryByText(/solo se lleno el motivo/i)).not.toBeInTheDocument();
+  });
+
+  /**
+   * La suplementacion del posparto llega de dos maneras —marcada en el primer
+   * control, en tabletas en los siguientes— y el historial ensena lo que haya
+   * sin deducir una de la otra.
+   */
+  it('la evaluacion del posparto muestra el primer control y quien atendio el parto', async () => {
+    servidor({
+      historial: [atencion(1, { tipoFicha: 'POSPARTO' })],
+      ficha: {
+        ...FICHA,
+        tipoFicha: 'POSPARTO',
+        posparto: {
+          esPrimerControl: true,
+          diasDespuesDelParto: 7,
+          dondeAtendioParto: 'En su casa',
+          quienAtendioParto: 'OTRO',
+          quienAtendioPartoOtro: 'Su suegra',
+          involucionUterina: 'Adecuada',
+          examenMamas: null,
+          heridaOperatoria: null,
+          examenGinecologico: null,
+          lactanciaMaternaExclusiva: false,
+          motivoSinLactancia: 'Trabaja fuera de casa',
+          problemasDetectados: null,
+          sulfatoFerroso: true,
+          sulfatoFerrosoTabletas: null,
+          acidoFolico: null,
+          acidoFolicoTabletas: 30,
+          td: false,
+          tdDosis: null,
+          otroMedicamento: null,
+        },
+      },
+    });
+    const usuario = userEvent.setup();
+    abrir(MEDICO, '/pacientes/p-1/expediente');
+    await esperar();
+
+    expect(await screen.findByText('Ficha Posparto')).toBeInTheDocument();
+    await usuario.click(await screen.findByRole('button', { name: /Ver la ficha completa/i }));
+
+    expect(await screen.findByText('Evaluacion del posparto')).toBeInTheDocument();
+    expect(screen.getByText('Otro: Su suegra')).toBeInTheDocument();
+    expect(screen.getByText('Trabaja fuera de casa')).toBeInTheDocument();
+    // Marcada sin cantidad, cantidad sin marcar, y un «No».
+    expect(screen.getByText('Sulfato ferroso').nextSibling).toHaveTextContent('Si');
+    expect(screen.getByText('Acido folico').nextSibling).toHaveTextContent('30 tabletas');
+    expect(screen.getByText('Td').nextSibling).toHaveTextContent('No');
+  });
+
+  /**
+   * La ruta estaba escrita a mano —`/ficha` para todo el mundo— asi que desde
+   * el expediente de un recien nacido se abria la de adolescente, adulto y
+   * adulto mayor. Es el TERCER sitio donde aparecio el mismo error: ya lo tuvo
+   * el boton de atender de la sala de espera. Por eso el criterio vive en un
+   * unico lugar, `ficha-por-edad`.
+   */
+  it('«Nueva ficha» abre la que toca por edad, no siempre la de adultos', async () => {
+    const haceDias = (n: number) => {
+      const d = new Date();
+      d.setDate(d.getDate() - n);
+      return d.toISOString();
+    };
+    servidor({
+      paciente: { ...PACIENTE, edad: 0, fechaNacimiento: haceDias(3) },
+    });
+    abrir(MEDICO, '/pacientes/p-1/expediente');
+    await esperar();
+
+    expect(await screen.findByRole('link', { name: /Nueva ficha/i })).toHaveAttribute(
+      'href',
+      '/pacientes/p-1/ficha-neonato',
+    );
   });
 
   it('marca las atenciones transcritas del papel', async () => {

@@ -13,6 +13,9 @@ const RECEPCION: Perfil = {
 const COMUNIDADES = [
   { id: 'c-1', nombre: 'Purulha Centro', codigo: null, distante: false, activa: true },
   { id: 'c-2', nombre: 'Matanzas', codigo: null, distante: true, activa: true },
+  // Donde va quien no es de Purulha. Se reconoce por el codigo, no por el
+  // nombre.
+  { id: 'c-9', nombre: 'Fuera de Purulha', codigo: 'FUERA', distante: false, activa: true },
 ];
 
 const PACIENTE = {
@@ -46,7 +49,11 @@ function json(cuerpo: unknown, estado = 200) {
 }
 
 /** Responde comunidades y pacientes; `pacientes` decide que devuelve la busqueda. */
-function servidorCon(pacientes: unknown[] = [PACIENTE], alCrear?: () => Response) {
+function servidorCon(
+  pacientes: unknown[] = [PACIENTE],
+  alCrear?: () => Response,
+  carpetas: unknown[] = [],
+) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (p: Request) => {
@@ -59,6 +66,11 @@ function servidorCon(pacientes: unknown[] = [PACIENTE], alCrear?: () => Response
           : json({ id: 'p-9', numeroExpediente: 'EXP-2026-000999', expedienteId: 'e-9' }, 201);
       }
       if (ruta.endsWith('/v1/pacientes')) return json(pagina(pacientes));
+      // Las carpetas familiares del archivero.
+      if (ruta.endsWith('/v1/grupos-familiares/siguiente-numero')) {
+        return json({ serieId: 'c-1', numero: 8 });
+      }
+      if (ruta.endsWith('/v1/grupos-familiares')) return json(pagina(carpetas));
       return json({}, 404);
     }),
   );
@@ -179,12 +191,13 @@ describe('alta de paciente', () => {
     return screen.findByLabelText(/Nombres/i);
   }
 
-  it('exige nombres, apellidos, fecha y comunidad antes de llamar al servidor', async () => {
+  it('exige CUI o DPI, nombres, apellidos, fecha y comunidad antes de llamar al servidor', async () => {
     servidorCon();
     await abrirFormulario();
 
     await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
 
+    expect(await screen.findByText(/Escriba el CUI o DPI/i)).toBeInTheDocument();
     expect(await screen.findByText(/Escriba los nombres/i)).toBeInTheDocument();
     expect(screen.getByText(/Escriba los apellidos/i)).toBeInTheDocument();
     expect(screen.getByText(/Indique la fecha de nacimiento/i)).toBeInTheDocument();
@@ -192,21 +205,45 @@ describe('alta de paciente', () => {
     expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(0);
   });
 
-  it('rechaza un DPI que no tenga 13 digitos, sin ir al servidor', async () => {
+  it('rechaza un CUI o DPI que no tenga 13 digitos, sin ir al servidor', async () => {
     servidorCon();
     await abrirFormulario();
 
-    await userEvent.type(screen.getByLabelText(/^DPI/i), '12345');
+    await userEvent.type(screen.getByLabelText(/CUI o DPI/i), '12345');
     await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
 
     expect(await screen.findByText(/exactamente 13 digitos/i)).toBeInTheDocument();
     expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(0);
   });
 
-  it('deja registrar SIN DPI: los ninos y parte de la poblacion no lo tienen', async () => {
+  /**
+   * El CAP pidio que el numero sea obligatorio. Antes se dejaba vacio porque
+   * los ninos no tienen el carnet del DPI — pero si tienen CUI, que es el mismo
+   * numero. Por eso la casilla cambio de nombre a la vez que de regla: pedir
+   * «DPI» a la madre de un recien nacido no tiene respuesta; pedir «CUI o DPI»
+   * si.
+   */
+  it('exige el CUI o DPI: sin el no va al servidor', async () => {
     servidorCon();
     await abrirFormulario();
 
+    await userEvent.type(screen.getByLabelText(/Nombres/i), 'Carlos');
+    await userEvent.type(screen.getByLabelText(/Apellidos/i), 'Chub');
+    await userEvent.type(screen.getByLabelText(/Fecha de nacimiento/i), '2020-03-15');
+    await userEvent.click(screen.getByLabelText(/Comunidad/i));
+    await userEvent.click(await screen.findByRole('option', { name: 'Matanzas' }));
+    await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
+
+    expect(await screen.findByText(/Escriba el CUI o DPI/i)).toBeInTheDocument();
+    expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(0);
+  });
+
+  it('con el CUI del menor puesto, el alta sale y el numero viaja', async () => {
+    servidorCon();
+    await abrirFormulario();
+
+    await userEvent.type(screen.getByLabelText(/CUI o DPI/i), '3012345670101');
+    await userEvent.type(screen.getByLabelText(/Nombre del esposo/i), 'Luis');
     await userEvent.type(screen.getByLabelText(/Nombres/i), 'Carlos');
     await userEvent.type(screen.getByLabelText(/Apellidos/i), 'Chub');
     await userEvent.type(screen.getByLabelText(/Fecha de nacimiento/i), '2020-03-15');
@@ -215,13 +252,248 @@ describe('alta de paciente', () => {
     await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
 
     await waitFor(() => expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(1));
+    const cuerpo = JSON.parse(await peticiones.find((p) => p.method === 'POST')!.text());
+    expect(cuerpo.dpi).toBe('3012345670101');
     expect(await screen.findByText(/EXP-2026-000999/)).toBeInTheDocument();
+  });
+
+  /** El nombre del esposo o conviviente, que pide la ficha oficial. */
+  it('el nombre del esposo o conviviente viaja en el alta', async () => {
+    servidorCon();
+    await abrirFormulario();
+
+    await userEvent.type(screen.getByLabelText(/CUI o DPI/i), '1234567890101');
+    await userEvent.type(screen.getByLabelText(/Nombres/i), 'Juana');
+    await userEvent.type(screen.getByLabelText(/Apellidos/i), 'Perez');
+    await userEvent.type(screen.getByLabelText(/Fecha de nacimiento/i), '1985-04-12');
+    await userEvent.click(screen.getByLabelText(/Comunidad/i));
+    await userEvent.click(await screen.findByRole('option', { name: 'Purulha Centro' }));
+    await userEvent.type(screen.getByLabelText(/Nombre del esposo/i), 'Carlos Chub Caal');
+    await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
+
+    await waitFor(() => expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(1));
+    const cuerpo = JSON.parse(await peticiones.find((p) => p.method === 'POST')!.text());
+    expect(cuerpo.esposo).toBe('Carlos Chub Caal');
+  });
+
+  /**
+   * El CAP lo pidio obligatorio sabiendo el costo: este mismo formulario
+   * registra recien nacidos, hombres y solteras, y a todos les pide ahora una
+   * respuesta en esta casilla.
+   */
+  it('exige el nombre del esposo o conviviente: sin el no va al servidor', async () => {
+    servidorCon();
+    await abrirFormulario();
+
+    await userEvent.type(screen.getByLabelText(/CUI o DPI/i), '1234567890101');
+    await userEvent.type(screen.getByLabelText(/Nombres/i), 'Juana');
+    await userEvent.type(screen.getByLabelText(/Apellidos/i), 'Perez');
+    await userEvent.type(screen.getByLabelText(/Fecha de nacimiento/i), '1985-04-12');
+    await userEvent.click(screen.getByLabelText(/Comunidad/i));
+    await userEvent.click(await screen.findByRole('option', { name: 'Purulha Centro' }));
+    await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
+
+    expect(await screen.findByText(/Escriba el nombre del esposo o conviviente/i)).toBeInTheDocument();
+    expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(0);
+  });
+
+  /**
+   * La carpeta familiar.
+   *
+   * El CAP archiva por familia: un folder con un numero en la pestana,
+   * rotulado con el apellido y guardado por el lugar donde vive.
+   */
+  describe('carpeta familiar', () => {
+    async function datosMinimos() {
+      await userEvent.type(screen.getByLabelText(/CUI o DPI/i), '3012345670101');
+      await userEvent.type(screen.getByLabelText(/Nombre del esposo/i), 'Luis');
+      await userEvent.type(screen.getByLabelText(/Nombres/i), 'Carlos');
+      await userEvent.type(screen.getByLabelText(/Apellidos/i), 'Chub');
+      await userEvent.type(screen.getByLabelText(/Fecha de nacimiento/i), '2020-03-15');
+      await userEvent.click(screen.getByLabelText(/Comunidad/i));
+      await userEvent.click(await screen.findByRole('option', { name: 'Matanzas' }));
+    }
+
+    const cuerpoDelAlta = async () =>
+      JSON.parse(await peticiones.find((p) => p.method === 'POST')!.text());
+
+    it('abrir una carpeta nueva la manda EN EL ALTA, no en otra llamada', async () => {
+      servidorCon();
+      await abrirFormulario();
+      await datosMinimos();
+
+      await userEvent.click(screen.getByLabelText(/Existe la carpeta/i));
+      await userEvent.click(await screen.findByRole('option', { name: /hay que abrirla/i }));
+      await userEvent.type(await screen.findByLabelText(/^Familia/i), 'Lopez Ac');
+      await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
+
+      await waitFor(() => expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(1));
+
+      /*
+        UNA sola peticion. Crear la carpeta aparte dejaria, si el alta falla,
+        un folder vacio ocupando un numero del archivero.
+      */
+      expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(1);
+      expect(await cuerpoDelAlta()).toMatchObject({
+        carpetaNueva: { apellidos: 'Lopez Ac' },
+      });
+    });
+
+    /**
+     * La tapa del folder lleva, debajo del apellido, los nombres del esposo y
+     * la esposa. Van con la carpeta nueva, y solo si se escribieron: una madre
+     * sola no tiene por que inventar un nombre.
+     */
+    it('los nombres de la tapa van con la carpeta nueva, y solo los escritos', async () => {
+      servidorCon();
+      await abrirFormulario();
+      await datosMinimos();
+
+      await userEvent.click(screen.getByLabelText(/Existe la carpeta/i));
+      await userEvent.click(await screen.findByRole('option', { name: /hay que abrirla/i }));
+      await userEvent.type(await screen.findByLabelText(/^Familia/i), 'Lopez Ac');
+      await userEvent.type(screen.getByLabelText(/^Esposa/i), 'Maria Ac Caal');
+      await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
+
+      await waitFor(() => expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(1));
+      const cuerpo = await cuerpoDelAlta();
+      expect(cuerpo.carpetaNueva).toEqual({ apellidos: 'Lopez Ac', esposa: 'Maria Ac Caal' });
+    });
+
+    it('con la carpeta ya existente no se piden los nombres de la tapa', async () => {
+      servidorCon();
+      await abrirFormulario();
+      await datosMinimos();
+
+      await userEvent.click(screen.getByLabelText(/Existe la carpeta/i));
+      await userEvent.click(await screen.findByRole('option', { name: /ya existe/i }));
+
+      expect(await screen.findByLabelText(/^Familia/i)).toBeInTheDocument();
+      expect(screen.queryByLabelText(/^Esposo/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/^Esposa/i)).not.toBeInTheDocument();
+    });
+
+    it('ofrece el siguiente numero libre del lugar, sin ir al archivero', async () => {
+      servidorCon();
+      await abrirFormulario();
+      await datosMinimos();
+
+      await userEvent.click(screen.getByLabelText(/Existe la carpeta/i));
+      await userEvent.click(await screen.findByRole('option', { name: /hay que abrirla/i }));
+
+      expect(await screen.findByText(/Siguiente libre aqui: 8|Siguiente libre aquí: 8/)).toBeInTheDocument();
+    });
+
+    /**
+     * Dos familias del mismo apellido pueden vivir en el mismo caserio sin ser
+     * parientes. Elegir por el sistema mezclaria dos historias clinicas, y eso
+     * no se nota hasta que alguien lee un antecedente que no es de quien tiene
+     * delante.
+     */
+    it('con la carpeta ya existente, hay que elegir cual y va su id', async () => {
+      const carpeta = (id: string, numero: number, esposo: string | null = null) => ({
+        id,
+        numero,
+        apellidos: 'Lopez Ac',
+        esposo,
+        esposa: null,
+        direccion: null,
+        telefono: null,
+        comunidad: { id: 'c-1', nombre: 'Matanzas' },
+        lugar: null,
+        integrantes: numero,
+      });
+      servidorCon([PACIENTE], undefined, [
+        carpeta('g-1', 1),
+        carpeta('g-2', 47, 'Pedro Lopez Tzul'),
+      ]);
+      await abrirFormulario();
+      await datosMinimos();
+
+      await userEvent.click(screen.getByLabelText(/Existe la carpeta/i));
+      await userEvent.click(await screen.findByRole('option', { name: /ya existe/i }));
+      await userEvent.type(await screen.findByLabelText(/^Familia/i), 'Lopez');
+
+      await userEvent.click(await screen.findByLabelText(/Cual carpeta|Cuál carpeta/i));
+      // Los nombres de la tapa salen en la opcion: son lo que separa dos
+      // carpetas del mismo apellido en el mismo lugar.
+      await userEvent.click(
+        await screen.findByRole('option', { name: /No. 47 · Pedro Lopez Tzul/ }),
+      );
+      await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
+
+      await waitFor(() => expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(1));
+      const cuerpo = await cuerpoDelAlta();
+      expect(cuerpo.grupoFamiliarId).toBe('g-2');
+      // Y NO viaja la otra forma: el servidor tomaria una y la otra quedaria
+      // escrita sin efecto.
+      expect(cuerpo.carpetaNueva).toBeUndefined();
+    });
+
+    it('sin responder, el paciente se registra sin carpeta', async () => {
+      servidorCon();
+      await abrirFormulario();
+      await datosMinimos();
+      await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
+
+      await waitFor(() => expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(1));
+      const cuerpo = await cuerpoDelAlta();
+      expect(cuerpo.carpetaNueva).toBeUndefined();
+      expect(cuerpo.grupoFamiliarId).toBeUndefined();
+    });
+  });
+
+  /**
+   * Quien no es de Purulha tambien tiene que poder registrarse.
+   *
+   * La comunidad es obligatoria —de ella cuelgan la busqueda de recepcion, la
+   * cola de digitalizacion y la serie de numeracion de las carpetas— y la
+   * casilla de «no es de Purulha» estaba debajo sin eximir de elegir una. El
+   * resultado es que a un jornalero de otro municipio no se le podia abrir
+   * expediente: se llenaba el formulario entero y no dejaba guardar.
+   */
+  describe('paciente de fuera de Purulha', () => {
+    it('marcar «no es de Purulha» resuelve la comunidad, y deja registrar', async () => {
+      servidorCon();
+      await abrirFormulario();
+
+      await userEvent.type(screen.getByLabelText(/CUI o DPI/i), '1234567890101');
+      await userEvent.type(screen.getByLabelText(/Nombre del esposo/i), 'Luis');
+      await userEvent.type(screen.getByLabelText(/Nombres/i), 'Carlos');
+      await userEvent.type(screen.getByLabelText(/Apellidos/i), 'Chub');
+      await userEvent.type(screen.getByLabelText(/Fecha de nacimiento/i), '1990-03-15');
+
+      // Sin tocar el desplegable de comunidad: solo la casilla.
+      await userEvent.click(screen.getByLabelText(/No es de Purulhá/i));
+      await userEvent.type(await screen.findByLabelText(/Lugar de origen/i), 'Salama');
+      await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
+
+      await waitFor(() => expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(1));
+      const cuerpo = JSON.parse(await peticiones.find((p) => p.method === 'POST')!.text());
+      expect(cuerpo.comunidadId).toBe('c-9');
+      expect(cuerpo.migrante).toBe(true);
+      expect(cuerpo.lugarOrigen).toBe('Salama');
+    });
+
+    it('desmarcarla vuelve a preguntar la comunidad', async () => {
+      servidorCon();
+      await abrirFormulario();
+
+      await userEvent.click(screen.getByLabelText(/No es de Purulhá/i));
+      await userEvent.click(screen.getByLabelText(/No es de Purulhá/i));
+
+      // La comunidad que puso el sistema deja de valer.
+      await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
+      expect(await screen.findByText(/Elija la comunidad/i)).toBeInTheDocument();
+    });
   });
 
   it('tras registrar, el formulario queda limpio para el siguiente', async () => {
     servidorCon();
     await abrirFormulario();
 
+    await userEvent.type(screen.getByLabelText(/CUI o DPI/i), '3012345670101');
+    await userEvent.type(screen.getByLabelText(/Nombre del esposo/i), 'Luis');
     await userEvent.type(screen.getByLabelText(/Nombres/i), 'Carlos');
     await userEvent.type(screen.getByLabelText(/Apellidos/i), 'Chub');
     await userEvent.type(screen.getByLabelText(/Fecha de nacimiento/i), '2020-03-15');
@@ -230,6 +502,8 @@ describe('alta de paciente', () => {
     await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
 
     await screen.findByText(/EXP-2026-000999/);
+    expect(screen.getByLabelText(/CUI o DPI/i)).toHaveValue('');
+    expect(screen.getByLabelText(/Nombre del esposo/i)).toHaveValue('');
     expect(screen.getByLabelText(/Nombres/i)).toHaveValue('');
     expect(screen.getByLabelText(/Apellidos/i)).toHaveValue('');
   });
@@ -250,6 +524,8 @@ describe('alta de paciente', () => {
     );
     await abrirFormulario();
 
+    await userEvent.type(screen.getByLabelText(/CUI o DPI/i), '1234567890101');
+    await userEvent.type(screen.getByLabelText(/Nombre del esposo/i), 'Luis');
     await userEvent.type(screen.getByLabelText(/Nombres/i), 'Juana');
     await userEvent.type(screen.getByLabelText(/Apellidos/i), 'Perez');
     await userEvent.type(screen.getByLabelText(/Fecha de nacimiento/i), '1985-04-12');
@@ -265,37 +541,56 @@ describe('alta de paciente', () => {
 });
 
 describe('quien puede dar de alta un paciente', () => {
-  it('Enfermeria busca, pero NO se le ofrece registrar', async () => {
-    // El servidor solo deja registrar a Recepcion y Administracion. Ofrecerle
-    // el boton terminaba en un 403 al guardar, despues de llenar el formulario
-    // entero: la persona cree que el sistema fallo, cuando esta haciendo lo
-    // correcto.
-    servidorCon();
+  function entrarComoRol(rol: string, ruta: string) {
     almacenSesion.limpiar();
     almacenSesion.guardar({
       tokenAcceso: 't',
       tokenRefresco: 'r',
-      usuario: { ...RECEPCION, id: 'u-9', usuario: 'mcaal', rol: 'ENFERMERIA' },
+      usuario: { ...RECEPCION, id: 'u-9', usuario: 'mcaal', rol: rol as typeof RECEPCION.rol },
     });
-    window.history.pushState({}, '', '/recepcion');
+    window.history.pushState({}, '', ruta);
+  }
+
+  /**
+   * Enfermeria tambien registra, y no es una concesion.
+   *
+   * Es quien llena las fichas, y hay un caso donde registrar y atender ocurren
+   * en el mismo minuto: llega la madre con un recien nacido que todavia no
+   * tiene nombre ni registro. Sin poder abrirle expediente, la enfermera no
+   * tiene donde guardar la ficha de menor de 28 dias, y mandarla a recepcion a
+   * media consulta es lo que hace que el dato acabe en un papel suelto.
+   */
+  it('Enfermeria si registra: es quien llena la ficha del recien nacido', async () => {
+    servidorCon();
+    entrarComoRol('ENFERMERIA', '/recepcion');
+    render(<App />);
+
+    await screen.findByRole('heading', { name: 'Recepcion' });
+    expect(screen.getByRole('link', { name: /Registrar paciente/i })).toBeInTheDocument();
+  });
+
+  /**
+   * Farmacia no. Ofrecer un boton que termina en un 403 al guardar, despues de
+   * llenar el formulario entero, hace pensar que el sistema fallo cuando esta
+   * haciendo justo lo correcto.
+   */
+  it('Farmacia busca, pero NO se le ofrece registrar', async () => {
+    servidorCon();
+    entrarComoRol('FARMACIA', '/recepcion');
     render(<App />);
 
     await screen.findByRole('heading', { name: 'Recepcion' });
     expect(screen.queryByRole('link', { name: /Registrar paciente/i })).not.toBeInTheDocument();
   });
 
-  it('escribir la ruta del alta a mano tampoco entra', async () => {
+  it('y escribir la ruta del alta a mano tampoco le entra', async () => {
     servidorCon();
-    almacenSesion.limpiar();
-    almacenSesion.guardar({
-      tokenAcceso: 't',
-      tokenRefresco: 'r',
-      usuario: { ...RECEPCION, id: 'u-9', usuario: 'mcaal', rol: 'ENFERMERIA' },
-    });
-    window.history.pushState({}, '', '/recepcion/nuevo');
+    entrarComoRol('FARMACIA', '/recepcion/nuevo');
     render(<App />);
 
-    await waitFor(() => expect(window.location.pathname).toBe('/'));
+    expect(
+      await screen.findByRole('heading', { name: /no es de su perfil/i }),
+    ).toBeInTheDocument();
   });
 
   it('Recepcion si lo ve: es su trabajo', async () => {

@@ -39,6 +39,27 @@ export async function retirarVisita(id: string, motivo: string): Promise<Visita>
 }
 
 /**
+ * Cambiar el turno de alguien en la sala.
+ *
+ * Llega una emergencia y hay que pasarla adelante. El servidor renumera toda
+ * la sala de hoy y la devuelve como queda, asi que la pantalla no tiene que
+ * volver a pedirla.
+ */
+export async function cambiarOrden(
+  id: string,
+  posicion: number,
+  motivo?: string,
+): Promise<VisitaEnEspera[]> {
+  const ruta = '/v1/visitas/{id}/orden';
+  const { data, error, response } = await apiUsuarios.PATCH(ruta, {
+    params: { path: { id } },
+    body: { posicion, ...(motivo ? { motivo } : {}) },
+  });
+  if (error || !data) fallarApi(error, ruta, response);
+  return data;
+}
+
+/**
  * Como se dice el tiempo de espera.
  *
  * En minutos hasta la hora, y despues en horas y minutos: "95 minutos" obliga a

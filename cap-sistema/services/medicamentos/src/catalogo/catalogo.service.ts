@@ -2,7 +2,12 @@ import { ConflictException, Inject, Injectable, NotFoundException } from '@nestj
 import { crearPagina, fechaDelDia, normalizarPagina, type Pagina } from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { ENTORNO, Entorno } from '../config/entorno';
-import { bajoMinimo, clasificarVencimiento } from '../dominio/inventario';
+import {
+  bajoMinimo,
+  clasificarVencimiento,
+  diasParaVencer,
+  semaforoVencimiento,
+} from '../dominio/inventario';
 import { CrearMedicamentoDto } from './dto/crear-medicamento.dto';
 import { ConsultarMedicamentosDto } from './dto/consultar-medicamentos.dto';
 import { ActualizarMedicamentoDto } from './dto/actualizar-medicamento.dto';
@@ -55,21 +60,34 @@ export class CatalogoService {
 
     if (medicamentos.length === 0) return crearPagina([], total, consulta);
 
+    // La misma agregacion trae el vencimiento mas proximo: es el lote que se
+    // entrega primero (FEFO) y el que fija el color del semaforo. Un lote
+    // DISPONIBLE siempre tiene existencia —al llegar a cero pasa a AGOTADO—,
+    // pero el filtro lo deja escrito por si alguna vez deja de ser asi.
     const existencias = await this.prisma.lote.groupBy({
       by: ['medicamentoId'],
       where: {
         medicamentoId: { in: medicamentos.map((m) => m.id) },
         estado: 'DISPONIBLE',
+        cantidadDisponible: { gt: 0 },
       },
       _sum: { cantidadDisponible: true },
+      _min: { fechaVencimiento: true },
     });
     const porMedicamento = new Map(
-      existencias.map((e) => [e.medicamentoId, e._sum.cantidadDisponible ?? 0]),
+      existencias.map((e) => [
+        e.medicamentoId,
+        { existencia: e._sum.cantidadDisponible ?? 0, proximo: e._min.fechaVencimiento },
+      ]),
     );
+    const hoy = fechaDelDia(new Date());
 
     return crearPagina(
       medicamentos.map((m) => {
-        const existencia = porMedicamento.get(m.id) ?? 0;
+        const { existencia, proximo } = porMedicamento.get(m.id) ?? {
+          existencia: 0,
+          proximo: null,
+        };
         return {
           id: m.id,
           codigo: m.codigo,
@@ -83,6 +101,9 @@ export class CatalogoService {
           stockMinimo: m.stockMinimo,
           existencia,
           bajoMinimo: bajoMinimo(existencia, m.stockMinimo),
+          semaforo: proximo ? semaforoVencimiento(proximo, hoy) : null,
+          proximoVencimiento: proximo,
+          diasParaVencer: proximo ? diasParaVencer(proximo, hoy) : null,
         };
       }),
       total,
@@ -104,9 +125,11 @@ export class CatalogoService {
     if (!m) throw new NotFoundException('No existe ese medicamento.');
 
     const hoy = fechaDelDia(new Date());
-    const existencia = m.lotes
-      .filter((l) => l.estado === 'DISPONIBLE')
-      .reduce((s, l) => s + l.cantidadDisponible, 0);
+    const disponibles = m.lotes.filter((l) => l.estado === 'DISPONIBLE' && l.cantidadDisponible > 0);
+    const existencia = disponibles.reduce((s, l) => s + l.cantidadDisponible, 0);
+    // Vienen ordenados por vencimiento: el primero con existencia es el que
+    // se entrega antes y el que da el color al medicamento.
+    const proximo = disponibles[0]?.fechaVencimiento ?? null;
 
     return {
       id: m.id,
@@ -121,6 +144,9 @@ export class CatalogoService {
       stockMinimo: m.stockMinimo,
       existencia,
       bajoMinimo: bajoMinimo(existencia, m.stockMinimo),
+      semaforo: proximo ? semaforoVencimiento(proximo, hoy) : null,
+      proximoVencimiento: proximo,
+      diasParaVencer: proximo ? diasParaVencer(proximo, hoy) : null,
       lotes: m.lotes.map((l) => ({
         id: l.id,
         numeroLote: l.numeroLote,
@@ -132,6 +158,8 @@ export class CatalogoService {
           hoy,
           this.env.DIAS_ALERTA_VENCIMIENTO,
         ),
+        diasParaVencer: diasParaVencer(l.fechaVencimiento, hoy),
+        semaforo: semaforoVencimiento(l.fechaVencimiento, hoy),
       })),
     };
   }

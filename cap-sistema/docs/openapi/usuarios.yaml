@@ -428,12 +428,24 @@ paths:
           in: query
           schema:
             type: string
-        - name: codigo
+        - name: lugarId
           required: false
           in: query
-          description: Busca por inicio del codigo del grupo.
+          description: El barrio o caserio.
           schema:
             type: string
+        - name: apellidos
+          required: false
+          in: query
+          description: Coincidencia parcial, sin distinguir mayusculas.
+          schema:
+            type: string
+        - name: numero
+          required: false
+          in: query
+          description: El numero de la pestana, exacto.
+          schema:
+            type: number
         - name: pagina
           required: false
           in: query
@@ -489,7 +501,7 @@ paths:
                 $ref: "#/components/schemas/RespuestaErrorDto"
       security: &a6
         - bearer: []
-      summary: Lista paginada de grupos familiares
+      summary: Lista paginada de carpetas familiares
       tags: &a7
         - grupos-familiares
     post:
@@ -533,7 +545,56 @@ paths:
               schema:
                 $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a6
-      summary: Crea un grupo familiar
+      summary: Abre una carpeta familiar
+      tags: *a7
+  /v1/grupos-familiares/siguiente-numero:
+    get:
+      operationId: GruposController_siguienteNumero
+      parameters:
+        - name: comunidadId
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: lugarId
+          required: false
+          in: query
+          description: El barrio o caserio. Sin el, la serie es la de la comunidad.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiguienteNumeroDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a6
+      summary: El siguiente numero libre de la serie de ese lugar
       tags: *a7
   /v1/grupos-familiares/{id}:
     get:
@@ -582,7 +643,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/RespuestaErrorDto"
       security: *a6
-      summary: Grupo familiar con sus integrantes
+      summary: Carpeta familiar con sus integrantes
       tags: *a7
   /v1/expedientes/buscar:
     get:
@@ -842,6 +903,12 @@ paths:
           schema:
             format: uuid
             type: string
+        - name: lugarId
+          required: false
+          in: query
+          schema:
+            format: uuid
+            type: string
         - name: estado
           required: false
           in: query
@@ -984,6 +1051,7 @@ paths:
               - NEONATO
               - NINEZ
               - PRENATAL
+              - POSPARTO
             type: string
       responses:
         "200":
@@ -1534,6 +1602,67 @@ paths:
       security: *a18
       summary: Quienes esperan ahora, por orden de llegada
       tags: *a19
+  /v1/visitas/{id}/orden:
+    patch:
+      description: Llega una emergencia y hay que pasarla adelante. Se renumera toda
+        la sala de hoy y se devuelve como queda.
+      operationId: VisitasController_cambiarOrden
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CambiarOrdenDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VisitaEnEsperaDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "409":
+          description: Esa visita ya no esta en la sala de espera.
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a18
+      summary: Cambia el turno de alguien en la sala
+      tags: *a19
   /v1/visitas/{id}/retiro:
     patch:
       description: 'El motivo es obligatorio: "se fue" no le sirve a nadie dentro de
@@ -1803,12 +1932,23 @@ components:
         id:
           type: string
           format: uuid
-        codigo:
+        numero:
+          type: number
+          example: 3
+          description: El numero escrito en la pestana del folder.
+        apellidos:
           type: string
-          example: GF-2026-000045
+          example: Lopez Ac
+        lugar:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/LugarResumenDto"
       required:
         - id
-        - codigo
+        - numero
+        - apellidos
+        - lugar
     ExpedienteDePacienteDto:
       type: object
       properties:
@@ -1912,14 +2052,35 @@ components:
         - tieneAlergias
         - alergias
         - expediente
+    CarpetaNuevaDto:
+      type: object
+      properties:
+        apellidos:
+          type: string
+          example: Lopez Ac
+          description: El apellido con que se rotula el folder.
+        esposo:
+          type: string
+          example: Juan Lopez Tzul
+          description: El nombre del esposo en la tapa.
+        esposa:
+          type: string
+          example: Maria Ac Caal
+          description: El nombre de la esposa en la tapa.
+        numero:
+          type: number
+          description: El numero de la pestana. Si se omite, se usa el siguiente libre de
+            la serie.
+      required:
+        - apellidos
     CrearPacienteDto:
       type: object
       properties:
         dpi:
           type: string
           example: "1234567890101"
-          description: "DPI de 13 digitos. OPCIONAL: los ninos y parte de la poblacion
-            rural no lo tienen."
+          description: CUI o DPI de 13 digitos. El CUI del menor sirve igual que el DPI
+            del adulto.
         nombres:
           type: string
           example: Juana Isabel
@@ -1941,6 +2102,7 @@ components:
             - ESPANOL
             - POQOMCHI
             - QEQCHI
+            - ACHI
             - OTRO
           default: ESPANOL
         comunidadId:
@@ -1948,6 +2110,8 @@ components:
           description: Identificador de la comunidad
         grupoFamiliarId:
           type: string
+        carpetaNueva:
+          $ref: "#/components/schemas/CarpetaNuevaDto"
         telefono:
           type: string
         numeroExpediente:
@@ -1967,6 +2131,10 @@ components:
           type: string
           maxLength: 160
           description: De donde viene, si es migrante.
+        esposo:
+          type: string
+          maxLength: 160
+          description: Nombre del esposo o conviviente.
         tieneAlergias:
           type: boolean
           description: Omitirlo significa que no se ha preguntado.
@@ -1975,11 +2143,13 @@ components:
           maxLength: 500
           description: A que medicamentos es alergico.
       required:
+        - dpi
         - nombres
         - apellidos
         - fechaNacimiento
         - sexo
         - comunidadId
+        - esposo
     PacienteCreadoDto:
       type: object
       properties:
@@ -2009,6 +2179,7 @@ components:
             - ESPANOL
             - POQOMCHI
             - QEQCHI
+            - ACHI
             - OTRO
         comunidadId:
           type: string
@@ -2024,9 +2195,22 @@ components:
         id:
           type: string
           format: uuid
-        codigo:
+        numero:
+          type: number
+          example: 1
+          description: El numero escrito en la pestana del folder.
+        apellidos:
           type: string
-          example: GF-2026-000045
+          example: Lopez Ac
+          description: El apellido con que se rotula.
+        esposo:
+          type: string
+          nullable: true
+          example: Juan Lopez Tzul
+        esposa:
+          type: string
+          nullable: true
+          example: Maria Ac Caal
         direccion:
           type: string
           nullable: true
@@ -2035,6 +2219,11 @@ components:
           nullable: true
         comunidad:
           $ref: "#/components/schemas/ComunidadResumenDto"
+        lugar:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/LugarResumenDto"
         integrantes:
           type: number
           description: "Contado en la base de datos, no trayendo a los integrantes: evita
@@ -2042,11 +2231,29 @@ components:
           example: 5
       required:
         - id
-        - codigo
+        - numero
+        - apellidos
+        - esposo
+        - esposa
         - direccion
         - telefono
         - comunidad
+        - lugar
         - integrantes
+    SiguienteNumeroDto:
+      type: object
+      properties:
+        serieId:
+          type: string
+          description: El lugar poblado, o la comunidad cuando la familia no tiene barrio.
+          format: uuid
+        numero:
+          type: number
+          example: 3
+          description: El mayor usado en esa serie, mas uno.
+      required:
+        - serieId
+        - numero
     IntegranteDto:
       type: object
       properties:
@@ -2068,6 +2275,10 @@ components:
         edad:
           type: number
           example: 12
+        numeroExpediente:
+          type: string
+          nullable: true
+          example: EXP-2026-000123
       required:
         - id
         - nombres
@@ -2076,15 +2287,27 @@ components:
         - sexo
         - fallecido
         - edad
+        - numeroExpediente
     GrupoFamiliarDto:
       type: object
       properties:
         id:
           type: string
           format: uuid
-        codigo:
+        numero:
+          type: number
+          example: 1
+        apellidos:
           type: string
-          example: GF-2026-000045
+          example: Lopez Ac
+        esposo:
+          type: string
+          nullable: true
+          example: Juan Lopez Tzul
+        esposa:
+          type: string
+          nullable: true
+          example: Maria Ac Caal
         direccion:
           type: string
           nullable: true
@@ -2093,6 +2316,11 @@ components:
           nullable: true
         comunidad:
           $ref: "#/components/schemas/ComunidadResumenDto"
+        lugar:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/LugarResumenDto"
         integrantes:
           description: Ordenados del mayor al menor.
           type: array
@@ -2100,26 +2328,45 @@ components:
             $ref: "#/components/schemas/IntegranteDto"
       required:
         - id
-        - codigo
+        - numero
+        - apellidos
+        - esposo
+        - esposa
         - direccion
         - telefono
         - comunidad
+        - lugar
         - integrantes
     CrearGrupoDto:
       type: object
       properties:
-        codigo:
+        numero:
+          type: number
+          description: Si se omite, se usa el siguiente libre de la serie.
+        apellidos:
           type: string
-          description: Codigo del grupo familiar segun el registro del CAP. Si se omite,
-            el sistema genera uno.
+          example: Lopez Ac
+          description: El apellido con que se rotula la carpeta.
+        esposo:
+          type: string
+          example: Juan Lopez Tzul
+          description: El nombre del esposo en la tapa.
+        esposa:
+          type: string
+          example: Maria Ac Caal
+          description: El nombre de la esposa en la tapa.
         comunidadId:
           type: string
+        lugarId:
+          type: string
+          description: El barrio o caserio. Define la serie de numeracion.
         direccion:
           type: string
-          example: Caserio El Rejon, casa 14
+          example: Casa 14, frente a la escuela
         telefono:
           type: string
       required:
+        - apellidos
         - comunidadId
     GrupoFamiliarCreadoDto:
       type: object
@@ -2127,9 +2374,20 @@ components:
         id:
           type: string
           format: uuid
-        codigo:
+        numero:
+          type: number
+          example: 1
+        apellidos:
           type: string
-          example: GF-2026-000045
+          example: Lopez Ac
+        esposo:
+          type: string
+          nullable: true
+          example: Juan Lopez Tzul
+        esposa:
+          type: string
+          nullable: true
+          example: Maria Ac Caal
         direccion:
           type: string
           nullable: true
@@ -2139,12 +2397,20 @@ components:
         comunidadId:
           type: string
           format: uuid
+        lugarId:
+          type: string
+          format: uuid
+          nullable: true
       required:
         - id
-        - codigo
+        - numero
+        - apellidos
+        - esposo
+        - esposa
         - direccion
         - telefono
         - comunidadId
+        - lugarId
     PacienteDelExpedienteDto:
       type: object
       properties:
@@ -2254,6 +2520,7 @@ components:
             - NEONATO
             - NINEZ
             - PRENATAL
+            - POSPARTO
           nullable: true
           description: null cuando la atencion no se capturo con una ficha oficial.
         motivo:
@@ -2691,6 +2958,7 @@ components:
             - NEONATO
             - NINEZ
             - PRENATAL
+            - POSPARTO
         signosPeligro:
           type: array
           items:
@@ -2864,6 +3132,159 @@ components:
           maximum: 10
         lactanciaMaternaExclusiva:
           type: boolean
+    DatosPrenatalDto:
+      type: object
+      properties:
+        circunferenciaBrazoCm:
+          type: number
+          example: 24.5
+          description: "Circunferencia del brazo. El papel: solo si el embarazo es menor
+            de 12 semanas."
+        examenGeneralNormal:
+          type: boolean
+          description: "Una sola casilla: estado general, palidez palmar, conjuntivas y
+            unas."
+        examenBucodental:
+          type: string
+          description: Hallazgos del examen buco dental.
+        alturaUterinaCm:
+          type: number
+          example: 28.5
+          description: Altura uterina en centimetros.
+        movimientosFetales:
+          type: boolean
+          description: El papel lo acota a las 20 semanas o mas.
+        fcf:
+          type: number
+          minimum: 0
+          maximum: 250
+          description: Frecuencia cardiaca fetal.
+        presentacionLeopold:
+          type: string
+          maxLength: 60
+          example: Cefálica
+          description: Presentacion por maniobras de Leopold, a partir de las 36 semanas.
+        trazasSangre:
+          type: boolean
+        trazasSangreDescripcion:
+          type: string
+          description: El papel dice "(describa)".
+        lesionesVulvares:
+          type: boolean
+          description: Verrugas, herpes, papilomas o ulceras.
+        lesionesVulvaresDescripcion:
+          type: string
+          description: El papel dice "(describa)".
+        flujoVaginal:
+          type: boolean
+        hemoglobinaHematocrito:
+          type: string
+          example: 11.2 / 34
+        grupoRh:
+          type: string
+          example: O RH+
+        orina:
+          type: string
+          description: Proteina, glucosa y cetona.
+        glicemia:
+          type: string
+        vdrl:
+          type: string
+        vih:
+          type: string
+          description: 'El papel: "oferte prueba con consejeria".'
+        papanicolau:
+          type: string
+        infecciones:
+          type: string
+        semanasPorFurAu:
+          type: number
+          minimum: 0
+          maximum: 45
+          description: Semanas de embarazo por FUR y/o altura uterina, como las anota
+            quien atiende.
+        problemasDetectados:
+          type: string
+          description: "Esta ficha no trae matriz de problemas: se escriben."
+        sulfatoFerrosoTabletas:
+          type: number
+          minimum: 0
+          maximum: 400
+        acidoFolicoTabletas:
+          type: number
+          minimum: 0
+          maximum: 400
+        tdDosis:
+          type: number
+          minimum: 0
+          maximum: 10
+          description: Dosis de Td de este control.
+    DatosPospartoDto:
+      type: object
+      properties:
+        esPrimerControl:
+          type: boolean
+          description: El primer control tiene hoja propia y cinco preguntas que no se
+            repiten. Por defecto, false.
+        diasDespuesDelParto:
+          type: number
+          minimum: 0
+          maximum: 400
+          description: Solo en el primer control.
+        dondeAtendioParto:
+          type: string
+          maxLength: 120
+          description: Solo en el primer control.
+        quienAtendioParto:
+          type: string
+          enum:
+            - MD
+            - EP
+            - AE
+            - CT
+            - OTRO
+          description: Solo en el primer control.
+        quienAtendioPartoOtro:
+          type: string
+          maxLength: 120
+        involucionUterina:
+          type: string
+          description: El papel pide describirla, no marcarla.
+        examenMamas:
+          type: string
+        heridaOperatoria:
+          type: string
+        examenGinecologico:
+          type: string
+          description: Loquios, episiorrafia y hallazgos patologicos.
+        lactanciaMaternaExclusiva:
+          type: boolean
+        motivoSinLactancia:
+          type: string
+          description: La pregunta "¿Por que no?" del papel.
+        problemasDetectados:
+          type: string
+        sulfatoFerroso:
+          type: boolean
+        sulfatoFerrosoTabletas:
+          type: number
+          minimum: 0
+          maximum: 400
+        acidoFolico:
+          type: boolean
+        acidoFolicoTabletas:
+          type: number
+          minimum: 0
+          maximum: 400
+        td:
+          type: boolean
+        tdDosis:
+          type: number
+          minimum: 0
+          maximum: 10
+        otroMedicamento:
+          type: boolean
+          description: Cual es se registra en `medicamentos`.
     CrearFichaDto:
       type: object
       properties:
@@ -2874,6 +3295,7 @@ components:
             - NEONATO
             - NINEZ
             - PRENATAL
+            - POSPARTO
         fecha:
           format: date-time
           type: string
@@ -2954,6 +3376,10 @@ components:
             $ref: "#/components/schemas/ConsejeriaBrindadaDto"
         neonato:
           $ref: "#/components/schemas/DatosNeonatoDto"
+        prenatal:
+          $ref: "#/components/schemas/DatosPrenatalDto"
+        posparto:
+          $ref: "#/components/schemas/DatosPospartoDto"
       required:
         - tipoFicha
         - motivo
@@ -3161,6 +3587,206 @@ components:
         - tdMadre
         - tdMadreDosis
         - lactanciaMaternaExclusiva
+    FichaPrenatalDto:
+      type: object
+      properties:
+        circunferenciaBrazoCm:
+          type: string
+          nullable: true
+          description: Decimal en texto.
+        examenGeneralNormal:
+          type: boolean
+          nullable: true
+        examenBucodental:
+          type: string
+          nullable: true
+        alturaUterinaCm:
+          type: string
+          nullable: true
+          description: Decimal en texto.
+        movimientosFetales:
+          type: boolean
+          nullable: true
+        fcf:
+          type: number
+          nullable: true
+          description: Frecuencia cardiaca fetal.
+        presentacionLeopold:
+          type: string
+          nullable: true
+        trazasSangre:
+          type: boolean
+          nullable: true
+        trazasSangreDescripcion:
+          type: string
+          nullable: true
+        lesionesVulvares:
+          type: boolean
+          nullable: true
+        lesionesVulvaresDescripcion:
+          type: string
+          nullable: true
+        flujoVaginal:
+          type: boolean
+          nullable: true
+        hemoglobinaHematocrito:
+          type: string
+          nullable: true
+        grupoRh:
+          type: string
+          nullable: true
+        orina:
+          type: string
+          nullable: true
+        glicemia:
+          type: string
+          nullable: true
+        vdrl:
+          type: string
+          nullable: true
+        vih:
+          type: string
+          nullable: true
+        papanicolau:
+          type: string
+          nullable: true
+        infecciones:
+          type: string
+          nullable: true
+        semanasPorFurAu:
+          type: number
+          nullable: true
+          description: Como las anoto quien atendio.
+        problemasDetectados:
+          type: string
+          nullable: true
+        sulfatoFerrosoTabletas:
+          type: number
+          nullable: true
+        acidoFolicoTabletas:
+          type: number
+          nullable: true
+        tdDosis:
+          type: number
+          nullable: true
+        semanasGestacion:
+          type: number
+          nullable: true
+          description: Calculadas a partir de la FUR y la fecha de la consulta. Null si no
+            hay FUR.
+        fechaProbableParto:
+          type: string
+          nullable: true
+          description: Fecha probable de parto (regla de Naegele), como aaaa-mm-dd. Null
+            si no hay FUR.
+      required:
+        - circunferenciaBrazoCm
+        - examenGeneralNormal
+        - examenBucodental
+        - alturaUterinaCm
+        - movimientosFetales
+        - fcf
+        - presentacionLeopold
+        - trazasSangre
+        - trazasSangreDescripcion
+        - lesionesVulvares
+        - lesionesVulvaresDescripcion
+        - flujoVaginal
+        - hemoglobinaHematocrito
+        - grupoRh
+        - orina
+        - glicemia
+        - vdrl
+        - vih
+        - papanicolau
+        - infecciones
+        - semanasPorFurAu
+        - problemasDetectados
+        - sulfatoFerrosoTabletas
+        - acidoFolicoTabletas
+        - tdDosis
+        - semanasGestacion
+        - fechaProbableParto
+    FichaPospartoDto:
+      type: object
+      properties:
+        esPrimerControl:
+          type: boolean
+          description: El primer control pregunta cinco cosas que los demas no repiten.
+        diasDespuesDelParto:
+          type: number
+          nullable: true
+        dondeAtendioParto:
+          type: string
+          nullable: true
+        quienAtendioParto:
+          type: string
+          nullable: true
+        quienAtendioPartoOtro:
+          type: string
+          nullable: true
+        involucionUterina:
+          type: string
+          nullable: true
+        examenMamas:
+          type: string
+          nullable: true
+        heridaOperatoria:
+          type: string
+          nullable: true
+        examenGinecologico:
+          type: string
+          nullable: true
+        lactanciaMaternaExclusiva:
+          type: boolean
+          nullable: true
+        motivoSinLactancia:
+          type: string
+          nullable: true
+        problemasDetectados:
+          type: string
+          nullable: true
+        sulfatoFerroso:
+          type: boolean
+          nullable: true
+        sulfatoFerrosoTabletas:
+          type: number
+          nullable: true
+        acidoFolico:
+          type: boolean
+          nullable: true
+        acidoFolicoTabletas:
+          type: number
+          nullable: true
+        td:
+          type: boolean
+          nullable: true
+        tdDosis:
+          type: number
+          nullable: true
+        otroMedicamento:
+          type: boolean
+          nullable: true
+      required:
+        - esPrimerControl
+        - diasDespuesDelParto
+        - dondeAtendioParto
+        - quienAtendioParto
+        - quienAtendioPartoOtro
+        - involucionUterina
+        - examenMamas
+        - heridaOperatoria
+        - examenGinecologico
+        - lactanciaMaternaExclusiva
+        - motivoSinLactancia
+        - problemasDetectados
+        - sulfatoFerroso
+        - sulfatoFerrosoTabletas
+        - acidoFolico
+        - acidoFolicoTabletas
+        - td
+        - tdDosis
+        - otroMedicamento
     FichaDto:
       type: object
       properties:
@@ -3272,6 +3898,18 @@ components:
           type: object
           allOf:
             - $ref: "#/components/schemas/FichaNeonatoDto"
+        prenatal:
+          nullable: true
+          description: Solo en las fichas prenatales.
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/FichaPrenatalDto"
+        posparto:
+          nullable: true
+          description: Solo en las fichas del posparto.
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/FichaPospartoDto"
       required:
         - id
         - expedienteId
@@ -3303,6 +3941,8 @@ components:
         - medicamentos
         - consejeriaTemas
         - neonato
+        - prenatal
+        - posparto
     DosisRecomendadaDto:
       type: object
       properties:
@@ -4063,6 +4703,10 @@ components:
           type: string
           nullable: true
           example: EXP-2026-000123
+        familiaNumero:
+          type: number
+          nullable: true
+          example: 47
         llegadaEn:
           format: date-time
           type: string
@@ -4074,6 +4718,15 @@ components:
           type: string
           nullable: true
           description: Descifrado al vuelo.
+        orden:
+          type: number
+          example: 1
+          description: "El turno: la posicion en la sala de hoy."
+        motivoPrioridad:
+          type: string
+          nullable: true
+          description: Por que se le paso adelante. Nulo si nadie lo adelanto.
+          example: Dolor de pecho
       required:
         - id
         - pacienteId
@@ -4084,9 +4737,26 @@ components:
         - sexo
         - comunidad
         - numeroExpediente
+        - familiaNumero
         - llegadaEn
         - esperandoMinutos
         - motivo
+        - orden
+        - motivoPrioridad
+    CambiarOrdenDto:
+      type: object
+      properties:
+        posicion:
+          type: number
+          example: 1
+          description: La posicion que va a ocupar, empezando en 1.
+        motivo:
+          type: string
+          description: Por que se le adelanta. Se guarda cifrado y sale en la sala como
+            aviso.
+          example: Dolor de pecho
+      required:
+        - posicion
     RetirarVisitaDto:
       type: object
       properties:
@@ -4109,6 +4779,7 @@ components:
             - NO_ENCONTRADO
             - CONFLICTO
             - DEMASIADAS_PETICIONES
+            - AUDITORIA_NO_DISPONIBLE
             - ERROR_INTERNO
           example: VALIDACION
         mensaje:

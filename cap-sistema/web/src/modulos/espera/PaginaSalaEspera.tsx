@@ -11,11 +11,15 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
   Paper,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import { AvisoError } from '../../componentes/AvisoError';
 import { EncabezadoPagina } from '../../componentes/EncabezadoPagina';
 import { usarSesion } from '../sesion/contexto';
@@ -24,6 +28,7 @@ import { desde } from '../../navegacion/usarVolver';
 import { fichaParaPaciente } from '../fichas/ficha-por-edad';
 import {
   ESPERA_LARGA_MINUTOS,
+  cambiarOrden,
   esperaEnPalabras,
   obtenerSalaDeEspera,
   retirarVisita,
@@ -32,6 +37,8 @@ import {
 
 const ATIENDEN = ['MEDICO', 'ENFERMERIA'];
 const CIERRAN = ['RECEPCION', 'ADMINISTRADOR', 'ENFERMERIA'];
+/** Quien ve llegar la emergencia o quien la va a atender. El director mira, no mueve. */
+const MUEVEN = ['RECEPCION', 'ADMINISTRADOR', 'ENFERMERIA', 'MEDICO'];
 
 /** Cada cuanto se vuelve a preguntar quien espera. */
 const REFRESCO_MS = 30_000;
@@ -56,10 +63,13 @@ export function PaginaSalaEspera() {
 
   const [retirando, setRetirando] = useState<VisitaEnEspera | null>(null);
   const [motivo, setMotivo] = useState('');
+  const [adelantando, setAdelantando] = useState<VisitaEnEspera | null>(null);
+  const [motivoPrioridad, setMotivoPrioridad] = useState('');
   const lista = useRef<HTMLDivElement>(null);
 
   const puedeAtender = ATIENDEN.includes(usuario?.rol ?? '');
   const puedeCerrar = CIERRAN.includes(usuario?.rol ?? '');
+  const puedeMover = MUEVEN.includes(usuario?.rol ?? '');
 
   const espera = useQuery({
     queryKey: ['sala-espera'],
@@ -76,6 +86,24 @@ export function PaginaSalaEspera() {
       setRetirando(null);
       setMotivo('');
       void clienteConsultas.invalidateQueries({ queryKey: ['sala-espera'] });
+    },
+  });
+
+  /*
+    Cambiar el turno. Llega una emergencia y hay que pasarla adelante; sin
+    esto la unica forma seria que la enfermera la atendiera "por fuera" y la
+    numeracion de la sala dejaria de decir la verdad.
+
+    El servidor devuelve la sala ya renumerada, y se pone tal cual en la
+    cache: pedirla otra vez seria una peticion mas para recibir lo mismo.
+  */
+  const mover = useMutation({
+    mutationFn: (datos: { id: string; posicion: number; motivo?: string }) =>
+      cambiarOrden(datos.id, datos.posicion, datos.motivo),
+    onSuccess: (sala) => {
+      setAdelantando(null);
+      setMotivoPrioridad('');
+      clienteConsultas.setQueryData(['sala-espera'], sala);
     },
   });
 
@@ -154,6 +182,11 @@ export function PaginaSalaEspera() {
           <AvisoError error={retirar.error} />
         </Box>
       ) : null}
+      {mover.isError ? (
+        <Box sx={{ mb: 2 }}>
+          <AvisoError error={mover.error} />
+        </Box>
+      ) : null}
 
       {espera.isLoading ? (
         <Stack sx={{ alignItems: 'center', py: 6 }}>
@@ -167,6 +200,7 @@ export function PaginaSalaEspera() {
         <Stack ref={lista} onKeyDown={alTeclear} sx={{ gap: 1 }}>
           {gente.map((v, i) => {
             const mucho = v.esperandoMinutos >= ESPERA_LARGA_MINUTOS;
+            const urgente = Boolean(v.motivoPrioridad);
             return (
               <Paper
                 key={v.id}
@@ -176,7 +210,9 @@ export function PaginaSalaEspera() {
                 onDoubleClick={() => (puedeAtender ? atender(v) : undefined)}
                 sx={{
                   border: '1px solid',
-                  borderColor: mucho ? 'warning.main' : 'divider',
+                  // Adelantado con motivo manda sobre la espera larga: es lo
+                  // que hay que ver primero al entrar.
+                  borderColor: urgente ? 'error.main' : mucho ? 'warning.main' : 'divider',
                   borderRadius: 0,
                   p: 1.5,
                   cursor: puedeAtender ? 'pointer' : 'default',
@@ -223,12 +259,91 @@ export function PaginaSalaEspera() {
                     ) : null}
                   </Stack>
 
+                  {/*
+                    Por que se le paso adelante, a la vista de todos los que
+                    miran la lista: quien lleva una hora sentado merece saber
+                    por que alguien paso antes.
+                  */}
+                  {urgente ? (
+                    <Chip size="small" color="error" label={'Urgente · ' + v.motivoPrioridad} />
+                  ) : null}
+
+                  {/*
+                    El numero de la carpeta familiar, junto al tiempo de
+                    espera.
+
+                    Es con lo que se pide el expediente en el archivo, asi que
+                    va donde ya se mira la fila —a la derecha, con el turno y
+                    la espera— y no enterrado en la linea de datos: quien
+                    atiende lo lee de un vistazo y manda a buscar el folder
+                    antes de que le toque el turno.
+
+                    Quien no tiene carpeta no muestra nada. Un "No. -" ocuparia
+                    el mismo sitio para decir que no hay dato.
+                  */}
+                  {v.familiaNumero !== null ? (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}
+                    >
+                      Familia No. {v.familiaNumero}
+                    </Typography>
+                  ) : null}
+
                   <Chip
                     size="small"
                     label={esperaEnPalabras(v.esperandoMinutos)}
                     color={mucho ? 'warning' : 'default'}
                     variant={mucho ? 'filled' : 'outlined'}
                   />
+
+                  {/*
+                    Mover un puesto no pide explicacion —alguien salio un
+                    momento y se deja pasar al de atras—. Pasar al frente si:
+                    es saltarse a toda la fila.
+                  */}
+                  {puedeMover && gente.length > 1 ? (
+                    <Stack direction="row" sx={{ gap: 0.5, alignItems: 'center' }}>
+                      <Tooltip title="Subir un puesto">
+                        <span>
+                          <IconButton
+                            size="small"
+                            aria-label={'Subir un puesto a ' + v.nombres + ' ' + v.apellidos}
+                            disabled={i === 0 || mover.isPending}
+                            onClick={() => mover.mutate({ id: v.id, posicion: i })}
+                          >
+                            <ArrowUpwardIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                      <Tooltip title="Bajar un puesto">
+                        <span>
+                          <IconButton
+                            size="small"
+                            aria-label={'Bajar un puesto a ' + v.nombres + ' ' + v.apellidos}
+                            disabled={i === gente.length - 1 || mover.isPending}
+                            onClick={() => mover.mutate({ id: v.id, posicion: i + 2 })}
+                          >
+                            <ArrowDownwardIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                      {i > 0 ? (
+                        <Button
+                          size="small"
+                          color="error"
+                          disabled={mover.isPending}
+                          onClick={() => {
+                            setMotivoPrioridad('');
+                            setAdelantando(v);
+                          }}
+                        >
+                          Al frente
+                        </Button>
+                      ) : null}
+                    </Stack>
+                  ) : null}
 
                   <Stack direction="row" sx={{ gap: 1 }}>
                     {puedeCerrar ? (
@@ -251,6 +366,44 @@ export function PaginaSalaEspera() {
           })}
         </Stack>
       )}
+
+      {adelantando ? (
+        <Dialog open onClose={() => setAdelantando(null)} fullWidth maxWidth="sm">
+          <DialogTitle>
+            {adelantando.apellidos}, {adelantando.nombres}
+          </DialogTitle>
+          <DialogContent>
+            <Stack sx={{ gap: 2, pt: 1 }}>
+              <Typography variant="body2" color="text.secondary">
+                Pasa al frente de la sala. El motivo se ve en la lista, para que quien lleva rato
+                esperando sepa por que.
+              </Typography>
+              <TextField
+                label="Por que se adelanta *"
+                autoFocus
+                value={motivoPrioridad}
+                onChange={(e) => setMotivoPrioridad(e.target.value)}
+                placeholder="Dolor de pecho, sangrado, fiebre alta en un bebe..."
+              />
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button color="inherit" onClick={() => setAdelantando(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="contained"
+              color="error"
+              disabled={motivoPrioridad.trim().length < 3 || mover.isPending}
+              onClick={() =>
+                mover.mutate({ id: adelantando.id, posicion: 1, motivo: motivoPrioridad.trim() })
+              }
+            >
+              {mover.isPending ? 'Guardando...' : 'Pasar al frente'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      ) : null}
 
       {retirando ? (
         <Dialog open onClose={() => setRetirando(null)} fullWidth maxWidth="sm">

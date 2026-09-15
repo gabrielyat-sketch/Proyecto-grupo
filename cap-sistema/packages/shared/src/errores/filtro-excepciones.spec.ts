@@ -1,4 +1,5 @@
 import { ArgumentsHost, ConflictException, HttpException, HttpStatus, NotFoundException } from '@nestjs/common';
+import { FalloDeAuditoria } from '../auditoria/cliente-auditoria';
 import { FiltroExcepciones } from './filtro-excepciones';
 import { CodigoError } from './respuesta-error';
 
@@ -35,6 +36,30 @@ describe('FiltroExcepciones', () => {
       codigo: CodigoError.NO_ENCONTRADO,
       mensaje: 'No existe ese paciente.',
     });
+  });
+
+  it('devuelve 503 cuando la operacion no se pudo auditar', () => {
+    const { host, respuesta } = hostCon();
+    filtro.catch(new FalloDeAuditoria('MODIFICACION'), host);
+    expect(respuesta.codigo).toBe(HttpStatus.SERVICE_UNAVAILABLE);
+    expect(respuesta.cuerpo).toMatchObject({ codigo: CodigoError.AUDITORIA_NO_DISPONIBLE });
+  });
+
+  it('le dice al personal que reintente, no que hizo algo mal', () => {
+    // El 503 no lo causo quien pulso el boton: si el mensaje sonara a error de
+    // usuario, en el CAP volverian a llenar el formulario buscando la falta.
+    const { host, respuesta } = hostCon();
+    filtro.catch(new FalloDeAuditoria('CREACION'), host);
+    const cuerpo = respuesta.cuerpo as { mensaje: string };
+    expect(cuerpo.mensaje).toContain('Vuelva a intentarlo');
+  });
+
+  it('no filtra el detalle interno del fallo de auditoria', () => {
+    // Es un 5xx, y la regla del filtro es que un 5xx nunca cuenta por que.
+    const { host, respuesta } = hostCon();
+    filtro.catch(new FalloDeAuditoria('ELIMINACION'), host);
+    const cuerpo = respuesta.cuerpo as { mensaje: string };
+    expect(cuerpo.mensaje).not.toContain('ELIMINACION');
   });
 
   it('respeta un cuerpo en espanol con la clave "mensaje"', () => {

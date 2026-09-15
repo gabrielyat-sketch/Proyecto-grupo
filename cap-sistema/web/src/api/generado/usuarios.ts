@@ -125,11 +125,28 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Lista paginada de grupos familiares */
+        /** Lista paginada de carpetas familiares */
         get: operations["GruposController_listar"];
         put?: never;
-        /** Crea un grupo familiar */
+        /** Abre una carpeta familiar */
         post: operations["GruposController_crear"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/grupos-familiares/siguiente-numero": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** El siguiente numero libre de la serie de ese lugar */
+        get: operations["GruposController_siguienteNumero"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -143,7 +160,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Grupo familiar con sus integrantes */
+        /** Carpeta familiar con sus integrantes */
         get: operations["GruposController_obtener"];
         put?: never;
         post?: never;
@@ -453,6 +470,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/visitas/{id}/orden": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Cambia el turno de alguien en la sala
+         * @description Llega una emergencia y hay que pasarla adelante. Se renumera toda la sala de hoy y se devuelve como queda.
+         */
+        patch: operations["VisitasController_cambiarOrden"];
+        trace?: never;
+    };
     "/v1/visitas/{id}/retiro": {
         parameters: {
             query?: never;
@@ -589,8 +626,14 @@ export interface components {
         GrupoResumenDto: {
             /** Format: uuid */
             id: string;
-            /** @example GF-2026-000045 */
-            codigo: string;
+            /**
+             * @description El numero escrito en la pestana del folder.
+             * @example 3
+             */
+            numero: number;
+            /** @example Lopez Ac */
+            apellidos: string;
+            lugar: components["schemas"]["LugarResumenDto"] | null;
         };
         ExpedienteDePacienteDto: {
             /** Format: uuid */
@@ -635,12 +678,31 @@ export interface components {
             alergias: string | null;
             expediente: components["schemas"]["ExpedienteDePacienteDto"] | null;
         };
+        CarpetaNuevaDto: {
+            /**
+             * @description El apellido con que se rotula el folder.
+             * @example Lopez Ac
+             */
+            apellidos: string;
+            /**
+             * @description El nombre del esposo en la tapa.
+             * @example Juan Lopez Tzul
+             */
+            esposo?: string;
+            /**
+             * @description El nombre de la esposa en la tapa.
+             * @example Maria Ac Caal
+             */
+            esposa?: string;
+            /** @description El numero de la pestana. Si se omite, se usa el siguiente libre de la serie. */
+            numero?: number;
+        };
         CrearPacienteDto: {
             /**
-             * @description DPI de 13 digitos. OPCIONAL: los ninos y parte de la poblacion rural no lo tienen.
+             * @description CUI o DPI de 13 digitos. El CUI del menor sirve igual que el DPI del adulto.
              * @example 1234567890101
              */
-            dpi?: string;
+            dpi: string;
             /** @example Juana Isabel */
             nombres: string;
             /** @example Perez Caal */
@@ -656,10 +718,11 @@ export interface components {
              * @default ESPANOL
              * @enum {string}
              */
-            idioma: "ESPANOL" | "POQOMCHI" | "QEQCHI" | "OTRO";
+            idioma: "ESPANOL" | "POQOMCHI" | "QEQCHI" | "ACHI" | "OTRO";
             /** @description Identificador de la comunidad */
             comunidadId: string;
             grupoFamiliarId?: string;
+            carpetaNueva?: components["schemas"]["CarpetaNuevaDto"];
             telefono?: string;
             /** @description Numero del expediente de papel. Se usa al digitalizar; si se omite, el sistema genera uno. */
             numeroExpediente?: string;
@@ -671,6 +734,8 @@ export interface components {
             migrante: boolean;
             /** @description De donde viene, si es migrante. */
             lugarOrigen?: string;
+            /** @description Nombre del esposo o conviviente. */
+            esposo: string;
             /** @description Omitirlo significa que no se ha preguntado. */
             tieneAlergias?: boolean;
             /** @description A que medicamentos es alergico. */
@@ -688,7 +753,7 @@ export interface components {
             nombres?: string;
             apellidos?: string;
             /** @enum {string} */
-            idioma?: "ESPANOL" | "POQOMCHI" | "QEQCHI" | "OTRO";
+            idioma?: "ESPANOL" | "POQOMCHI" | "QEQCHI" | "ACHI" | "OTRO";
             comunidadId?: string;
             grupoFamiliarId?: string;
             telefono?: string;
@@ -697,16 +762,41 @@ export interface components {
         GrupoFamiliarResumenDto: {
             /** Format: uuid */
             id: string;
-            /** @example GF-2026-000045 */
-            codigo: string;
+            /**
+             * @description El numero escrito en la pestana del folder.
+             * @example 1
+             */
+            numero: number;
+            /**
+             * @description El apellido con que se rotula.
+             * @example Lopez Ac
+             */
+            apellidos: string;
+            /** @example Juan Lopez Tzul */
+            esposo: string | null;
+            /** @example Maria Ac Caal */
+            esposa: string | null;
             direccion: string | null;
             telefono: string | null;
             comunidad: components["schemas"]["ComunidadResumenDto"];
+            lugar: components["schemas"]["LugarResumenDto"] | null;
             /**
              * @description Contado en la base de datos, no trayendo a los integrantes: evita el N+1 de esta pantalla.
              * @example 5
              */
             integrantes: number;
+        };
+        SiguienteNumeroDto: {
+            /**
+             * Format: uuid
+             * @description El lugar poblado, o la comunidad cuando la familia no tiene barrio.
+             */
+            serieId: string;
+            /**
+             * @description El mayor usado en esa serie, mas uno.
+             * @example 3
+             */
+            numero: number;
         };
         IntegranteDto: {
             /** Format: uuid */
@@ -720,35 +810,69 @@ export interface components {
             fallecido: boolean;
             /** @example 12 */
             edad: number;
+            /** @example EXP-2026-000123 */
+            numeroExpediente: string | null;
         };
         GrupoFamiliarDto: {
             /** Format: uuid */
             id: string;
-            /** @example GF-2026-000045 */
-            codigo: string;
+            /** @example 1 */
+            numero: number;
+            /** @example Lopez Ac */
+            apellidos: string;
+            /** @example Juan Lopez Tzul */
+            esposo: string | null;
+            /** @example Maria Ac Caal */
+            esposa: string | null;
             direccion: string | null;
             telefono: string | null;
             comunidad: components["schemas"]["ComunidadResumenDto"];
+            lugar: components["schemas"]["LugarResumenDto"] | null;
             /** @description Ordenados del mayor al menor. */
             integrantes: components["schemas"]["IntegranteDto"][];
         };
         CrearGrupoDto: {
-            /** @description Codigo del grupo familiar segun el registro del CAP. Si se omite, el sistema genera uno. */
-            codigo?: string;
+            /** @description Si se omite, se usa el siguiente libre de la serie. */
+            numero?: number;
+            /**
+             * @description El apellido con que se rotula la carpeta.
+             * @example Lopez Ac
+             */
+            apellidos: string;
+            /**
+             * @description El nombre del esposo en la tapa.
+             * @example Juan Lopez Tzul
+             */
+            esposo?: string;
+            /**
+             * @description El nombre de la esposa en la tapa.
+             * @example Maria Ac Caal
+             */
+            esposa?: string;
             comunidadId: string;
-            /** @example Caserio El Rejon, casa 14 */
+            /** @description El barrio o caserio. Define la serie de numeracion. */
+            lugarId?: string;
+            /** @example Casa 14, frente a la escuela */
             direccion?: string;
             telefono?: string;
         };
         GrupoFamiliarCreadoDto: {
             /** Format: uuid */
             id: string;
-            /** @example GF-2026-000045 */
-            codigo: string;
+            /** @example 1 */
+            numero: number;
+            /** @example Lopez Ac */
+            apellidos: string;
+            /** @example Juan Lopez Tzul */
+            esposo: string | null;
+            /** @example Maria Ac Caal */
+            esposa: string | null;
             direccion: string | null;
             telefono: string | null;
             /** Format: uuid */
             comunidadId: string;
+            /** Format: uuid */
+            lugarId: string | null;
         };
         PacienteDelExpedienteDto: {
             /** Format: uuid */
@@ -802,7 +926,7 @@ export interface components {
              * @description null cuando la atencion no se capturo con una ficha oficial.
              * @enum {string|null}
              */
-            tipoFicha: "ADULTO" | "NEONATO" | "NINEZ" | "PRENATAL" | null;
+            tipoFicha: "ADULTO" | "NEONATO" | "NINEZ" | "PRENATAL" | "POSPARTO" | null;
             /** @description Descifrado. En la base es ilegible. */
             motivo: string | null;
             diagnostico: string | null;
@@ -1016,7 +1140,7 @@ export interface components {
         };
         CatalogoFichaDto: {
             /** @enum {string} */
-            tipoFicha: "ADULTO" | "NEONATO" | "NINEZ" | "PRENATAL";
+            tipoFicha: "ADULTO" | "NEONATO" | "NINEZ" | "PRENATAL" | "POSPARTO";
             signosPeligro: components["schemas"]["SignoPeligroCatalogoDto"][];
             antecedentes: components["schemas"]["AntecedenteCatalogoDto"][];
             problemas: components["schemas"]["ProblemaCatalogoDto"][];
@@ -1096,9 +1220,94 @@ export interface components {
             tdMadreDosis?: number;
             lactanciaMaternaExclusiva?: boolean;
         };
+        DatosPrenatalDto: {
+            /**
+             * @description Circunferencia del brazo. El papel: solo si el embarazo es menor de 12 semanas.
+             * @example 24.5
+             */
+            circunferenciaBrazoCm?: number;
+            /** @description Una sola casilla: estado general, palidez palmar, conjuntivas y unas. */
+            examenGeneralNormal?: boolean;
+            /** @description Hallazgos del examen buco dental. */
+            examenBucodental?: string;
+            /**
+             * @description Altura uterina en centimetros.
+             * @example 28.5
+             */
+            alturaUterinaCm?: number;
+            /** @description El papel lo acota a las 20 semanas o mas. */
+            movimientosFetales?: boolean;
+            /** @description Frecuencia cardiaca fetal. */
+            fcf?: number;
+            /**
+             * @description Presentacion por maniobras de Leopold, a partir de las 36 semanas.
+             * @example Cefálica
+             */
+            presentacionLeopold?: string;
+            trazasSangre?: boolean;
+            /** @description El papel dice "(describa)". */
+            trazasSangreDescripcion?: string;
+            /** @description Verrugas, herpes, papilomas o ulceras. */
+            lesionesVulvares?: boolean;
+            /** @description El papel dice "(describa)". */
+            lesionesVulvaresDescripcion?: string;
+            flujoVaginal?: boolean;
+            /** @example 11.2 / 34 */
+            hemoglobinaHematocrito?: string;
+            /** @example O RH+ */
+            grupoRh?: string;
+            /** @description Proteina, glucosa y cetona. */
+            orina?: string;
+            glicemia?: string;
+            vdrl?: string;
+            /** @description El papel: "oferte prueba con consejeria". */
+            vih?: string;
+            papanicolau?: string;
+            infecciones?: string;
+            /** @description Semanas de embarazo por FUR y/o altura uterina, como las anota quien atiende. */
+            semanasPorFurAu?: number;
+            /** @description Esta ficha no trae matriz de problemas: se escriben. */
+            problemasDetectados?: string;
+            sulfatoFerrosoTabletas?: number;
+            acidoFolicoTabletas?: number;
+            /** @description Dosis de Td de este control. */
+            tdDosis?: number;
+        };
+        DatosPospartoDto: {
+            /** @description El primer control tiene hoja propia y cinco preguntas que no se repiten. Por defecto, false. */
+            esPrimerControl?: boolean;
+            /** @description Solo en el primer control. */
+            diasDespuesDelParto?: number;
+            /** @description Solo en el primer control. */
+            dondeAtendioParto?: string;
+            /**
+             * @description Solo en el primer control.
+             * @enum {string}
+             */
+            quienAtendioParto?: "MD" | "EP" | "AE" | "CT" | "OTRO";
+            quienAtendioPartoOtro?: string;
+            /** @description El papel pide describirla, no marcarla. */
+            involucionUterina?: string;
+            examenMamas?: string;
+            heridaOperatoria?: string;
+            /** @description Loquios, episiorrafia y hallazgos patologicos. */
+            examenGinecologico?: string;
+            lactanciaMaternaExclusiva?: boolean;
+            /** @description La pregunta "¿Por que no?" del papel. */
+            motivoSinLactancia?: string;
+            problemasDetectados?: string;
+            sulfatoFerroso?: boolean;
+            sulfatoFerrosoTabletas?: number;
+            acidoFolico?: boolean;
+            acidoFolicoTabletas?: number;
+            td?: boolean;
+            tdDosis?: number;
+            /** @description Cual es se registra en `medicamentos`. */
+            otroMedicamento?: boolean;
+        };
         CrearFichaDto: {
             /** @enum {string} */
-            tipoFicha: "ADULTO" | "NEONATO" | "NINEZ" | "PRENATAL";
+            tipoFicha: "ADULTO" | "NEONATO" | "NINEZ" | "PRENATAL" | "POSPARTO";
             /**
              * Format: date-time
              * @description Por defecto, ahora. Se indica al digitalizar papel.
@@ -1154,6 +1363,8 @@ export interface components {
             notas?: string;
             consejeriaTemas?: components["schemas"]["ConsejeriaBrindadaDto"][];
             neonato?: components["schemas"]["DatosNeonatoDto"];
+            prenatal?: components["schemas"]["DatosPrenatalDto"];
+            posparto?: components["schemas"]["DatosPospartoDto"];
         };
         FichaCreadaDto: {
             /** Format: uuid */
@@ -1223,13 +1434,70 @@ export interface components {
             tdMadreDosis: number | null;
             lactanciaMaternaExclusiva: boolean | null;
         };
+        FichaPrenatalDto: {
+            /** @description Decimal en texto. */
+            circunferenciaBrazoCm: string | null;
+            examenGeneralNormal: boolean | null;
+            examenBucodental: string | null;
+            /** @description Decimal en texto. */
+            alturaUterinaCm: string | null;
+            movimientosFetales: boolean | null;
+            /** @description Frecuencia cardiaca fetal. */
+            fcf: number | null;
+            presentacionLeopold: string | null;
+            trazasSangre: boolean | null;
+            trazasSangreDescripcion: string | null;
+            lesionesVulvares: boolean | null;
+            lesionesVulvaresDescripcion: string | null;
+            flujoVaginal: boolean | null;
+            hemoglobinaHematocrito: string | null;
+            grupoRh: string | null;
+            orina: string | null;
+            glicemia: string | null;
+            vdrl: string | null;
+            vih: string | null;
+            papanicolau: string | null;
+            infecciones: string | null;
+            /** @description Como las anoto quien atendio. */
+            semanasPorFurAu: number | null;
+            problemasDetectados: string | null;
+            sulfatoFerrosoTabletas: number | null;
+            acidoFolicoTabletas: number | null;
+            tdDosis: number | null;
+            /** @description Calculadas a partir de la FUR y la fecha de la consulta. Null si no hay FUR. */
+            semanasGestacion: number | null;
+            /** @description Fecha probable de parto (regla de Naegele), como aaaa-mm-dd. Null si no hay FUR. */
+            fechaProbableParto: string | null;
+        };
+        FichaPospartoDto: {
+            /** @description El primer control pregunta cinco cosas que los demas no repiten. */
+            esPrimerControl: boolean;
+            diasDespuesDelParto: number | null;
+            dondeAtendioParto: string | null;
+            quienAtendioParto: string | null;
+            quienAtendioPartoOtro: string | null;
+            involucionUterina: string | null;
+            examenMamas: string | null;
+            heridaOperatoria: string | null;
+            examenGinecologico: string | null;
+            lactanciaMaternaExclusiva: boolean | null;
+            motivoSinLactancia: string | null;
+            problemasDetectados: string | null;
+            sulfatoFerroso: boolean | null;
+            sulfatoFerrosoTabletas: number | null;
+            acidoFolico: boolean | null;
+            acidoFolicoTabletas: number | null;
+            td: boolean | null;
+            tdDosis: number | null;
+            otroMedicamento: boolean | null;
+        };
         FichaDto: {
             /** Format: uuid */
             id: string;
             /** Format: uuid */
             expedienteId: string;
             /** @enum {string|null} */
-            tipoFicha: "ADULTO" | "NEONATO" | "NINEZ" | "PRENATAL" | null;
+            tipoFicha: "ADULTO" | "NEONATO" | "NINEZ" | "PRENATAL" | "POSPARTO" | null;
             /** Format: date-time */
             fecha: string;
             /** Format: uuid */
@@ -1276,6 +1544,10 @@ export interface components {
             consejeriaTemas: components["schemas"]["ConsejeriaFichaDto"][];
             /** @description Solo en las fichas de menor de 28 dias. */
             neonato: components["schemas"]["FichaNeonatoDto"] | null;
+            /** @description Solo en las fichas prenatales. */
+            prenatal: components["schemas"]["FichaPrenatalDto"] | null;
+            /** @description Solo en las fichas del posparto. */
+            posparto: components["schemas"]["FichaPospartoDto"] | null;
         };
         DosisRecomendadaDto: {
             /**
@@ -1608,6 +1880,8 @@ export interface components {
             comunidad: string;
             /** @example EXP-2026-000123 */
             numeroExpediente: string | null;
+            /** @example 47 */
+            familiaNumero: number | null;
             /** Format: date-time */
             llegadaEn: string;
             /**
@@ -1617,6 +1891,28 @@ export interface components {
             esperandoMinutos: number;
             /** @description Descifrado al vuelo. */
             motivo: string | null;
+            /**
+             * @description El turno: la posicion en la sala de hoy.
+             * @example 1
+             */
+            orden: number;
+            /**
+             * @description Por que se le paso adelante. Nulo si nadie lo adelanto.
+             * @example Dolor de pecho
+             */
+            motivoPrioridad: string | null;
+        };
+        CambiarOrdenDto: {
+            /**
+             * @description La posicion que va a ocupar, empezando en 1.
+             * @example 1
+             */
+            posicion: number;
+            /**
+             * @description Por que se le adelanta. Se guarda cifrado y sale en la sala como aviso.
+             * @example Dolor de pecho
+             */
+            motivo?: string;
         };
         RetirarVisitaDto: {
             /** @example Se canso de esperar y se fue */
@@ -1628,7 +1924,7 @@ export interface components {
              * @example VALIDACION
              * @enum {string}
              */
-            codigo: "VALIDACION" | "NO_AUTENTICADO" | "SIN_PERMISO" | "NO_ENCONTRADO" | "CONFLICTO" | "DEMASIADAS_PETICIONES" | "ERROR_INTERNO";
+            codigo: "VALIDACION" | "NO_AUTENTICADO" | "SIN_PERMISO" | "NO_ENCONTRADO" | "CONFLICTO" | "DEMASIADAS_PETICIONES" | "AUDITORIA_NO_DISPONIBLE" | "ERROR_INTERNO";
             /**
              * @description Mensaje en espanol, apto para mostrarse tal cual al usuario.
              * @example La informacion enviada no es valida.
@@ -2174,8 +2470,12 @@ export interface operations {
         parameters: {
             query?: {
                 comunidadId?: string;
-                /** @description Busca por inicio del codigo del grupo. */
-                codigo?: string;
+                /** @description El barrio o caserio. */
+                lugarId?: string;
+                /** @description Coincidencia parcial, sin distinguir mayusculas. */
+                apellidos?: string;
+                /** @description El numero de la pestana, exacto. */
+                numero?: number;
                 pagina?: number;
                 tamano?: number;
             };
@@ -2253,6 +2553,65 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GrupoFamiliarCreadoDto"];
+                };
+            };
+            /** @description La informacion enviada no es valida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
+    GruposController_siguienteNumero: {
+        parameters: {
+            query: {
+                comunidadId: string;
+                /** @description El barrio o caserio. Sin el, la serie es la de la comunidad. */
+                lugarId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiguienteNumeroDto"];
                 };
             };
             /** @description La informacion enviada no es valida. */
@@ -2656,6 +3015,7 @@ export interface operations {
         parameters: {
             query?: {
                 comunidadId?: string;
+                lugarId?: string;
                 /** @description Por defecto, los que faltan: pendientes y en proceso. */
                 estado?: "PENDIENTE" | "EN_PROCESO" | "COMPLETO" | "NO_LOCALIZADO";
                 /** @description Empieza en 1. Por defecto 1. */
@@ -2793,7 +3153,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                tipo: "ADULTO" | "NEONATO" | "NINEZ" | "PRENATAL";
+                tipo: "ADULTO" | "NEONATO" | "NINEZ" | "PRENATAL" | "POSPARTO";
             };
             cookie?: never;
         };
@@ -3474,6 +3834,83 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RespuestaErrorDto"];
                 };
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
+    VisitasController_cambiarOrden: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CambiarOrdenDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitaEnEsperaDto"][];
+                };
+            };
+            /** @description La informacion enviada no es valida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El recurso solicitado no existe. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Esa visita ya no esta en la sala de espera. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
             500: {

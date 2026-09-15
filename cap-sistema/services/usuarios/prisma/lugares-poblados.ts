@@ -5,16 +5,18 @@
  * agosto de 2026: siete barrios y cuarenta y seis caserios. Lo que habia antes
  * eran nombres que nos inventamos para que el desplegable tuviera contenido.
  *
- * ⚠️  UNA COSA SIGUE SIN CONFIRMAR: a que comunidad pertenece cada caserio.
+ * ⚠️  UNA COSA SIGUE SIN CONFIRMAR: a que aldea pertenece cada caserio.
  *
  * El documento del CAP los lista bajo el encabezado de Purulha Centro, sin
  * decir si son todos suyos o son los del municipio repartidos entre las ocho
  * aldeas. Hay indicios de lo segundo —"Matanzas" y "Los encuentros" aparecen
  * como caserios y tambien suenan a comunidad— pero indicios no son un dato.
  *
- * Se siembran todos bajo Purulha Centro porque es donde el documento los pone,
- * y queda anotado como pregunta para el CAP. Corregirlo despues es mover filas
- * de comunidad, no rehacer nada.
+ * Estuvieron un tiempo bajo Purulha Centro, que es donde el documento los
+ * pone, y eso afirmaba algo falso: obligaba a decir que alguien de Sacsamani
+ * vive en el casco urbano. Ahora cuelgan de «Caserios», que no dice de que
+ * aldea es cada uno pero tampoco miente. Queda anotado como pregunta para el
+ * CAP; corregirlo despues es mover filas de comunidad, no rehacer nada.
  *
  * Es idempotente: cada lugar se identifica por su comunidad y su nombre, asi
  * que volver a ejecutarlo actualiza en vez de duplicar. Y DESACTIVA los que ya
@@ -52,14 +54,26 @@ const POR_COMUNIDAD: Record<string, Lugar[]> = {
     { nombre: 'La Cruz I', tipo: 'BARRIO' },
     { nombre: 'La Cruz II', tipo: 'BARRIO' },
     { nombre: 'San Antonio', tipo: 'BARRIO' },
+  ],
 
-    // ── Los cuarenta y seis caserios ────────────────────────────────────
-    //
-    // En el orden del documento, que es alfabetico. Se respeta la grafia del
-    // CAP: "Cerrro la Cruz" lleva tres erres en el original y no se corrige
-    // por nuestra cuenta. Si es una errata, la enmienda quien conoce el
-    // sitio, no nosotros.
-    //
+  /*
+    Los caserios, como opcion propia y no dentro de Purulha Centro.
+
+    El documento del CAP los lista bajo el encabezado de la cabecera, y por eso
+    estaban ahi: para verlos habia que elegir «Purulha Centro», que es el
+    casco urbano. Un caserio no esta dentro del casco urbano, asi que quien
+    registraba a alguien de Sacsamani tenia que decir primero que vivia en el
+    centro del pueblo para poder decir despues que no.
+
+    Sigue SIN confirmar a que aldea pertenece cada uno. Esto no lo resuelve
+    —solo deja de afirmar algo que no sabemos—, y el dia que el CAP lo diga,
+    corregirlo es mover filas de comunidad, no rehacer nada.
+
+    En el orden del documento, que es alfabetico. Se respeta la grafia del
+    CAP: "Cerrro la Cruz" lleva tres erres en el original y no se corrige por
+    nuestra cuenta. Si es una errata, la enmienda quien conoce el sitio.
+  */
+  Caserios: [
     { nombre: 'Bella Vista Sachut', tipo: 'CASERIO' },
     { nombre: 'Betania', tipo: 'CASERIO' },
     { nombre: 'Cerrro la Cruz', tipo: 'CASERIO' },

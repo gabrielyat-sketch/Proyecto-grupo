@@ -32,6 +32,8 @@ export async function obtenerComunidades(): Promise<AvanceComunidad[]> {
 
 export async function obtenerCola(consulta: {
   comunidadId?: string;
+  /** El barrio o caserio, dentro de la comunidad. */
+  lugarId?: string;
   estado?: EstadoDigitalizacion;
   pagina: number;
 }): Promise<PaginaCola> {
@@ -40,6 +42,7 @@ export async function obtenerCola(consulta: {
     params: {
       query: {
         ...(consulta.comunidadId ? { comunidadId: consulta.comunidadId } : {}),
+        ...(consulta.lugarId ? { lugarId: consulta.lugarId } : {}),
         ...(consulta.estado ? { estado: consulta.estado } : {}),
         pagina: consulta.pagina,
       },

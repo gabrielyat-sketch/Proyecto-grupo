@@ -20,10 +20,13 @@ lógica hay que arreglarlo ocho veces y basta olvidar una.
 | `paginacion/` | Normalización de página y tope duro de 100 registros | Listo |
 | `traza/` | Middleware de correlación `X-Traza-Id` | Listo |
 | `auditoria/` | Cliente del servicio de trazabilidad | ✅ Etapa 9 |
-| `eventos/` | Publicador con outbox transaccional y consumidor idempotente | **Pendiente — Etapa 10** |
+| `eventos/` | Publicador del outbox y consumidor por grupos sobre Redis Streams | ✅ Etapa D de la ficha prenatal |
 
-`eventos/` sigue vacía a propósito: necesita el bus de Redis, que llega en la Etapa 10.
-Implementarla antes sería escribir contra un destino que todavía no existe.
+`eventos/` se adelantó a la Etapa 10 porque la ficha prenatal necesitaba que `programas` la oyera
+(decisión 3 de `docs/diseno-ficha-prenatal.md`). Sus pruebas corren contra el Redis real de
+`docker compose`, en la base 15: un doble tendría que imitar los grupos de consumo, los pendientes
+por inactividad y el conteo de entregas, que es justo lo que se quiere comprobar. Cómo funciona:
+`docs/eventos/esquema-eventos.md`.
 
 ## Cuidado especial con `crypto/`
 

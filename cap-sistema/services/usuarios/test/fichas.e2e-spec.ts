@@ -7,6 +7,15 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 /**
+ * DPIs de prueba, unicos por llamada y fuera del rango de la carga sintetica.
+ *
+ * Uno fijo no sirve: el CUI o DPI es obligatorio y unico, asi que el segundo
+ * paciente que creara esta suite chocaria contra el control de duplicados.
+ */
+let siguienteDpiPrueba = 9300000000000;
+const nuevoDpi = () => String(++siguienteDpiPrueba);
+
+/**
  * Ficha clinica de adolescente, adulto y adulto mayor.
  *
  * Corre contra PostgreSQL real, con el catalogo ya sembrado por
@@ -67,6 +76,8 @@ describe('Fichas clinicas (e2e)', () => {
       .post('/v1/pacientes')
       .set(como(Rol.RECEPCION))
       .send({
+        dpi: nuevoDpi(),
+        esposo: 'Carlos Chub Caal',
         nombres: 'Zzficha',
         apellidos: 'Zzprueba Adulto',
         fechaNacimiento: '1985-04-12',
@@ -130,11 +141,34 @@ describe('Fichas clinicas (e2e)', () => {
     });
 
     it('una ficha sin catalogo cargado lo dice, no devuelve vacio', async () => {
-      // Ha ido cambiando: primero NEONATO, despues NINEZ, y las dos dejaron de
-      // servir en cuanto tuvieron catalogo. Queda PRENATAL, la ultima sin
-      // sembrar. Cuando le toque su turno, esta prueba se queda sin hoja con
-      // que probarlo y habra que sembrar una de mentira y borrarla.
-      await request(http()).get('/v1/fichas/catalogo/PRENATAL').set(como(Rol.MEDICO)).expect(404);
+      // Ha ido cambiando: primero NEONATO, despues NINEZ, despues PRENATAL. Se
+      // acabaron las hojas sin sembrar —las cinco tienen catalogo desde la
+      // ficha prenatal—, asi que ya no basta con pedir la que falta.
+      //
+      // En vez de sembrar una ficha de mentira, se RETIRA una de verdad y se
+      // devuelve. El catalogo solo sirve filas con `activo`, que es como el
+      // MSPAS retira una hoja sin borrar lo ya registrado con ella, asi que
+      // esto prueba el mismo camino que se recorreria de verdad.
+      //
+      // POSPARTO y no otra: es la unica sin pantalla todavia, asi que si algo
+      // saliera mal a mitad, nadie se queda sin poder trabajar.
+      const retirar = (activo: boolean) =>
+        prisma.$transaction([
+          prisma.signoPeligro.updateMany({ where: { tipoFicha: 'POSPARTO' }, data: { activo } }),
+          prisma.temaConsejeria.updateMany({ where: { tipoFicha: 'POSPARTO' }, data: { activo } }),
+        ]);
+
+      await retirar(false);
+      try {
+        await request(http())
+          .get('/v1/fichas/catalogo/POSPARTO')
+          .set(como(Rol.MEDICO))
+          .expect(404);
+      } finally {
+        // En `finally` a proposito: si la asercion falla, el catalogo tiene que
+        // volver igual. Es la base de desarrollo, no una de usar y tirar.
+        await retirar(true);
+      }
     });
 
     /**
