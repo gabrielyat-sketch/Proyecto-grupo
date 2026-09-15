@@ -118,8 +118,8 @@ const esquema = z.object({
    * Los nombres de la tapa, debajo del apellido. Opcionales: hay madres solas,
    * viudas y abuelas a cargo de nietos.
    */
-  esposo: z.string().trim().max(120),
-  esposa: z.string().trim().max(120),
+  carpetaEsposo: z.string().trim().max(120),
+  carpetaEsposa: z.string().trim().max(120),
   /** El numero de la pestana. Texto en el formulario, entero al enviar. */
   carpetaNumero: z.string().trim(),
   /** La carpeta elegida cuando ya existe. */
@@ -252,8 +252,8 @@ export function PaginaNuevoPaciente() {
       // La carpeta ya existe y es la de su familia: es de donde se vino.
       carpetaExiste: recienNacido ? 'SI' : '',
       familia: recienNacido?.apellidos ?? '',
-      esposo: '',
-      esposa: '',
+      carpetaEsposo: '',
+      carpetaEsposa: '',
       carpetaNumero: '',
       grupoFamiliarId: recienNacido?.grupoFamiliarId ?? '',
       migrante: false,
@@ -382,8 +382,8 @@ export function PaginaNuevoPaciente() {
           ? {
               carpetaNueva: {
                 apellidos: campos.familia,
-                ...(campos.esposo ? { esposo: campos.esposo } : {}),
-                ...(campos.esposa ? { esposa: campos.esposa } : {}),
+                ...(campos.carpetaEsposo ? { esposo: campos.carpetaEsposo } : {}),
+                ...(campos.carpetaEsposa ? { esposa: campos.carpetaEsposa } : {}),
                 ...(campos.carpetaNumero ? { numero: Number(campos.carpetaNumero) } : {}),
               },
             }
@@ -774,18 +774,18 @@ export function PaginaNuevoPaciente() {
               <TextField
                 label="Esposo"
                 fullWidth
-                value={watch('esposo')}
-                onChange={(e) => setValue('esposo', e.target.value)}
-                error={Boolean(errors.esposo)}
-                helperText={errors.esposo?.message ?? 'Como va escrito en la tapa del folder'}
+                value={watch('carpetaEsposo')}
+                onChange={(e) => setValue('carpetaEsposo', e.target.value)}
+                error={Boolean(errors.carpetaEsposo)}
+                helperText={errors.carpetaEsposo?.message ?? 'Como va escrito en la tapa del folder'}
               />
               <TextField
                 label="Esposa"
                 fullWidth
-                value={watch('esposa')}
-                onChange={(e) => setValue('esposa', e.target.value)}
-                error={Boolean(errors.esposa)}
-                helperText={errors.esposa?.message ?? 'Puede quedar en blanco'}
+                value={watch('carpetaEsposa')}
+                onChange={(e) => setValue('carpetaEsposa', e.target.value)}
+                error={Boolean(errors.carpetaEsposa)}
+                helperText={errors.carpetaEsposa?.message ?? 'Puede quedar en blanco'}
               />
             </Stack>
           ) : null}
