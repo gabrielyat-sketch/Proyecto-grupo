@@ -252,6 +252,8 @@ export class PacientesService {
           data: {
             numero,
             apellidos: dto.carpetaNueva.apellidos.trim(),
+            esposo: dto.carpetaNueva.esposo?.trim() || null,
+            esposa: dto.carpetaNueva.esposa?.trim() || null,
             serieId,
             comunidadId: dto.comunidadId,
             lugarId: dto.lugarId ?? null,

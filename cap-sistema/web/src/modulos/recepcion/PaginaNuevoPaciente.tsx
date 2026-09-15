@@ -30,6 +30,7 @@ import { PRIMARIO } from '../../tema';
 import { NotaPagina } from '../../componentes/EncabezadoPagina';
 import {
   buscarCarpetas,
+  nombresDeCarpeta,
   rotuloDeCarpeta,
   siguienteNumeroDeCarpeta,
 } from '../carpetas/servicio-carpetas';
@@ -92,6 +93,12 @@ const esquema = z.object({
   carpetaExiste: z.enum(['', 'SI', 'NO']),
   /** El apellido con que se rotula el folder: «Familia Lopez Ac». */
   familia: z.string().trim().max(120),
+  /**
+   * Los nombres de la tapa, debajo del apellido. Opcionales: hay madres solas,
+   * viudas y abuelas a cargo de nietos.
+   */
+  esposo: z.string().trim().max(120),
+  esposa: z.string().trim().max(120),
   /** El numero de la pestana. Texto en el formulario, entero al enviar. */
   carpetaNumero: z.string().trim(),
   /** La carpeta elegida cuando ya existe. */
@@ -223,6 +230,8 @@ export function PaginaNuevoPaciente() {
       // La carpeta ya existe y es la de su familia: es de donde se vino.
       carpetaExiste: recienNacido ? 'SI' : '',
       familia: recienNacido?.apellidos ?? '',
+      esposo: '',
+      esposa: '',
       carpetaNumero: '',
       grupoFamiliarId: recienNacido?.grupoFamiliarId ?? '',
       migrante: false,
@@ -351,6 +360,8 @@ export function PaginaNuevoPaciente() {
           ? {
               carpetaNueva: {
                 apellidos: campos.familia,
+                ...(campos.esposo ? { esposo: campos.esposo } : {}),
+                ...(campos.esposa ? { esposa: campos.esposa } : {}),
                 ...(campos.carpetaNumero ? { numero: Number(campos.carpetaNumero) } : {}),
               },
             }
@@ -710,6 +721,36 @@ export function PaginaNuevoPaciente() {
           </Stack>
 
           {/*
+            Los nombres de la tapa del folder, debajo del apellido: «Familia
+            López Ac — Juan López Tzul y María Ac Caal». Solo al abrir una
+            carpeta: la que ya existe ya los tiene escritos.
+
+            Ninguno es obligatorio. Hay madres solas, viudas y abuelas a cargo
+            de nietos, y obligar a inventar un nombre seria peor que dejarlo en
+            blanco.
+          */}
+          {carpetaExiste === 'NO' ? (
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <TextField
+                label="Esposo"
+                fullWidth
+                value={watch('esposo')}
+                onChange={(e) => setValue('esposo', e.target.value)}
+                error={Boolean(errors.esposo)}
+                helperText={errors.esposo?.message ?? 'Como va escrito en la tapa del folder'}
+              />
+              <TextField
+                label="Esposa"
+                fullWidth
+                value={watch('esposa')}
+                onChange={(e) => setValue('esposa', e.target.value)}
+                error={Boolean(errors.esposa)}
+                helperText={errors.esposa?.message ?? 'Puede quedar en blanco'}
+              />
+            </Stack>
+          ) : null}
+
+          {/*
             Cuando la carpeta ya existe hay que ELEGIRLA, no adivinarla.
 
             Dos familias del mismo apellido pueden vivir en el mismo caserio
@@ -741,6 +782,9 @@ export function PaginaNuevoPaciente() {
                   {(carpetas.data ?? []).map((c) => (
                     <MenuItem key={c.id} value={c.id}>
                       {rotuloDeCarpeta(c) +
+                        // Los nombres de la tapa son lo que separa dos
+                        // carpetas del mismo apellido en el mismo lugar.
+                        (nombresDeCarpeta(c) ? ' · ' + nombresDeCarpeta(c) : '') +
                         ' · ' +
                         (c.integrantes === 1 ? '1 integrante' : c.integrantes + ' integrantes')}
                     </MenuItem>

@@ -106,3 +106,15 @@ export function rotuloDeCarpeta(c: Carpeta): string {
     'Familia ' + c.apellidos + ' · ' + (c.lugar?.nombre ?? c.comunidad.nombre) + ' · No. ' + c.numero
   );
 }
+
+/**
+ * Los nombres de la tapa del folder: «Juan Lopez Tzul y Maria Ac Caal».
+ *
+ * Es lo que distingue dos carpetas del mismo apellido en el mismo lugar, que
+ * es justo el caso en que hay que elegir. Devuelve null cuando la tapa no
+ * tiene ninguno, para que quien lo muestra no pinte una linea vacia.
+ */
+export function nombresDeCarpeta(c: Pick<Carpeta, 'esposo' | 'esposa'>): string | null {
+  const nombres = [c.esposo, c.esposa].filter((n): n is string => Boolean(n));
+  return nombres.length > 0 ? nombres.join(' y ') : null;
+}

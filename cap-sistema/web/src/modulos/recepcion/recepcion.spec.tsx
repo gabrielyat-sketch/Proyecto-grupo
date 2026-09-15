@@ -270,6 +270,40 @@ describe('alta de paciente', () => {
       });
     });
 
+    /**
+     * La tapa del folder lleva, debajo del apellido, los nombres del esposo y
+     * la esposa. Van con la carpeta nueva, y solo si se escribieron: una madre
+     * sola no tiene por que inventar un nombre.
+     */
+    it('los nombres de la tapa van con la carpeta nueva, y solo los escritos', async () => {
+      servidorCon();
+      await abrirFormulario();
+      await datosMinimos();
+
+      await userEvent.click(screen.getByLabelText(/Existe la carpeta/i));
+      await userEvent.click(await screen.findByRole('option', { name: /hay que abrirla/i }));
+      await userEvent.type(await screen.findByLabelText(/^Familia/i), 'Lopez Ac');
+      await userEvent.type(screen.getByLabelText(/^Esposa/i), 'Maria Ac Caal');
+      await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
+
+      await waitFor(() => expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(1));
+      const cuerpo = await cuerpoDelAlta();
+      expect(cuerpo.carpetaNueva).toEqual({ apellidos: 'Lopez Ac', esposa: 'Maria Ac Caal' });
+    });
+
+    it('con la carpeta ya existente no se piden los nombres de la tapa', async () => {
+      servidorCon();
+      await abrirFormulario();
+      await datosMinimos();
+
+      await userEvent.click(screen.getByLabelText(/Existe la carpeta/i));
+      await userEvent.click(await screen.findByRole('option', { name: /ya existe/i }));
+
+      expect(await screen.findByLabelText(/^Familia/i)).toBeInTheDocument();
+      expect(screen.queryByLabelText(/^Esposo/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/^Esposa/i)).not.toBeInTheDocument();
+    });
+
     it('ofrece el siguiente numero libre del lugar, sin ir al archivero', async () => {
       servidorCon();
       await abrirFormulario();
@@ -288,17 +322,22 @@ describe('alta de paciente', () => {
      * delante.
      */
     it('con la carpeta ya existente, hay que elegir cual y va su id', async () => {
-      const carpeta = (id: string, numero: number) => ({
+      const carpeta = (id: string, numero: number, esposo: string | null = null) => ({
         id,
         numero,
         apellidos: 'Lopez Ac',
+        esposo,
+        esposa: null,
         direccion: null,
         telefono: null,
         comunidad: { id: 'c-1', nombre: 'Matanzas' },
         lugar: null,
         integrantes: numero,
       });
-      servidorCon([PACIENTE], undefined, [carpeta('g-1', 1), carpeta('g-2', 47)]);
+      servidorCon([PACIENTE], undefined, [
+        carpeta('g-1', 1),
+        carpeta('g-2', 47, 'Pedro Lopez Tzul'),
+      ]);
       await abrirFormulario();
       await datosMinimos();
 
@@ -307,7 +346,11 @@ describe('alta de paciente', () => {
       await userEvent.type(await screen.findByLabelText(/^Familia/i), 'Lopez');
 
       await userEvent.click(await screen.findByLabelText(/Cual carpeta|Cuál carpeta/i));
-      await userEvent.click(await screen.findByRole('option', { name: /No. 47/ }));
+      // Los nombres de la tapa salen en la opcion: son lo que separa dos
+      // carpetas del mismo apellido en el mismo lugar.
+      await userEvent.click(
+        await screen.findByRole('option', { name: /No. 47 · Pedro Lopez Tzul/ }),
+      );
       await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
 
       await waitFor(() => expect(peticiones.filter((p) => p.method === 'POST')).toHaveLength(1));

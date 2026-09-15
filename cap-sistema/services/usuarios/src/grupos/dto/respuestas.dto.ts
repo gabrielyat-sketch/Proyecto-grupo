@@ -11,6 +11,12 @@ export class GrupoFamiliarResumenDto {
   @ApiProperty({ example: 'Lopez Ac', description: 'El apellido con que se rotula.' })
   apellidos!: string;
 
+  @ApiProperty({ type: String, nullable: true, example: 'Juan Lopez Tzul' })
+  esposo!: string | null;
+
+  @ApiProperty({ type: String, nullable: true, example: 'Maria Ac Caal' })
+  esposa!: string | null;
+
   @ApiProperty({ type: String, nullable: true })
   direccion!: string | null;
 
@@ -63,6 +69,12 @@ export class GrupoFamiliarDto {
   @ApiProperty({ example: 'Lopez Ac' })
   apellidos!: string;
 
+  @ApiProperty({ type: String, nullable: true, example: 'Juan Lopez Tzul' })
+  esposo!: string | null;
+
+  @ApiProperty({ type: String, nullable: true, example: 'Maria Ac Caal' })
+  esposa!: string | null;
+
   @ApiProperty({ type: String, nullable: true })
   direccion!: string | null;
 
@@ -88,6 +100,12 @@ export class GrupoFamiliarCreadoDto {
 
   @ApiProperty({ example: 'Lopez Ac' })
   apellidos!: string;
+
+  @ApiProperty({ type: String, nullable: true, example: 'Juan Lopez Tzul' })
+  esposo!: string | null;
+
+  @ApiProperty({ type: String, nullable: true, example: 'Maria Ac Caal' })
+  esposa!: string | null;
 
   @ApiProperty({ type: String, nullable: true })
   direccion!: string | null;

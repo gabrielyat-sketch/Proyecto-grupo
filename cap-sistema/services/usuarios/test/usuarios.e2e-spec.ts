@@ -877,6 +877,34 @@ describe('Servicio usuarios (e2e)', () => {
   describe('grupos familiares', () => {
     let grupoId: string;
 
+    /**
+     * La tapa del folder lleva, debajo del apellido, los nombres del esposo y
+     * la esposa. Se guardan tal como se escriben y vuelven en el listado y en
+     * la carpeta; en blanco quedan nulos, no como cadena vacia.
+     */
+    it('guarda y devuelve los nombres de la tapa del folder', async () => {
+      const creada = await request(http())
+        .post('/v1/grupos-familiares')
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .send({
+          comunidadId,
+          apellidos: 'E2E Tapa',
+          esposo: '  Juan Lopez Tzul ',
+          esposa: '',
+        })
+        .expect(201);
+      gruposCreados.push(creada.body.id);
+      expect(creada.body.esposo).toBe('Juan Lopez Tzul');
+      expect(creada.body.esposa).toBeNull();
+
+      const leida = await request(http())
+        .get('/v1/grupos-familiares/' + creada.body.id)
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .expect(200);
+      expect(leida.body.esposo).toBe('Juan Lopez Tzul');
+      expect(leida.body.esposa).toBeNull();
+    });
+
     it('crea un grupo con codigo generado por el sistema', async () => {
       const r = await request(http())
         .post('/v1/grupos-familiares')

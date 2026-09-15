@@ -194,6 +194,16 @@ model GrupoFamiliar {
   /// el archivero busca el rotulo, no a un integrante.
   apellidos String @db.VarChar(120)
 
+  /// Los nombres escritos en la tapa del folder debajo del apellido: el esposo
+  /// y la esposa. «Familia Lopez Ac — Juan Lopez Tzul y Maria Ac Caal».
+  ///
+  /// Son texto, no una relacion con `Paciente`: en la tapa van los nombres tal
+  /// como los escribe el CAP, y el esposo puede no estar registrado nunca
+  /// porque no se atiende aqui. Opcionales porque hay madres solas, viudas y
+  /// abuelas a cargo de nietos.
+  esposo String? @db.VarChar(120)
+  esposa String? @db.VarChar(120)
+
   /// La serie de numeracion a la que pertenece la carpeta.
   ///
   /// El CAP numera POR BARRIO O CASERIO: hay una carpeta No.1 en El Calvario y
