@@ -2079,8 +2079,8 @@ components:
         dpi:
           type: string
           example: "1234567890101"
-          description: "DPI de 13 digitos. OPCIONAL: los ninos y parte de la poblacion
-            rural no lo tienen."
+          description: CUI o DPI de 13 digitos. El CUI del menor sirve igual que el DPI
+            del adulto.
         nombres:
           type: string
           example: Juana Isabel
@@ -2102,6 +2102,7 @@ components:
             - ESPANOL
             - POQOMCHI
             - QEQCHI
+            - ACHI
             - OTRO
           default: ESPANOL
         comunidadId:
@@ -2130,6 +2131,10 @@ components:
           type: string
           maxLength: 160
           description: De donde viene, si es migrante.
+        esposo:
+          type: string
+          maxLength: 160
+          description: Nombre del esposo o conviviente.
         tieneAlergias:
           type: boolean
           description: Omitirlo significa que no se ha preguntado.
@@ -2138,11 +2143,13 @@ components:
           maxLength: 500
           description: A que medicamentos es alergico.
       required:
+        - dpi
         - nombres
         - apellidos
         - fechaNacimiento
         - sexo
         - comunidadId
+        - esposo
     PacienteCreadoDto:
       type: object
       properties:
@@ -2172,6 +2179,7 @@ components:
             - ESPANOL
             - POQOMCHI
             - QEQCHI
+            - ACHI
             - OTRO
         comunidadId:
           type: string
@@ -2267,6 +2275,10 @@ components:
         edad:
           type: number
           example: 12
+        numeroExpediente:
+          type: string
+          nullable: true
+          example: EXP-2026-000123
       required:
         - id
         - nombres
@@ -2275,6 +2287,7 @@ components:
         - sexo
         - fallecido
         - edad
+        - numeroExpediente
     GrupoFamiliarDto:
       type: object
       properties:
@@ -4690,6 +4703,10 @@ components:
           type: string
           nullable: true
           example: EXP-2026-000123
+        familiaNumero:
+          type: number
+          nullable: true
+          example: 47
         llegadaEn:
           format: date-time
           type: string
@@ -4720,6 +4737,7 @@ components:
         - sexo
         - comunidad
         - numeroExpediente
+        - familiaNumero
         - llegadaEn
         - esperandoMinutos
         - motivo

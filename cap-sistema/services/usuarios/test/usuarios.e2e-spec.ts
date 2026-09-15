@@ -70,6 +70,7 @@ describe('Servicio usuarios (e2e)', () => {
       .post('/v1/pacientes')
       .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
       .send({
+        esposo: 'Carlos Chub Caal',
         dpi: nuevoDpi(),
         nombres: 'Juana Isabel',
         apellidos: 'Zzprueba Caal',
@@ -114,8 +115,17 @@ describe('Servicio usuarios (e2e)', () => {
       expect(cuerpo).not.toContain('9000');
     });
 
-    it('acepta un paciente SIN DPI, como los ninos del programa de desnutricion', async () => {
-      const r = await request(http())
+    /**
+     * El CUI o DPI dejo de ser opcional, y el CAP lo pidio asi.
+     *
+     * Se registraba sin el porque los ninos no tienen el carnet del DPI, pero
+     * lo que el CAP pide es el NUMERO: el CUI que RENAP asigna al inscribir el
+     * nacimiento es el mismo que despues aparece impreso en el DPI del adulto.
+     * Deja fuera a quien no esta inscrito en RENAP, y esa es una decision del
+     * CAP anotada como tal.
+     */
+    it('rechaza un alta sin CUI ni DPI', async () => {
+      await request(http())
         .post('/v1/pacientes')
         .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
         .send({
@@ -124,27 +134,25 @@ describe('Servicio usuarios (e2e)', () => {
           fechaNacimiento: new Date().toISOString().slice(0, 10),
           sexo: 'M',
           comunidadId,
+          esposo: 'Carlos Chub Caal',
         })
-        .expect(201);
-      creados.push(r.body.id);
-      expect(r.body.numeroExpediente).toBeDefined();
+        .expect(400);
     });
 
-    it('permite VARIOS pacientes sin DPI (el unique no debe estorbar)', async () => {
-      for (let i = 0; i < 3; i++) {
-        const r = await request(http())
-          .post('/v1/pacientes')
-          .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
-          .send({
-            nombres: 'Nino ' + i,
-            apellidos: 'Zzprueba VariosSinDpi',
-            fechaNacimiento: '2024-01-15',
-            sexo: 'F',
-            comunidadId,
-          })
-          .expect(201);
-        creados.push(r.body.id);
-      }
+    /** El nombre del esposo o conviviente tambien lo pidio obligatorio el CAP. */
+    it('rechaza un alta sin el nombre del esposo o conviviente', async () => {
+      await request(http())
+        .post('/v1/pacientes')
+        .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
+        .send({
+          dpi: nuevoDpi(),
+          nombres: 'Juana',
+          apellidos: 'Zzprueba SinEsposo',
+          fechaNacimiento: '1990-01-01',
+          sexo: 'F',
+          comunidadId,
+        })
+        .expect(400);
     });
 
     it('rechaza un DPI que ya existe y devuelve el paciente encontrado', async () => {
@@ -153,6 +161,7 @@ describe('Servicio usuarios (e2e)', () => {
         .post('/v1/pacientes')
         .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
         .send({
+          esposo: 'Carlos Chub Caal',
           dpi,
           nombres: 'Original',
           apellidos: 'Zzprueba Duplicado',
@@ -167,6 +176,7 @@ describe('Servicio usuarios (e2e)', () => {
         .post('/v1/pacientes')
         .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
         .send({
+          esposo: 'Carlos Chub Caal',
           dpi,
           nombres: 'Repetido',
           apellidos: 'Zzprueba Duplicado',
@@ -183,6 +193,7 @@ describe('Servicio usuarios (e2e)', () => {
         .post('/v1/pacientes')
         .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
         .send({
+          esposo: 'Carlos Chub Caal',
           dpi: '123',
           nombres: 'X',
           apellidos: 'Y',
@@ -199,6 +210,8 @@ describe('Servicio usuarios (e2e)', () => {
         .post('/v1/pacientes')
         .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
         .send({
+          dpi: nuevoDpi(),
+          esposo: 'Carlos Chub Caal',
           nombres: 'X',
           apellidos: 'Y',
           fechaNacimiento: futuro,
@@ -213,6 +226,8 @@ describe('Servicio usuarios (e2e)', () => {
         .post('/v1/pacientes')
         .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
         .send({
+          dpi: nuevoDpi(),
+          esposo: 'Carlos Chub Caal',
           nombres: 'X',
           apellidos: 'Y',
           fechaNacimiento: '1990-01-01',
@@ -335,6 +350,8 @@ describe('Servicio usuarios (e2e)', () => {
         .post('/v1/pacientes')
         .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
         .send({
+          dpi: nuevoDpi(),
+          esposo: 'Carlos Chub Caal',
           nombres: 'Lugar',
           apellidos: 'Zzajeno E2e',
           fechaNacimiento: '1990-05-05',
@@ -437,6 +454,7 @@ describe('Servicio usuarios (e2e)', () => {
         .post('/v1/pacientes')
         .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
         .send({
+          esposo: 'Carlos Chub Caal',
           dpi,
           nombres: 'Cifrado',
           apellidos: 'Zzprueba Cifrado',
@@ -508,6 +526,7 @@ describe('Servicio usuarios (e2e)', () => {
         .post('/v1/pacientes')
         .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
         .send({
+          esposo: 'Carlos Chub Caal',
           dpi: nuevoDpi(),
           // Con tilde a proposito: es el caso que fallaba.
           nombres: NOMBRES,
@@ -569,6 +588,8 @@ describe('Servicio usuarios (e2e)', () => {
         .post('/v1/pacientes')
         .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
         .send({
+          dpi: nuevoDpi(),
+          esposo: 'Carlos Chub Caal',
           nombres: 'Correccion',
           apellidos: 'Zzantiguo Apellido',
           fechaNacimiento: '1990-05-20',
@@ -607,6 +628,7 @@ describe('Servicio usuarios (e2e)', () => {
         .post('/v1/pacientes')
         .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
         .send({
+          esposo: 'Carlos Chub Caal',
           dpi,
           nombres: 'Buscable',
           apellidos: 'Zzprueba Busqueda',
@@ -631,6 +653,7 @@ describe('Servicio usuarios (e2e)', () => {
         .post('/v1/pacientes')
         .set('Authorization', 'Bearer ' + token(Rol.RECEPCION))
         .send({
+          esposo: 'Carlos Chub Caal',
           dpi,
           nombres: 'Formato',
           apellidos: 'Zzprueba Formato',
@@ -724,6 +747,8 @@ describe('Servicio usuarios (e2e)', () => {
         .post('/v1/pacientes')
         .set('Authorization', 'Bearer ' + token(Rol.ENFERMERIA))
         .send({
+          dpi: nuevoDpi(),
+          esposo: 'Carlos Chub Caal',
           nombres: 'X',
           apellidos: 'Y',
           fechaNacimiento: '1990-01-01',

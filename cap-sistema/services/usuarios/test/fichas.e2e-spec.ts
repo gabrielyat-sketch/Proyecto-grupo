@@ -7,6 +7,15 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 /**
+ * DPIs de prueba, unicos por llamada y fuera del rango de la carga sintetica.
+ *
+ * Uno fijo no sirve: el CUI o DPI es obligatorio y unico, asi que el segundo
+ * paciente que creara esta suite chocaria contra el control de duplicados.
+ */
+let siguienteDpiPrueba = 9300000000000;
+const nuevoDpi = () => String(++siguienteDpiPrueba);
+
+/**
  * Ficha clinica de adolescente, adulto y adulto mayor.
  *
  * Corre contra PostgreSQL real, con el catalogo ya sembrado por
@@ -67,6 +76,8 @@ describe('Fichas clinicas (e2e)', () => {
       .post('/v1/pacientes')
       .set(como(Rol.RECEPCION))
       .send({
+        dpi: nuevoDpi(),
+        esposo: 'Carlos Chub Caal',
         nombres: 'Zzficha',
         apellidos: 'Zzprueba Adulto',
         fechaNacimiento: '1985-04-12',

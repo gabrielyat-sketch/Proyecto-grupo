@@ -7,6 +7,15 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 /**
+ * DPIs de prueba, unicos por llamada y fuera del rango de la carga sintetica.
+ *
+ * Uno fijo no sirve: el CUI o DPI es obligatorio y unico, asi que el segundo
+ * paciente que creara esta suite chocaria contra el control de duplicados.
+ */
+let siguienteDpiPrueba = 9200000000000;
+const nuevoDpi = () => String(++siguienteDpiPrueba);
+
+/**
  * Modo de digitalizacion (RF-08).
  *
  * Es la mitigacion del riesgo R-6: una transcripcion de miles de expedientes
@@ -66,6 +75,8 @@ describe('Modo de digitalizacion (e2e)', () => {
       .post('/v1/pacientes')
       .set(como(Rol.RECEPCION))
       .send({
+        dpi: nuevoDpi(),
+        esposo: 'Carlos Chub Caal',
         nombres: 'Zzdigital',
         apellidos: 'Zzarchivo Prueba',
         fechaNacimiento: '1979-06-30',
@@ -175,6 +186,8 @@ describe('Modo de digitalizacion (e2e)', () => {
         .post('/v1/pacientes')
         .set(como(Rol.RECEPCION))
         .send({
+          dpi: nuevoDpi(),
+          esposo: 'Carlos Chub Caal',
           nombres: 'Zzhoy',
           apellidos: 'Zzsinpapel',
           fechaNacimiento: '1990-01-15',

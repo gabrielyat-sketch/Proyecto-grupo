@@ -39,6 +39,7 @@ const IDIOMAS = [
   { valor: 'ESPANOL', etiqueta: 'Espanol' },
   { valor: 'POQOMCHI', etiqueta: 'Poqomchi' },
   { valor: 'QEQCHI', etiqueta: 'Qeqchi' },
+  { valor: 'ACHI', etiqueta: "Achi'" },
   { valor: 'OTRO', etiqueta: 'Otro' },
 ];
 
@@ -46,17 +47,24 @@ const hoy = () => new Date().toISOString().slice(0, 10);
 
 
 /**
- * Reglas identicas a CrearPacienteDto del backend.
+ * Reglas del formulario de alta.
  *
- * El DPI es OPCIONAL a proposito: los ninos y buena parte de la poblacion rural
- * de Purulha no lo tienen. Exigirlo dejaria fuera del sistema justo a quienes
- * mas atiende el CAP.
+ * El CUI o DPI es OBLIGATORIO, y el CAP lo pidio asi. La casilla se llamaba
+ * «DPI» y se dejaba vacia porque los ninos no tienen el carnet — pero lo que
+ * pide el CAP no es el carnet, es el numero: el CUI que RENAP asigna al
+ * inscribir el nacimiento es el mismo que luego aparece impreso en el DPI del
+ * adulto. Por eso la casilla se llama ahora «CUI o DPI»: son trece digitos que
+ * un menor tambien tiene.
+ *
+ * Lo que esto sigue dejando fuera es a quien no esta inscrito en RENAP. Es una
+ * decision del CAP, no una limitacion tecnica, y esta anotada como tal.
  */
 const esquema = z.object({
   dpi: z
     .string()
     .trim()
-    .refine((v) => v === '' || /^[0-9]{13}$/.test(v), 'El DPI debe tener exactamente 13 digitos'),
+    .min(1, 'Escriba el CUI o DPI')
+    .regex(/^[0-9]{13}$/, 'El CUI o DPI debe tener exactamente 13 digitos'),
   nombres: z.string().trim().min(1, 'Escriba los nombres').max(120),
   apellidos: z.string().trim().min(1, 'Escriba los apellidos').max(120),
   fechaNacimiento: z
@@ -64,7 +72,7 @@ const esquema = z.object({
     .min(1, 'Indique la fecha de nacimiento')
     .refine((v) => v <= hoy(), 'La fecha no puede estar en el futuro'),
   sexo: z.enum(['M', 'F']),
-  idioma: z.enum(['ESPANOL', 'POQOMCHI', 'QEQCHI', 'OTRO']),
+  idioma: z.enum(['ESPANOL', 'POQOMCHI', 'QEQCHI', 'ACHI', 'OTRO']),
   comunidadId: z.string().min(1, 'Elija la comunidad'),
   telefono: z
     .string()
@@ -75,6 +83,19 @@ const esquema = z.object({
     ),
   numeroExpediente: z.string().trim().max(40),
   digitalizado: z.boolean(),
+
+  /**
+   * El nombre del esposo o conviviente, que pide la ficha oficial.
+   *
+   * OBLIGATORIO, y el CAP lo pidio asi sabiendo el costo: este mismo
+   * formulario registra recien nacidos, hombres y solteras, y a todos les
+   * pide ahora una respuesta en esta casilla.
+   */
+  esposo: z
+    .string()
+    .trim()
+    .min(1, 'Escriba el nombre del esposo o conviviente')
+    .max(160, 'El nombre no puede pasar de 160 caracteres'),
 
   /**
    * El barrio, caserío o aldea. Opcional porque hay comunidades cuyos lugares
@@ -97,8 +118,8 @@ const esquema = z.object({
    * Los nombres de la tapa, debajo del apellido. Opcionales: hay madres solas,
    * viudas y abuelas a cargo de nietos.
    */
-  esposo: z.string().trim().max(120),
-  esposa: z.string().trim().max(120),
+  carpetaEsposo: z.string().trim().max(120),
+  carpetaEsposa: z.string().trim().max(120),
   /** El numero de la pestana. Texto en el formulario, entero al enviar. */
   carpetaNumero: z.string().trim(),
   /** La carpeta elegida cuando ya existe. */
@@ -226,12 +247,13 @@ export function PaginaNuevoPaciente() {
       telefono: '',
       numeroExpediente: '',
       digitalizado: false,
+      esposo: '',
       lugarId: recienNacido?.lugarId ?? '',
       // La carpeta ya existe y es la de su familia: es de donde se vino.
       carpetaExiste: recienNacido ? 'SI' : '',
       familia: recienNacido?.apellidos ?? '',
-      esposo: '',
-      esposa: '',
+      carpetaEsposo: '',
+      carpetaEsposa: '',
       carpetaNumero: '',
       grupoFamiliarId: recienNacido?.grupoFamiliarId ?? '',
       migrante: false,
@@ -360,14 +382,14 @@ export function PaginaNuevoPaciente() {
           ? {
               carpetaNueva: {
                 apellidos: campos.familia,
-                ...(campos.esposo ? { esposo: campos.esposo } : {}),
-                ...(campos.esposa ? { esposa: campos.esposa } : {}),
+                ...(campos.carpetaEsposo ? { esposo: campos.carpetaEsposo } : {}),
+                ...(campos.carpetaEsposa ? { esposa: campos.carpetaEsposa } : {}),
                 ...(campos.carpetaNumero ? { numero: Number(campos.carpetaNumero) } : {}),
               },
             }
           : {};
     alta.mutate({
-      ...(campos.dpi ? { dpi: campos.dpi } : {}),
+      dpi: campos.dpi,
       nombres: campos.nombres,
       apellidos: campos.apellidos,
       // El campo de fecha entrega 'aaaa-mm-dd' y se manda tal cual. Construir un
@@ -383,6 +405,7 @@ export function PaginaNuevoPaciente() {
       ...(campos.lugarId ? { lugarId: campos.lugarId } : {}),
       migrante: campos.migrante,
       ...(campos.lugarOrigen ? { lugarOrigen: campos.lugarOrigen } : {}),
+      esposo: campos.esposo,
       // Sin respuesta no viaja el campo: en el servidor queda como "no se
       // pregunto", que no es lo mismo que "no tiene".
       ...(campos.tieneAlergias ? { tieneAlergias: campos.tieneAlergias === 'SI' } : {}),
@@ -490,12 +513,13 @@ export function PaginaNuevoPaciente() {
 
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
             <TextField
-              label="DPI"
+              label="CUI o DPI *"
               fullWidth
               inputMode="numeric"
               error={Boolean(errors.dpi)}
               helperText={
-                errors.dpi?.message ?? 'Opcional: ninos y parte de la poblacion no lo tienen'
+                errors.dpi?.message ??
+                'Obligatorio: 13 digitos. El CUI del menor sirve igual que el DPI del adulto'
               }
               {...register('dpi')}
             />
@@ -642,6 +666,22 @@ export function PaginaNuevoPaciente() {
                 )),
               ])}
             </TextField>
+
+            {/*
+              El nombre del esposo o conviviente, que pide la ficha oficial.
+
+              Va aqui y no entre los datos de identidad porque es un dato de
+              contacto —como el telefono—, no uno que identifique al paciente.
+            */}
+            <TextField
+              label="Nombre del esposo o conviviente *"
+              fullWidth
+              error={Boolean(errors.esposo)}
+              // Sin texto de ayuda: la casilla se explica sola con su
+              // etiqueta, y el asterisco ya dice que hay que llenarla.
+              helperText={errors.esposo?.message}
+              {...register('esposo')}
+            />
           </Stack>
 
           <TituloSeccion>Carpeta familiar</TituloSeccion>
@@ -734,18 +774,18 @@ export function PaginaNuevoPaciente() {
               <TextField
                 label="Esposo"
                 fullWidth
-                value={watch('esposo')}
-                onChange={(e) => setValue('esposo', e.target.value)}
-                error={Boolean(errors.esposo)}
-                helperText={errors.esposo?.message ?? 'Como va escrito en la tapa del folder'}
+                value={watch('carpetaEsposo')}
+                onChange={(e) => setValue('carpetaEsposo', e.target.value)}
+                error={Boolean(errors.carpetaEsposo)}
+                helperText={errors.carpetaEsposo?.message ?? 'Como va escrito en la tapa del folder'}
               />
               <TextField
                 label="Esposa"
                 fullWidth
-                value={watch('esposa')}
-                onChange={(e) => setValue('esposa', e.target.value)}
-                error={Boolean(errors.esposa)}
-                helperText={errors.esposa?.message ?? 'Puede quedar en blanco'}
+                value={watch('carpetaEsposa')}
+                onChange={(e) => setValue('carpetaEsposa', e.target.value)}
+                error={Boolean(errors.carpetaEsposa)}
+                helperText={errors.carpetaEsposa?.message ?? 'Puede quedar en blanco'}
               />
             </Stack>
           ) : null}
