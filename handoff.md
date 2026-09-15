@@ -1,6 +1,6 @@
 # Handoff — Plataforma Inteligente CAP Purulhá
 
-Actualizado el 28 de agosto de 2026. Para quien retome esto: yo mismo en otra
+Actualizado el 7 de septiembre de 2026. Para quien retome esto: yo mismo en otra
 sesión, Dennis, o Ramiro.
 
 ---
@@ -42,33 +42,49 @@ una matriz de riesgos. **Léela antes de tomar cualquier decisión estructural.*
 ### Rama y fusiones
 
 ```
-develop  a80277e   ← Etapas 1-6, la 5 entera, Farmacia (PR #8) y Administracion (PR #10)
-   └── feature/ficha-neonato              SIN FUSIONAR, 3 commits
-   └── feature/servicio-trazabilidad      PR #3 abierto, sin corregir
+develop  7cf43d6   ← todo fusionado: no queda ninguna rama de código pendiente
+main     0f7e270   ← CUATRO PR por detrás de develop (se quedó en el PR #22)
+   └── docs/entrega-ramiro   PR #19 abierto, solo documentación
 ```
 
-**`feature/ficha-neonato`** lleva tres cosas, no solo la ficha:
+**Desde el 28 de agosto entraron dieciséis PR.** Ninguna rama de código quedó
+fuera; las de `feature/*` ya no existen en el remoto. En orden:
 
-| | |
+| PR | Qué entró |
 |---|---|
-| `96a2e08` | Ficha de menor de 28 días: backend y catálogo |
-| `b4ee06f` | La pantalla de esa ficha |
-| `4ed4eb4` | El sistema elige la ficha por edad, y tres campos nuevos en recepción |
+| #11 | Ficha de menor de 28 días |
+| #12, #13, #14 | Ficha de lactancia y niñez: la hoja, el carné y la gráfica de peso para edad |
+| **#3** | Servicio de trazabilidad, el de Ramiro. La línea 8 de `bitacora.e2e-spec.ts` se corrigió y se fusionó |
+| #15, #16, #20, #21 | La ruta del cliente de Prisma, el segundo factor y sus herramientas |
+| #17, #22 | Identidad visual del panel, y el diseño del CAP en la segunda vuelta |
+| #18 | Los barrios de Purulhá Centro, confirmados |
+| #23 | **La carpeta familiar**: el folder del archivero dentro del sistema |
+| #24 | El 404 y los permisos dicen qué pasa; tres arreglos de recepción |
+| #25 | Cada ficha cae en la persona correcta |
+| #26 | Enfermería también registra pacientes |
 
-**La Etapa 8 esta cerrada y fusionada.** Farmacia entera —catalogo, lotes,
-alertas, ingreso, baja, conteo fisico y entrega con FEFO— entro en `develop` con
-el PR #8, en cuatro commits.
-
-**El PR #3 de Ramiro no se ha tocado.** Sigue en `5117204`, la línea 8 de
-`test/bitacora.e2e-spec.ts` sigue mal, y además la rama ya **va por detrás de
-`develop`**: le faltan expedientes y este propio handoff. Cuando corrija la
-línea tendrá que traerse `develop` antes de que se pueda fusionar.
+**Lo único abierto es el PR #19**, que solo añade `entrega-ramiro.md`. Está
+rebasado sobre `7cf43d6` en local, con respaldo en
+`respaldo-entrega-ramiro-07sep`, y **falta empujarlo**.
 
 ### Pruebas
 
-**849 verdes**: 561 unitarias + 288 e2e. `tsc --noEmit` limpio en todo el
-monorepo, y el panel ya termina con **código de salida 0** (ver §4). Se corren
-así:
+**665 unitarias, corridas el 7 de septiembre**: 113 `shared` + 13 `auth` + 36
+`medicamentos` + 66 `programas` + 12 `usuarios` + 425 `web`. `plantilla` no
+tiene pruebas propias, es el molde.
+
+**663 pasaron y 2 fallaron por tiempo agotado**, las dos en
+`web/src/modulos/fichas/ficha.spec.tsx`, con la suite entera corriendo. Ese
+archivo **solo pasa 24 de 24 en cuarenta segundos**. Es exactamente la
+inestabilidad que describe la §4: los `findBy*` tienen su propio límite y con
+26 archivos compitiendo por la CPU se pasan de tiempo. No es una regresión, es
+una prueba que mide la máquina y no el código.
+
+**Las e2e no se volvieron a correr** en esta actualización: necesitan los
+contenedores de Postgres y Redis levantados. El último conteo conocido, del 28
+de agosto, era de 288.
+
+Se corren así:
 
 ```
 cd cap-sistema
@@ -84,26 +100,37 @@ for s in auth usuarios programas medicamentos; do npm run test:e2e -w @cap/$s; d
 | Recepción: búsqueda por nombre y DPI, alta de pacientes | Completo |
 | **Sala de espera**: marcar llegada, atender, sacar sin ficha, cierre de rezagadas | Completo |
 | **Ficha de adultos**: 10 secciones, ~200 campos, matriz de 14 problemas | Completo |
-| **Ficha de menor de 28 dias**: 27 signos en tres bloques, parto, consejeria con fechas | Completo, sin fusionar |
-| **Elección de ficha por edad**: el botón lleva a la hoja que corresponde | Completo, sin fusionar |
-| **Recepción**: barrio/caserío/aldea, migrante, alergias a medicamentos | Completo, sin fusionar |
+| **Ficha de menor de 28 dias**: 27 signos en tres bloques, parto, consejeria con fechas | Completo |
+| **Ficha de lactancia y niñez**: la hoja, el carné y la gráfica de peso para edad | Completo |
+| **Elección de ficha por edad**: el botón lleva a la hoja que corresponde | Completo |
+| **Cambio de ficha por persona**: el encabezado ofrece a los demás de la carpeta familiar | Completo |
+| **Recepción**: barrio/caserío/aldea, migrante, alergias a medicamentos | Completo |
+| **Carpeta familiar**: el folder del archivero, con su serie y sus miembros | Completo |
 | **Antecedentes** del paciente (sección VII) | Completo |
 | **Digitalización** (RF-08): avance por comunidad, cola, transcripción | Completo |
 | **Expedientes**: búsqueda por número, historial, ficha desplegable | Completo |
 | **Farmacia**: catálogo, lotes, alertas, ingreso, baja, conteo físico y entrega con FEFO | Completo |
-| **Administración**: cuentas, roles, restablecer contraseña, reiniciar 2FA | Completo, sin fusionar |
+| **Administración**: cuentas, roles, restablecer contraseña, reiniciar 2FA | Completo |
+| **Permisos y 404**: la pantalla dice por qué no se puede entrar, en vez de callarse | Completo |
 
 ### Qué falta (backend construido, sin pantalla)
 
 | Módulo | Endpoints listos | Peso |
 |---|---|---|
 | **Programas** (Etapas 6-7) | — | Grande: hipertensión, embarazo, desnutrición |
-| Auditoría (Etapa 9) | — | Depende del PR #3 de Ramiro |
+| Auditoría (Etapa 9) | el servicio entero | **Existe y nadie lo usa**: ver abajo |
 | Reportes (Etapa 10) | **ninguno** | El servicio no existe |
 
-Faltan **dos fichas**: niñez y prenatal. La de neonato ya está, y con ella el
-molde de "ficha que no es la de adultos": tabla propia 1-1 con `atencion`,
-consejería como catálogo, y componentes compartidos reutilizados.
+Falta **una ficha**: la prenatal. Neonato y niñez ya están, y con ellas el molde
+de "ficha que no es la de adultos": tabla propia 1-1 con `atencion`, consejería
+como catálogo, y componentes compartidos reutilizados.
+
+**El servicio de trazabilidad está construido y nadie le escribe.** El PR #3
+entró: `services/trazabilidad` existe en el puerto 3007 con su bitácora
+append-only, y `@cap/shared` ya trae el `ClienteAuditoria` que sabe hablarle
+—con sus pruebas, incluida la del caso en que trazabilidad responde 500—. Lo que
+falta es que alguien lo use: **ningún servicio lo importa**. Cerrar la Etapa 9 ya
+no es construir nada, es cablear las acciones que deben dejar traza.
 
 **Ojo: no es tan mecánico como parecía.** Leer el papel de verdad cambió tres
 cosas respecto al resumen de `campos-de-fichas.md`. Ver §4.
@@ -137,6 +164,11 @@ cosas respecto al resumen de `campos-de-fichas.md`. Ver §4.
 | `cap-sistema/docs/diseno-farmacia.md` | El inventario, los lotes, las alertas y la entrega |
 | `cap-sistema/docs/diseno-administracion.md` | Las cuentas del personal |
 | `cap-sistema/docs/diseno-ficha-neonato.md` | La ficha de menor de 28 días |
+| `cap-sistema/docs/diseno-ficha-ninez.md` | La ficha de lactancia y niñez, y su carné |
+| `cap-sistema/docs/diseno-acceso.md` | La pantalla de entrada y el segundo factor |
+| `cap-sistema/docs/diseno-panel.md` | El armazón del panel: menú, encabezados, color |
+| `cap-sistema/docs/base-de-datos-carpeta-familiar.md` | La carpeta familiar y su serie |
+| `cap-sistema/docs/servicios-pendientes.md` | Los tres servicios sin construir: reportes, cms, ml |
 
 Cada uno termina con una sección **"Información pendiente"** — preguntas reales
 para el CAP que están sin responder. No las inventes.
@@ -152,7 +184,7 @@ cap-sistema/
     usuarios/               3002  pacientes, expedientes, fichas, visitas
     programas/              3003  hipertensión, embarazo
     medicamentos/           3004  inventario, lotes, entregas
-    trazabilidad/           3007  de Ramiro, en el PR #3
+    trazabilidad/           3007  bitacora append-only (RF-09), fusionado y sin cablear
   web/                      5173  el panel
   docs/openapi/             contratos generados, NO se editan a mano
 ```
@@ -451,50 +483,53 @@ arreglaba: lo tapaba.
 
 ### Inmediato
 
-**1. Abrir y fusionar el PR de `feature/ficha-neonato`.**
-Empujada y verde. Lleva la segunda ficha completa: catálogo, migración,
-endpoints y pantalla.
+**1. Empujar el PR #19 y fusionarlo.**
+Es lo único abierto. Solo añade `entrega-ramiro.md`; ya está rebasado sobre
+`7cf43d6` en local y necesita `git push --force-with-lease`, porque el rebase
+reescribió sus dos commits.
 
-**2. Ramiro tiene que corregir una línea del PR #3.**
-Ya está comentado en la línea exacta, con la corrección aplicable de un clic:
+**2. Poner `main` al día.**
+Se quedó en `0f7e270`, el merge del PR #22, y `develop` lleva cuatro PR más
+—carpeta familiar, el 404 y los permisos, las fichas por persona y el alta de
+Enfermería—. No bloquea a nadie mientras se trabaje en `develop`, pero `main`
+está apuntando a un sistema que ya no es el que existe.
 
-```
-services/trazabilidad/test/bitacora.e2e-spec.ts:8
-- import { PrismaClient } from '../prisma/generado';
-+ import { PrismaClient } from '../generado';
-```
+**3. Cablear la trazabilidad, que es lo que cierra la Etapa 9.**
+El servicio y su cliente están hechos y nadie los llama. Lo primero que debería
+dejar traza son las acciones administrativas —crear cuentas, cambiar roles,
+restablecer contraseñas, reiniciar segundos factores— y las lecturas de
+historial clínico, que es lo que pide el RF-09.
 
-Sus 15 pruebas e2e no compilan sin eso. En su máquina sí compila porque la
-carpeta vieja `prisma/generado` sigue ahí, ignorada por git. **Cuando lo corrija,
-revisar y fusionar el PR #3**, que cierra la Etapa 9. Ojo: su rama va por detrás
-de `develop`, así que tendrá que traérselo antes.
+### El siguiente módulo: la ficha que falta
 
-### El siguiente módulo: las dos fichas que faltan
-
-**Las Etapas 8 y la administración de cuentas están terminadas.** Farmacia
-entera está en `develop`; Administración, en `feature/web-administracion`, con
-sus diseños en `docs/diseno-farmacia.md` y `docs/diseno-administracion.md`.
+**Farmacia, Administración y tres de las cuatro fichas están terminadas y
+fusionadas.** Sus diseños están en `docs/diseno-farmacia.md`,
+`docs/diseno-administracion.md`, `docs/diseno-ficha-neonato.md` y
+`docs/diseno-ficha-ninez.md`.
 
 Lo último que se hizo, y que conviene conocer antes de seguir:
 
 - **El sistema elige la ficha por la fecha de nacimiento.** Hasta 28 días,
   neonato; hasta los 10 años, niñez; de ahí en adelante, adultos. El botón
-  "Abrir ficha" de Recepción lleva a la que toca y, cuando esa hoja aún no
-  tiene pantalla —niñez—, lo dice en vez de abrir la equivocada. Está en
-  `web/src/modulos/fichas/ficha-por-edad.ts`. La prenatal queda fuera: depende
-  del embarazo, no de la edad.
+  "Abrir ficha" de Recepción lleva a la que toca, y las tres hojas tienen ya su
+  pantalla. Está en `web/src/modulos/fichas/ficha-por-edad.ts`. La prenatal
+  queda fuera: depende del embarazo, no de la edad.
+- **La ficha se cambia de PERSONA, no de formulario.** Cuando llega la señora
+  con el niño en brazos, el encabezado ofrece a los demás de la carpeta familiar
+  y a cada uno le abre la suya. Dejar elegir el formulario metería los datos del
+  niño en el historial de la madre, y eso no se nota hasta años después.
 - **Recepción pregunta tres cosas más**: barrio/caserío/aldea (tabla
   `lugar_poblado` por comunidad), población migrante con su lugar de origen, y
   **alergias a medicamentos**. Las alergias tienen TRES estados —`null` es "no
   se preguntó", que no es lo mismo que "no tiene"— y el texto va cifrado.
 
-**Lactancia y niñez** es la siguiente, y la más compleja de las cuatro: cuatro
-páginas con esquema de vacunación (~100 celdas del papel, que en digital son una
-lista de dosis aplicadas), micronutrientes, y la gráfica de peso para edad — que
-no se captura, se dibuja a partir de los pesos que el sistema ya tiene.
+**Lactancia y niñez ya está**, que era la más compleja de las cuatro: entró en
+tres PR —la hoja (#12), el carné (#13) y la gráfica de peso para edad (#14)—.
+La gráfica no se captura: se dibuja a partir de los pesos que el sistema ya
+tiene.
 
-**Prenatal y posparto** va después, y antes hay que decidir una cosa que no es
-técnica: **se solapa con el módulo Programas**, que ya lleva el embarazo con su
+**Prenatal y posparto** es la única que queda, y antes hay que decidir una cosa
+que no es técnica: **se solapa con el módulo Programas**, que ya lleva el embarazo con su
 FUR, su fecha probable de parto y sus alertas. O la ficha escribe en
 `ControlPrenatal` de `programas`, o el embarazo queda registrado en dos sitios
 que no se hablan. Depende de si el personal llena la ficha **y además** inscribe
@@ -515,9 +550,10 @@ En este orden, y por esta razón:
 1. **Programas** (Etapas 6-7) — hipertensión y embarazo tienen backend listo;
    desnutrición infantil **no existe todavía**, ni modelo ni endpoints.
 2. **Reportes** (Etapa 10) — hay que construir el servicio entero.
-3. **Auditoría** (Etapa 9) — depende de que Ramiro corrija el PR #3. Es lo que
-   falta para que las acciones administrativas —crear cuentas, cambiar roles,
-   restablecer contraseñas, reiniciar segundos factores— dejen traza.
+3. **Auditoría** (Etapa 9) — el servicio ya está fusionado; falta cablearlo,
+   como dice el punto 3 de "Inmediato". Es lo que falta para que las acciones
+   administrativas —crear cuentas, cambiar roles, restablecer contraseñas,
+   reiniciar segundos factores— dejen traza.
 
 ### La forma de trabajar que Dennis pidió
 
