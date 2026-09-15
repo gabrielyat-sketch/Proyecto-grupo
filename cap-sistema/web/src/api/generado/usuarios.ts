@@ -470,6 +470,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/visitas/{id}/orden": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Cambia el turno de alguien en la sala
+         * @description Llega una emergencia y hay que pasarla adelante. Se renumera toda la sala de hoy y se devuelve como queda.
+         */
+        patch: operations["VisitasController_cambiarOrden"];
+        trace?: never;
+    };
     "/v1/visitas/{id}/retiro": {
         parameters: {
             query?: never;
@@ -1865,6 +1885,28 @@ export interface components {
             esperandoMinutos: number;
             /** @description Descifrado al vuelo. */
             motivo: string | null;
+            /**
+             * @description El turno: la posicion en la sala de hoy.
+             * @example 1
+             */
+            orden: number;
+            /**
+             * @description Por que se le paso adelante. Nulo si nadie lo adelanto.
+             * @example Dolor de pecho
+             */
+            motivoPrioridad: string | null;
+        };
+        CambiarOrdenDto: {
+            /**
+             * @description La posicion que va a ocupar, empezando en 1.
+             * @example 1
+             */
+            posicion: number;
+            /**
+             * @description Por que se le adelanta. Se guarda cifrado y sale en la sala como aviso.
+             * @example Dolor de pecho
+             */
+            motivo?: string;
         };
         RetirarVisitaDto: {
             /** @example Se canso de esperar y se fue */
@@ -3786,6 +3828,83 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RespuestaErrorDto"];
                 };
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
+    VisitasController_cambiarOrden: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CambiarOrdenDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitaEnEsperaDto"][];
+                };
+            };
+            /** @description La informacion enviada no es valida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El recurso solicitado no existe. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Esa visita ya no esta en la sala de espera. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
             500: {

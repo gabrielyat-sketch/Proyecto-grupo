@@ -27,6 +27,8 @@ const visita = (n: number, extra: Record<string, unknown> = {}) => ({
   llegadaEn: '2026-08-27T14:00:00.000Z',
   esperandoMinutos: 10 * n,
   motivo: null,
+  orden: n,
+  motivoPrioridad: null,
   ...extra,
 });
 
@@ -40,7 +42,10 @@ function json(cuerpo: unknown, estado = 200) {
   });
 }
 
-function servidor({ sala = [visita(1), visita(2)] }: { sala?: unknown[] } = {}) {
+function servidor({
+  sala = [visita(1), visita(2)],
+  reordenada = [],
+}: { sala?: unknown[]; reordenada?: unknown[] } = {}) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (p: Request) => {
@@ -52,6 +57,8 @@ function servidor({ sala = [visita(1), visita(2)] }: { sala?: unknown[] } = {}) 
 
       if (url.pathname.endsWith('/visitas/espera')) return json(sala);
       if (url.pathname.includes('/retiro')) return json({ id: 'v-1', estado: 'RETIRADA' });
+      // El cambio de turno devuelve la sala como queda.
+      if (url.pathname.includes('/orden')) return json(reordenada);
       return json({}, 404);
     }),
   );
@@ -193,6 +200,73 @@ describe('sala de espera', () => {
       await screen.findByText('Perez Caal, Juana 1');
       expect(screen.queryByRole('button', { name: 'Atender' })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Se fue' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Subir un puesto/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Al frente' })).not.toBeInTheDocument();
+    });
+
+    /**
+     * El turno se puede cambiar. Llega una emergencia y hay que pasarla
+     * adelante; sin esto la enfermera la atenderia "por fuera" y la
+     * numeracion de la sala dejaria de decir la verdad.
+     */
+    describe('cambiar el turno', () => {
+      it('pasar al frente pide el motivo y lo manda con la posicion 1', async () => {
+        const reordenada = [
+          visita(2, { orden: 1, motivoPrioridad: 'Dolor de pecho' }),
+          visita(1, { orden: 2 }),
+        ];
+        servidor({ reordenada });
+        const usuario = userEvent.setup();
+        abrir(ENFERMERIA);
+        await esperarSala();
+        await screen.findByText('Perez Caal, Juana 2');
+
+        // La primera no tiene «Al frente»: ya esta al frente.
+        expect(screen.getAllByRole('button', { name: 'Al frente' })).toHaveLength(1);
+        await usuario.click(screen.getByRole('button', { name: 'Al frente' }));
+
+        // Sin motivo no se puede: quien lleva una hora sentado merece saber por que.
+        const pasar = await screen.findByRole('button', { name: 'Pasar al frente' });
+        expect(pasar).toBeDisabled();
+        await usuario.type(screen.getByLabelText(/Por que se adelanta/), 'Dolor de pecho');
+        await usuario.click(pasar);
+
+        await waitFor(() => expect(cuerpos).toHaveLength(1));
+        expect(cuerpos[0].ruta).toContain('/v1/visitas/v-2/orden');
+        expect(cuerpos[0].cuerpo).toEqual({ posicion: 1, motivo: 'Dolor de pecho' });
+
+        // La sala se pinta como la devolvio el servidor, con el aviso a la vista.
+        expect(await screen.findByText('Urgente · Dolor de pecho')).toBeInTheDocument();
+        const filas = screen.getAllByText(/Perez Caal, Juana/);
+        expect(filas[0]).toHaveTextContent('Juana 2');
+      });
+
+      it('subir o bajar un puesto no pide motivo', async () => {
+        servidor({ reordenada: [visita(2, { orden: 1 }), visita(1, { orden: 2 })] });
+        const usuario = userEvent.setup();
+        abrir(RECEPCION);
+        await esperarSala();
+        await screen.findByText('Perez Caal, Juana 2');
+
+        // La primera no sube; la ultima no baja.
+        expect(screen.getByRole('button', { name: /Subir un puesto a Juana 1/ })).toBeDisabled();
+        expect(screen.getByRole('button', { name: /Bajar un puesto a Juana 2/ })).toBeDisabled();
+
+        await usuario.click(screen.getByRole('button', { name: /Subir un puesto a Juana 2/ }));
+
+        await waitFor(() => expect(cuerpos).toHaveLength(1));
+        expect(cuerpos[0].ruta).toContain('/v1/visitas/v-2/orden');
+        expect(cuerpos[0].cuerpo).toEqual({ posicion: 1 });
+      });
+
+      it('con una sola persona no hay nada que mover', async () => {
+        servidor({ sala: [visita(1)] });
+        abrir(ENFERMERIA);
+        await esperarSala();
+
+        await screen.findByText('Perez Caal, Juana 1');
+        expect(screen.queryByRole('button', { name: /Subir un puesto/ })).not.toBeInTheDocument();
+      });
     });
 
     it('farmacia no entra: la sala dice quien vino al medico y a que', async () => {

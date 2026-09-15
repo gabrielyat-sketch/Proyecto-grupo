@@ -1,8 +1,14 @@
-import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ServicioCifrado, inicioDelDiaLocal } from '@cap/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { SERVICIO_CIFRADO } from '../comun/cifrado.module';
-import { MarcarLlegadaDto } from './dto/visitas.dto';
+import { CambiarOrdenDto, MarcarLlegadaDto } from './dto/visitas.dto';
 import type { VisitaDto, VisitaEnEsperaDto } from './dto/visitas.dto';
 
 @Injectable()
@@ -80,15 +86,90 @@ export class VisitasService {
       });
     }
 
+    // El turno: detras del ultimo que espera hoy. Si dos llegan a la vez y
+    // reciben el mismo numero, `llegadaEn` desempata; el siguiente que se
+    // mueva renumera a todos.
+    const ultimo = await this.prisma.visita.aggregate({
+      where: { estado: 'ESPERANDO', llegadaEn: { gte: inicioDelDiaLocal() } },
+      _max: { orden: true },
+    });
+
     const visita = await this.prisma.visita.create({
       data: {
         pacienteId: dto.pacienteId,
         registradaPor: usuarioId,
         motivoCifrado: dto.motivo ? new Uint8Array(this.cifrado.cifrar(dto.motivo)) : null,
+        orden: (ultimo._max.orden ?? 0) + 1,
       },
     });
 
     return this.aDto(visita);
+  }
+
+  /**
+   * Cambiar el turno de alguien.
+   *
+   * Llega una emergencia y hay que pasarla adelante; o alguien salio un
+   * momento y se le deja pasar al de atras. Se saca al paciente de su sitio,
+   * se mete en la posicion pedida y se renumera toda la sala 1..n en una sola
+   * transaccion: a medias quedarian dos con el mismo turno.
+   *
+   * La sala es de cinco o diez personas, asi que reescribir todos los turnos
+   * es mas barato —y mas simple de razonar— que mover solo los de en medio.
+   */
+  async cambiarOrden(id: string, dto: CambiarOrdenDto): Promise<VisitaEnEsperaDto[]> {
+    await this.prisma.$transaction(async (tx) => {
+      const sala = await tx.visita.findMany({
+        where: { estado: 'ESPERANDO', llegadaEn: { gte: inicioDelDiaLocal() } },
+        orderBy: [{ orden: 'asc' }, { llegadaEn: 'asc' }],
+        select: { id: true, orden: true },
+      });
+
+      const desde = sala.findIndex((v) => v.id === id);
+      if (desde === -1) {
+        // O no existe, o ya se cerro, o es de otro dia: en ningun caso esta
+        // en la sala de hoy, que es lo unico que se puede reordenar.
+        const existe = await tx.visita.findUnique({ where: { id }, select: { id: true } });
+        if (!existe) throw new NotFoundException('No existe esa visita.');
+        throw new ConflictException('Esa visita ya no esta en la sala de espera.');
+      }
+      if (dto.posicion > sala.length) {
+        throw new BadRequestException(
+          'Solo hay ' + sala.length + ' en la sala: no existe la posicion ' + dto.posicion + '.',
+        );
+      }
+
+      const hasta = dto.posicion - 1;
+      const [movida] = sala.splice(desde, 1);
+      sala.splice(hasta, 0, movida);
+
+      await Promise.all(
+        sala.map((v, i) =>
+          v.orden === i + 1 && v.id !== id
+            ? null
+            : tx.visita.update({
+                where: { id: v.id },
+                data: {
+                  orden: i + 1,
+                  ...(v.id === id
+                    ? {
+                        // Con motivo se guarda; sin motivo y hacia atras se
+                        // borra el que tuviera —ya no esta adelantado—; sin
+                        // motivo y hacia adelante se deja como estaba.
+                        motivoPrioridadCifrado: dto.motivo
+                          ? new Uint8Array(this.cifrado.cifrar(dto.motivo))
+                          : hasta > desde
+                            ? null
+                            : undefined,
+                      }
+                    : {}),
+                },
+              }),
+        ),
+      );
+    });
+
+    return this.enEspera();
   }
 
   /**
@@ -110,11 +191,15 @@ export class VisitasService {
 
     const visitas = await this.prisma.visita.findMany({
       where: { estado: 'ESPERANDO', llegadaEn: { gte: inicioDelDiaLocal() } },
-      orderBy: { llegadaEn: 'asc' },
+      // Por turno, que nace como el orden de llegada y puede haberse cambiado.
+      // La hora desempata a dos que llegaron a la vez.
+      orderBy: [{ orden: 'asc' }, { llegadaEn: 'asc' }],
       select: {
         id: true,
         llegadaEn: true,
         motivoCifrado: true,
+        orden: true,
+        motivoPrioridadCifrado: true,
         paciente: {
           select: {
             id: true,
@@ -145,6 +230,10 @@ export class VisitasService {
       llegadaEn: v.llegadaEn,
       esperandoMinutos: Math.max(0, Math.floor((ahora - v.llegadaEn.getTime()) / 60_000)),
       motivo: v.motivoCifrado ? this.cifrado.descifrar(Buffer.from(v.motivoCifrado)) : null,
+      orden: v.orden,
+      motivoPrioridad: v.motivoPrioridadCifrado
+        ? this.cifrado.descifrar(Buffer.from(v.motivoPrioridadCifrado))
+        : null,
     }));
   }
 

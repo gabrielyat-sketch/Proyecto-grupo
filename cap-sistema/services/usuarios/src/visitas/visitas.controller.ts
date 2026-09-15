@@ -10,6 +10,7 @@ import {
 import { Rol, Roles, Usuario } from '@cap/shared';
 import { VisitasService } from './visitas.service';
 import {
+  CambiarOrdenDto,
   MarcarLlegadaDto,
   RetirarVisitaDto,
   VisitaDto,
@@ -69,6 +70,25 @@ export class VisitasController {
   @ApiOkResponse({ type: [VisitaEnEsperaDto] })
   enEspera(): Promise<VisitaEnEsperaDto[]> {
     return this.servicio.enEspera();
+  }
+
+  @Patch(':id/orden')
+  // Quien ve llegar la emergencia o quien la va a atender. El director mira,
+  // no mueve.
+  @Roles(Rol.RECEPCION, Rol.ADMINISTRADOR, Rol.ENFERMERIA, Rol.MEDICO)
+  @ApiOperation({
+    summary: 'Cambia el turno de alguien en la sala',
+    description:
+      'Llega una emergencia y hay que pasarla adelante. Se renumera toda la sala de hoy y se ' +
+      'devuelve como queda.',
+  })
+  @ApiOkResponse({ type: [VisitaEnEsperaDto] })
+  @ApiConflictResponse({ description: 'Esa visita ya no esta en la sala de espera.' })
+  cambiarOrden(
+    @Param('id') id: string,
+    @Body() dto: CambiarOrdenDto,
+  ): Promise<VisitaEnEsperaDto[]> {
+    return this.servicio.cambiarOrden(id, dto);
   }
 
   @Patch(':id/retiro')
