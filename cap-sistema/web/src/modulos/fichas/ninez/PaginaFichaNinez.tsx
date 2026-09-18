@@ -34,6 +34,7 @@ import {
 import type { AvanceSeccion } from '../borrador';
 import { ALTO_BARRA } from '../../../tema';
 import { AvisoDeEdad } from '../CambioDeFicha';
+import { usarVolver } from '../../../navegacion/usarVolver';
 import {
   borradorNinezVacio,
   cuerpoDeFichaNinez,
@@ -190,7 +191,21 @@ export function PaginaFichaNinez() {
 
   const datos = paciente.data;
   const meses = edadEnMeses(datos.fechaNacimiento as unknown as string);
-  const volverA = '/pacientes/' + pacienteId + '/expediente';
+  /*
+    A donde vuelve el boton de salir.
+
+    Estaba escrito a mano —siempre al expediente— asi que quien venia de la
+    sala de espera salia a otro sitio y tenia que volver a navegar hasta la
+    cola donde estaba trabajando. Es el mismo `usarVolver` que ya usa la ficha
+    de adultos: quien abre la ficha dice de donde viene, y si nadie lo dijo
+    —un enlace directo, una recarga— queda el expediente, que es de donde
+    cuelga la ficha.
+  */
+  const volver = usarVolver({
+    a: '/pacientes/' + pacienteId + '/expediente',
+    etiqueta: 'Expediente',
+  });
+  const volverA = volver.a;
 
   if (!datos.expediente) {
     return (
@@ -201,7 +216,7 @@ export function PaginaFichaNinez() {
           startIcon={<ArrowBackIcon />}
           sx={{ alignSelf: 'flex-start', mb: 2 }}
         >
-          Expediente
+          {volver.etiqueta}
         </Button>
         <Alert severity="warning">
           Este paciente no tiene expediente abierto. Recepción tiene que abrirlo antes de poder
@@ -251,7 +266,7 @@ export function PaginaFichaNinez() {
       <EncabezadoFicha
         titulo="Ficha clínica del lactante y niñez"
         volverA={volverA}
-        volverTexto="Expediente"
+        volverTexto={volver.etiqueta}
         pacienteId={pacienteId}
         grupoFamiliarId={datos.grupoFamiliar?.id}
         nombre={datos.apellidos + ', ' + datos.nombres}

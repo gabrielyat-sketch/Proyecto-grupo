@@ -35,6 +35,7 @@ import type { AvanceSeccion } from '../borrador';
 import { ALTO_BARRA } from '../../../tema';
 import { AvisoDeEdad } from '../CambioDeFicha';
 import { antecedentesPreviosDeNeonato, conAntecedentesPrevios } from './antecedentes-previos';
+import { usarVolver } from '../../../navegacion/usarVolver';
 import {
   bloqueDelSigno,
   borradorNeonatoVacio,
@@ -249,22 +250,36 @@ export function PaginaFichaNeonato() {
   const datos = paciente.data;
   const dias = edadEnDias(datos.fechaNacimiento as unknown as string);
 
-  const volverA = '/pacientes/' + pacienteId + '/expediente';
-  const volver = (
+  /*
+    A donde vuelve el boton de salir.
+
+    Estaba escrito a mano —siempre al expediente— asi que quien venia de la
+    sala de espera salia a otro sitio y tenia que volver a navegar hasta la
+    cola donde estaba trabajando. Es el mismo `usarVolver` que ya usa la ficha
+    de adultos: quien abre la ficha dice de donde viene, y si nadie lo dijo
+    —un enlace directo, una recarga— queda el expediente, que es de donde
+    cuelga la ficha.
+  */
+  const volver = usarVolver({
+    a: '/pacientes/' + pacienteId + '/expediente',
+    etiqueta: 'Expediente',
+  });
+  const volverA = volver.a;
+  const botonVolver = (
     <Button
       component={EnlaceRuta}
       to={volverA}
       startIcon={<ArrowBackIcon />}
       sx={{ alignSelf: 'flex-start', mb: 2 }}
     >
-      Expediente
+      {volver.etiqueta}
     </Button>
   );
 
   if (!datos.expediente) {
     return (
       <Box>
-        {volver}
+        {botonVolver}
         <Alert severity="warning">
           Este paciente no tiene expediente abierto. Recepcion tiene que abrirlo antes de poder
           registrar una ficha.
@@ -306,7 +321,7 @@ export function PaginaFichaNeonato() {
       <EncabezadoFicha
         titulo="Ficha clínica para menor de 28 días"
         volverA={volverA}
-        volverTexto="Expediente"
+        volverTexto={volver.etiqueta}
         pacienteId={pacienteId}
         grupoFamiliarId={datos.grupoFamiliar?.id}
         nombre={datos.apellidos + ', ' + datos.nombres}

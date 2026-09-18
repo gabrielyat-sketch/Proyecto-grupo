@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App, clienteConsultas } from '../../App';
 import { almacenSesion, type Perfil } from '../../api';
@@ -70,6 +70,24 @@ function abrir(perfil: Perfil = ENFERMERIA) {
   almacenSesion.guardar({ tokenAcceso: 't', tokenRefresco: 'r', usuario: perfil });
   window.history.pushState({}, '', '/espera');
   return render(<App />);
+}
+
+/**
+ * Abre el menu de una fila y pulsa una de sus tres acciones.
+ *
+ * «Atender», «Se fue» y «Al frente» dejaron de ser botones sueltos en la
+ * tarjeta: con los tres a la vista cada fila era una barra de herramientas, y
+ * como cuales aparecen depende del rol y de la posicion, las tarjetas salian
+ * de anchos distintos y la lista se veia torcida.
+ */
+async function accionDeFila(
+  usuario: ReturnType<typeof userEvent.setup>,
+  indice: number,
+  opcion: RegExp,
+) {
+  const botones = await screen.findAllByRole('button', { name: /^Acciones para/ });
+  await usuario.click(botones[indice]);
+  await usuario.click(await screen.findByRole('menuitem', { name: opcion }));
 }
 
 const esperarSala = () => screen.findByRole('heading', { name: 'Sala de espera' });
@@ -184,7 +202,7 @@ describe('sala de espera', () => {
       abrir(ENFERMERIA);
       await esperarSala();
 
-      await usuario.click((await screen.findAllByRole('button', { name: 'Atender' }))[0]);
+      await accionDeFila(usuario, 0, /Atender/);
       await waitFor(() => expect(window.location.pathname).toBe('/pacientes/p-1/ficha'));
 
       // Y se lleva de donde vino: sin esto, salir de la ficha devolvia a
@@ -213,10 +231,36 @@ describe('sala de espera', () => {
       abrir(ENFERMERIA);
       await esperarSala();
 
-      await usuario.click((await screen.findAllByRole('button', { name: 'Atender' }))[0]);
+      await accionDeFila(usuario, 0, /Atender/);
       await waitFor(() =>
         expect(window.location.pathname).toBe('/pacientes/p-1/ficha-neonato'),
       );
+    });
+
+    /**
+     * Salir de la ficha devuelve a la SALA, no al expediente.
+     *
+     * Las de neonato y ninez tenian el destino escrito a mano —siempre al
+     * expediente— asi que quien atendia desde la sala salia a otro modulo y
+     * tenia que volver a navegar hasta la cola donde estaba trabajando. Es el
+     * cuarto sitio donde aparece el mismo error: una ruta puesta a mano en vez
+     * de preguntar de donde se venia.
+     */
+    it('la ficha de ninez sabe que se vino de la sala de espera', async () => {
+      const hace2Anios = new Date();
+      hace2Anios.setFullYear(hace2Anios.getFullYear() - 2);
+      servidor({
+        sala: [visita(1, { fechaNacimiento: hace2Anios.toISOString().slice(0, 10), edad: 2 })],
+      });
+      const usuario = userEvent.setup();
+      abrir(ENFERMERIA);
+      await esperarSala();
+
+      await accionDeFila(usuario, 0, /Atender/);
+      await waitFor(() => expect(window.location.pathname).toBe('/pacientes/p-1/ficha-ninez'));
+
+      // Y se lleva de donde vino, para que el boton de salir la devuelva ahi.
+      expect(window.history.state?.usr).toMatchObject({ volverA: '/espera' });
     });
 
     it('direccion mira la sala pero no la toca', async () => {
@@ -225,10 +269,9 @@ describe('sala de espera', () => {
       await esperarSala();
 
       await screen.findByText('Perez Caal, Juana 1');
-      expect(screen.queryByRole('button', { name: 'Atender' })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Se fue' })).not.toBeInTheDocument();
+      // Sin ninguna de las tres acciones, la fila no tiene ni menu que abrir.
+      expect(screen.queryByRole('button', { name: /^Acciones para/ })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /Subir un puesto/ })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Al frente' })).not.toBeInTheDocument();
     });
 
     /**
@@ -249,13 +292,18 @@ describe('sala de espera', () => {
         await screen.findByText('Perez Caal, Juana 2');
 
         // La primera no tiene «Al frente»: ya esta al frente.
-        expect(screen.getAllByRole('button', { name: 'Al frente' })).toHaveLength(1);
-        await usuario.click(screen.getByRole('button', { name: 'Al frente' }));
+        await usuario.click(
+          (await screen.findAllByRole('button', { name: /^Acciones para/ }))[0],
+        );
+        expect(screen.queryByRole('menuitem', { name: /Al frente/ })).not.toBeInTheDocument();
+        await usuario.keyboard('{Escape}');
+
+        await accionDeFila(usuario, 1, /Al frente/);
 
         // Sin motivo no se puede: quien lleva una hora sentado merece saber por que.
         const pasar = await screen.findByRole('button', { name: 'Pasar al frente' });
         expect(pasar).toBeDisabled();
-        await usuario.type(screen.getByLabelText(/Por que se adelanta/), 'Dolor de pecho');
+        await usuario.type(screen.getByLabelText(/Por que cambia de turno/), 'Dolor de pecho');
         await usuario.click(pasar);
 
         await waitFor(() => expect(cuerpos).toHaveLength(1));
@@ -286,6 +334,81 @@ describe('sala de espera', () => {
         expect(cuerpos[0].cuerpo).toEqual({ posicion: 1 });
       });
 
+      /**
+       * Arrastrar SI pide explicacion; las flechas no.
+       *
+       * Mover un puesto con la flecha es un ajuste menudo —alguien salio al
+       * bano y se deja pasar al de atras— y pedir un motivo en cada toque
+       * acabaria en «ok» escrito cien veces, que es no pedir nada. Arrastrar se
+       * usa para saltarse varios puestos, y ahi hay gente que llevaba rato
+       * esperando y pierde su turno.
+       */
+      it('arrastrar pide el motivo, con la posicion donde se solto', async () => {
+        const reordenada = [visita(2, { orden: 1 }), visita(1, { orden: 2 })];
+        servidor({ reordenada });
+        const usuario = userEvent.setup();
+        abrir(ENFERMERIA);
+        await esperarSala();
+        await screen.findByText('Perez Caal, Juana 2');
+
+        const asas = document.querySelectorAll('[data-asa]');
+        const filas = document.querySelectorAll('[data-fila]');
+
+        // Se agarra al segundo y se suelta sobre el primero.
+        fireEvent.dragStart(asas[1]);
+        fireEvent.dragOver(filas[0]);
+        fireEvent.drop(filas[0]);
+
+        // Todavia no se ha movido nada: primero hay que decir por que.
+        expect(cuerpos).toHaveLength(0);
+        const guardar = await screen.findByRole('button', { name: 'Pasar al frente' });
+        expect(guardar).toBeDisabled();
+
+        await usuario.type(screen.getByLabelText(/Por que cambia de turno/), 'Fiebre alta');
+        await usuario.click(guardar);
+
+        await waitFor(() => expect(cuerpos).toHaveLength(1));
+        expect(cuerpos[0].ruta).toContain('/v1/visitas/v-2/orden');
+        expect(cuerpos[0].cuerpo).toEqual({ posicion: 1, motivo: 'Fiebre alta' });
+      });
+
+      it('cancelar el arrastre no mueve a nadie', async () => {
+        servidor();
+        const usuario = userEvent.setup();
+        abrir(ENFERMERIA);
+        await esperarSala();
+        await screen.findByText('Perez Caal, Juana 2');
+
+        const asas = document.querySelectorAll('[data-asa]');
+        const filas = document.querySelectorAll('[data-fila]');
+        fireEvent.dragStart(asas[1]);
+        fireEvent.dragOver(filas[0]);
+        fireEvent.drop(filas[0]);
+
+        await usuario.click(await screen.findByRole('button', { name: 'Cancelar' }));
+
+        expect(cuerpos).toHaveLength(0);
+      });
+
+      /** Soltar donde ya se estaba no es un cambio: no hay nada que explicar. */
+      it('soltar en su mismo sitio no pregunta nada', async () => {
+        servidor();
+        abrir(ENFERMERIA);
+        await esperarSala();
+        await screen.findByText('Perez Caal, Juana 2');
+
+        const asas = document.querySelectorAll('[data-asa]');
+        const filas = document.querySelectorAll('[data-fila]');
+        fireEvent.dragStart(asas[1]);
+        fireEvent.dragOver(filas[1]);
+        fireEvent.drop(filas[1]);
+
+        expect(
+          screen.queryByRole('button', { name: /Pasar al frente|Cambiar el turno/ }),
+        ).not.toBeInTheDocument();
+        expect(cuerpos).toHaveLength(0);
+      });
+
       it('con una sola persona no hay nada que mover', async () => {
         servidor({ sala: [visita(1)] });
         abrir(ENFERMERIA);
@@ -312,7 +435,7 @@ describe('sala de espera', () => {
       abrir(RECEPCION);
       await esperarSala();
 
-      await usuario.click((await screen.findAllByRole('button', { name: 'Se fue' }))[0]);
+      await accionDeFila(usuario, 0, /Se fue/);
       const diálogo = await screen.findByRole('dialog');
 
       expect(within(diálogo).getByRole('button', { name: 'Sacar de la lista' })).toBeDisabled();
@@ -328,10 +451,14 @@ describe('sala de espera', () => {
 
     it('enfermeria tambien puede sacarla: llama y no contesta nadie', async () => {
       servidor({ sala: [visita(1)] });
+      const usuario = userEvent.setup();
       abrir(ENFERMERIA);
       await esperarSala();
 
-      expect((await screen.findAllByRole('button', { name: 'Se fue' })).length).toBeGreaterThan(0);
+      await usuario.click(
+        (await screen.findAllByRole('button', { name: /^Acciones para/ }))[0],
+      );
+      expect(await screen.findByRole('menuitem', { name: /Se fue/ })).toBeInTheDocument();
     });
   });
 
