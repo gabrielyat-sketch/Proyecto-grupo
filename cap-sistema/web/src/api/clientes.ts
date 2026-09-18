@@ -3,6 +3,7 @@ import type { paths as RutasAuth } from './generado/auth';
 import type { paths as RutasUsuarios } from './generado/usuarios';
 import type { paths as RutasProgramas } from './generado/programas';
 import type { paths as RutasMedicamentos } from './generado/medicamentos';
+import type { paths as RutasTrazabilidad } from './generado/trazabilidad';
 import { almacenSesion } from './sesion-almacen';
 import { estaVigente } from './token';
 
@@ -28,6 +29,7 @@ const BASES = {
   usuarios: ORIGEN + '/api/usuarios',
   programas: ORIGEN + '/api/programas',
   medicamentos: ORIGEN + '/api/medicamentos',
+  trazabilidad: ORIGEN + '/api/trazabilidad',
 } as const;
 
 /**
@@ -151,6 +153,7 @@ export const apiAuth = crear<RutasAuth>(BASES.auth);
 export const apiUsuarios = crear<RutasUsuarios>(BASES.usuarios);
 export const apiProgramas = crear<RutasProgramas>(BASES.programas);
 export const apiMedicamentos = crear<RutasMedicamentos>(BASES.medicamentos);
+export const apiTrazabilidad = crear<RutasTrazabilidad>(BASES.trazabilidad);
 
 /** Para el login y el MFA, que ocurren cuando todavia no hay sesion. */
 export { clienteSinSesion as apiAuthPublico };

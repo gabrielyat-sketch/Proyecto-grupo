@@ -412,6 +412,12 @@ paths:
           in: path
           schema:
             type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EgresarHipertensionDto"
       responses:
         "200":
           description: ""
@@ -832,6 +838,12 @@ paths:
           in: path
           schema:
             type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CerrarEmbarazoDto"
       responses:
         "200":
           description: "Sin semanasGestacion: el seguimiento ya cerro, la cuenta dejo de
@@ -1206,6 +1218,23 @@ components:
       required:
         - sistolica
         - diastolica
+    EgresarHipertensionDto:
+      type: object
+      properties:
+        estado:
+          type: string
+          enum:
+            - EGRESADO
+            - ABANDONO
+            - FALLECIDO
+            - TRASLADADO
+          example: TRASLADADO
+        motivo:
+          type: string
+          example: Se traslado a Salama con su hija
+      required:
+        - estado
+        - motivo
     UltimoControlPrenatalDto:
       type: object
       properties:
@@ -1571,6 +1600,21 @@ components:
         fecha:
           format: date-time
           type: string
+    CerrarEmbarazoDto:
+      type: object
+      properties:
+        resultado:
+          type: string
+          enum:
+            - PARTO_NORMAL
+            - CESAREA
+            - ABORTO
+            - OBITO
+            - TRASLADO
+            - OTRO
+          example: PARTO_NORMAL
+      required:
+        - resultado
     ProgramaEmbarazoBaseDto:
       type: object
       properties:

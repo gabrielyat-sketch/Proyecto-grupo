@@ -12,6 +12,10 @@ const servicios = {
   '/api/usuarios': 'http://localhost:3002',
   '/api/programas': 'http://localhost:3003',
   '/api/medicamentos': 'http://localhost:3004',
+  // La bitacora de auditoria. Es el unico servicio al que el panel solo
+  // LEE: escribirla es cosa de los otros servicios, que registran lo que
+  // hacen; desde aqui se consulta y se verifica la cadena.
+  '/api/trazabilidad': 'http://localhost:3007',
 };
 
 export default defineConfig({

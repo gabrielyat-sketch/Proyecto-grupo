@@ -13,6 +13,8 @@ import { EnConstruccion } from './rutas/EnConstruccion';
 import { PaginaRecepcion } from './modulos/recepcion/PaginaRecepcion';
 import { PaginaNuevoPaciente } from './modulos/recepcion/PaginaNuevoPaciente';
 import { PaginaNoEncontrada } from './rutas/PaginaNoDisponible';
+import { PaginaAuditoria } from './modulos/auditoria/PaginaAuditoria';
+import { PaginaProgramas } from './modulos/programas/PaginaProgramas';
 import { PaginaCarpetas } from './modulos/carpetas/PaginaCarpetas';
 import { PaginaCarpeta } from './modulos/carpetas/PaginaCarpeta';
 import { PaginaFicha } from './modulos/fichas/PaginaFicha';
@@ -124,6 +126,22 @@ export function App() {
                 element={
                   <RutaPorRol ruta="/recepcion/nuevo">
                     <PaginaNuevoPaciente />
+                  </RutaPorRol>
+                }
+              />
+              <Route
+                path="/programas"
+                element={
+                  <RutaPorRol ruta="/programas">
+                    <PaginaProgramas />
+                  </RutaPorRol>
+                }
+              />
+              <Route
+                path="/auditoria"
+                element={
+                  <RutaPorRol ruta="/auditoria">
+                    <PaginaAuditoria />
                   </RutaPorRol>
                 }
               />

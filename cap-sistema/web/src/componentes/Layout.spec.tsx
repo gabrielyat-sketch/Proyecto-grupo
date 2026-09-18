@@ -89,18 +89,28 @@ describe('layout con menu por rol', () => {
   });
 
   it('al pulsar una opcion se abre su pantalla', async () => {
-    // Se usa un modulo que TODAVIA esta pendiente. Antes esta prueba pulsaba
-    // Farmacia, y dejo de servir en cuanto Farmacia tuvo pantalla propia: la
-    // pantalla real consulta al servidor, y aqui no hay ninguno levantado. Lo
-    // que se comprueba es la navegacion del menu, no el modulo.
-    entrarComo('MEDICO');
+    /*
+      Se usa un modulo que TODAVIA esta pendiente.
+
+      Ya paso dos veces: primero con Farmacia y ahora con Programas, que acaban
+      de tener pantalla propia. Una pantalla real consulta al servidor y aqui no
+      hay ninguno levantado, asi que la prueba dejaba de medir la navegacion del
+      menu —que es lo suyo— para medir una consulta que nunca responde.
+
+      El ultimo que queda pendiente es Reportes. Cuando tenga pantalla, esta
+      prueba habra que rehacerla montando un servidor de mentira, porque ya no
+      quedara ningun modulo vacio del que tirar.
+    */
+    // Direccion, porque Reportes es suyo y del Administrador; un medico no lo
+    // tiene en el menu.
+    entrarComo('DIRECTOR');
     render(<App />);
 
     await waitFor(navegacion);
     // Acotado al menu: el inicio tambien pinta una tarjeta con el mismo nombre.
-    await userEvent.click(within(navegacion()).getByRole('link', { name: /Programas/i }));
+    await userEvent.click(within(navegacion()).getByRole('link', { name: /Reportes/i }));
 
-    await waitFor(() => expect(window.location.pathname).toBe('/programas'));
+    await waitFor(() => expect(window.location.pathname).toBe('/reportes'));
     expect(screen.getByText(/aun no esta construido/i)).toBeInTheDocument();
   });
 

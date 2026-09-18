@@ -11,6 +11,7 @@ import { ApiParametrosPagina, ApiPaginaDe, type Pagina, Rol, Roles, Usuario } fr
 import { EmbarazoService } from './embarazo.service';
 import { InscribirEmbarazoDto } from './dto/inscribir.dto';
 import { RegistrarControlPrenatalDto } from './dto/registrar-control.dto';
+import { CerrarEmbarazoDto } from './dto/cerrar-embarazo.dto';
 import {
   ControlPrenatalDto,
   EmbarazoInscritoDto,
@@ -139,8 +140,8 @@ export class EmbarazoController {
   })
   cerrar(
     @Param('id') id: string,
-    @Body() dto: { resultado: string },
+    @Body() dto: CerrarEmbarazoDto,
   ): Promise<ProgramaEmbarazoBaseDto> {
-    return this.servicio.cerrar(id, dto.resultado ?? 'OTRO');
+    return this.servicio.cerrar(id, dto.resultado);
   }
 }

@@ -12,7 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
-    "api:generar": "openapi-typescript ../docs/openapi/auth.yaml -o src/api/generado/auth.ts && openapi-typescript ../docs/openapi/usuarios.yaml -o src/api/generado/usuarios.ts && openapi-typescript ../docs/openapi/programas.yaml -o src/api/generado/programas.ts && openapi-typescript ../docs/openapi/medicamentos.yaml -o src/api/generado/medicamentos.ts",
+    "api:generar": "openapi-typescript ../docs/openapi/auth.yaml -o src/api/generado/auth.ts && openapi-typescript ../docs/openapi/usuarios.yaml -o src/api/generado/usuarios.ts && openapi-typescript ../docs/openapi/programas.yaml -o src/api/generado/programas.ts && openapi-typescript ../docs/openapi/medicamentos.yaml -o src/api/generado/medicamentos.ts && openapi-typescript ../docs/openapi/trazabilidad.yaml -o src/api/generado/trazabilidad.ts",
     "dev:solo": "vite --host --port 5173 --strictPort"
   },
   "dependencies": {

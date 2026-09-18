@@ -129,12 +129,11 @@ export const MENU: readonly ElementoMenu[] = [
     ruta: '/programas',
     color: '#6a1b9a', // morado
     descripcion:
-      'Seguimiento de hipertension y embarazo: inscripciones, controles, alertas de riesgo y pacientes atrasados. El backend ya esta construido (Etapa 6).',
+      'Seguimiento de hipertension y embarazo: quien esta en riesgo, quien se atraso en su control, y donde se inscribe, se anota la cita y se cierra el seguimiento.',
     etiqueta: 'Programas',
     icono: MonitorHeartIcon,
     // Hipertension y embarazo. Recepcion y Farmacia no entran al historial.
     roles: CLINICOS,
-    pendiente: true,
   },
   {
     ruta: '/farmacia',
@@ -166,7 +165,6 @@ export const MENU: readonly ElementoMenu[] = [
     etiqueta: 'Auditoria',
     icono: HistoryEduIcon,
     roles: ['ADMINISTRADOR', 'DIRECTOR'],
-    pendiente: true,
   },
   {
     ruta: '/administracion',
