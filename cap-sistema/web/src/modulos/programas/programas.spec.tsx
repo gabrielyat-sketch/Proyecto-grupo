@@ -200,6 +200,32 @@ describe('seguimiento de programas', () => {
   });
 
   /**
+   * Con la lista vacia TAMBIEN se inscribe: es justo cuando mas falta hace.
+   *
+   * Esto empezo roto. El boton vivia dentro de la rama que solo se dibuja
+   * cuando ya hay alguien inscrito, asi que la pantalla se abria en un
+   * callejon sin salida —no habia por donde meter al primero— y no se noto
+   * porque todas las demas pruebas arrancan con datos. Por eso esta prueba
+   * mira las DOS pestanas con cero filas.
+   */
+  it('con la lista vacia se puede inscribir al primero', async () => {
+    servidor({ embarazos: [], hipertensos: [] });
+    entrarComo(ENFERMERIA);
+    const usuario = userEvent.setup();
+    render(<App />);
+
+    await usuario.click(await screen.findByRole('button', { name: /Inscribir embarazo/i }));
+    expect(await screen.findByRole('dialog', { name: /control prenatal/i })).toBeInTheDocument();
+    await usuario.keyboard('{Escape}');
+
+    await usuario.click(screen.getByRole('tab', { name: /Hipertension/i }));
+    await usuario.click(await screen.findByRole('button', { name: /Inscribir paciente/i }));
+    expect(
+      await screen.findByRole('dialog', { name: /programa de hipertension/i }),
+    ).toBeInTheDocument();
+  });
+
+  /**
    * Registrar un control es lo que se hace en cada cita. Va tras el mismo menu
    * de un boton que la sala de espera: con «Control» y «Cerrar» a la vista,
    * cada fila se leeria como una barra de herramientas y la tabla dejaria de
