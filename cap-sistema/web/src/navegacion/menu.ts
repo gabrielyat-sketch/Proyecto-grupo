@@ -134,7 +134,6 @@ export const MENU: readonly ElementoMenu[] = [
     icono: MonitorHeartIcon,
     // Hipertension y embarazo. Recepcion y Farmacia no entran al historial.
     roles: CLINICOS,
-    pendiente: true,
   },
   {
     ruta: '/farmacia',
@@ -166,7 +165,6 @@ export const MENU: readonly ElementoMenu[] = [
     etiqueta: 'Auditoria',
     icono: HistoryEduIcon,
     roles: ['ADMINISTRADOR', 'DIRECTOR'],
-    pendiente: true,
   },
   {
     ruta: '/administracion',

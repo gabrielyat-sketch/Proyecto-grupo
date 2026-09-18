@@ -1,9 +1,10 @@
 import { Body, Controller, Get, HttpCode, Post, Query, Req } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Rol, Roles, Usuario, UsuarioAutenticado } from '@cap/shared';
+import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiPaginaDe, Rol, Roles, Usuario, UsuarioAutenticado, type Pagina } from '@cap/shared';
 import { RegistrosService } from './registros.service';
 import { RegistrarRegistroDto } from './dto/registrar-registro.dto';
 import { ConsultarRegistrosDto } from './dto/consultar-registros.dto';
+import { RegistroDto, VerificacionDto } from './dto/respuestas.dto';
 
 @ApiTags('registros')
 @ApiBearerAuth()
@@ -23,6 +24,7 @@ export class RegistrosController {
    * probaria nada.
    */
   @Post()
+  @ApiCreatedResponse({ type: RegistroDto })
   @HttpCode(201)
   @ApiOperation({
     summary: 'Agrega una entrada a la bitacora',
@@ -43,6 +45,7 @@ export class RegistrosController {
    * Se limita a los dos roles que responden por el CAP ante el MSPAS.
    */
   @Get()
+  @ApiPaginaDe(RegistroDto)
   @Roles(Rol.ADMINISTRADOR, Rol.DIRECTOR)
   @ApiOperation({
     summary: 'Consulta la bitacora, paginada',
@@ -58,6 +61,7 @@ export class RegistrosController {
    * comprobacion sea posible aunque el servicio no arranque.
    */
   @Get('verificacion')
+  @ApiOkResponse({ type: VerificacionDto })
   @Roles(Rol.ADMINISTRADOR, Rol.DIRECTOR)
   @ApiOperation({
     summary: 'Recorre la cadena y reporta si esta intacta',

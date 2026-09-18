@@ -1,9 +1,10 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Rol, Roles } from '@cap/shared';
+import { ApiBearerAuth, ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiPaginaDe, Rol, Roles } from '@cap/shared';
 import { RaicesService } from './raices.service';
 import { ConsultarRaicesDto } from './dto/consultar-raices.dto';
 import { CerrarDiaDto } from './dto/cerrar-dia.dto';
+import { RaizDiariaDto } from './dto/respuestas.dto';
 
 @ApiTags('raices')
 @ApiBearerAuth()
@@ -18,6 +19,7 @@ export class RaicesController {
    * intentaria cerrar el mismo dia tantas veces como replicas haya.
    */
   @Post('cierre')
+  @ApiCreatedResponse({ type: RaizDiariaDto })
   @Roles(Rol.ADMINISTRADOR)
   @ApiOperation({
     summary: 'Cierra un dia y firma su hash raiz',
@@ -30,6 +32,7 @@ export class RaicesController {
   }
 
   @Get()
+  @ApiPaginaDe(RaizDiariaDto)
   @Roles(Rol.ADMINISTRADOR, Rol.DIRECTOR)
   @ApiOperation({
     summary: 'Raices diarias firmadas',

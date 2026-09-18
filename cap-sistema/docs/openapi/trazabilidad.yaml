@@ -35,6 +35,10 @@ paths:
       responses:
         "201":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegistroDto"
       security: &a2
         - bearer: []
       summary: Agrega una entrada a la bitacora
@@ -109,7 +113,20 @@ paths:
             type: number
       responses:
         "200":
-          description: ""
+          description: Listado paginado.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginaDto"
+                  - type: object
+                    required:
+                      - datos
+                    properties:
+                      datos:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/RegistroDto"
       security: *a2
       summary: Consulta la bitacora, paginada
       tags: *a3
@@ -122,6 +139,10 @@ paths:
       responses:
         "200":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificacionDto"
       security: *a2
       summary: Recorre la cadena y reporta si esta intacta
       tags: *a3
@@ -141,6 +162,10 @@ paths:
       responses:
         "201":
           description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaizDiariaDto"
       security: &a4
         - bearer: []
       summary: Cierra un dia y firma su hash raiz
@@ -170,7 +195,20 @@ paths:
             type: number
       responses:
         "200":
-          description: ""
+          description: Listado paginado.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginaDto"
+                  - type: object
+                    required:
+                      - datos
+                    properties:
+                      datos:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/RaizDiariaDto"
       security: *a4
       summary: Raices diarias firmadas
       tags: *a5
@@ -253,6 +291,123 @@ components:
         - accion
         - entidad
         - entidadId
+    RegistroDto:
+      type: object
+      properties:
+        numero:
+          type: string
+          example: "1042"
+        hashPrevio:
+          type: string
+          description: El hash de la entrada anterior. Es lo que encadena la bitacora.
+          example: a3f1...
+        hash:
+          type: string
+          example: 9b7c...
+        servicio:
+          type: string
+          example: usuarios
+          description: Que servicio origino la accion.
+        accion:
+          type: string
+          enum:
+            - CONSULTA
+            - CREACION
+            - MODIFICACION
+            - ELIMINACION
+            - IMPRESION
+            - EXPORTACION
+        entidad:
+          type: string
+          example: expediente
+        entidadId:
+          type: string
+          example: exp-000123
+        usuarioId:
+          type: string
+          description: Quien la ejecuto, del token; nunca del cuerpo de la peticion.
+        usuarioRol:
+          type: string
+          example: MEDICO
+        motivo:
+          type: string
+          nullable: true
+        valorAnterior:
+          type: string
+          nullable: true
+        valorNuevo:
+          type: string
+          nullable: true
+        trazaId:
+          type: string
+          description: Une en un mismo hilo todo lo que provoco una sola peticion.
+        ip:
+          type: string
+          nullable: true
+        registradoEn:
+          format: date-time
+          type: string
+      required:
+        - numero
+        - hashPrevio
+        - hash
+        - servicio
+        - accion
+        - entidad
+        - entidadId
+        - usuarioId
+        - usuarioRol
+        - motivo
+        - valorAnterior
+        - valorNuevo
+        - trazaId
+        - ip
+        - registradoEn
+    PaginaDto:
+      type: object
+      properties:
+        pagina:
+          type: number
+          description: Pagina devuelta, empezando en 1.
+          example: 1
+        tamano:
+          type: number
+          description: Registros por pagina. El servidor recorta cualquier valor mayor al
+            maximo.
+          maximum: 100
+          example: 25
+        total:
+          type: number
+          description: Total de registros que cumplen el filtro.
+          example: 137
+        totalPaginas:
+          type: number
+          description: Total de paginas. Nunca es menor que 1.
+          example: 6
+      required:
+        - pagina
+        - tamano
+        - total
+        - totalPaginas
+    VerificacionDto:
+      type: object
+      properties:
+        intacta:
+          type: boolean
+          description: Falso en cuanto una entrada no cuadra con la anterior.
+        revisados:
+          type: number
+          example: 1042
+          description: Cuantas entradas se recorrieron.
+        rotoEn:
+          type: string
+          nullable: true
+          description: El numero de la primera entrada que no cuadra, si la hay.
+          example: "318"
+      required:
+        - intacta
+        - revisados
+        - rotoEn
     CerrarDiaDto:
       type: object
       properties:
@@ -260,3 +415,30 @@ components:
           type: string
           description: Dia a cerrar, AAAA-MM-DD. Si se omite, se cierra el de ayer.
           example: 2026-08-25
+    RaizDiariaDto:
+      type: object
+      properties:
+        dia:
+          type: string
+          format: date
+          example: 2026-09-17
+        numeroDesde:
+          type: string
+          example: "901"
+        numeroHasta:
+          type: string
+          example: "1042"
+        cantidad:
+          type: number
+          example: 142
+          description: Cuantas entradas entraron ese dia.
+        hashFinal:
+          type: string
+          example: 9b7c...
+          description: "El hash de la ultima entrada del dia: el sello de la jornada."
+      required:
+        - dia
+        - numeroDesde
+        - numeroHasta
+        - cantidad
+        - hashFinal
