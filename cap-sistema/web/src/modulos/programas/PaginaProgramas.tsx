@@ -209,6 +209,21 @@ function Embarazos() {
   const [cerrando, setCerrando] = useState<{ id: string; nombre: string } | null>(null);
   const [inscribiendo, setInscribiendo] = useState(false);
 
+  // Sale en DOS sitios: en la cabecera del listado y, cuando no hay nadie,
+  // dentro de la propia nota de lista vacia. Si solo estuviera en la cabecera
+  // no habria por donde inscribir al primero.
+  const botonInscribir = puedeCapturar ? (
+    <Button
+      variant="contained"
+      color="success"
+      size="small"
+      startIcon={<PersonAddAltOutlinedIcon />}
+      onClick={() => setInscribiendo(true)}
+    >
+      Inscribir embarazo
+    </Button>
+  ) : null;
+
   const riesgo = useQuery({
     queryKey: ['embarazos-alto-riesgo'],
     queryFn: embarazosDeAltoRiesgo,
@@ -277,7 +292,10 @@ function Embarazos() {
       ) : null}
 
       {todos.data.datos.length === 0 ? (
-        <NotaPagina>No hay ningun embarazo en seguimiento.</NotaPagina>
+        <Stack sx={{ gap: 2, alignItems: 'flex-start' }}>
+          <NotaPagina>No hay ningun embarazo en seguimiento.</NotaPagina>
+          {botonInscribir}
+        </Stack>
       ) : (
         <Stack spacing={2}>
           <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
@@ -286,17 +304,7 @@ function Embarazos() {
                 ? '1 embarazo en seguimiento'
                 : todos.data.total + ' embarazos en seguimiento'}
             </Typography>
-            {puedeCapturar ? (
-              <Button
-                variant="contained"
-                color="success"
-                size="small"
-                startIcon={<PersonAddAltOutlinedIcon />}
-                onClick={() => setInscribiendo(true)}
-              >
-                Inscribir embarazo
-              </Button>
-            ) : null}
+            {botonInscribir}
           </Stack>
 
           <TableContainer component={Paper} elevation={0} sx={{ overflowX: 'auto' }}>
@@ -403,6 +411,21 @@ function Hipertensos() {
   const [cerrando, setCerrando] = useState<{ id: string; nombre: string } | null>(null);
   const [inscribiendo, setInscribiendo] = useState(false);
 
+  // Sale en DOS sitios: en la cabecera del listado y, cuando no hay nadie,
+  // dentro de la propia nota de lista vacia. Si solo estuviera en la cabecera
+  // no habria por donde inscribir al primero.
+  const botonInscribir = puedeCapturar ? (
+    <Button
+      variant="contained"
+      color="success"
+      size="small"
+      startIcon={<PersonAddAltOutlinedIcon />}
+      onClick={() => setInscribiendo(true)}
+    >
+      Inscribir paciente
+    </Button>
+  ) : null;
+
   const atrasados = useQuery({
     queryKey: ['hipertensos-atrasados'],
     queryFn: hipertensosAtrasados,
@@ -472,7 +495,10 @@ function Hipertensos() {
       ) : null}
 
       {todos.data.datos.length === 0 ? (
-        <NotaPagina>No hay nadie inscrito en el programa de hipertension.</NotaPagina>
+        <Stack sx={{ gap: 2, alignItems: 'flex-start' }}>
+          <NotaPagina>No hay nadie inscrito en el programa de hipertension.</NotaPagina>
+          {botonInscribir}
+        </Stack>
       ) : (
         <Stack spacing={2}>
           <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
@@ -481,17 +507,7 @@ function Hipertensos() {
                 ? '1 paciente inscrito'
                 : todos.data.total + ' pacientes inscritos'}
             </Typography>
-            {puedeCapturar ? (
-              <Button
-                variant="contained"
-                color="success"
-                size="small"
-                startIcon={<PersonAddAltOutlinedIcon />}
-                onClick={() => setInscribiendo(true)}
-              >
-                Inscribir paciente
-              </Button>
-            ) : null}
+            {botonInscribir}
           </Stack>
 
           <TableContainer component={Paper} elevation={0} sx={{ overflowX: 'auto' }}>
