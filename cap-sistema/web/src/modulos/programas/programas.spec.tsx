@@ -52,6 +52,25 @@ const embarazo = (id: string, extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 
+const hipertenso = (id: string, extra: Record<string, unknown> = {}) => ({
+  id,
+  pacienteId: 'p-1',
+  comunidadId: 'c-1',
+  fechaIngreso: '2026-01-15',
+  estado: 'ACTIVO',
+  metaSistolica: 140,
+  metaDiastolica: 90,
+  ultimoControl: {
+    fecha: '2026-09-01',
+    sistolica: 150,
+    diastolica: 95,
+    clasificacion: 'ESTADIO_1',
+    enMeta: false,
+    proximoControl: '2026-10-01',
+  },
+  ...extra,
+});
+
 const pagina = (datos: unknown[]) => ({
   datos,
   pagina: 1,
@@ -178,6 +197,76 @@ describe('seguimiento de programas', () => {
     render(<App />);
 
     expect(await screen.findByText(/No hay ningun embarazo en seguimiento/i)).toBeInTheDocument();
+  });
+
+  /**
+   * Registrar un control es lo que se hace en cada cita. Va tras el mismo menu
+   * de un boton que la sala de espera: con «Control» y «Cerrar» a la vista,
+   * cada fila se leeria como una barra de herramientas y la tabla dejaria de
+   * dejar ver lo que importa, que es quien esta en riesgo.
+   */
+  it('desde la fila se registra un control, y la presion es obligatoria', async () => {
+    servidor({ hipertensos: [hipertenso('h-1')] });
+    entrarComo(ENFERMERIA);
+    const usuario = userEvent.setup();
+    render(<App />);
+
+    await screen.findByRole('row', { name: /Perez Caal/ });
+    await usuario.click(screen.getByRole('tab', { name: /Hipertension/i }));
+
+    await usuario.click(await screen.findByRole('button', { name: /Acciones del seguimiento/i }));
+    await usuario.click(await screen.findByRole('menuitem', { name: /Registrar control/i }));
+
+    // Sin presion no se guarda: es exactamente lo que el programa sigue.
+    const guardar = await screen.findByRole('button', { name: /Guardar el control/i });
+    expect(guardar).toBeDisabled();
+
+    await usuario.type(screen.getByLabelText(/Sistolica/i), '150');
+    await usuario.type(screen.getByLabelText(/Diastolica/i), '95');
+    expect(guardar).toBeEnabled();
+  });
+
+  /**
+   * Al egresar de hipertension el motivo es obligatorio y en embarazo no. La
+   * asimetria es a proposito: «abandono» y «trasladado» son dos formas muy
+   * distintas de dejar de venir, y la diferencia solo vive en lo que se escriba
+   * aqui. En embarazo el resultado —parto normal, cesarea— ya lo dice.
+   */
+  it('egresar de hipertension exige decir por que', async () => {
+    servidor({ hipertensos: [hipertenso('h-1')] });
+    entrarComo(ENFERMERIA);
+    const usuario = userEvent.setup();
+    render(<App />);
+
+    await screen.findByRole('row', { name: /Perez Caal/ });
+    await usuario.click(screen.getByRole('tab', { name: /Hipertension/i }));
+
+    await usuario.click(await screen.findByRole('button', { name: /Acciones del seguimiento/i }));
+    await usuario.click(await screen.findByRole('menuitem', { name: /Egresar|Cerrar/i }));
+
+    const egresar = await screen.findByRole('button', { name: /^Egresar$/i });
+    expect(egresar).toBeDisabled();
+
+    await usuario.type(screen.getByLabelText(/Motivo/i), 'Se traslado a Salama');
+    expect(egresar).toBeEnabled();
+  });
+
+  /**
+   * Direccion mira el seguimiento pero no lo captura: inscribir y registrar
+   * controles es del personal clinico.
+   */
+  it('Direccion ve las listas pero no puede capturar', async () => {
+    servidor();
+    entrarComo({ ...ENFERMERIA, id: 'u-3', usuario: 'ddirector', rol: 'DIRECTOR' });
+    render(<App />);
+
+    await screen.findByRole('row', { name: /Perez Caal/ });
+    expect(
+      screen.queryByRole('button', { name: /Inscribir embarazo/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Acciones del seguimiento/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('Farmacia no entra: el seguimiento clinico no es suyo', async () => {

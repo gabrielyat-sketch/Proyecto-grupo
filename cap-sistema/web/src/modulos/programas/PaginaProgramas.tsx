@@ -2,8 +2,14 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Box,
+  Button,
   Chip,
   CircularProgress,
+  IconButton,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
   Pagination,
   Paper,
   Stack,
@@ -22,6 +28,14 @@ import { AvisoError } from '../../componentes/AvisoError';
 import { EncabezadoPagina, NotaPagina } from '../../componentes/EncabezadoPagina';
 import { ARMAZON, AVISO, ERROR, EXITO, PRIMARIO } from '../../tema';
 import { NombrePaciente } from './NombrePaciente';
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
+import MonitorHeartOutlinedIcon from '@mui/icons-material/MonitorHeartOutlined';
+import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
+import PersonAddAltOutlinedIcon from '@mui/icons-material/PersonAddAltOutlined';
+import { usarSesion } from '../sesion/contexto';
+import { DialogoControl } from './DialogoControl';
+import { DialogoInscribir } from './DialogoInscribir';
+import { DialogoCerrar } from './DialogoCerrar';
 import {
   diasDesde,
   embarazosDeAltoRiesgo,
@@ -35,6 +49,10 @@ import {
 const fecha = (iso: string | null) =>
   iso ? new Date(iso.slice(0, 10) + 'T00:00:00').toLocaleDateString('es-GT') : '—';
 
+/** Como se titula un embarazo en los cuadros: las semanas lo identifican. */
+const NOMBRE_EMBARAZO = (e: { semanasGestacion: number }) =>
+  'Embarazo · ' + e.semanasGestacion + ' semanas';
+
 /** El color de cada clasificacion de presion, del juego del panel. */
 const COLOR_PRESION: Record<string, string> = {
   NORMAL: EXITO,
@@ -43,6 +61,74 @@ const COLOR_PRESION: Record<string, string> = {
   ESTADIO_2: ERROR,
   CRISIS: ERROR,
 };
+
+/**
+ * Las acciones de una fila, tras un solo boton.
+ *
+ * La misma forma que la sala de espera: con «Control», «Cerrar» y lo que venga
+ * a la vista, cada fila se leeria como una barra de herramientas y la tabla
+ * dejaria de dejar ver lo que importa, que es quien esta en riesgo.
+ */
+function AccionesDeFila({
+  onControl,
+  onCerrar,
+  puede,
+}: {
+  onControl: () => void;
+  onCerrar: () => void;
+  puede: boolean;
+}) {
+  const [ancla, setAncla] = useState<null | HTMLElement>(null);
+  if (!puede) return null;
+
+  return (
+    <>
+      <IconButton
+        size="small"
+        aria-label="Acciones del seguimiento"
+        onClick={(e) => setAncla(e.currentTarget)}
+        sx={{
+          width: 34,
+          height: 34,
+          borderRadius: 2,
+          color: PRIMARIO,
+          bgcolor: alpha(PRIMARIO, 0.08),
+          border: '1px solid',
+          borderColor: alpha(PRIMARIO, 0.22),
+          '&:hover': { bgcolor: alpha(PRIMARIO, 0.16) },
+        }}
+      >
+        <ExpandMoreRoundedIcon fontSize="small" />
+      </IconButton>
+      <Menu anchorEl={ancla} open={Boolean(ancla)} onClose={() => setAncla(null)}>
+        <MenuItem
+          sx={{ mx: 0.75, my: 0.25, borderRadius: 2, bgcolor: alpha(PRIMARIO, 0.08) }}
+          onClick={() => {
+            setAncla(null);
+            onControl();
+          }}
+        >
+          <ListItemIcon sx={{ color: PRIMARIO }}>
+            <MonitorHeartOutlinedIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Registrar control" />
+        </MenuItem>
+        <MenuItem
+          sx={{ mx: 0.75, my: 0.25, borderRadius: 2, bgcolor: alpha(ERROR, 0.08) }}
+          onClick={() => {
+            setAncla(null);
+            onCerrar();
+          }}
+        >
+          <ListItemIcon sx={{ color: ERROR }}>
+            <TaskAltOutlinedIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Cerrar seguimiento" />
+        </MenuItem>
+      </Menu>
+    </>
+  );
+}
 
 function Etiqueta({ texto, color }: { texto: string; color: string }) {
   return (
@@ -116,6 +202,12 @@ export function PaginaProgramas() {
 
 function Embarazos() {
   const [pagina, setPagina] = useState(1);
+  const { usuario } = usarSesion();
+  // Inscribir y registrar controles es del personal clinico. Direccion mira.
+  const puedeCapturar = ['MEDICO', 'ENFERMERIA'].includes(usuario?.rol ?? '');
+  const [control, setControl] = useState<{ id: string; nombre: string } | null>(null);
+  const [cerrando, setCerrando] = useState<{ id: string; nombre: string } | null>(null);
+  const [inscribiendo, setInscribiendo] = useState(false);
 
   const riesgo = useQuery({
     queryKey: ['embarazos-alto-riesgo'],
@@ -188,11 +280,24 @@ function Embarazos() {
         <NotaPagina>No hay ningun embarazo en seguimiento.</NotaPagina>
       ) : (
         <Stack spacing={2}>
-          <Typography variant="body2" color="text.secondary">
-            {todos.data.total === 1
-              ? '1 embarazo en seguimiento'
-              : todos.data.total + ' embarazos en seguimiento'}
-          </Typography>
+          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="body2" color="text.secondary">
+              {todos.data.total === 1
+                ? '1 embarazo en seguimiento'
+                : todos.data.total + ' embarazos en seguimiento'}
+            </Typography>
+            {puedeCapturar ? (
+              <Button
+                variant="contained"
+                color="success"
+                size="small"
+                startIcon={<PersonAddAltOutlinedIcon />}
+                onClick={() => setInscribiendo(true)}
+              >
+                Inscribir embarazo
+              </Button>
+            ) : null}
+          </Stack>
 
           <TableContainer component={Paper} elevation={0} sx={{ overflowX: 'auto' }}>
             <Table size="small">
@@ -204,6 +309,7 @@ function Embarazos() {
                   <TableCell>Riesgo</TableCell>
                   <TableCell>Proximo control</TableCell>
                   <TableCell>Alertas</TableCell>
+                  <TableCell />
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -239,6 +345,13 @@ function Embarazos() {
                         '—'
                       )}
                     </TableCell>
+                    <TableCell align="right">
+                      <AccionesDeFila
+                        puede={puedeCapturar && e.estado === 'ACTIVO'}
+                        onControl={() => setControl({ id: e.id, nombre: NOMBRE_EMBARAZO(e) })}
+                        onCerrar={() => setCerrando({ id: e.id, nombre: NOMBRE_EMBARAZO(e) })}
+                      />
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -257,12 +370,38 @@ function Embarazos() {
           ) : null}
         </Stack>
       )}
+
+      {control ? (
+        <DialogoControl
+          programaId={control.id}
+          tipo="embarazo"
+          nombre={control.nombre}
+          onCerrar={() => setControl(null)}
+        />
+      ) : null}
+      {cerrando ? (
+        <DialogoCerrar
+          programaId={cerrando.id}
+          tipo="embarazo"
+          nombre={cerrando.nombre}
+          onCerrar={() => setCerrando(null)}
+        />
+      ) : null}
+      {inscribiendo ? (
+        <DialogoInscribir tipo="embarazo" onCerrar={() => setInscribiendo(false)} />
+      ) : null}
     </Stack>
   );
 }
 
 function Hipertensos() {
   const [pagina, setPagina] = useState(1);
+  const { usuario } = usarSesion();
+  // Inscribir y registrar controles es del personal clinico. Direccion mira.
+  const puedeCapturar = ['MEDICO', 'ENFERMERIA'].includes(usuario?.rol ?? '');
+  const [control, setControl] = useState<{ id: string; nombre: string } | null>(null);
+  const [cerrando, setCerrando] = useState<{ id: string; nombre: string } | null>(null);
+  const [inscribiendo, setInscribiendo] = useState(false);
 
   const atrasados = useQuery({
     queryKey: ['hipertensos-atrasados'],
@@ -336,11 +475,24 @@ function Hipertensos() {
         <NotaPagina>No hay nadie inscrito en el programa de hipertension.</NotaPagina>
       ) : (
         <Stack spacing={2}>
-          <Typography variant="body2" color="text.secondary">
-            {todos.data.total === 1
-              ? '1 paciente inscrito'
-              : todos.data.total + ' pacientes inscritos'}
-          </Typography>
+          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="body2" color="text.secondary">
+              {todos.data.total === 1
+                ? '1 paciente inscrito'
+                : todos.data.total + ' pacientes inscritos'}
+            </Typography>
+            {puedeCapturar ? (
+              <Button
+                variant="contained"
+                color="success"
+                size="small"
+                startIcon={<PersonAddAltOutlinedIcon />}
+                onClick={() => setInscribiendo(true)}
+              >
+                Inscribir paciente
+              </Button>
+            ) : null}
+          </Stack>
 
           <TableContainer component={Paper} elevation={0} sx={{ overflowX: 'auto' }}>
             <Table size="small">
@@ -352,6 +504,7 @@ function Hipertensos() {
                   <TableCell>En meta</TableCell>
                   <TableCell>Proximo control</TableCell>
                   <TableCell>Desde</TableCell>
+                  <TableCell />
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -396,6 +549,13 @@ function Hipertensos() {
                       <Proximo iso={h.ultimoControl?.proximoControl ?? null} />
                     </TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>{fecha(h.fechaIngreso)}</TableCell>
+                    <TableCell align="right">
+                      <AccionesDeFila
+                        puede={puedeCapturar && h.estado === 'ACTIVO'}
+                        onControl={() => setControl({ id: h.id, nombre: 'Hipertension' })}
+                        onCerrar={() => setCerrando({ id: h.id, nombre: 'Hipertension' })}
+                      />
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -414,6 +574,26 @@ function Hipertensos() {
           ) : null}
         </Stack>
       )}
+
+      {control ? (
+        <DialogoControl
+          programaId={control.id}
+          tipo="hipertension"
+          nombre={control.nombre}
+          onCerrar={() => setControl(null)}
+        />
+      ) : null}
+      {cerrando ? (
+        <DialogoCerrar
+          programaId={cerrando.id}
+          tipo="hipertension"
+          nombre={cerrando.nombre}
+          onCerrar={() => setCerrando(null)}
+        />
+      ) : null}
+      {inscribiendo ? (
+        <DialogoInscribir tipo="hipertension" onCerrar={() => setInscribiendo(false)} />
+      ) : null}
     </Stack>
   );
 }

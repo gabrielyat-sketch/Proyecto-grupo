@@ -11,6 +11,7 @@ import { ApiParametrosPagina, ApiPaginaDe, type Pagina, Rol, Roles, Usuario } fr
 import { HipertensionService } from './hipertension.service';
 import { InscribirHipertensionDto } from './dto/inscribir.dto';
 import { RegistrarControlHipertensionDto } from './dto/registrar-control.dto';
+import { EgresarHipertensionDto } from './dto/egresar-hipertension.dto';
 import {
   ControlHipertensionDto,
   HipertensoAtrasadoDto,
@@ -129,7 +130,7 @@ export class HipertensionController {
   @ApiOkResponse({ type: ProgramaHipertensionDto })
   egresar(
     @Param('id') id: string,
-    @Body() dto: { motivo: string; estado: 'EGRESADO' | 'ABANDONO' | 'FALLECIDO' | 'TRASLADADO' },
+    @Body() dto: EgresarHipertensionDto,
   ): Promise<ProgramaHipertensionDto> {
     return this.servicio.egresar(id, dto.motivo ?? '', dto.estado ?? 'EGRESADO');
   }

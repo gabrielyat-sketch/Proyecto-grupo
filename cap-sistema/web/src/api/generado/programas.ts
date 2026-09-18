@@ -403,6 +403,15 @@ export interface components {
              */
             fecha?: string;
         };
+        EgresarHipertensionDto: {
+            /**
+             * @example TRASLADADO
+             * @enum {string}
+             */
+            estado: "EGRESADO" | "ABANDONO" | "FALLECIDO" | "TRASLADADO";
+            /** @example Se traslado a Salama con su hija */
+            motivo: string;
+        };
         UltimoControlPrenatalDto: {
             /** Format: date-time */
             fecha: string;
@@ -589,6 +598,13 @@ export interface components {
             observaciones?: string;
             /** Format: date-time */
             fecha?: string;
+        };
+        CerrarEmbarazoDto: {
+            /**
+             * @example PARTO_NORMAL
+             * @enum {string}
+             */
+            resultado: "PARTO_NORMAL" | "CESAREA" | "ABORTO" | "OBITO" | "TRASLADO" | "OTRO";
         };
         ProgramaEmbarazoBaseDto: {
             /** Format: uuid */
@@ -1136,7 +1152,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EgresarHipertensionDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -1600,7 +1620,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CerrarEmbarazoDto"];
+            };
+        };
         responses: {
             /** @description Sin semanasGestacion: el seguimiento ya cerro, la cuenta dejo de correr. */
             200: {
