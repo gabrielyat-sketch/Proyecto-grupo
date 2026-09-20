@@ -24,8 +24,16 @@ cambio que alguien hace en cinco minutos para "resolver algo rápido".
 Un escaneo debe confirmar que desde el endpoint público **no se alcanza ningún servicio clínico**,
 y que el límite de peticiones corta el abuso.
 
-## Archivos esperados
+## Archivos
 
-- `gateway-interno.conf`
-- `gateway-publico.conf`
-- `comun/seguridad.conf` — cabeceras de seguridad compartidas
+- `gateway-interno.conf.template` — el gateway interno, ya en uso. Es plantilla porque la imagen de
+  nginx reemplaza `${DOMINIO}` al arrancar. Cada regla lleva su porqué en comentarios.
+- `comun/seguridad.conf` — cabeceras de seguridad (HSTS, CSP, X-Frame-Options…).
+- `comun/proxy.conf` — cabeceras que se pasan a los servicios (`X-Forwarded-For` y compañía).
+- `05-certificado.sh` — al arrancar, enlaza el certificado de Let's Encrypt o genera uno autofirmado
+  para ensayar sin dominio.
+- `06-recarga-periodica.sh` — recarga nginx cada 6 h para tomar el certificado renovado.
+- `gateway-publico.conf` — **pendiente**; se escribe cuando exista `cms`.
+
+La imagen se construye con `Dockerfile.gateway` (raíz de `cap-sistema/`) y se despliega con
+`docker-compose.prod.yml`. Paso a paso en `docs/despliegue.md`.

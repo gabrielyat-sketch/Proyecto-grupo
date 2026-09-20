@@ -1,0 +1,27 @@
+# Lo que NO entra al contexto de construccion de las imagenes.
+# Lo mas importante son los .env: un secreto que entra al contexto puede
+# acabar en una capa de la imagen aunque el Dockerfile no lo copie a proposito.
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+*.pem
+*.key
+secretos/
+
+node_modules
+**/node_modules
+**/dist
+# Solo el cliente de Prisma de cada servicio: web/src/api/generado SI hace falta.
+services/*/generado
+**/coverage
+**/*.tsbuildinfo
+**/*.log
+
+.git
+.vscode
+docs
+documentacion
+pdf-generados

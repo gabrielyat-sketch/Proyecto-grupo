@@ -1,0 +1,95 @@
+# Imagen de UN microservicio. Se construye desde cap-sistema/ (la raiz del
+# monorepo, porque todos dependen del workspace @cap/shared) y se le dice cual:
+#
+#   docker build -f Dockerfile.servicio --build-arg SERVICIO=auth -t cap/auth .
+#
+# Es un solo archivo para los cinco a proposito. Antes cada servicio tenia una
+# copia, y las cinco copias seguian compilando `_plantilla`: nadie las habia
+# construido nunca y el error no se veia. Con un unico Dockerfile el nombre
+# del servicio entra por parametro y no hay nada que copiar mal.
+#
+# SERVICIO es a la vez el nombre de la carpeta (services/<SERVICIO>) y el sufijo
+# del paquete (@cap/<SERVICIO>); los cinco cumplen esa regla.
+
+ARG SERVICIO
+
+# ─── etapa 1: dependencias y compilacion ──────────────────────────────────
+FROM node:22-alpine AS constructor
+ARG SERVICIO
+WORKDIR /app
+
+# Solo los package.json primero, para que `npm ci` quede en cache mientras no
+# cambien las dependencias. Van TODOS los del workspace, no solo el del
+# servicio: el package-lock describe el monorepo entero y npm ci se niega a
+# instalar si le falta un workspace que el lock si conoce.
+COPY package.json package-lock.json tsconfig.base.json ./
+COPY packages/shared/package.json packages/shared/
+COPY services/_plantilla/package.json services/_plantilla/
+COPY services/auth/package.json services/auth/
+COPY services/usuarios/package.json services/usuarios/
+COPY services/programas/package.json services/programas/
+COPY services/medicamentos/package.json services/medicamentos/
+COPY services/trazabilidad/package.json services/trazabilidad/
+COPY web/package.json web/
+RUN npm ci
+
+COPY packages/shared packages/shared
+COPY services/${SERVICIO} services/${SERVICIO}
+
+# El cliente de Prisma se genera en services/<SERVICIO>/generado (fuera de
+# node_modules; ver el comentario del generator en schema.prisma) y se genera
+# AQUI, dentro de alpine, para que el motor binario sea el de linux-musl y no
+# el de la maquina de quien construye.
+RUN npm run build -w @cap/shared \
+ && npx prisma generate --schema services/${SERVICIO}/prisma/schema.prisma \
+ && npm run build -w @cap/${SERVICIO}
+
+# ─── etapa opcional: migraciones ──────────────────────────────────────────
+# Tiene el CLI de Prisma y las migraciones; la imagen de ejecucion no. Se usa
+# una vez por despliegue con la DIRECT_URL del rol migrador:
+#
+#   docker compose -f docker-compose.prod.yml --profile migrar run --rm migrar-auth
+FROM constructor AS migrador
+ARG SERVICIO
+ENV SERVICIO=${SERVICIO}
+USER node
+CMD npx prisma migrate deploy --schema services/${SERVICIO}/prisma/schema.prisma
+
+# ─── etapa 2: solo lo necesario para ejecutar ─────────────────────────────
+FROM node:22-alpine AS ejecucion
+ARG SERVICIO
+WORKDIR /app
+ENV NODE_ENV=production
+ENV SERVICIO=${SERVICIO}
+
+COPY package.json package-lock.json ./
+COPY packages/shared/package.json packages/shared/
+COPY services/_plantilla/package.json services/_plantilla/
+COPY services/auth/package.json services/auth/
+COPY services/usuarios/package.json services/usuarios/
+COPY services/programas/package.json services/programas/
+COPY services/medicamentos/package.json services/medicamentos/
+COPY services/trazabilidad/package.json services/trazabilidad/
+COPY web/package.json web/
+# Solo las dependencias de este servicio y de shared: sin -w entrarian tambien
+# las del panel (MUI, React...) y las de los otros cuatro, y la imagen pasa de
+# 1 GB a menos de la mitad.
+# --omit=peer: @prisma/client declara al CLI `prisma` y a `typescript` como
+# peers opcionales y npm los instalaria (85 MB) aunque en ejecucion no se usan.
+RUN npm ci --omit=dev --omit=peer -w @cap/shared -w @cap/${SERVICIO} && npm cache clean --force
+
+COPY --from=constructor /app/packages/shared/dist packages/shared/dist
+COPY --from=constructor /app/services/${SERVICIO}/dist services/${SERVICIO}/dist
+COPY --from=constructor /app/services/${SERVICIO}/generado services/${SERVICIO}/generado
+
+# No se ejecuta como root: si alguien logra ejecucion remota de codigo,
+# encuentra un usuario sin privilegios, no el dueno del contenedor.
+USER node
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 \
+  CMD node -e "fetch('http://localhost:'+process.env.PUERTO+'/v1/salud').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+# Pasa por sh porque la forma exec no expande variables, pero con `exec` para
+# que node quede como proceso principal y reciba el SIGTERM de `docker stop`
+# (asi corren los hooks de apagado y se cierran las conexiones a la base).
+CMD ["sh", "-c", "exec node services/${SERVICIO}/dist/main.js"]

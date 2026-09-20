@@ -1,0 +1,149 @@
+# Gateway INTERNO: el unico punto de entrada al sistema desde Internet.
+#
+# Sirve el panel (web/dist) y reenvia /api/<servicio>/... al microservicio
+# correspondiente por la red interna de Docker, quitando el prefijo: es lo
+# mismo que hace el proxy de Vite en desarrollo (web/vite.config.ts), asi que
+# el frontend no cambia al desplegarse.
+#
+# Es una PLANTILLA: la imagen de nginx reemplaza ${DOMINIO} al arrancar con la
+# variable de entorno del mismo nombre (docker-compose.prod.yml). Todo lo
+# demas con $ son variables de nginx y se quedan como estan.
+#
+# Lo que este archivo decide y por que:
+#   - TLS obligatorio; el 80 solo redirige y atiende el reto de Let's Encrypt.
+#   - /docs de cualquier servicio: 404. Swagger ya va apagado en produccion;
+#     esto es por si algun servicio arranca con NODE_ENV mal puesto.
+#   - Las cinco rutas publicas de auth (las que no piden token) llevan limite
+#     por IP. Sin el, desde fuera se puede dejar bloqueado al personal con
+#     cinco intentos por cuenta cada quince minutos.
+#   - Hacia trazabilidad solo pasan lecturas. Escribir la bitacora es cosa de
+#     los servicios, que llegan a :3007 por la red interna sin pasar por aqui;
+#     desde el navegador, cualquier cuenta con token podria si no meter
+#     entradas retrofechadas que por diseno nadie puede borrar.
+#   - Ningun servicio recibe archivos: multipart se rechaza en la puerta.
+
+# Limite para las rutas de auth sin token: 10 por minuto por IP, con margen
+# de 5 seguidas. Un humano que se equivoca de contrasena no lo nota; un
+# script que prueba cuentas si.
+limit_req_zone $binary_remote_addr zone=auth_publico:10m rate=10r/m;
+
+# Todo lo que no sea leer.
+map $request_method $es_escritura {
+    default 1;
+    GET     0;
+    HEAD    0;
+    OPTIONS 0;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${DOMINIO};
+
+    # Reto HTTP-01 de Let's Encrypt (certbot --webroot).
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name ${DOMINIO};
+
+    # Los enlaza el script 05-certificado.sh al arrancar: al certificado real
+    # de Let's Encrypt si existe, o a uno autofirmado para poder probar en
+    # local sin dominio.
+    ssl_certificate     /etc/nginx/certificados/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certificados/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets off;
+
+    include /etc/nginx/comun/seguridad.conf;
+
+    # Las fichas son JSON de unos pocos KB; Nest ademas corta en 100 KB.
+    client_max_body_size 1m;
+
+    # Nadie sube archivos. Lo que llegue como multipart no es del panel.
+    if ($content_type ~* "multipart/") {
+        return 415;
+    }
+
+    # ─── API ─────────────────────────────────────────────────────────
+
+    location ~ ^/api/[a-z]+/docs {
+        return 404;
+    }
+
+    # Rutas de auth que no piden token: las unicas alcanzables sin sesion.
+    location ~ ^/api/auth/v1/auth/(login|refrescar|mfa/verificar|mfa/configurar-inicial|mfa/activar-inicial)$ {
+        limit_req zone=auth_publico burst=5 nodelay;
+        limit_req_status 429;
+        rewrite ^/api/auth(/.*)$ $1 break;
+        proxy_pass http://auth:3001;
+        include /etc/nginx/comun/proxy.conf;
+    }
+
+    location /api/auth/ {
+        proxy_pass http://auth:3001/;
+        include /etc/nginx/comun/proxy.conf;
+    }
+
+    location /api/usuarios/ {
+        proxy_pass http://usuarios:3002/;
+        include /etc/nginx/comun/proxy.conf;
+    }
+
+    location /api/programas/ {
+        proxy_pass http://programas:3003/;
+        include /etc/nginx/comun/proxy.conf;
+    }
+
+    location /api/medicamentos/ {
+        proxy_pass http://medicamentos:3004/;
+        include /etc/nginx/comun/proxy.conf;
+    }
+
+    location /api/trazabilidad/ {
+        if ($es_escritura) {
+            return 403;
+        }
+        proxy_pass http://trazabilidad:3007/;
+        include /etc/nginx/comun/proxy.conf;
+    }
+
+    # Cualquier otro /api/... no existe: no se cae al index.html del panel.
+    location /api/ {
+        return 404;
+    }
+
+    # ─── Panel (web/dist) ────────────────────────────────────────────
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Vite pone un hash en el nombre de cada archivo de assets/: se pueden
+    # cachear para siempre porque un cambio es un nombre nuevo.
+    location /assets/ {
+        include /etc/nginx/comun/seguridad.conf;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        try_files $uri =404;
+    }
+
+    # El index.html NO se cachea: es el que apunta a los assets nuevos tras
+    # cada despliegue. Con cache, el navegador seguiria pidiendo un bundle
+    # que ya no existe y el panel se abriria en blanco.
+    location / {
+        include /etc/nginx/comun/seguridad.conf;
+        add_header Cache-Control "no-cache" always;
+        try_files $uri /index.html;
+    }
+}
