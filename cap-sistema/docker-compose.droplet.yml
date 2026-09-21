@@ -1,0 +1,97 @@
+# PRODUCCION CON LA BASE Y REDIS EN EL MISMO DROPLET. Se apila sobre el de
+# produccion:
+#
+#   docker compose -f docker-compose.prod.yml -f docker-compose.droplet.yml up -d
+#
+# Es la alternativa a las bases administradas de DigitalOcean (docs/despliegue.md,
+# «Producción, paso a paso»): mismo esquema, mismos roles, pero Postgres y Redis
+# corren aqui como contenedores SIN puerto publicado, solo alcanzables por la
+# red interna de Docker. Cuesta cero extra; a cambio los respaldos los hacemos
+# nosotros (infra/scripts/respaldo.sh).
+#
+# Los secretos los genera infra/scripts/generar-secretos.mjs --droplet:
+#   secretos/postgres.env  superusuario del contenedor (solo lo usa el y el respaldo)
+#   secretos/init.sql      crea esquemas y roles con contrasenas reales (solo la primera vez)
+#   secretos/redis.conf    contrasena de Redis
+#
+# Los datos viven en los volumenes `datos_postgres` y `datos_redis`. Un
+# `docker compose down` NO los borra; `down -v` SI. No correr `down -v` en
+# produccion.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file:
+      - secretos/postgres.env
+    # 2 GB de RAM para todo: se le da lo justo para 15-20 atenciones al dia.
+    command: postgres -c shared_buffers=128MB -c max_connections=60
+    volumes:
+      - datos_postgres:/var/lib/postgresql/data
+      - ./secretos/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - interna
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cap"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server /etc/redis/redis.conf
+    volumes:
+      - datos_redis:/data
+      - ./secretos/redis.conf:/etc/redis/redis.conf:ro
+    networks:
+      - interna
+    healthcheck:
+      # La contrasena la lee del mismo archivo de configuracion.
+      test: ["CMD-SHELL", "redis-cli -a \"$(awk '/^requirepass/{print $2}' /etc/redis/redis.conf)\" ping | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  auth:
+    depends_on:
+      postgres: { condition: service_healthy }
+  usuarios:
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+  programas:
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+  medicamentos:
+    depends_on:
+      postgres: { condition: service_healthy }
+  trazabilidad:
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  migrar-auth:
+    depends_on: { postgres: { condition: service_healthy } }
+  migrar-usuarios:
+    depends_on: { postgres: { condition: service_healthy } }
+  migrar-programas:
+    depends_on: { postgres: { condition: service_healthy } }
+  migrar-medicamentos:
+    depends_on: { postgres: { condition: service_healthy } }
+  migrar-trazabilidad:
+    depends_on: { postgres: { condition: service_healthy } }
+
+volumes:
+  datos_postgres:
+  datos_redis:
