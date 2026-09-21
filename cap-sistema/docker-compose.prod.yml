@@ -74,8 +74,9 @@ services:
 
   # Obtiene y renueva el certificado de Let's Encrypt. El gateway lo toma solo
   # (recarga cada 6 h). Primera vez, con el DNS ya apuntando al servidor:
-  #   docker compose -f docker-compose.prod.yml run --rm certbot certonly \
+  #   docker compose -f docker-compose.prod.yml run --rm --entrypoint certbot certbot certonly \
   #     --webroot -w /var/www/certbot -d TU_DOMINIO --email TU_CORREO --agree-tos
+  # (--entrypoint es obligatorio: si no, corre el bucle de renovacion de abajo y certonly se ignora)
   certbot:
     image: certbot/certbot:latest
     profiles: [certificado]

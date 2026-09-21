@@ -135,10 +135,14 @@ cd Proyecto-grupo/cap-sistema
 git checkout develop
 docker run --rm -v "$PWD:/app" -w /app node:22-alpine node infra/scripts/generar-secretos.mjs --droplet --dominio sicapguate.com
 sudo chown -R cap:cap secretos .env       # los creó el contenedor como root
-chmod 700 secretos && chmod 600 secretos/*.env secretos/init.sql secretos/redis.conf
+chmod 700 secretos && chmod 600 secretos/*.env && chmod 644 secretos/init.sql secretos/redis.conf
 ```
 
 (Se corre el script dentro de un contenedor de Node porque en el droplet no hace falta instalar Node.)
+
+`init.sql` y `redis.conf` quedan en `644` a propósito: dentro de sus contenedores Postgres y Redis corren
+con otro usuario y con `600` no pueden leerlos (Redis se reinicia en bucle y Postgres arranca sin crear
+los roles). La carpeta en `700` es lo que los protege de otros usuarios del servidor.
 
 Eso deja en `secretos/` las llaves y **todas las contraseñas de la base ya generadas**: no hay nada
 que pegar a mano. Ahora, **antes de seguir**, copiar fuera del servidor tres valores:
@@ -153,7 +157,7 @@ ellos, ningún respaldo de la base sirve**: los datos clínicos están cifrados 
 
 ### 5. Construir, migrar, sembrar, arrancar
 
-Construir tarda 10–15 minutos en un droplet de 2 GB; es normal.
+Construir tarda **45–50 minutos** en un droplet de 2 GB la primera vez; es normal (las siguientes reutilizan casi todo).
 
 ```bash
 C="docker compose -f docker-compose.prod.yml -f docker-compose.droplet.yml"
@@ -182,6 +186,10 @@ $C --profile certificado run --rm certbot certonly --webroot -w /var/www/certbot
 $C restart gateway
 $C --profile certificado up -d certbot    # renovación automática (revisa dos veces al día)
 ```
+
+El `--entrypoint certbot` es obligatorio: la entrada normal del servicio es el bucle de renovación, y sin
+él `certonly` se ignora y el comando se queda callado para siempre. Si eso pasa, `docker rm -f` al
+contenedor `certbot` que quedó colgado antes de repetirlo.
 
 ### 7. Comprobar desde fuera
 
