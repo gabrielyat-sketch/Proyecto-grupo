@@ -24,6 +24,25 @@ async function arrancar(): Promise<void> {
   const app = await NestFactory.create(AppModule, { bufferLogs: false });
 
   app.use(helmet());
+
+  // En produccion el servicio vive detras del gateway de nginx y NUNCA se
+  // expone directo (docker-compose.prod.yml no le publica puerto). Sin esto,
+  // req.ip seria siempre la direccion del gateway y los intentos de acceso,
+  // las sesiones y la bitacora registrarian 127.0.0.1 para todo el mundo.
+  // Se confia en UN salto: el gateway; una X-Forwarded-For que venga de mas
+  // atras no cuenta.
+  if (env.NODE_ENV === 'production') {
+    app.getHttpAdapter().getInstance().set('trust proxy', 1);
+  } else {
+    // Que se vea en el primer renglon del log: fuera de produccion la
+    // bitacora y el bus de eventos arrancan en nulo si faltan sus URL, y
+    // Swagger queda publico. En un servidor eso seria un despliegue a medias
+    // sin ningun error que lo delate.
+    logger.warn(
+      'NODE_ENV=' + env.NODE_ENV + ': modo de desarrollo (Swagger publico, auditoria y eventos opcionales). ' +
+        'En un servidor debe ser NODE_ENV=production.',
+    );
+  }
   app.setGlobalPrefix('v1');
 
   app.useGlobalPipes(

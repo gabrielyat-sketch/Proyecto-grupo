@@ -12,7 +12,8 @@ serían ocho implementaciones distintas de lo mismo, cada una con sus propios er
 
 ## Qué trae resuelto
 
-- [x] `Dockerfile` multi-etapa, ejecutando como usuario `node` (no root)
+- [x] Imagen Docker multi-etapa como usuario `node` (no root): es `Dockerfile.servicio` en la raíz de
+      `cap-sistema/`, uno solo para todos los servicios (`--build-arg SERVICIO=<nombre>`)
 - [x] Healthcheck en `GET /v1/salud` y `GET /v1/salud/listo`
 - [x] Configuración validada al arrancar — el servicio muere de inmediato si falta una variable
 - [x] Validación de JWT y RBAC vía `@cap/shared`, aplicados **globalmente**

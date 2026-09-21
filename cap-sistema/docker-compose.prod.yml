@@ -1,0 +1,220 @@
+# PRODUCCION (y ensayo de produccion en local con docker-compose.local.yml).
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Lo que este archivo garantiza y que el docker-compose.yml de desarrollo no:
+#
+#   - Ningun microservicio publica puerto. Solo el gateway escucha en 80/443;
+#     los servicios se hablan por la red `interna` de Docker y desde fuera no
+#     se alcanzan ni aunque el firewall del servidor este mal.
+#   - Base de datos y Redis NO van aqui: en produccion son los administrados
+#     de DigitalOcean (con TLS) y se llega a ellos por DATABASE_URL/REDIS_URL.
+#     Para ensayar en local se anaden con docker-compose.local.yml.
+#   - Los secretos se leen de secretos/*.env (ignorados por git; ver
+#     secretos/README.md). Nada sensible vive en este archivo.
+#   - NODE_ENV=production fijo. Sin el, los servicios arrancan en modo
+#     desarrollo sin ningun error: Swagger publico y bitacora opcional.
+#   - Las migraciones corren aparte (perfil `migrar`), con el rol dueno de la
+#     base; la aplicacion en ejecucion solo conoce el rol de ejecucion.
+#
+# Ver docs/despliegue.md para el paso a paso.
+
+name: cap
+
+x-servicio: &servicio
+  restart: unless-stopped
+  networks:
+    - interna
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+
+x-migrador: &migrador
+  profiles: [migrar]
+  networks:
+    - interna
+  # DIRECT_URL_<SERVICIO> (secretos/migrador.env) pasa a ser la DIRECT_URL que
+  # Prisma usa para migrar. Asi el rol dueno solo lo ve este contenedor.
+  command: >
+    sh -c 'export DIRECT_URL="$$(printenv DIRECT_URL_$$(echo $$SERVICIO | tr a-z A-Z))"
+    && test -n "$$DIRECT_URL"
+    && npx prisma migrate deploy --schema services/$$SERVICIO/prisma/schema.prisma'
+
+services:
+  # ─── Gateway: panel + reenvio a los servicios ────────────────────────
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+    image: cap/gateway
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMINIO: ${DOMINIO:?Falta DOMINIO en el .env de compose (ver docs/despliegue.md)}
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      - certbot_www:/var/www/certbot:ro
+    depends_on:
+      - auth
+      - usuarios
+      - programas
+      - medicamentos
+      - trazabilidad
+    networks:
+      - interna
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # Obtiene y renueva el certificado de Let's Encrypt. El gateway lo toma solo
+  # (recarga cada 6 h). Primera vez, con el DNS ya apuntando al servidor:
+  #   docker compose -f docker-compose.prod.yml run --rm certbot certonly \
+  #     --webroot -w /var/www/certbot -d TU_DOMINIO --email TU_CORREO --agree-tos
+  certbot:
+    image: certbot/certbot:latest
+    profiles: [certificado]
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    # En segundo plano (`up -d certbot`) renueva dos veces al dia.
+    entrypoint: sh -c 'trap exit TERM; while :; do certbot renew --quiet; sleep 12h & wait $${!}; done'
+
+  # ─── Microservicios ──────────────────────────────────────────────────
+  auth:
+    <<: *servicio
+    build:
+      context: .
+      dockerfile: Dockerfile.servicio
+      args: { SERVICIO: auth }
+    image: cap/auth
+    env_file:
+      - secretos/comun.env
+      - secretos/auth.env
+    environment:
+      NODE_ENV: production
+      PUERTO: 3001
+      NOMBRE_SERVICIO: auth
+      URL_TRAZABILIDAD: http://trazabilidad:3007
+    depends_on:
+      - trazabilidad
+
+  usuarios:
+    <<: *servicio
+    build:
+      context: .
+      dockerfile: Dockerfile.servicio
+      args: { SERVICIO: usuarios }
+    image: cap/usuarios
+    env_file:
+      - secretos/comun.env
+      - secretos/usuarios.env
+    environment:
+      NODE_ENV: production
+      PUERTO: 3002
+      NOMBRE_SERVICIO: usuarios
+      URL_TRAZABILIDAD: http://trazabilidad:3007
+    depends_on:
+      - trazabilidad
+
+  programas:
+    <<: *servicio
+    build:
+      context: .
+      dockerfile: Dockerfile.servicio
+      args: { SERVICIO: programas }
+    image: cap/programas
+    env_file:
+      - secretos/comun.env
+      - secretos/programas.env
+    environment:
+      NODE_ENV: production
+      PUERTO: 3003
+      NOMBRE_SERVICIO: programas
+      URL_USUARIOS: http://usuarios:3002
+    depends_on:
+      - usuarios
+
+  medicamentos:
+    <<: *servicio
+    build:
+      context: .
+      dockerfile: Dockerfile.servicio
+      args: { SERVICIO: medicamentos }
+    image: cap/medicamentos
+    env_file:
+      - secretos/comun.env
+      - secretos/medicamentos.env
+    environment:
+      NODE_ENV: production
+      PUERTO: 3004
+      NOMBRE_SERVICIO: medicamentos
+      URL_USUARIOS: http://usuarios:3002
+    depends_on:
+      - usuarios
+
+  trazabilidad:
+    <<: *servicio
+    build:
+      context: .
+      dockerfile: Dockerfile.servicio
+      args: { SERVICIO: trazabilidad }
+    image: cap/trazabilidad
+    env_file:
+      - secretos/comun.env
+      - secretos/trazabilidad.env
+    environment:
+      NODE_ENV: production
+      PUERTO: 3007
+      NOMBRE_SERVICIO: trazabilidad
+
+  # ─── Migraciones (perfil `migrar`, se corren una vez por despliegue) ──
+  #   docker compose -f docker-compose.prod.yml --profile migrar run --rm migrar-auth
+  # (y lo mismo con usuarios, programas, medicamentos, trazabilidad)
+  migrar-auth:
+    <<: *migrador
+    build: { context: ., dockerfile: Dockerfile.servicio, target: migrador, args: { SERVICIO: auth } }
+    image: cap/auth-migrador
+    env_file: [secretos/comun.env, secretos/auth.env, secretos/migrador.env]
+    environment: { NODE_ENV: production, SERVICIO: auth }
+
+  migrar-usuarios:
+    <<: *migrador
+    build: { context: ., dockerfile: Dockerfile.servicio, target: migrador, args: { SERVICIO: usuarios } }
+    image: cap/usuarios-migrador
+    env_file: [secretos/comun.env, secretos/usuarios.env, secretos/migrador.env]
+    environment: { NODE_ENV: production, SERVICIO: usuarios }
+
+  migrar-programas:
+    <<: *migrador
+    build: { context: ., dockerfile: Dockerfile.servicio, target: migrador, args: { SERVICIO: programas } }
+    image: cap/programas-migrador
+    env_file: [secretos/comun.env, secretos/programas.env, secretos/migrador.env]
+    environment: { NODE_ENV: production, SERVICIO: programas }
+
+  migrar-medicamentos:
+    <<: *migrador
+    build: { context: ., dockerfile: Dockerfile.servicio, target: migrador, args: { SERVICIO: medicamentos } }
+    image: cap/medicamentos-migrador
+    env_file: [secretos/comun.env, secretos/medicamentos.env, secretos/migrador.env]
+    environment: { NODE_ENV: production, SERVICIO: medicamentos }
+
+  migrar-trazabilidad:
+    <<: *migrador
+    build: { context: ., dockerfile: Dockerfile.servicio, target: migrador, args: { SERVICIO: trazabilidad } }
+    image: cap/trazabilidad-migrador
+    env_file: [secretos/comun.env, secretos/trazabilidad.env, secretos/migrador.env]
+    environment: { NODE_ENV: production, SERVICIO: trazabilidad }
+
+networks:
+  # Sin acceso desde fuera: solo el gateway publica puertos.
+  interna:
+
+volumes:
+  letsencrypt:
+  certbot_www:

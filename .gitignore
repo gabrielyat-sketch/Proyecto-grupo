@@ -13,6 +13,9 @@ build/
 !.env.example
 *.pem
 *.key
+# Los secretos de produccion (docker-compose.prod.yml). Solo el README.
+cap-sistema/secretos/*
+!cap-sistema/secretos/README.md
 
 # ── Prisma ────────────────────────────────────────────────────────────
 # El cliente de Prisma se genera FUERA de prisma/: dentro, la extension de

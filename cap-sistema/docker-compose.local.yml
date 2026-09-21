@@ -1,0 +1,81 @@
+# ENSAYO DE PRODUCCION EN LA MAQUINA DE UNO. Se apila sobre el de produccion:
+#
+#   docker compose -f docker-compose.prod.yml -f docker-compose.local.yml up -d --build
+#
+# Anade lo que en produccion pone DigitalOcean (Postgres y Redis) como
+# contenedores SIN puerto publicado: solo se alcanzan por la red interna,
+# igual que los servicios. El panel queda en https://localhost con un
+# certificado autofirmado (el navegador avisa; se acepta).
+#
+# Los secretos para este ensayo los genera infra/scripts/generar-secretos.mjs
+# con --local, apuntando a estos dos contenedores con las contrasenas de
+# desarrollo de infra/postgres/init.sql. NUNCA se usan en produccion.
+#
+# Los volumenes son distintos a los del docker-compose.yml de desarrollo para
+# no pisar la base con la que se trabaja a diario.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cap
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_local_dev
+    volumes:
+      - ensayo_postgres:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - interna
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cap"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ensayo_local
+    volumes:
+      - ensayo_redis:/data
+    networks:
+      - interna
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "ensayo_local", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  auth:
+    depends_on:
+      postgres: { condition: service_healthy }
+  usuarios:
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+  programas:
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+  medicamentos:
+    depends_on:
+      postgres: { condition: service_healthy }
+  trazabilidad:
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  migrar-auth:
+    depends_on: { postgres: { condition: service_healthy } }
+  migrar-usuarios:
+    depends_on: { postgres: { condition: service_healthy } }
+  migrar-programas:
+    depends_on: { postgres: { condition: service_healthy } }
+  migrar-medicamentos:
+    depends_on: { postgres: { condition: service_healthy } }
+  migrar-trazabilidad:
+    depends_on: { postgres: { condition: service_healthy } }
+
+volumes:
+  ensayo_postgres:
+  ensayo_redis:
