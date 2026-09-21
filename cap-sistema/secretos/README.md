@@ -6,7 +6,8 @@ Se crea con:
 
 ```bash
 node infra/scripts/generar-secretos.mjs --local   # ensayo en la máquina de uno
-node infra/scripts/generar-secretos.mjs           # producción: luego pegar las URL de DigitalOcean
+node infra/scripts/generar-secretos.mjs --droplet --dominio X   # producción en el droplet (docs/despliegue.md)
+node infra/scripts/generar-secretos.mjs           # producción con bases administradas: luego pegar las URL
 ```
 
 | Archivo | Quién lo lee | Qué trae |
@@ -18,3 +19,11 @@ node infra/scripts/generar-secretos.mjs           # producción: luego pegar las
 | `migrador.env` | solo los contenedores `migrar-*` | `DIRECT_URL_<SERVICIO>` con el rol dueño de la base |
 
 **Copia fuera del servidor de `LLAVE_DATOS`, `LLAVE_INDICE` y `LLAVE_RAIZ_TRAZA`.** Un respaldo de la base sin esas llaves no sirve: los datos clínicos están cifrados con ellas.
+
+Con `--droplet` se añaden tres archivos que montan los contenedores de `docker-compose.droplet.yml`:
+
+| Archivo | Quién lo lee | Qué trae |
+|---|---|---|
+| `postgres.env` | el contenedor de Postgres | superusuario `postgres` (solo lo usan él y `respaldo.sh`) |
+| `init.sql` | el contenedor de Postgres, solo la primera vez | esquemas y roles con las contraseñas generadas |
+| `redis.conf` | el contenedor de Redis | `requirepass` |

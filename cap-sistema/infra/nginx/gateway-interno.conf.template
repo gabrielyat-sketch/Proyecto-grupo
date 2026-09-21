@@ -38,7 +38,7 @@ map $request_method $es_escritura {
 server {
     listen 80;
     listen [::]:80;
-    server_name ${DOMINIO};
+    server_name ${DOMINIO} www.${DOMINIO};
 
     # Reto HTTP-01 de Let's Encrypt (certbot --webroot).
     location /.well-known/acme-challenge/ {
@@ -54,7 +54,7 @@ server {
     listen 443 ssl;
     listen [::]:443 ssl;
     http2 on;
-    server_name ${DOMINIO};
+    server_name ${DOMINIO} www.${DOMINIO};
 
     # Los enlaza el script 05-certificado.sh al arrancar: al certificado real
     # de Let's Encrypt si existe, o a uno autofirmado para poder probar en
