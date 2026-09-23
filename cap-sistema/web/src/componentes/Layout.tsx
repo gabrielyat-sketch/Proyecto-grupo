@@ -264,11 +264,6 @@ export function Layout() {
           </IconButton>
 
           {/*
-            Titulo llano, no un boton: el camino a Inicio es el logo del menu,
-            y dos formas de hacer lo mismo a diez centimetros una de otra solo
-            obligan a averiguar si son distintas.
-          */}
-          {/*
             El nombre en dos alturas, no en una linea corrida.
 
             «Plataforma del» es andamiaje: nadie lo lee dos veces, y puesto al
@@ -282,34 +277,95 @@ export function Layout() {
             estaba pedida en `tema.ts` desde el principio pero no la instalaba
             nadie, asi que todo salia en Segoe UI. Ver `main.tsx`.
           */}
-          <Box sx={{ flexGrow: 1, minWidth: 0, overflow: 'hidden' }}>
-            <Typography
-              component="div"
-              noWrap
+          {pantallaAncha ? (
+            /*
+              En pantalla ancha el titulo es llano, no un boton: el camino a
+              Inicio es el logo del menu, que ahi SIEMPRE esta a la vista, y
+              dos formas de hacer lo mismo a diez centimetros una de otra solo
+              obligan a averiguar si son distintas.
+            */
+            <Box sx={{ flexGrow: 1, minWidth: 0, overflow: 'hidden' }}>
+              <Typography
+                component="div"
+                noWrap
+                sx={{
+                  fontSize: 11,
+                  fontWeight: 500,
+                  letterSpacing: '.2em',
+                  textTransform: 'uppercase',
+                  opacity: 0.66,
+                  lineHeight: 1.3,
+                }}
+              >
+                Plataforma del
+              </Typography>
+              <Typography
+                component="div"
+                noWrap
+                sx={{ fontSize: 19, fontWeight: 600, letterSpacing: '-.015em', lineHeight: 1.2 }}
+              >
+                Centro de Atencion Permanente
+              </Typography>
+            </Box>
+          ) : (
+            /*
+              En telefono el titulo SI es el boton de Inicio, y lleva el logo.
+
+              Aqui el menu es un cajon que se guarda, asi que el logo —que es
+              el camino de vuelta al inicio— no esta a la vista: habia que
+              abrir el menu para volver al principio, y nada en la pantalla lo
+              decia. Ya no se repite nada, porque el del cajon esta escondido.
+
+              Y va con el nombre corto. «Centro de Atencion Permanente» en una
+              pantalla de telefono no cabe: se cortaba en «Centro de Atenci…»,
+              que no nombra nada. Entre un rotulo largo cortado y el nombre con
+              que el lugar se conoce, cabiendo entero, gana el segundo.
+            */
+            <Stack
+              component={EnlaceRuta}
+              to="/"
+              aria-label="Inicio"
+              direction="row"
               sx={{
-                fontSize: 11,
-                fontWeight: 500,
-                letterSpacing: '.2em',
-                textTransform: 'uppercase',
-                opacity: 0.66,
-                lineHeight: 1.3,
+                flexGrow: 1,
+                minWidth: 0,
+                alignItems: 'center',
+                gap: 1,
+                color: 'inherit',
+                textDecoration: 'none',
+                borderRadius: 2,
+                px: 0.75,
+                py: 0.5,
+                mr: 0.5,
+                '&:active': { bgcolor: 'rgba(255, 255, 255, 0.12)' },
               }}
             >
-              Plataforma del
-            </Typography>
-            <Typography
-              component="div"
-              noWrap
-              sx={{
-                fontSize: { xs: 15, sm: 19 },
-                fontWeight: 600,
-                letterSpacing: '-.015em',
-                lineHeight: 1.2,
-              }}
-            >
-              Centro de Atencion Permanente
-            </Typography>
-          </Box>
+              <LogoCap tamano={28} />
+              <Box sx={{ minWidth: 0 }}>
+                <Typography
+                  component="div"
+                  noWrap
+                  sx={{
+                    fontSize: 10,
+                    fontWeight: 500,
+                    letterSpacing: '.18em',
+                    textTransform: 'uppercase',
+                    opacity: 0.66,
+                    lineHeight: 1.2,
+                  }}
+                >
+                  Plataforma del
+                </Typography>
+                <Typography
+                  component="div"
+                  noWrap
+                  sx={{ fontSize: 16, fontWeight: 600, letterSpacing: '-.015em', lineHeight: 1.2 }}
+                >
+                  CAP Purulha
+                </Typography>
+              </Box>
+            </Stack>
+          )}
 
           {/*
             El reloj a la par del avatar, no al centro: los dos son informacion

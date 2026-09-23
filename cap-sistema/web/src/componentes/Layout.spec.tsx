@@ -33,6 +33,51 @@ beforeEach(() => {
 
 afterEach(() => vi.unstubAllGlobals());
 
+/**
+ * En telefono el menu es un cajon que se guarda, asi que el logo —que es el
+ * camino de vuelta al inicio— no esta a la vista. Habia que abrir el menu para
+ * volver al principio y nada en la pantalla lo decia. Estas pruebas fijan que
+ * en pantalla angosta la barra misma lleve a Inicio, y que el nombre que sale
+ * sea el corto: «Centro de Atencion Permanente» no cabe y se cortaba.
+ */
+describe('la barra en telefono', () => {
+  const enTelefono = () =>
+    vi.stubGlobal('matchMedia', (consulta: string) => ({
+      matches: false,
+      media: consulta,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+      onchange: null,
+    }));
+
+  it('el titulo es el camino a Inicio, con el nombre que cabe', async () => {
+    enTelefono();
+    entrarComo('ENFERMERIA');
+    window.history.pushState({}, '', '/programas');
+    render(<App />);
+
+    const inicio = await screen.findByRole('link', { name: /^Inicio$/i });
+    expect(inicio).toHaveAttribute('href', '/');
+    expect(inicio).toHaveTextContent('CAP Purulha');
+    // El largo no cabe en un telefono: se cortaba en «Centro de Atenci…».
+    expect(inicio).not.toHaveTextContent('Centro de Atencion Permanente');
+  });
+
+  it('en pantalla ancha el titulo sigue siendo llano, porque el logo del menu ya esta a la vista', async () => {
+    entrarComo('ENFERMERIA');
+    render(<App />);
+
+    await waitFor(navegacion);
+    // Uno solo: el del menu lateral. Dos caminos a Inicio a diez centimetros
+    // uno de otro obligan a averiguar si son distintos.
+    expect(screen.getAllByRole('link', { name: /^Inicio$/i })).toHaveLength(1);
+    expect(screen.getByText('Centro de Atencion Permanente')).toBeInTheDocument();
+  });
+});
+
 describe('layout con menu por rol', () => {
   it('Recepcion no ve Programas ni Administracion', async () => {
     entrarComo('RECEPCION');

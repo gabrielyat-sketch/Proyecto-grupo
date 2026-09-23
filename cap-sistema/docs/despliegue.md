@@ -168,12 +168,26 @@ for s in auth usuarios programas medicamentos trazabilidad; do
   $C --profile migrar run --rm migrar-$s
 done
 $C --profile migrar run --rm -e ADMIN_INICIAL=NOMBRE_NO_ADIVINABLE migrar-auth npm run seed -w @cap/auth
+$C --profile migrar run --rm migrar-usuarios npm run seed -w @cap/usuarios
 $C up -d
 $C ps                                     # los 8 "healthy"
 ```
 
-El seed imprime la contraseña **una sola vez**; la cuenta nace obligada a cambiarla y, por ser
-Administrador, a configurar MFA. No usar `admin` como nombre: es el que probaría cualquiera.
+El seed de `auth` imprime la contraseña **una sola vez**; la cuenta nace obligada a cambiarla y, por
+ser Administrador, a configurar MFA. No usar `admin` como nombre: es el que probaría cualquiera.
+
+**El seed de `usuarios` no es opcional.** Siembra los datos de referencia del CAP en siete pasos:
+las comunidades, los lugares poblados y los catálogos de las cuatro fichas (signos de peligro,
+antecedentes, diagnósticos, temas de consejería, vacunas y micronutrientes). Sin ellos el sistema
+arranca y se ve entero, pero **no se puede registrar a nadie** —el campo de comunidad sale vacío— ni
+llenar una ficha clínica, porque no hay nada que elegir.
+
+Esto se olvidó la primera vez y no dio ningún error: se sembró la cuenta de administrador, los ocho
+contenedores quedaron «healthy» y el fallo solo apareció al intentar registrar un paciente. Se puede
+repetir cuantas veces haga falta: todo es `upsert`, lo que ya está se actualiza y lo que el CAP
+retiró se desactiva en vez de borrarse.
+
+No confundir con `npm run carga`, que son **pacientes de prueba** y no se corre contra producción.
 
 En este punto `https://sicapguate.com` ya responde, con un certificado **autofirmado** (el navegador
 avisa). El paso siguiente lo arregla.
