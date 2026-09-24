@@ -37,5 +37,5 @@ abstract final class DatosCap {
   static const bool cifrasPresionVerificadas = false;
 
   /// Atención de emergencias. Este sí viene confirmado en el documento.
-  static const String horarioEmergencias = '24 horas, todos los días';
+  static const String horarioEmergencias = '24 horas';
 }

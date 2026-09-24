@@ -46,7 +46,7 @@ const ejeNinez = Eje(
         id: 'ninez-tipos',
         titulo: 'Los dos tipos de desnutrición',
         resumen:
-            'La crónica (no crece lo que debería) y la aguda (baja de peso rápido).',
+            'Diferencia entre desnutrición crónica (retraso en la talla) y aguda (pérdida rápida de peso).',
         icono: Icons.height_rounded,
         bloques: [
           Subtitulo('Desnutrición crónica: el niño no crece lo que debería'),
@@ -67,7 +67,7 @@ const ejeNinez = Eje(
         id: 'ninez-mil-dias',
         titulo: 'La ventana de los mil días',
         resumen:
-            'Del embarazo a los dos años: la oportunidad más importante para prevenir la desnutrición.',
+            'Qué son los primeros 1,000 días y por qué son la oportunidad más importante para prevenir la desnutrición.',
         icono: Icons.hourglass_bottom_rounded,
         bloques: [
           Parrafo(
@@ -101,7 +101,7 @@ const ejeNinez = Eje(
       ),
       Leccion(
         id: 'ninez-lactancia',
-        titulo: 'Lactancia: los primeros seis meses',
+        titulo: 'Lactancia materna: los primeros seis meses',
         resumen: 'Por qué solo leche materna hasta los seis meses y cómo lograrlo.',
         icono: Icons.volunteer_activism_outlined,
         bloques: [
@@ -130,8 +130,8 @@ const ejeNinez = Eje(
       ),
       Leccion(
         id: 'ninez-comida',
-        titulo: 'De los 6 meses a los 2 años',
-        resumen: 'La comida que acompaña al pecho, por edades.',
+        titulo: 'De los 6 meses a los 2 años: la comida que acompaña al pecho',
+        resumen: 'Cómo introducir alimentos a partir de los seis meses.',
         icono: Icons.soup_kitchen_outlined,
         bloques: [
           Parrafo(
@@ -208,7 +208,7 @@ const ejeNinez = Eje(
         id: 'ninez-deteccion',
         titulo: 'Cómo se detecta la desnutrición aguda',
         resumen:
-            'La cinta de colores, el peso y la talla, y la prueba del pie.',
+            'Qué es la cinta MUAC, qué significan sus colores y cómo se revisa el edema. Información para que la familia entienda el procedimiento.',
         icono: Icons.straighten_rounded,
         bloques: [
           Parrafo(
@@ -231,14 +231,14 @@ const ejeNinez = Eje(
           Parrafo(
               'El personal presiona con los dedos la parte de arriba de los dos pies del niño durante unos segundos. Si al quitar los dedos queda un hoyito hundido, hay edema.'),
           Aviso(Tono.alarma,
-              'El edema en los dos pies es señal de **desnutrición aguda severa**, aunque el niño se vea "gordito". Un niño hinchado puede estar gravemente desnutrido.'),
+              'El edema en los dos pies es señal de **desnutrición aguda severa**, aunque el niño se vea "gordito". Esto confunde a muchas familias: un niño hinchado puede estar gravemente desnutrido.'),
           Aviso(Tono.info,
               'Estas mediciones las hace personal capacitado. Esta app le explica qué le van a hacer a su niño y por qué, no le enseña a diagnosticarlo usted.'),
         ],
       ),
       Leccion(
         id: 'ninez-alarma',
-        titulo: 'Señales de alarma en la niñez',
+        titulo: 'Señales de alarma: niñez',
         resumen: 'Cuándo llevar a un niño al CAP sin esperar.',
         icono: Icons.warning_amber_rounded,
         esAlarma: true,

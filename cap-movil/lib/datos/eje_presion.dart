@@ -29,7 +29,7 @@ const ejePresion = Eje(
           Parrafo(
               'La hipertensión es el principal factor de riesgo de muerte en el país según la guía del MSPAS. Las cifras de prevalencia varían entre fuentes: la OPS reportó 21.2% de personas de 18 años o más con presión elevada en 2015, mientras que el MSPAS ha advertido públicamente de un incremento sostenido desde 2022, sobre todo en mayores de 40 años.'),
           Cifra('30%',
-              'de las muertes del país en 2022 fueron por enfermedades cardiovasculares.'),
+              'de las muertes del país en 2022, aproximadamente, fueron por enfermedades cardiovasculares.'),
         ]
       : [],
   secciones: [
@@ -38,7 +38,7 @@ const ejePresion = Eje(
         id: 'presion-que-es',
         titulo: '¿Qué es la presión alta?',
         resumen:
-            'Cuando la sangre empuja con demasiada fuerza. Casi nunca duele, por eso hay que medirla.',
+            'La presión alta es cuando la sangre empuja con demasiada fuerza dentro de las venas. Casi nunca duele, por eso hay que medirla.',
         icono: Icons.water_drop_outlined,
         bloques: [
           Parrafo(
@@ -56,7 +56,8 @@ const ejePresion = Eje(
       Leccion(
         id: 'presion-numeros',
         titulo: '¿Qué significan los números?',
-        resumen: 'Los dos números de la presión y cuándo se considera alta.',
+        resumen:
+            'Los dos números de la presión y qué quieren decir. Cuándo se considera alta.',
         icono: Icons.speed_rounded,
         bloques: [
           Parrafo(
@@ -80,7 +81,8 @@ const ejePresion = Eje(
       Leccion(
         id: 'presion-riesgo',
         titulo: '¿Quiénes tienen más riesgo?',
-        resumen: 'Lo que aumenta la probabilidad de tener presión alta.',
+        resumen:
+            'Factores que aumentan la probabilidad de tener presión alta. Cuáles se pueden cambiar y cuáles no.',
         icono: Icons.groups_outlined,
         bloques: [
           Parrafo('Hay cosas que aumentan el riesgo y no se pueden cambiar:'),
@@ -95,7 +97,8 @@ const ejePresion = Eje(
       Leccion(
         id: 'presion-prevenir',
         titulo: 'Cómo prevenir la presión alta',
-        resumen: 'Seis medidas sencillas, según las recomendaciones del MSPAS.',
+        resumen:
+            'Seis medidas sencillas para prevenir la hipertensión, según las recomendaciones del MSPAS.',
         icono: Icons.directions_walk_rounded,
         bloques: [
           Lista([
@@ -110,7 +113,7 @@ const ejePresion = Eje(
       ),
       Leccion(
         id: 'presion-alimentacion',
-        titulo: 'Alimentación para la presión alta',
+        titulo: 'Alimentación para personas con presión alta',
         resumen: 'Qué comer y qué evitar cuando se tiene hipertensión.',
         icono: Icons.restaurant_rounded,
         bloques: [
@@ -172,7 +175,7 @@ const ejePresion = Eje(
       ),
       Leccion(
         id: 'presion-tratamiento',
-        titulo: 'Vivir con presión alta',
+        titulo: 'Vivir con presión alta: el tratamiento',
         resumen:
             'Por qué no se deben suspender las pastillas y cómo llevar el control en el CAP.',
         icono: Icons.medication_outlined,
@@ -195,7 +198,7 @@ const ejePresion = Eje(
       ),
       Leccion(
         id: 'presion-alarma',
-        titulo: 'Señales de alarma',
+        titulo: 'Señales de alarma: presión alta',
         resumen:
             'Cuándo una persona con presión alta debe buscar atención inmediata.',
         icono: Icons.warning_amber_rounded,

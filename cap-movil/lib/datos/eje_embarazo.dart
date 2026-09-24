@@ -52,10 +52,10 @@ const ejeEmbarazo = Eje(
   porQueImporta: [
     Parrafo(
         'Guatemala tiene una **Ley para la Maternidad Saludable** (Decreto 32-2010) que obliga al Estado a garantizar atención prenatal gratuita, con énfasis en la cantidad de controles, la vigilancia nutricional de la mujer y la identificación de signos de peligro.'),
-    Cifra('1 de cada 4',
-        'mujeres no llega al mínimo de cuatro controles prenatales recomendados. El problema es mayor en el área rural.'),
     Parrafo(
-        'Hasta julio de 2026 el OSAR registró **1,294 embarazos en niñas de 10 a 14 años** en el país, con Alta Verapaz en segundo lugar (185 casos), solo detrás de Huehuetenango. Durante 2025 hubo 2,101 nacimientos de niñas de 10 a 14 años y 54,788 partos de adolescentes de 15 a 19 años.'),
+        'Aun así, cerca de **1 de cada 4 mujeres** no llega al mínimo de cuatro controles prenatales recomendados, y el problema es mayor en el área rural.'),
+    Parrafo(
+        'Sobre embarazo en niñas y adolescentes, los datos son duros y recientes. Hasta julio de 2026 el OSAR registró **1,294 embarazos en niñas de 10 a 14 años** en el país, con Alta Verapaz en segundo lugar (185 casos), solo detrás de Huehuetenango. Durante 2025 hubo 2,101 nacimientos de niñas de 10 a 14 años y 54,788 partos de adolescentes de 15 a 19 años.'),
     Aviso(Tono.cuidado,
         'Las niñas menores de 15 años tienen **14 veces más probabilidad** de morir durante el embarazo o el parto, y sus bebés tienen más riesgo de desnutrición crónica y muerte.'),
   ],
@@ -84,7 +84,7 @@ const ejeEmbarazo = Eje(
       ),
       Leccion(
         id: 'emb-control',
-        titulo: 'El control prenatal',
+        titulo: 'El control prenatal: cuántas veces y para qué',
         resumen: 'Cuántas veces ir y qué le hacen en cada visita.',
         icono: Icons.event_available_outlined,
         bloques: [
@@ -123,9 +123,9 @@ const ejeEmbarazo = Eje(
       ),
       Leccion(
         id: 'emb-alimentacion',
-        titulo: 'Alimentación en el embarazo',
+        titulo: 'Alimentación durante el embarazo',
         resumen:
-            'Qué comer con alimentos de la región, y por qué importan el hierro y el ácido fólico.',
+            'Qué comer durante el embarazo con alimentos de la región, y por qué el hierro y el ácido fólico importan.',
         icono: Icons.restaurant_rounded,
         bloques: [
           Parrafo(
@@ -162,7 +162,7 @@ const ejeEmbarazo = Eje(
       Leccion(
         id: 'emb-cuidados',
         titulo: 'Cuidados durante el embarazo',
-        resumen: 'Descanso, trabajo, higiene, sueño y ánimo.',
+        resumen: 'Descanso, trabajo, higiene, sueño y ánimo durante el embarazo.',
         icono: Icons.spa_outlined,
         bloques: [
           Lista([
@@ -183,7 +183,7 @@ const ejeEmbarazo = Eje(
       Leccion(
         id: 'emb-alarma',
         titulo: 'Señales de peligro en el embarazo',
-        resumen: 'Cuándo una embarazada debe buscar atención inmediata.',
+        resumen: 'Señales por las que una embarazada debe buscar atención inmediata.',
         icono: Icons.warning_amber_rounded,
         esAlarma: true,
         bloques: [
@@ -191,7 +191,7 @@ const ejeEmbarazo = Eje(
               'Vaya **de inmediato** al CAP o al hospital si presenta cualquiera de estas señales, a cualquier hora del día o de la noche:'),
           Senales(senalesEmbarazo),
           Aviso(Tono.alarma,
-              '**Dolor de cabeza fuerte + ver borroso + hinchazón de cara y manos.** Pueden ser señal de presión alta del embarazo, una de las principales causas de muerte materna. No espere.',
+              '**Dolor de cabeza fuerte + ver borroso + hinchazón de cara y manos.** Pueden ser señal de presión alta del embarazo, que es una de las principales causas de muerte materna. No espere.',
               titulo: 'Las tres más peligrosas juntas'),
           Aviso(Tono.consejo,
               'Tenga listo desde ahora: cómo va a llegar al servicio de salud, quién la lleva, quién cuida a los demás niños, y su carné de embarazada a la mano.'),
@@ -202,7 +202,7 @@ const ejeEmbarazo = Eje(
       Leccion(
         id: 'emb-parto',
         titulo: 'El parto y el plan de parto',
-        resumen: 'Cómo prepararse y qué decidir antes.',
+        resumen: 'Cómo prepararse para el parto y qué decisiones tomar antes.',
         icono: Icons.checklist_rounded,
         bloques: [
           Parrafo(
@@ -229,9 +229,9 @@ const ejeEmbarazo = Eje(
       ),
       Leccion(
         id: 'emb-posparto',
-        titulo: 'Después del parto',
+        titulo: 'Después del parto: usted y su bebé',
         resumen:
-            'Cuidados de usted y de su bebé, y señales de peligro en los primeros días.',
+            'Cuidados del puerperio, señales de peligro después del parto y el control posparto.',
         icono: Icons.child_friendly_outlined,
         bloques: [
           Parrafo(
@@ -240,7 +240,7 @@ const ejeEmbarazo = Eje(
               'Debe recibir atención dentro de las **primeras 24 a 48 horas** después del parto, y luego según le indiquen. Si el parto fue en casa, personal calificado debe visitarla en ese plazo.',
               titulo: 'Control posparto'),
           Senales(senalesPosparto,
-              titulo: 'Señales de peligro en la madre — busque atención de inmediato'),
+              titulo: 'Señales de peligro en la madre después del parto — busque atención de inmediato'),
           Senales(senalesRecienNacido,
               titulo: 'Señales de peligro en el recién nacido'),
           Aviso(Tono.consejo,
@@ -250,7 +250,7 @@ const ejeEmbarazo = Eje(
       ),
       Leccion(
         id: 'emb-espacios',
-        titulo: 'Espacio entre embarazos',
+        titulo: 'Espacios después del embarazo',
         resumen:
             'Por qué esperar entre un embarazo y otro protege a la madre y a los hijos.',
         icono: Icons.date_range_outlined,
@@ -276,7 +276,8 @@ const ejeEmbarazo = Eje(
       Leccion(
         id: 'pf-ley',
         titulo: 'Qué es y qué dice la ley',
-        resumen: 'Su derecho a la planificación familiar, gratis en el sistema público.',
+        resumen:
+            'Derecho a los servicios de planificación familiar en Guatemala y gratuidad en el sistema público.',
         icono: Icons.gavel_rounded,
         bloques: [
           Parrafo(
@@ -298,8 +299,9 @@ const ejeEmbarazo = Eje(
       ),
       Leccion(
         id: 'pf-metodos',
-        titulo: 'Los métodos del MSPAS',
-        resumen: 'Cómo funciona cada método y para quién es más apropiado.',
+        titulo: 'Los métodos disponibles en el MSPAS',
+        resumen:
+            'Lista de los métodos que entrega el sistema público, cómo funcionan y para quién son más apropiados.',
         icono: Icons.grid_view_rounded,
         bloques: [
           Parrafo(
@@ -360,7 +362,7 @@ const ejeEmbarazo = Eje(
       ),
       Leccion(
         id: 'pf-emergencia',
-        titulo: 'La píldora de emergencia',
+        titulo: 'La píldora de emergencia (PAE)',
         resumen: 'Qué es la anticoncepción de emergencia, cuándo se usa y qué no es.',
         icono: Icons.medication_liquid_outlined,
         bloques: [
@@ -381,7 +383,8 @@ const ejeEmbarazo = Eje(
       Leccion(
         id: 'pf-its',
         titulo: 'Infecciones de transmisión sexual y VIH',
-        resumen: 'Cómo prevenirlas y por qué hacerse la prueba en el embarazo.',
+        resumen:
+            'Prevención básica de ITS, importancia del condón y de la prueba en el embarazo.',
         icono: Icons.shield_outlined,
         bloques: [
           Parrafo(
@@ -412,7 +415,7 @@ const ejeEmbarazo = Eje(
         id: 'ado-magnitud',
         titulo: 'Por qué importa la edad',
         resumen:
-            'El embarazo adolescente en Guatemala y en las Verapaces, y sus riesgos reales.',
+            'La magnitud del embarazo adolescente en Guatemala y en Alta y Baja Verapaz, y sus riesgos reales.',
         icono: Icons.insights_rounded,
         bloques: [
           Parrafo(
@@ -435,9 +438,9 @@ const ejeEmbarazo = Eje(
       ),
       Leccion(
         id: 'ado-ley',
-        titulo: 'Lo que dice la ley',
+        titulo: 'Lo que dice la ley en Guatemala',
         resumen:
-            'Toda relación sexual con una menor de 14 años es violación. Dónde denunciar.',
+            'En Guatemala, toda relación sexual con una menor de 14 años es violación. Ruta de denuncia.',
         icono: Icons.balance_rounded,
         bloques: [
           Parrafo(
@@ -470,7 +473,8 @@ const ejeEmbarazo = Eje(
       Leccion(
         id: 'ado-decidir',
         titulo: 'Para adolescentes: decidir con información',
-        resumen: 'Sus derechos en el servicio de salud y cómo prevenir un embarazo.',
+        resumen:
+            'Derechos de la persona adolescente en los servicios de salud y cómo prevenir un embarazo.',
         icono: Icons.lightbulb_outline_rounded,
         bloques: [
           Parrafo(
