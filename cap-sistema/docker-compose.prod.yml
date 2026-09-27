@@ -190,6 +190,17 @@ services:
     image: cap/usuarios-migrador
     env_file: [secretos/comun.env, secretos/usuarios.env, secretos/migrador.env]
     environment: { NODE_ENV: production, SERVICIO: usuarios }
+    # Despues de migrar siembra los datos de referencia del CAP (comunidades,
+    # lugares poblados, catalogos de las fichas). Va aqui y no como paso aparte
+    # porque como paso aparte se olvido dos veces: al desplegar y al actualizar,
+    # y la nube quedo sin comunidades. Es idempotente (todo upsert), asi que
+    # correrlo en cada actualizacion no duplica nada. El seed usa DATABASE_URL
+    # (el rol de la app), no el rol dueno.
+    command: >
+      sh -c 'export DIRECT_URL="$$DIRECT_URL_USUARIOS"
+      && test -n "$$DIRECT_URL"
+      && npx prisma migrate deploy --schema services/usuarios/prisma/schema.prisma
+      && npm run seed -w @cap/usuarios'
 
   migrar-programas:
     <<: *migrador
