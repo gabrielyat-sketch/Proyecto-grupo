@@ -229,7 +229,11 @@ export class PacientesService {
         select: { id: true },
       })
     ) {
-      throw new ConflictException('Ya existe un expediente con ese numero.');
+      throw new ConflictException(
+        'Ya existe un expediente con el numero ' + numero + '. ' +
+          'Si esta transcribiendo una carpeta de papel, revise el numero; ' +
+          'si el paciente es nuevo, deje la casilla vacia y el sistema le asigna uno.',
+      );
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -252,6 +256,27 @@ export class PacientesService {
               _max: { numero: true },
             })
           )._max.numero ?? 0) + 1;
+
+        /*
+          El numero podria estar ocupado, y eso NO es un error interno.
+
+          Antes se iba directo al `create` y la restriccion de la base saltaba
+          como P2002, que el filtro traduce a un 500 con «Ocurrio un error
+          inesperado». A quien registra le sale un error tecnico donde lo que
+          pasa es concreto y tiene arreglo: ese numero de folder ya lo tiene
+          otra familia, hay que poner otro. Lo comprueba el mismo `grupos`
+          cuando se abre una carpeta suelta; faltaba aqui.
+        */
+        const ocupada = await tx.grupoFamiliar.findUnique({
+          where: { serieId_numero: { serieId, numero } },
+          select: { apellidos: true },
+        });
+        if (ocupada) {
+          throw new ConflictException(
+            'El numero ' + numero + ' ya lo tiene la carpeta de la familia ' +
+              ocupada.apellidos + '. Escriba otro numero de folder.',
+          );
+        }
 
         const carpeta = await tx.grupoFamiliar.create({
           data: {

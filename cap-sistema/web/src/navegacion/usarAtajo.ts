@@ -17,6 +17,11 @@ export function usarAtajo(
 
   useEffect(() => {
     function alPulsar(e: KeyboardEvent) {
+      // `key` puede venir sin definir: lo hacen los gestores de contrasenas y
+      // algunas extensiones, que despachan eventos de teclado sinteticos. Sin
+      // esta guarda, `toLowerCase()` reventaba y llenaba la consola de errores
+      // en cada uno de esos eventos —ruido que tapa los fallos de verdad.
+      if (typeof e.key !== 'string') return;
       if (e.key.toLowerCase() !== tecla.toLowerCase()) return;
       // metaKey para que tambien funcione en Mac, donde se usa Cmd.
       if (opciones.control && !(e.ctrlKey || e.metaKey)) return;
