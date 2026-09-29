@@ -6,7 +6,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  CLIENTE_AUDITORIA,
+  type ContextoAuditoria,
   crearPagina,
+  type IClienteAuditoria,
   normalizarPagina,
   Pagina,
   palabrasDeBusqueda,
@@ -54,6 +57,7 @@ export class PacientesService {
     private readonly prisma: PrismaService,
     private readonly outbox: OutboxService,
     @Inject(SERVICIO_CIFRADO) private readonly cifrado: ServicioCifrado,
+    @Inject(CLIENTE_AUDITORIA) private readonly auditoria: IClienteAuditoria,
   ) {}
 
   /**
@@ -343,13 +347,36 @@ export class PacientesService {
     });
   }
 
-  async actualizar(id: string, dto: ActualizarPacienteDto) {
+  /**
+   * Corregir los datos de un paciente.
+   *
+   * **Queda en la bitacora, con el antes y el despues.** Corregir el nombre de
+   * una persona en su expediente no es lo mismo que corregir un dato de
+   * inventario: si manana el nombre no coincide con el del DPI, la unica forma
+   * de saber quien lo cambio y que decia antes es que este escrito. Por eso la
+   * auditoria de MODIFICACION es obligatoria —si trazabilidad no responde, el
+   * cambio NO se guarda— y no una anotacion de cortesia.
+   *
+   * Lo que NO se deja cambiar aqui: DPI, fecha de nacimiento y sexo. Un error
+   * en esos tres no es una correccion de tecleo, es otra persona; se resuelve
+   * dando de baja el registro equivocado, no editandolo encima.
+   */
+  async actualizar(id: string, dto: ActualizarPacienteDto, contexto: ContextoAuditoria) {
     // Se traen los nombres actuales, no solo el id: si cambia uno solo de los
     // dos campos, el texto de busqueda debe recalcularse con AMBOS valores
     // finales. Recalcularlo con la mitad dejaria al paciente inencontrable.
     const actual = await this.prisma.paciente.findUnique({
       where: { id },
-      select: { id: true, nombres: true, apellidos: true },
+      select: {
+        id: true,
+        nombres: true,
+        apellidos: true,
+        idioma: true,
+        comunidadId: true,
+        grupoFamiliarId: true,
+        telefono: true,
+        fallecido: true,
+      },
     });
     if (!actual) {
       throw new NotFoundException('No existe ese paciente.');
@@ -379,7 +406,137 @@ export class PacientesService {
       },
     });
 
+    // Solo los campos que de verdad cambiaron: guardar el registro entero
+    // llenaria la bitacora de ruido y escondería el cambio que importa.
+    const cambios: Record<string, { antes: unknown; despues: unknown }> = {};
+    for (const campo of [
+      'nombres',
+      'apellidos',
+      'idioma',
+      'comunidadId',
+      'grupoFamiliarId',
+      'telefono',
+      'fallecido',
+    ] as const) {
+      const nuevo = dto[campo];
+      if (nuevo !== undefined && nuevo !== actual[campo]) {
+        cambios[campo] = { antes: actual[campo], despues: nuevo };
+      }
+    }
+
+    await this.auditoria.registrar(
+      {
+        servicio: 'usuarios',
+        accion: 'MODIFICACION',
+        entidad: 'paciente',
+        entidadId: id,
+        valorAnterior: JSON.stringify(
+          Object.fromEntries(Object.entries(cambios).map(([k, v]) => [k, v.antes])),
+        ),
+        valorNuevo: JSON.stringify(
+          Object.fromEntries(Object.entries(cambios).map(([k, v]) => [k, v.despues])),
+        ),
+      },
+      contexto.autorizacion,
+      contexto.trazaId,
+    );
+
     return this.obtener(id);
+  }
+
+  /**
+   * Dar de baja a un paciente registrado por error.
+   *
+   * **Solo si no tiene nada clinico encima.** Un paciente al que ya se
+   * atendio, se vacuno o se le abrio una ficha NO se borra: eso es un
+   * expediente medico, y un expediente medico no se tira aunque el nombre
+   * este mal escrito. Para ese caso existe `actualizar`, o marcarlo como
+   * fallecido. Lo que esta funcion resuelve es lo otro: el registro duplicado
+   * o el que se creo con los datos de la persona equivocada y todavia no
+   * tiene nada dentro.
+   *
+   * El servidor lo comprueba, no la pantalla. La pantalla puede esconder el
+   * boton; solo el servidor puede impedir que la peticion llegue a la base.
+   *
+   * **Queda en la bitacora antes de borrar nada.** La auditoria de ELIMINACION
+   * es de las que no se pueden saltar: si trazabilidad no responde, el borrado
+   * no ocurre. Un borrado sin rastro es exactamente lo que la bitacora existe
+   * para impedir.
+   */
+  async eliminar(id: string, contexto: ContextoAuditoria) {
+    const paciente = await this.prisma.paciente.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        nombres: true,
+        apellidos: true,
+        fechaNacimiento: true,
+        comunidadId: true,
+        expediente: { select: { id: true, _count: { select: { atenciones: true } } } },
+        _count: {
+          select: {
+            visitas: true,
+            vacunas: true,
+            micronutrientes: true,
+            antecedentes: true,
+          },
+        },
+      },
+    });
+    if (!paciente) {
+      throw new NotFoundException('No existe ese paciente.');
+    }
+
+    const atenciones = paciente.expediente?._count.atenciones ?? 0;
+    const rastro = [
+      ['atenciones', atenciones],
+      ['visitas', paciente._count.visitas],
+      ['vacunas', paciente._count.vacunas],
+      ['entregas de micronutrientes', paciente._count.micronutrientes],
+      ['antecedentes', paciente._count.antecedentes],
+    ].filter(([, n]) => (n as number) > 0);
+
+    if (rastro.length > 0) {
+      const detalle = rastro.map(([que, n]) => `${n} ${que}`).join(', ');
+      throw new ConflictException(
+        `Este paciente ya tiene historial clinico (${detalle}) y no se puede borrar. ` +
+          'Si los datos estan mal, corrijalos; si la persona fallecio, marquela como fallecida.',
+      );
+    }
+
+    await this.auditoria.registrar(
+      {
+        servicio: 'usuarios',
+        accion: 'ELIMINACION',
+        entidad: 'paciente',
+        entidadId: id,
+        valorAnterior: JSON.stringify({
+          nombres: paciente.nombres,
+          apellidos: paciente.apellidos,
+          fechaNacimiento: paciente.fechaNacimiento.toISOString().slice(0, 10),
+          comunidadId: paciente.comunidadId,
+          // El numero de expediente va cifrado en la base; el id basta para
+          // rastrearlo y no obliga a descifrar solo para auditar.
+          expedienteId: paciente.expediente?.id ?? null,
+        }),
+      },
+      contexto.autorizacion,
+      contexto.trazaId,
+    );
+
+    // El expediente y su registro de digitalizacion van primero: cuelgan del
+    // paciente y la base no deja dejar huerfanos.
+    await this.prisma.$transaction(async (tx) => {
+      if (paciente.expediente) {
+        await tx.registroDigitalizacion.deleteMany({
+          where: { expedienteId: paciente.expediente.id },
+        });
+        await tx.expediente.delete({ where: { id: paciente.expediente.id } });
+      }
+      await tx.paciente.delete({ where: { id } });
+    });
+
+    return { id, borrado: true };
   }
 
   /**

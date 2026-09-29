@@ -71,6 +71,55 @@ function FranjaLateral() {
 }
 
 /**
+ * El credito de la universidad, al pie.
+ *
+ * Va abajo y no junto al logo del CAP porque esta pantalla es del centro de
+ * salud, no de la universidad: quien entra cada manana viene a trabajar, no a
+ * leer de quien es el proyecto. Al pie se ve sin disputarle el sitio a nada.
+ *
+ * **El logo se cae solo si falta el archivo.** Si `logo-umg.png` no esta en
+ * `public/`, el `onError` oculta la imagen y queda el nombre escrito, que es lo
+ * que de verdad acredita. Sin esto saldria el icono de imagen rota, que se ve
+ * peor que no poner nada.
+ */
+function CreditoUniversidad() {
+  const [sinLogo, setSinLogo] = useState(false);
+
+  return (
+    <Stack
+      direction="row"
+      spacing={1}
+      sx={{
+        alignItems: 'center',
+        justifyContent: 'center',
+        pt: 1.25,
+        mt: 1,
+        borderTop: '1px solid',
+        borderColor: 'divider',
+      }}
+    >
+      {!sinLogo ? (
+        <Box
+          component="img"
+          src="/logo-umg.png"
+          alt=""
+          aria-hidden
+          onError={() => setSinLogo(true)}
+          sx={{ height: 26, width: 'auto', opacity: 0.85, flexShrink: 0 }}
+        />
+      ) : null}
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{ lineHeight: 1.25, textAlign: 'center' }}
+      >
+        Universidad Mariano Galvez
+      </Typography>
+    </Stack>
+  );
+}
+
+/**
  * Marco de las pantallas previas a la sesion.
  *
  * Centrado y sin menu: antes de entrar no hay nada mas que hacer en esta
@@ -203,6 +252,8 @@ export function MarcoAcceso({
               restablezca. Nunca comparta su contrasena con otra persona.
             </Typography>
           </Collapse>
+
+          <CreditoUniversidad />
         </Box>
       </Paper>
     </Box>

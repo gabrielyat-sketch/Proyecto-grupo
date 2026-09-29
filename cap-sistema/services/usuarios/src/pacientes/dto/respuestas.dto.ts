@@ -155,3 +155,12 @@ export class PacienteCreadoDto {
   @ApiProperty({ format: 'uuid' })
   expedienteId!: string;
 }
+
+/** Lo que devuelve el borrado: basta con confirmar cual se fue. */
+export class PacienteBorradoDto {
+  @ApiProperty({ description: 'Id del paciente que se borro.' })
+  id!: string;
+
+  @ApiProperty({ description: 'Siempre true; el fallo viaja como error HTTP.' })
+  borrado!: boolean;
+}

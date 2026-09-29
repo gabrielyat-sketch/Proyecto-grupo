@@ -15,7 +15,7 @@ type Paso =
 const TEXTOS: Record<Paso['nombre'], { titulo: string; descripcion: string }> = {
   credenciales: {
     titulo: 'Iniciar sesion',
-    descripcion: 'Ingrese con la cuenta que le entrego el administrador del CAP.',
+    descripcion: 'Ingrese sus credenciales.',
   },
   codigo: {
     titulo: 'Verificacion en dos pasos',

@@ -1,11 +1,16 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ApiPaginaDe, type Pagina, Rol, Roles, Usuario } from '@cap/shared';
+import { ApiPaginaDe, type ContextoAuditoria, type Pagina, Rol, Roles, Usuario } from '@cap/shared';
 import { PacientesService } from './pacientes.service';
 import { CrearPacienteDto } from './dto/crear-paciente.dto';
 import { BuscarPacientesDto } from './dto/buscar-pacientes.dto';
 import { ActualizarPacienteDto } from './dto/actualizar-paciente.dto';
-import { PacienteCreadoDto, PacienteDto, PacienteResumenDto } from './dto/respuestas.dto';
+import {
+  PacienteBorradoDto,
+  PacienteCreadoDto,
+  PacienteDto,
+  PacienteResumenDto,
+} from './dto/respuestas.dto';
 
 /**
  * Acceso por rol.
@@ -80,7 +85,35 @@ export class PacientesController {
   @Roles(Rol.RECEPCION, Rol.ADMINISTRADOR)
   @ApiOperation({ summary: 'Corrige datos del paciente' })
   @ApiOkResponse({ type: PacienteDto })
-  actualizar(@Param('id') id: string, @Body() dto: ActualizarPacienteDto): Promise<PacienteDto> {
-    return this.servicio.actualizar(id, dto);
+  actualizar(
+    @Param('id') id: string,
+    @Body() dto: ActualizarPacienteDto,
+    @Req() req: { headers: Record<string, string>; trazaId?: string },
+  ): Promise<PacienteDto> {
+    return this.servicio.actualizar(id, dto, contextoDe(req));
   }
+
+  /**
+   * Dar de baja un registro creado por error.
+   *
+   * **Solo Administracion.** Recepcion puede corregir lo que teclea mal, que
+   * es su trabajo; borrar a alguien del padron no lo es. Y el servicio, ademas
+   * del rol, exige que el paciente no tenga nada clinico encima: un expediente
+   * con atenciones no se borra aunque lo pida un administrador.
+   */
+  @Delete(':id')
+  @Roles(Rol.ADMINISTRADOR)
+  @ApiOperation({ summary: 'Borra un paciente sin historial clinico' })
+  @ApiOkResponse({ type: PacienteBorradoDto })
+  eliminar(
+    @Param('id') id: string,
+    @Req() req: { headers: Record<string, string>; trazaId?: string },
+  ): Promise<PacienteBorradoDto> {
+    return this.servicio.eliminar(id, contextoDe(req));
+  }
+}
+
+/** Lo que la auditoria necesita de la peticion: el token de quien pide y la traza. */
+function contextoDe(req: { headers: Record<string, string>; trazaId?: string }): ContextoAuditoria {
+  return { autorizacion: req.headers.authorization ?? '', trazaId: req.trazaId };
 }

@@ -419,6 +419,54 @@ paths:
       security: *a4
       summary: Corrige datos del paciente
       tags: *a5
+    delete:
+      operationId: PacientesController_eliminar
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PacienteBorradoDto"
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security: *a4
+      summary: Borra un paciente sin historial clinico
+      tags: *a5
   /v1/grupos-familiares:
     get:
       operationId: GruposController_listar
@@ -2189,6 +2237,18 @@ components:
           type: string
         fallecido:
           type: boolean
+    PacienteBorradoDto:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Id del paciente que se borro.
+        borrado:
+          type: boolean
+          description: Siempre true; el fallo viaja como error HTTP.
+      required:
+        - id
+        - borrado
     GrupoFamiliarResumenDto:
       type: object
       properties:
