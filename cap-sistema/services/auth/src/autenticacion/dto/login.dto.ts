@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString, Length } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional, IsString, Length } from 'class-validator';
 
 export class LoginDto {
   @ApiProperty({ example: 'jperez' })
@@ -11,4 +11,17 @@ export class LoginDto {
   @IsString()
   @Length(1, 200)
   contrasena!: string;
+
+  /**
+   * Token del equipo, si este ya demostro el segundo factor antes.
+   *
+   * No es una credencial: sin usuario y contrasena correctos no abre nada.
+   * Lo unico que evita es que se vuelva a pedir el codigo en el mismo equipo
+   * durante 30 dias.
+   */
+  @ApiPropertyOptional({ description: 'Token de equipo recordado, si lo hay' })
+  @IsOptional()
+  @IsString()
+  @Length(10, 200)
+  tokenDispositivo?: string;
 }

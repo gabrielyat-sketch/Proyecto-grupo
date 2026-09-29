@@ -1,4 +1,14 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Req,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiConflictResponse,
@@ -12,6 +22,7 @@ import {
 import { Publico, Usuario, UsuarioAutenticado } from '@cap/shared';
 import { AutenticacionService } from './autenticacion.service';
 import { MfaService } from '../mfa/mfa.service';
+import { DispositivosService } from '../mfa/dispositivos.service';
 import { LoginDto } from './dto/login.dto';
 import { VerificarMfaDto } from './dto/verificar-mfa.dto';
 import { ActivarMfaDto } from './dto/activar-mfa.dto';
@@ -21,6 +32,7 @@ import { ConfigurarMfaInicialDto } from './dto/configurar-mfa-inicial.dto';
 import {
   ConfiguracionMfaDto,
   MfaRequeridoDto,
+  DispositivoDto,
   PerfilPropioDto,
   RefrescoDto,
   SesionAbiertaDto,
@@ -37,6 +49,7 @@ export class AutenticacionController {
   constructor(
     private readonly servicio: AutenticacionService,
     private readonly mfa: MfaService,
+    private readonly dispositivosServicio: DispositivosService,
   ) {}
 
   @Post('login')
@@ -71,7 +84,12 @@ export class AutenticacionController {
   @ApiOperation({ summary: 'Completa el login con el codigo de segundo factor' })
   @ApiOkResponse({ type: SesionAbiertaDto })
   verificarMfa(@Body() dto: VerificarMfaDto, @Req() req: never): Promise<SesionAbiertaDto> {
-    return this.servicio.verificarMfa(dto.tokenParcial, dto.codigo, datosDe(req));
+    return this.servicio.verificarMfa(
+      dto.tokenParcial,
+      dto.codigo,
+      datosDe(req),
+      dto.recordarEquipo ?? false,
+    );
   }
 
   @Post('refrescar')
@@ -126,6 +144,31 @@ export class AutenticacionController {
   })
   activarMfaInicial(@Body() dto: VerificarMfaDto, @Req() req: never): Promise<SesionAbiertaDto> {
     return this.servicio.activarMfaInicial(dto.tokenParcial, dto.codigo, datosDe(req));
+  }
+
+  /**
+   * Los equipos en los que ya no se pide el codigo.
+   *
+   * Cada quien ve y quita los SUYOS: el id del usuario sale del token, no de
+   * la ruta, asi que no hay forma de listar ni revocar los de otra persona.
+   */
+  @Get('dispositivos')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Equipos recordados de quien pregunta' })
+  @ApiOkResponse({ type: [DispositivoDto] })
+  dispositivos(@Usuario('id') id: string) {
+    return this.dispositivosServicio.listar(id);
+  }
+
+  @Delete('dispositivos/:id')
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Deja de confiar en un equipo' })
+  async olvidarDispositivo(
+    @Usuario('id') usuarioId: string,
+    @Param('id') id: string,
+  ): Promise<void> {
+    await this.dispositivosServicio.revocar(usuarioId, id);
   }
 
   @Get('yo')

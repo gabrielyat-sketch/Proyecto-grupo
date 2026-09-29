@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString, Length } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsBoolean, IsOptional, IsString, Length } from 'class-validator';
 
 export class VerificarMfaDto {
   @ApiProperty({ description: 'Token parcial devuelto por el login' })
@@ -10,4 +10,10 @@ export class VerificarMfaDto {
   @IsString()
   @Length(6, 20)
   codigo!: string;
+
+  /** Si se marca, no se vuelve a pedir el codigo en este equipo por 30 dias. */
+  @ApiPropertyOptional({ description: 'Recordar este equipo por 30 dias' })
+  @IsOptional()
+  @IsBoolean()
+  recordarEquipo?: boolean;
 }

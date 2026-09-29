@@ -13,6 +13,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { TokensService, DatosSesion } from '../tokens/tokens.service';
 import { IntentosService } from '../intentos/intentos.service';
 import { MfaService } from '../mfa/mfa.service';
+import { describirEquipo, DispositivosService } from '../mfa/dispositivos.service';
 import { LoginDto } from './dto/login.dto';
 import { CambiarContrasenaDto } from './dto/cambiar-contrasena.dto';
 import {
@@ -40,6 +41,7 @@ export class AutenticacionService {
     private readonly tokens: TokensService,
     private readonly intentos: IntentosService,
     private readonly mfa: MfaService,
+    private readonly dispositivos: DispositivosService,
   ) {}
 
   async login(dto: LoginDto, datos: DatosSesion): Promise<SesionAbiertaDto | MfaRequeridoDto> {
@@ -78,6 +80,21 @@ export class AutenticacionService {
     // lo configuraron, se les emite el token parcial igual, para que puedan
     // hacerlo: negarles el paso los dejaria sin forma de entrar nunca.
     if (mfaActivo || exigeMfa(rol)) {
+      /*
+       * El equipo ya demostro el segundo factor antes: no se vuelve a pedir.
+       *
+       * Solo aplica si el MFA ya esta configurado. Si esta pendiente, no hay
+       * nada que recordar todavia y hay que pasar por la configuracion.
+       *
+       * Esto NO debilita el segundo factor: para llegar aqui ya hubo usuario
+       * y contrasena correctos, y el token del equipo se emitio tras un
+       * codigo valido en ese mismo equipo. Quien robe la contrasena y entre
+       * desde otra computadora sigue topando con el codigo.
+       */
+      if (mfaActivo && (await this.dispositivos.esConfiable(usuario.id, dto.tokenDispositivo))) {
+        return this.emitirSesion(usuario, datos, true);
+      }
+
       return {
         mfaRequerido: true,
         configuracionPendiente: !mfaActivo,
@@ -92,6 +109,7 @@ export class AutenticacionService {
     tokenParcial: string,
     codigo: string,
     datos: DatosSesion,
+    recordarEquipo = false,
   ): Promise<SesionAbiertaDto> {
     const usuarioId = this.tokens.verificarParcialMfa(tokenParcial);
 
@@ -106,7 +124,20 @@ export class AutenticacionService {
     }
 
     await this.intentos.limpiar(usuario.usuario);
-    return this.emitirSesion(usuario, datos, true);
+
+    const sesion = await this.emitirSesion(usuario, datos, true);
+
+    // Se recuerda DESPUES de un codigo correcto: es justo eso lo que se esta
+    // recordando. El token viaja una sola vez, en esta respuesta.
+    if (recordarEquipo) {
+      sesion.tokenDispositivo = await this.dispositivos.recordar(
+        usuario.id,
+        describirEquipo(datos.agente),
+        datos.ip ?? null,
+      );
+    }
+
+    return sesion;
   }
 
   async refrescar(tokenRefresco: string, datos: DatosSesion): Promise<RefrescoDto> {
@@ -146,6 +177,12 @@ export class AutenticacionService {
     // sospecha que alguien la conocia, dejar esas sesiones vivas no serviria
     // de nada.
     const cerradas = await this.tokens.revocarTodasDelUsuario(usuarioId, 'cambio_contrasena');
+
+    // Y los equipos recordados, por el mismo motivo. Dejarlos seria dejarle a
+    // quien sabia la contrasena la puerta que este cambio pretende cerrar: le
+    // bastaria con volver a entrar desde el equipo de siempre, sin codigo.
+    await this.dispositivos.revocarTodos(usuarioId);
+
     this.logger.log({ usuarioId, cerradas }, 'Contrasena cambiada');
   }
 
