@@ -14,6 +14,8 @@ import {
   Typography,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import { AvisoError } from '../../componentes/AvisoError';
 import { usarVolver } from '../../navegacion/usarVolver';
 import { usarSesion } from '../sesion/contexto';
@@ -22,6 +24,18 @@ import { ETIQUETA_IDIOMA } from '../recepcion/servicio-pacientes';
 import { EntradaHistorial } from './EntradaHistorial';
 import { obtenerHistorial } from './servicio-expedientes';
 import { fichaParaPaciente } from '../fichas/ficha-por-edad';
+import { DialogoEditarPaciente } from './DialogoEditarPaciente';
+import { DialogoBorrarPaciente } from './DialogoBorrarPaciente';
+
+/**
+ * Quien puede corregir los datos de un paciente.
+ *
+ * Los mismos del servidor (`@Roles` del PATCH): recepcion, que es quien los
+ * teclea y por tanto quien se equivoca al teclearlos, y administracion.
+ * Enfermeria y medicina no entran —lo suyo es la ficha clinica, no el padron—
+ * y ponerles el boton solo produciria un 403 que parece una falla del sistema.
+ */
+const CORRIGEN = ['RECEPCION', 'ADMINISTRADOR'];
 
 /** El historial clinico no es de todos: Recepcion y Farmacia no entran. */
 const VEN_EL_HISTORIAL = ['MEDICO', 'ENFERMERIA', 'DIRECTOR', 'ADMINISTRADOR'];
@@ -45,6 +59,12 @@ export function PaginaExpediente() {
 
   const puedeVerHistorial = VEN_EL_HISTORIAL.includes(usuario?.rol ?? '');
   const puedeAtender = ATIENDEN.includes(usuario?.rol ?? '');
+  const puedeCorregir = CORRIGEN.includes(usuario?.rol ?? '');
+  // Borrar es solo de administracion, y ademas el servidor exige que el
+  // paciente no tenga nada clinico encima.
+  const puedeBorrar = usuario?.rol === 'ADMINISTRADOR';
+  const [editando, setEditando] = useState(false);
+  const [borrando, setBorrando] = useState(false);
 
   // Antes de cualquier `return`: las reglas de los hooks no admiten
   // llamadas condicionales, y mas abajo hay salidas tempranas.
@@ -125,19 +145,43 @@ export function PaginaExpediente() {
             sala de espera; tenerlo en un solo sitio es lo que impide que se
             separen.
           */}
-          {puedeAtender && !p.fallecido ? (
-            <Button
-              component={EnlaceRuta}
-              to={
-                fichaParaPaciente(p.fechaNacimiento as unknown as string, p.id).ruta ??
-                '/pacientes/' + p.id + '/ficha'
-              }
-              variant="contained"
-              sx={{ alignSelf: { md: 'flex-start' }, flexShrink: 0 }}
-            >
-              Nueva ficha
-            </Button>
-          ) : null}
+          <Stack
+            direction="row"
+            sx={{ gap: 1, alignSelf: { md: 'flex-start' }, flexShrink: 0, flexWrap: 'wrap' }}
+          >
+            {puedeCorregir ? (
+              <Button
+                variant="outlined"
+                color="inherit"
+                startIcon={<EditOutlinedIcon />}
+                onClick={() => setEditando(true)}
+              >
+                Corregir datos
+              </Button>
+            ) : null}
+            {puedeBorrar ? (
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<DeleteOutlineIcon />}
+                onClick={() => setBorrando(true)}
+              >
+                Borrar
+              </Button>
+            ) : null}
+            {puedeAtender && !p.fallecido ? (
+              <Button
+                component={EnlaceRuta}
+                to={
+                  fichaParaPaciente(p.fechaNacimiento as unknown as string, p.id).ruta ??
+                  '/pacientes/' + p.id + '/ficha'
+                }
+                variant="contained"
+              >
+                Nueva ficha
+              </Button>
+            ) : null}
+          </Stack>
         </Stack>
       </Paper>
 
@@ -213,6 +257,29 @@ export function PaginaExpediente() {
           ) : null}
         </Stack>
       )}
+
+      {editando ? (
+        <DialogoEditarPaciente
+          paciente={{
+            id: p.id,
+            nombres: p.nombres,
+            apellidos: p.apellidos,
+            idioma: p.idioma,
+            telefono: p.telefono,
+            fallecido: p.fallecido,
+            comunidad: p.comunidad,
+          }}
+          onCerrar={() => setEditando(false)}
+        />
+      ) : null}
+      {borrando ? (
+        <DialogoBorrarPaciente
+          id={p.id}
+          nombres={p.nombres}
+          apellidos={p.apellidos}
+          onCerrar={() => setBorrando(false)}
+        />
+      ) : null}
     </Box>
   );
 }

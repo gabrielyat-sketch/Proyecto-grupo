@@ -12,6 +12,7 @@ const MEDICO: Perfil = {
 };
 const RECEPCION: Perfil = { ...MEDICO, id: 'u-2', usuario: 'rlopez', rol: 'RECEPCION' };
 const FARMACIA: Perfil = { ...MEDICO, id: 'u-3', usuario: 'sgomez', rol: 'FARMACIA' };
+const ADMIN: Perfil = { ...MEDICO, id: 'u-4', usuario: 'admin', rol: 'ADMINISTRADOR' };
 
 const PACIENTE = {
   id: 'p-1',
@@ -623,6 +624,83 @@ describe('el expediente de un paciente', () => {
 
       expect(screen.getByText('Fallecido')).toBeInTheDocument();
       expect(screen.queryByRole('link', { name: 'Nueva ficha' })).not.toBeInTheDocument();
+    });
+  });
+
+  /**
+   * Corregir y borrar no son lo mismo ni los hace la misma gente.
+   *
+   * Recepcion teclea los datos, asi que es quien se equivoca al teclearlos y
+   * quien los corrige. Borrar a alguien del padron es de administracion. Los
+   * mismos roles que el servidor exige: ensenar un boton que va a devolver 403
+   * es peor que no ensenarlo, porque parece que el sistema falla.
+   */
+  describe('corregir y borrar un paciente', () => {
+    it('Recepcion corrige, pero no borra', async () => {
+      servidor();
+      abrir(RECEPCION, '/pacientes/p-1/expediente');
+
+      expect(await screen.findByRole('button', { name: /Corregir datos/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Borrar$/i })).not.toBeInTheDocument();
+    });
+
+    it('Medicina no toca el padron: ni corrige ni borra', async () => {
+      servidor();
+      abrir(MEDICO, '/pacientes/p-1/expediente');
+
+      await screen.findByRole('heading', { name: /Perez Caal/ });
+      expect(screen.queryByRole('button', { name: /Corregir datos/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Borrar$/i })).not.toBeInTheDocument();
+    });
+
+    it('solo manda los campos que cambiaron, no el registro entero', async () => {
+      servidor();
+      const usuario = userEvent.setup();
+      abrir(RECEPCION, '/pacientes/p-1/expediente');
+
+      await usuario.click(await screen.findByRole('button', { name: /Corregir datos/i }));
+
+      // Sin tocar nada no hay nada que guardar.
+      const guardar = await screen.findByRole('button', { name: /Sin cambios/i });
+      expect(guardar).toBeDisabled();
+
+      const telefono = screen.getByLabelText(/Telefono/i);
+      await usuario.clear(telefono);
+      await usuario.type(telefono, '44445555');
+
+      await usuario.click(screen.getByRole('button', { name: /Guardar 1 cambio/i }));
+
+      await waitFor(() => {
+        const patch = peticiones.find((p) => p.method === 'PATCH');
+        expect(patch).toBeDefined();
+      });
+      const patch = peticiones.find((p) => p.method === 'PATCH')!;
+      expect(JSON.parse(await patch.clone().text())).toEqual({ telefono: '44445555' });
+    });
+
+    /**
+     * Un cuadro con «Aceptar» se contesta que si por reflejo. Escribir el
+     * apellido obliga a mirar de quien se trata, que es justo el error que
+     * este cuadro existe para evitar: borrar al paciente equivocado.
+     */
+    it('borrar exige escribir el apellido, no solo confirmar', async () => {
+      servidor();
+      const usuario = userEvent.setup();
+      abrir(ADMIN, '/pacientes/p-1/expediente');
+
+      await usuario.click(await screen.findByRole('button', { name: /^Borrar$/i }));
+
+      const definitivo = await screen.findByRole('button', { name: /Borrar definitivamente/i });
+      expect(definitivo).toBeDisabled();
+
+      const campo = screen.getByLabelText(/Escriba el apellido/i);
+      await usuario.type(campo, 'Otro Apellido');
+      expect(definitivo).toBeDisabled();
+      expect(screen.getByText(/No coincide con el apellido/i)).toBeInTheDocument();
+
+      await usuario.clear(campo);
+      await usuario.type(campo, 'perez caal');
+      expect(definitivo).toBeEnabled();
     });
   });
 });

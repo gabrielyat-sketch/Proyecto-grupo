@@ -87,3 +87,42 @@ export const ETIQUETA_TIPO_LUGAR: Record<string, string> = {
   ALDEA: 'Aldea',
   OTRO: 'Otro',
 };
+
+export type CambiosPaciente = components['schemas']['ActualizarPacienteDto'];
+export type Paciente = components['schemas']['PacienteDto'];
+
+/**
+ * Corregir los datos de un paciente ya registrado.
+ *
+ * Solo viajan los campos que cambiaron: mandar el registro entero haría que
+ * cada corrección de un teléfono se leyera en la bitácora como si se hubiera
+ * reescrito la persona completa.
+ */
+export async function actualizarPaciente(
+  id: string,
+  cambios: CambiosPaciente,
+): Promise<Paciente> {
+  const ruta = '/v1/pacientes/{id}';
+  const { data, error, response } = await apiUsuarios.PATCH(ruta, {
+    params: { path: { id } },
+    body: cambios,
+  });
+  if (error || !data) fallarApi(error, ruta, response);
+  return data;
+}
+
+/**
+ * Borrar un registro creado por error.
+ *
+ * El servidor lo rechaza si el paciente ya tiene historial clínico, y ese
+ * rechazo llega aquí como error con su explicación: la pantalla lo muestra tal
+ * cual en vez de traducirlo, porque el motivo concreto —cuántas atenciones,
+ * cuántas vacunas— es justo lo que quien borra necesita leer.
+ */
+export async function borrarPaciente(id: string): Promise<void> {
+  const ruta = '/v1/pacientes/{id}';
+  const { error, response } = await apiUsuarios.DELETE(ruta, {
+    params: { path: { id } },
+  });
+  if (error) fallarApi(error, ruta, response);
+}

@@ -111,7 +111,8 @@ export interface paths {
         get: operations["PacientesController_obtener"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Borra un paciente sin historial clinico */
+        delete: operations["PacientesController_eliminar"];
         options?: never;
         head?: never;
         /** Corrige datos del paciente */
@@ -758,6 +759,12 @@ export interface components {
             grupoFamiliarId?: string;
             telefono?: string;
             fallecido?: boolean;
+        };
+        PacienteBorradoDto: {
+            /** @description Id del paciente que se borro. */
+            id: string;
+            /** @description Siempre true; el fallo viaja como error HTTP. */
+            borrado: boolean;
         };
         GrupoFamiliarResumenDto: {
             /** Format: uuid */
@@ -2347,6 +2354,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PacienteDto"];
+                };
+            };
+            /** @description La informacion enviada no es valida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El recurso solicitado no existe. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
+    PacientesController_eliminar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PacienteBorradoDto"];
                 };
             };
             /** @description La informacion enviada no es valida. */
