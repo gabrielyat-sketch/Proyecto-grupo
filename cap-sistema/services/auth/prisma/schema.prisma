@@ -37,27 +37,28 @@ enum RolUsuario {
 }
 
 model Usuario {
-  id             String     @id @default(uuid())
+  id                    String     @id @default(uuid())
   /// Nombre de acceso. Se guarda en minusculas para que no existan dos
   /// cuentas que solo difieran en mayusculas.
-  usuario        String     @unique @db.VarChar(60)
-  nombres        String     @db.VarChar(120)
-  apellidos      String     @db.VarChar(120)
+  usuario               String     @unique @db.VarChar(60)
+  nombres               String     @db.VarChar(120)
+  apellidos             String     @db.VarChar(120)
   /// Argon2id. Nunca cifrado reversible: una contrasena no debe poder
   /// recuperarse en ningun caso.
-  contrasenaHash String     @map("contrasena_hash")
-  rol            RolUsuario
-  activo         Boolean    @default(true)
+  contrasenaHash        String     @map("contrasena_hash")
+  rol                   RolUsuario
+  activo                Boolean    @default(true)
   /// Las cuentas nuevas y las restablecidas nacen con contrasena temporal.
-  debeCambiarContrasena Boolean   @default(true) @map("debe_cambiar_contrasena")
-  bloqueadoHasta        DateTime? @map("bloqueado_hasta")
-  ultimoAcceso          DateTime? @map("ultimo_acceso")
-  creadoEn              DateTime  @default(now()) @map("creado_en")
-  actualizadoEn         DateTime  @updatedAt @map("actualizado_en")
+  debeCambiarContrasena Boolean    @default(true) @map("debe_cambiar_contrasena")
+  bloqueadoHasta        DateTime?  @map("bloqueado_hasta")
+  ultimoAcceso          DateTime?  @map("ultimo_acceso")
+  creadoEn              DateTime   @default(now()) @map("creado_en")
+  actualizadoEn         DateTime   @updatedAt @map("actualizado_en")
 
   mfa             ConfiguracionMfa?
   codigosRespaldo CodigoRespaldo[]
   sesiones        SesionRefresh[]
+  dispositivos    DispositivoConfiable[]
 
   @@index([activo])
   @@map("usuario")
@@ -66,7 +67,7 @@ model Usuario {
 /// Segundo factor por TOTP. Obligatorio para Administrador y Director; el
 /// resto puede activarlo voluntariamente.
 model ConfiguracionMfa {
-  usuarioId String @id @map("usuario_id")
+  usuarioId      String    @id @map("usuario_id")
   /// Secreto TOTP cifrado con AES-256-GCM. Guardarlo en claro seria como
   /// guardar en claro la contrasena del segundo factor.
   secretoCifrado Bytes     @map("secreto_cifrado")
@@ -99,9 +100,9 @@ model CodigoRespaldo {
 /// Sesion de refresco. El token no se guarda: se guarda su SHA-256, igual que
 /// no se guarda una contrasena en claro.
 model SesionRefresh {
-  id        String @id @default(uuid())
-  usuarioId String @map("usuario_id")
-  tokenHash String @unique @map("token_hash")
+  id               String    @id @default(uuid())
+  usuarioId        String    @map("usuario_id")
+  tokenHash        String    @unique @map("token_hash")
   /// Todas las rotaciones de una misma sesion comparten familia. Si un token
   /// ya rotado se reusa, se revoca la familia completa: es la senal de que
   /// alguien copio el token.
@@ -133,4 +134,40 @@ model IntentoFallido {
 
   @@index([usuario, fecha])
   @@map("intento_fallido")
+}
+
+/// Un equipo en el que esta persona ya demostro tener el segundo factor.
+///
+/// Existe para que el codigo se pida UNA vez por equipo y no en cada entrada.
+/// En el CAP la gente entra y sale del sistema varias veces al dia y sacar el
+/// telefono cada vez es un peaje que no compensa: quien lo paga acaba
+/// buscando como saltarselo, y ahi si se pierde la proteccion.
+///
+/// Lo que sigue protegiendo: el token del dispositivo NO es una credencial
+/// por si solo. Sin usuario y contrasena correctos no abre nada; lo unico que
+/// evita es el segundo paso, y solo en el equipo donde ya se hizo una vez.
+/// Quien roba la contrasena desde otra computadora sigue topando con el
+/// codigo.
+model DispositivoConfiable {
+  id        String @id @default(uuid())
+  usuarioId String @map("usuario_id")
+
+  /// Argon2id, como las contrasenas y los codigos de respaldo: si alguien lee
+  /// la base no se lleva dispositivos utilizables.
+  hash String
+
+  /// Para que la persona reconozca cual es cuando vaya a revocarlo: "Chrome
+  /// en Windows", no la cadena entera del navegador.
+  descripcion String?   @db.VarChar(120)
+  ip          String?   @db.VarChar(45)
+  expiraEn    DateTime  @map("expira_en")
+  ultimoUsoEn DateTime? @map("ultimo_uso_en")
+  revocadoEn  DateTime? @map("revocado_en")
+  creadoEn    DateTime  @default(now()) @map("creado_en")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@index([expiraEn])
+  @@map("dispositivo_confiable")
 }

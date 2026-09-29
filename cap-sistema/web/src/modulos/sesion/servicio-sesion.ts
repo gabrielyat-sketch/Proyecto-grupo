@@ -1,5 +1,6 @@
 import { almacenSesion, apiAuth, apiAuthPublico, ErrorApi, errorDeRed } from '../../api';
 import type { components } from '../../api/generado/auth';
+import { equipoRecordado, olvidarEquipo, recordarEquipo } from './equipo-recordado';
 
 type SesionAbierta = components['schemas']['SesionAbiertaDto'];
 type MfaRequerido = components['schemas']['MfaRequeridoDto'];
@@ -21,14 +22,20 @@ function fallar(error: unknown, ruta: string): never {
 }
 
 export async function entrar(usuario: string, contrasena: string): Promise<ResultadoEntrada> {
+  // Si este equipo ya demostro el segundo factor antes, el servidor lo
+  // reconoce y devuelve la sesion sin pedir codigo.
   const { data, error } = await apiAuthPublico.POST('/v1/auth/login', {
-    body: { usuario, contrasena },
+    body: { usuario, contrasena, tokenDispositivo: equipoRecordado() },
   });
   if (error || !data) fallar(error, '/v1/auth/login');
 
   // La union viene discriminada por mfaRequerido: TypeScript no deja leer
   // tokenAcceso sin comprobarlo antes.
   if (data.mfaRequerido) {
+    // El servidor pide codigo pese a que mandamos un token de equipo: ese
+    // token ya no vale —caduco o lo revocaron— y seguir mandandolo en cada
+    // login solo ensuciaria las peticiones.
+    if (equipoRecordado()) olvidarEquipo();
     const pendiente = data as MfaRequerido;
     return pendiente.configuracionPendiente
       ? { tipo: 'configurar-mfa', tokenParcial: pendiente.tokenParcial }
@@ -44,11 +51,18 @@ export async function entrar(usuario: string, contrasena: string): Promise<Resul
   return { tipo: 'sesion' };
 }
 
-export async function verificarCodigo(tokenParcial: string, codigo: string): Promise<void> {
+export async function verificarCodigo(
+  tokenParcial: string,
+  codigo: string,
+  recordarEsteEquipo = false,
+): Promise<void> {
   const { data, error } = await apiAuthPublico.POST('/v1/auth/mfa/verificar', {
-    body: { tokenParcial, codigo },
+    body: { tokenParcial, codigo, recordarEquipo: recordarEsteEquipo },
   });
   if (error || !data) fallar(error, '/v1/auth/mfa/verificar');
+
+  // Viaja una sola vez, en esta respuesta.
+  if (data.tokenDispositivo) recordarEquipo(data.tokenDispositivo);
 
   almacenSesion.guardar({
     tokenAcceso: data.tokenAcceso,

@@ -149,6 +149,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/dispositivos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Equipos recordados de quien pregunta */
+        get: operations["AutenticacionController_dispositivos"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/dispositivos/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Deja de confiar en un equipo */
+        delete: operations["AutenticacionController_olvidarDispositivo"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/yo": {
         parameters: {
             query?: never;
@@ -349,6 +383,8 @@ export interface components {
             /** @description Token de refresco rotatorio. Reutilizarlo revoca toda la sesion. */
             tokenRefresco: string;
             usuario: components["schemas"]["PerfilDto"];
+            /** @description Token del equipo recordado. Viaja una sola vez. */
+            tokenDispositivo?: string;
         };
         MfaRequeridoDto: {
             /**
@@ -366,6 +402,8 @@ export interface components {
             usuario: string;
             /** @example Clave-Del-Personal-2026 */
             contrasena: string;
+            /** @description Token de equipo recordado, si lo hay */
+            tokenDispositivo?: string;
         };
         VerificarMfaDto: {
             /** @description Token parcial devuelto por el login */
@@ -375,6 +413,8 @@ export interface components {
              * @example 123456
              */
             codigo: string;
+            /** @description Recordar este equipo por 30 dias */
+            recordarEquipo?: boolean;
         };
         RefrescarDto: {
             tokenRefresco: string;
@@ -398,6 +438,26 @@ export interface components {
             secreto: string;
             /** @description Codigos de un solo uso. Es la UNICA vez que se muestran en claro. */
             codigosRespaldo: string[];
+        };
+        DispositivoDto: {
+            id: string;
+            /**
+             * @description Como reconocerlo.
+             * @example Chrome en Windows
+             */
+            descripcion?: Record<string, never>;
+            /**
+             * Format: date-time
+             * @description Cuando se recordo.
+             */
+            creadoEn: string;
+            /** @description Ultima vez que se uso para entrar. */
+            ultimoUsoEn?: Record<string, never>;
+            /**
+             * Format: date-time
+             * @description Cuando deja de valer y se vuelve a pedir el codigo.
+             */
+            expiraEn: string;
         };
         PerfilPropioDto: {
             /** Format: uuid */
@@ -892,6 +952,116 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
+    AutenticacionController_dispositivos: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DispositivoDto"][];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+        };
+    };
+    AutenticacionController_olvidarDispositivo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description La informacion enviada no es valida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description Falta el token, expiro o no es valido. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El rol de la cuenta no tiene permiso sobre este recurso. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
+            };
+            /** @description El recurso solicitado no existe. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaErrorDto"];
+                };
             };
             /** @description Error inesperado. El mensaje real queda en los logs, no se expone. */
             500: {

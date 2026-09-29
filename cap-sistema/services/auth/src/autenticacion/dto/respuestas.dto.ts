@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Rol } from '@cap/shared';
 
 /**
@@ -44,6 +44,16 @@ export class SesionAbiertaDto {
 
   @ApiProperty({ type: PerfilDto })
   usuario!: PerfilDto;
+
+  /**
+   * Token del equipo, solo cuando se pidio recordarlo.
+   *
+   * Viaja UNA vez, en esta respuesta. El navegador lo guarda y lo manda en
+   * los siguientes logins para saltarse el segundo paso; el servidor solo
+   * conserva su hash.
+   */
+  @ApiPropertyOptional({ description: 'Token del equipo recordado. Viaja una sola vez.' })
+  tokenDispositivo?: string;
 }
 
 /**
@@ -91,4 +101,22 @@ export class ConfiguracionMfaDto {
     description: 'Codigos de un solo uso. Es la UNICA vez que se muestran en claro.',
   })
   codigosRespaldo!: string[];
+}
+
+/** Un equipo en el que ya no se pide el codigo. */
+export class DispositivoDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiPropertyOptional({ example: 'Chrome en Windows', description: 'Como reconocerlo.' })
+  descripcion!: string | null;
+
+  @ApiProperty({ description: 'Cuando se recordo.' })
+  creadoEn!: Date;
+
+  @ApiPropertyOptional({ description: 'Ultima vez que se uso para entrar.' })
+  ultimoUsoEn!: Date | null;
+
+  @ApiProperty({ description: 'Cuando deja de valer y se vuelve a pedir el codigo.' })
+  expiraEn!: Date;
 }

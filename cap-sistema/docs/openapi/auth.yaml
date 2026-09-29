@@ -241,6 +241,87 @@ paths:
                 $ref: "#/components/schemas/RespuestaErrorDto"
       summary: Confirma la primera configuracion y abre la sesion
       tags: *a2
+  /v1/auth/dispositivos:
+    get:
+      operationId: AutenticacionController_dispositivos
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DispositivoDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security:
+        - bearer: []
+      summary: Equipos recordados de quien pregunta
+      tags: *a2
+  /v1/auth/dispositivos/{id}:
+    delete:
+      operationId: AutenticacionController_olvidarDispositivo
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "204":
+          description: ""
+        "400":
+          description: La informacion enviada no es valida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "401":
+          description: Falta el token, expiro o no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "403":
+          description: El rol de la cuenta no tiene permiso sobre este recurso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "404":
+          description: El recurso solicitado no existe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+        "500":
+          description: Error inesperado. El mensaje real queda en los logs, no se expone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespuestaErrorDto"
+      security:
+        - bearer: []
+      summary: Deja de confiar en un equipo
+      tags: *a2
   /v1/auth/yo:
     get:
       operationId: AutenticacionController_yo
@@ -817,6 +898,9 @@ components:
           description: Token de refresco rotatorio. Reutilizarlo revoca toda la sesion.
         usuario:
           $ref: "#/components/schemas/PerfilDto"
+        tokenDispositivo:
+          type: string
+          description: Token del equipo recordado. Viaja una sola vez.
       required:
         - mfaRequerido
         - tokenAcceso
@@ -851,6 +935,9 @@ components:
         contrasena:
           type: string
           example: Clave-Del-Personal-2026
+        tokenDispositivo:
+          type: string
+          description: Token de equipo recordado, si lo hay
       required:
         - usuario
         - contrasena
@@ -864,6 +951,9 @@ components:
           type: string
           example: "123456"
           description: Codigo TOTP de 6 digitos o codigo de respaldo
+        recordarEquipo:
+          type: boolean
+          description: Recordar este equipo por 30 dias
       required:
         - tokenParcial
         - codigo
@@ -915,6 +1005,30 @@ components:
         - uri
         - secreto
         - codigosRespaldo
+    DispositivoDto:
+      type: object
+      properties:
+        id:
+          type: string
+        descripcion:
+          type: object
+          example: Chrome en Windows
+          description: Como reconocerlo.
+        creadoEn:
+          format: date-time
+          type: string
+          description: Cuando se recordo.
+        ultimoUsoEn:
+          type: object
+          description: Ultima vez que se uso para entrar.
+        expiraEn:
+          format: date-time
+          type: string
+          description: Cuando deja de valer y se vuelve a pedir el codigo.
+      required:
+        - id
+        - creadoEn
+        - expiraEn
     PerfilPropioDto:
       type: object
       properties:

@@ -1,5 +1,13 @@
 import { useState } from 'react';
-import { Button, Link, Stack, TextField, Typography } from '@mui/material';
+import {
+  Button,
+  Checkbox,
+  FormControlLabel,
+  Link,
+  Stack,
+  TextField,
+  Typography,
+} from '@mui/material';
 import { AvisoError } from '../../componentes/AvisoError';
 import { verificarCodigo } from './servicio-sesion';
 import { BOTON_ENTRAR } from '../../tema';
@@ -18,6 +26,9 @@ export function PasoCodigo({
   alEntrar: () => void;
 }) {
   const [codigo, setCodigo] = useState('');
+  // Marcada por omision: es lo que la gente quiere casi siempre, y quien
+  // trabaje en una computadora prestada puede desmarcarla.
+  const [recordar, setRecordar] = useState(true);
   const [error, setError] = useState<unknown>(null);
   const [enviando, setEnviando] = useState(false);
 
@@ -26,7 +37,7 @@ export function PasoCodigo({
     setError(null);
     setEnviando(true);
     try {
-      await verificarCodigo(tokenParcial, codigo.trim());
+      await verificarCodigo(tokenParcial, codigo.trim(), recordar);
       alEntrar();
     } catch (err) {
       setError(err);
@@ -56,6 +67,35 @@ export function PasoCodigo({
             },
           }}
           helperText="Los 6 digitos de su aplicacion, o un codigo de respaldo"
+        />
+
+        {/*
+          Lo que de verdad quita la molestia.
+
+          El codigo protege de que alguien con la contrasena robada entre
+          desde fuera; pedirlo en cada entrada no aumenta esa proteccion,
+          porque la primera vez del dia ya demostro que el telefono esta en
+          manos de quien dice ser. Lo que si produce es que en una clinica
+          donde se entra y sale varias veces al dia la gente busque como
+          saltarselo —dejar la sesion abierta, compartir la cuenta— y ahi si
+          se pierde todo.
+
+          En una computadora prestada se desmarca, que es justo para lo que
+          esta la casilla.
+        */}
+        <FormControlLabel
+          control={
+            <Checkbox checked={recordar} onChange={(e) => setRecordar(e.target.checked)} />
+          }
+          label={
+            <Stack sx={{ gap: 0.25 }}>
+              <Typography variant="body2">No volver a pedirlo en este equipo</Typography>
+              <Typography variant="caption" color="text.secondary">
+                Por 30 dias. Desmarquelo si la computadora no es suya.
+              </Typography>
+            </Stack>
+          }
+          sx={{ alignItems: 'flex-start', ml: 0, '& .MuiCheckbox-root': { pt: 0.25 } }}
         />
 
         <Button
