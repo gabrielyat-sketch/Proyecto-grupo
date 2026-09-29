@@ -67,6 +67,20 @@ const COMUNIDADES: string[] = [
     porque puede ser cualquier sitio del pais.
   */
   'Fuera de Purulha',
+  /*
+    No es una comunidad: es donde va lo que abarca a varias.
+
+    Lo pidio el CAP. Sirve para lo que no pertenece a una sola comunidad —una
+    jornada que recorrio media docena, un registro heredado del papel que no
+    dice de donde es— y para no obligar a elegir una comunidad concreta cuando
+    nadie sabe cual es. Elegir una al azar solo para poder guardar es peor que
+    decir que son varias: el dato falso se lee despues como verdadero.
+
+    Va aqui y no como casilla aparte por lo mismo que «Fuera de Purulha»: la
+    comunidad es obligatoria en el paciente y de ella cuelgan la busqueda de
+    recepcion, la cola de digitalizacion y la numeracion de las carpetas.
+  */
+  'Varios',
 ];
 
 /**
@@ -77,7 +91,11 @@ const COMUNIDADES: string[] = [
  * comparacion por nombre dejaria de casar sin que nada avise.
  */
 const CODIGO_FUERA = 'FUERA';
-const CODIGOS: Record<string, string> = { 'Fuera de Purulha': CODIGO_FUERA };
+const CODIGO_VARIOS = 'VARIOS';
+const CODIGOS: Record<string, string> = {
+  'Fuera de Purulha': CODIGO_FUERA,
+  Varios: CODIGO_VARIOS,
+};
 
 async function main(): Promise<void> {
   const prisma = new PrismaClient();

@@ -45,6 +45,23 @@ export class ErrorApi extends Error {
   }
 
   /**
+   * Los detalles que una persona debe LEER.
+   *
+   * `detalles` mezcla dos cosas distintas: mensajes para quien esta en la
+   * pantalla —«nombres no debe estar vacio»— y metadatos para el codigo,
+   * como `pacienteId:2dc51b43-…`. Pintarlos juntos ponia el UUID debajo de
+   * «Ya existe un paciente registrado con ese DPI», donde no le dice nada a
+   * nadie y parece que el sistema se rompio.
+   *
+   * Un metadato se reconoce por la forma: una clave sin espacios, dos puntos
+   * y un valor sin espacios. Los mensajes de validacion siempre llevan
+   * espacios, porque son frases.
+   */
+  get detallesLegibles(): string[] {
+    return this.detalles.filter((d) => !/^[A-Za-z][A-Za-z0-9]*:\S+$/.test(d));
+  }
+
+  /**
    * Identificador de correlacion. Mostrarlo en pantalla no es un lujo: es lo
    * unico que permite encontrar en los logs lo que le paso a esta persona.
    */

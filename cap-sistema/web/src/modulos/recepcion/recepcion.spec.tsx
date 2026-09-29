@@ -16,6 +16,9 @@ const COMUNIDADES = [
   // Donde va quien no es de Purulha. Se reconoce por el codigo, no por el
   // nombre.
   { id: 'c-9', nombre: 'Fuera de Purulha', codigo: 'FUERA', distante: false, activa: true },
+  // Lo que abarca a varias comunidades. Lo pidio el CAP; es una fila mas del
+  // catalogo, asi que sale sola en todas las listas y filtros.
+  { id: 'c-v', nombre: 'Varios', codigo: 'VARIOS', distante: false, activa: true },
 ];
 
 const PACIENTE = {
@@ -538,6 +541,61 @@ describe('alta de paciente', () => {
     // Es un error que la persona puede resolver: no lleva codigo de referencia.
     expect(within(aviso).queryByText(/reporte este codigo/i)).not.toBeInTheDocument();
   });
+
+  /**
+   * El DPI repetido no es un callejon: es que la persona YA esta registrada.
+   *
+   * El servidor manda cual es, en `detalles`, con la forma `pacienteId:<uuid>`.
+   * Eso es un METADATO —lo lee el codigo— y pintarlo tal cual dejaba un UUID
+   * suelto bajo el mensaje, donde no le dice nada a nadie y parece que el
+   * sistema se rompio. Lo que si debe salir es la salida: abrir el expediente
+   * de quien ya estaba, en vez de buscarlo a mano o registrarlo dos veces.
+   */
+  it('con el DPI repetido no ensena el identificador, ofrece el expediente', async () => {
+    servidorCon([PACIENTE], () =>
+      json(
+        {
+          codigo: 'CONFLICTO',
+          mensaje: 'Ya existe un paciente registrado con ese DPI.',
+          detalles: ['pacienteId:2dc51b43-d1c2-45e2-beda-3e155153446a'],
+          trazaId: 'tz-1',
+          ruta: '/v1/pacientes',
+          fecha: '2026-09-29T00:00:00.000Z',
+        },
+        409,
+      ),
+    );
+    await abrirFormulario();
+
+    await userEvent.type(screen.getByLabelText(/CUI o DPI/i), '2547896540101');
+    await userEvent.type(screen.getByLabelText(/Nombre del esposo/i), 'Luis');
+    await userEvent.type(screen.getByLabelText(/Nombres/i), 'Juana');
+    await userEvent.type(screen.getByLabelText(/Apellidos/i), 'Perez');
+    await userEvent.type(screen.getByLabelText(/Fecha de nacimiento/i), '1985-04-12');
+    await userEvent.click(screen.getByLabelText(/Comunidad/i));
+    await userEvent.click(await screen.findByRole('option', { name: 'Matanzas' }));
+    await userEvent.click(screen.getByRole('button', { name: /Registrar paciente/i }));
+
+    expect(
+      await screen.findByText(/Ya existe un paciente registrado con ese DPI/i),
+    ).toBeInTheDocument();
+    // El identificador NO se pinta.
+    expect(screen.queryByText(/2dc51b43/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/pacienteId/i)).not.toBeInTheDocument();
+    // Pero si se usa: lleva al expediente de quien ya estaba.
+    expect(
+      screen.getByRole('link', { name: /Abrir el expediente que ya existe/i }),
+    ).toHaveAttribute('href', '/pacientes/2dc51b43-d1c2-45e2-beda-3e155153446a/expediente');
+  });
+
+  it('«Varios» se puede elegir como comunidad', async () => {
+    servidorCon();
+    await abrirFormulario();
+
+    await userEvent.click(screen.getByLabelText(/Comunidad/i));
+    expect(await screen.findByRole('option', { name: 'Varios' })).toBeInTheDocument();
+  });
+
 });
 
 describe('quien puede dar de alta un paciente', () => {

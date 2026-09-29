@@ -17,6 +17,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { ErrorApi } from '../../api';
 import { AvisoError } from '../../componentes/AvisoError';
 import { usarAtajo } from '../../navegacion/usarAtajo';
 import {
@@ -363,6 +364,12 @@ export function PaginaNuevoPaciente() {
     },
   });
 
+  // Cuando el alta falla por DPI repetido, el servidor dice en `detalles` cual
+  // es el paciente que ya estaba. Es lo que deja ofrecer su expediente en vez
+  // de dejar a quien registra mirando un «ya existe» sin salida.
+  const yaRegistrado =
+    alta.error instanceof ErrorApi ? alta.error.detalle('pacienteId') : null;
+
   function enviar(campos: Campos) {
     setCreado(null);
 
@@ -489,7 +496,30 @@ export function PaginaNuevoPaciente() {
         }}
       >
         <Stack spacing={3}>
-          {alta.isError ? <AvisoError error={alta.error} /> : null}
+          {/*
+            El DPI repetido no es un callejon: es que la persona YA esta.
+
+            Sin esto, quien registra se queda mirando «ya existe» sin saber
+            quien es ni donde esta, y acaba buscandolo a mano o —peor—
+            registrandolo otra vez con el DPI en blanco. El servidor ya manda
+            cual es; lo unico que faltaba era ofrecerlo.
+          */}
+          {alta.isError ? (
+            <AvisoError error={alta.error}>
+              {yaRegistrado ? (
+                <Button
+                  component={EnlaceRuta}
+                  to={'/pacientes/' + yaRegistrado + '/expediente'}
+                  size="small"
+                  variant="outlined"
+                  color="inherit"
+                  sx={{ mt: 1 }}
+                >
+                  Abrir el expediente que ya existe
+                </Button>
+              ) : null}
+            </AvisoError>
+          ) : null}
 
           <TituloSeccion>Datos de la persona</TituloSeccion>
 

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Alert, AlertTitle, Typography } from '@mui/material';
 import { ErrorApi } from '../api';
 
@@ -13,7 +14,7 @@ import { ErrorApi } from '../api';
  * Cuando si aparece, es lo unico que permite encontrar en los logs que le paso
  * exactamente a esa persona.
  */
-export function AvisoError({ error }: { error: unknown }) {
+export function AvisoError({ error, children }: { error: unknown; children?: ReactNode }) {
   if (!error) return null;
 
   if (!(error instanceof ErrorApi)) {
@@ -21,17 +22,23 @@ export function AvisoError({ error }: { error: unknown }) {
   }
 
   const mostrarReferencia = error.codigo === 'ERROR_INTERNO' && error.trazaId !== '';
+  // Solo lo que una persona debe leer: los metadatos como `pacienteId:<uuid>`
+  // son para el codigo, y pintarlos aqui ponia un UUID suelto bajo el mensaje.
+  const detalles = error.detallesLegibles;
 
   return (
     <Alert severity={error.sinConexion ? 'warning' : 'error'}>
-      <AlertTitle sx={{ mb: error.detalles.length ? 0.5 : 0 }}>{error.mensaje}</AlertTitle>
-      {error.detalles.length > 0 ? (
+      <AlertTitle sx={{ mb: detalles.length ? 0.5 : 0 }}>{error.mensaje}</AlertTitle>
+      {detalles.length > 0 ? (
         <Typography variant="body2" component="ul" sx={{ m: 0, pl: 2.5 }}>
-          {error.detalles.map((d) => (
+          {detalles.map((d) => (
             <li key={d}>{d}</li>
           ))}
         </Typography>
       ) : null}
+      {/* Lo que la pantalla quiera ofrecer para salir del error: por ejemplo,
+          abrir el expediente del paciente que ya existia. */}
+      {children}
       {mostrarReferencia ? (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
           Si vuelve a ocurrir, reporte este codigo: {error.trazaId}
