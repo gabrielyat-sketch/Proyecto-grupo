@@ -279,7 +279,7 @@ describe('el expediente de un paciente', () => {
     await esperar();
 
     expect(screen.getByText('EXP-2026-000123')).toBeInTheDocument();
-    expect(screen.getByText(/41 anos/)).toBeInTheDocument();
+    expect(screen.getByText(/41 años/)).toBeInTheDocument();
   });
 
   it('los signos vitales se leen sin abrir nada', async () => {

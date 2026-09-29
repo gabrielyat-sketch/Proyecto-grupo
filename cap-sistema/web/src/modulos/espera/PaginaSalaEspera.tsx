@@ -542,7 +542,7 @@ export function PaginaSalaEspera() {
                       {v.apellidos}, {v.nombres}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      {v.edad} anos · {v.sexo === 'F' ? 'Femenino' : 'Masculino'} · {v.comunidad}
+                      {v.edad} años · {v.sexo === 'F' ? 'Femenino' : 'Masculino'} · {v.comunidad}
                       {v.numeroExpediente ? (
                         <>
                           {' · '}

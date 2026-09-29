@@ -128,7 +128,7 @@ export function PaginaExpediente() {
               {p.apellidos}, {p.nombres}
             </Typography>
             <Typography color="text.secondary">
-              {p.edad} anos · {p.sexo === 'F' ? 'Femenino' : 'Masculino'} · {p.comunidad?.nombre} ·{' '}
+              {p.edad} años · {p.sexo === 'F' ? 'Femenino' : 'Masculino'} · {p.comunidad?.nombre} ·{' '}
               {ETIQUETA_IDIOMA[p.idioma] ?? p.idioma}
             </Typography>
             {p.fallecido ? (

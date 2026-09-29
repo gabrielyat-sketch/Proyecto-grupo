@@ -277,7 +277,7 @@ export function fechaCorta(valor: string | Date | null | undefined): string {
 export function faltanPara(dias: number): string {
   if (dias < 0) return 'Vencido';
   if (dias === 0) return 'Vence hoy';
-  if (dias === 1) return 'Vence manana';
+  if (dias === 1) return 'Vence mañana';
   if (dias < 60) return 'En ' + dias + ' dias';
   const meses = Math.round(dias / 30);
   return 'En ' + meses + ' meses';

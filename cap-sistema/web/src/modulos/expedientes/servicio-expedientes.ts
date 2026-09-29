@@ -59,7 +59,7 @@ export async function obtenerFicha(id: string): Promise<Ficha> {
 export const NOMBRE_FICHA: Record<string, string> = {
   ADULTO: 'Adulto',
   NEONATO: 'Neonato',
-  NINEZ: 'Ninez',
+  NINEZ: 'Niñez',
   PRENATAL: 'Prenatal',
   POSPARTO: 'Posparto',
 };

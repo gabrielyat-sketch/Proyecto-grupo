@@ -57,7 +57,7 @@ export function NombrePaciente({ pacienteId }: { pacienteId: string }) {
         {p.apellidos}, {p.nombres}
       </Link>
       <Typography variant="caption" color="text.secondary">
-        {p.edad} anos · {p.comunidad?.nombre}
+        {p.edad} años · {p.comunidad?.nombre}
       </Typography>
     </Stack>
   );

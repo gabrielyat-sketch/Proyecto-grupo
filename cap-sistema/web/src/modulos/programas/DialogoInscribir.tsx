@@ -126,7 +126,7 @@ export function DialogoInscribir({
                     {p.apellidos}, {p.nombres}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {p.edad} anos · {p.comunidad?.nombre}
+                    {p.edad} años · {p.comunidad?.nombre}
                   </Typography>
                 </Stack>
               </li>
@@ -155,7 +155,7 @@ export function DialogoInscribir({
                 error={Boolean(fum) && semanas === null}
                 helperText={
                   fum && semanas === null
-                    ? 'Esa fecha no da un embarazo en curso: revise el ano'
+                    ? 'Esa fecha no da un embarazo en curso: revise el año'
                     : semanas !== null
                       ? 'Serian ' + semanas + ' semanas de gestacion'
                       : 'De aqui salen las semanas y la fecha probable de parto'
@@ -186,7 +186,7 @@ export function DialogoInscribir({
                 label="Meta diastolica *"
                 value={metaDiastolica}
                 onChange={(e) => setMetaDiastolica(e.target.value.replace(/[^0-9]/g, ''))}
-                helperText="140/90 es lo habitual; el medico la baja si hay dano renal o diabetes"
+                helperText="140/90 es lo habitual; el medico la baja si hay daño renal o diabetes"
               />
             </Stack>
           )}
