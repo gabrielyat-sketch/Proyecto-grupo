@@ -104,7 +104,7 @@ export function DialogoCerrar({
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
               placeholder="Se traslado a Salama con su hija; no aparece desde marzo..."
-              helperText="Lo que el estado no alcanza a contar. Sin esto, dentro de un ano nadie sabra por que se dejo de seguirle."
+              helperText="Lo que el estado no alcanza a contar. Sin esto, dentro de un año nadie sabrá por que se dejo de seguirle."
             />
           ) : null}
 

@@ -17,6 +17,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { ErrorApi } from '../../api';
 import { AvisoError } from '../../componentes/AvisoError';
 import { usarAtajo } from '../../navegacion/usarAtajo';
 import {
@@ -310,11 +311,44 @@ export function PaginaNuevoPaciente() {
     Se piden desde dos letras: con una sola, en un caserio entero, la lista
     seria casi todo el archivero y no ayudaria a elegir.
   */
+  /*
+    El numero de expediente ES el de la carpeta.
+
+    En el CAP la carpeta de carton lleva un numero en la pestana y dentro van
+    las fichas de todos los que viven en esa casa: el marido, la esposa y los
+    hijos comparten expediente. Asi que no se teclea —se hereda—, y la casilla
+    lo ensena ya puesto:
+
+      - Carpeta que ya existe: el numero de la que se eligio.
+      - Carpeta nueva: el numero del folder que se esta escribiendo, o el que el
+        sistema sugiere si la casilla esta en blanco.
+      - Sin carpeta: entonces si se escribe, porque no hay familia de la que
+        heredarlo.
+
+    Lo decide el servidor en cualquier caso; esto es para que se vea antes de
+    guardar, no para mandarlo.
+  */
+  const carpetaNumero = watch('carpetaNumero');
+  const grupoFamiliarId = watch('grupoFamiliarId');
+
   const carpetas = useQuery({
     queryKey: ['carpetas', comunidadId, lugarId, familia.trim()],
     queryFn: () => buscarCarpetas(comunidadId, familia.trim(), lugarId || undefined),
     enabled: comunidadId !== '' && carpetaExiste === 'SI' && familia.trim().length >= 2,
   });
+
+  /** El numero de expediente que hereda el paciente, o null si no hay carpeta. */
+  const expedienteHeredado = (() => {
+    if (carpetaExiste === 'SI') {
+      const elegida = (carpetas.data ?? []).find((c) => c.id === grupoFamiliarId);
+      return elegida ? String(elegida.numero) : null;
+    }
+    if (carpetaExiste === 'NO') {
+      if (carpetaNumero.trim() !== '') return carpetaNumero.trim();
+      return siguienteNumero.data !== undefined ? String(siguienteNumero.data) : null;
+    }
+    return null;
+  })();
 
   /*
     Los lugares, repartidos por tipo y en el orden en que la gente los nombra.
@@ -362,6 +396,12 @@ export function PaginaNuevoPaciente() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     },
   });
+
+  // Cuando el alta falla por DPI repetido, el servidor dice en `detalles` cual
+  // es el paciente que ya estaba. Es lo que deja ofrecer su expediente en vez
+  // de dejar a quien registra mirando un «ya existe» sin salida.
+  const yaRegistrado =
+    alta.error instanceof ErrorApi ? alta.error.detalle('pacienteId') : null;
 
   function enviar(campos: Campos) {
     setCreado(null);
@@ -489,7 +529,30 @@ export function PaginaNuevoPaciente() {
         }}
       >
         <Stack spacing={3}>
-          {alta.isError ? <AvisoError error={alta.error} /> : null}
+          {/*
+            El DPI repetido no es un callejon: es que la persona YA esta.
+
+            Sin esto, quien registra se queda mirando «ya existe» sin saber
+            quien es ni donde esta, y acaba buscandolo a mano o —peor—
+            registrandolo otra vez con el DPI en blanco. El servidor ya manda
+            cual es; lo unico que faltaba era ofrecerlo.
+          */}
+          {alta.isError ? (
+            <AvisoError error={alta.error}>
+              {yaRegistrado ? (
+                <Button
+                  component={EnlaceRuta}
+                  to={'/pacientes/' + yaRegistrado + '/expediente'}
+                  size="small"
+                  variant="outlined"
+                  color="inherit"
+                  sx={{ mt: 1 }}
+                >
+                  Abrir el expediente que ya existe
+                </Button>
+              ) : null}
+            </AvisoError>
+          ) : null}
 
           <TituloSeccion>Datos de la persona</TituloSeccion>
 
@@ -945,6 +1008,22 @@ export function PaginaNuevoPaciente() {
 
           <TituloSeccion>Expediente de papel</TituloSeccion>
 
+          {/*
+            El numero de expediente NO se teclea cuando hay carpeta.
+
+            En el CAP el expediente es de la familia: la carpeta de carton lleva
+            un numero en la pestana y dentro van las fichas de todos los que
+            viven en esa casa. Asi que el numero del paciente es el de su
+            carpeta, y se ensena ya puesto en vez de pedirlo.
+
+            Pedirlo era lo que atascaba el registro. Quien metia a un segundo
+            paciente en la carpeta No.2 no podia darle el expediente 2 —ya lo
+            tenia su propio hermano—, y el error se leia como si el numero de
+            carpeta estuviera ocupado.
+
+            Solo se escribe cuando el paciente no va a ninguna carpeta: entonces
+            no hay familia de la que heredarlo.
+          */}
           <Stack spacing={1}>
             <Stack
               direction={{ xs: 'column', md: 'row' }}
@@ -952,13 +1031,24 @@ export function PaginaNuevoPaciente() {
               sx={{ alignItems: { md: 'center' } }}
             >
               <TextField
-                label="Numero de expediente"
+                label="Número de expediente"
                 fullWidth
+                value={expedienteHeredado ?? watch('numeroExpediente')}
+                onChange={(e) => setValue('numeroExpediente', e.target.value)}
                 error={Boolean(errors.numeroExpediente)}
+                slotProps={{ input: { readOnly: expedienteHeredado !== null } }}
                 helperText={
-                  errors.numeroExpediente?.message ?? 'Si se deja vacio, el sistema genera uno'
+                  errors.numeroExpediente?.message ??
+                  (carpetaExiste === 'SI'
+                    ? expedienteHeredado !== null
+                      ? 'El de la carpeta elegida. Toda la familia comparte expediente.'
+                      : 'Elija la carpeta y aparecerá su número'
+                    : carpetaExiste === 'NO'
+                      ? expedienteHeredado !== null
+                        ? 'El mismo de la carpeta que se va a abrir'
+                        : 'Será el mismo número de la carpeta'
+                      : 'Déjelo vacío y el sistema lo asigna')
                 }
-                {...register('numeroExpediente')}
               />
               <FormControlLabel
                 control={<Checkbox {...register('digitalizado')} />}
@@ -966,6 +1056,7 @@ export function PaginaNuevoPaciente() {
                 sx={{ minWidth: { md: 300 } }}
               />
             </Stack>
+
           </Stack>
 
           <Stack direction="row" spacing={2} sx={{ justifyContent: 'flex-end' }}>

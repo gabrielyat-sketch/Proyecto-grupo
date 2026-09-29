@@ -47,6 +47,33 @@ export class AtencionesService {
         skip: saltar,
         take: tamano,
         orderBy: { fecha: 'desc' },
+        /*
+          El diagnostico y lo recetado viajan CON la lista.
+
+          Lo pidio el CAP: hojeando el historial lo que se busca es que tuvo la
+          persona y que se le dio, no por que vino. Y en una ficha el
+          diagnostico casi nunca esta en el campo de texto libre: esta
+          subrayado en la matriz de problemas —«Neumonia», «Diarrea con
+          deshidratacion»—, que hasta ahora solo se veia abriendo la ficha
+          entera, una peticion por atencion.
+
+          Es una pagina de atenciones, no el expediente completo, asi que el
+          coste esta acotado; y evita justo las diez peticiones que haria falta
+          lanzar para leer de corrido lo que en el papel se lee de un vistazo.
+        */
+        include: {
+          problemas: {
+            where: { presente: true },
+            select: {
+              otroDiagnosticoCifrado: true,
+              diagnosticos: { select: { diagnostico: { select: { texto: true } } } },
+            },
+          },
+          medicamentos: {
+            orderBy: { orden: 'asc' },
+            select: { nombreCifrado: true, dosisCifrado: true, dias: true },
+          },
+        },
       }),
       this.prisma.atencion.count({ where: { expedienteId } }),
     ]);
@@ -179,6 +206,15 @@ export class AtencionesService {
     presionSistolica: number | null;
     presionDiastolica: number | null;
     temperaturaC: unknown;
+    problemas?: {
+      otroDiagnosticoCifrado: Uint8Array | null;
+      diagnosticos: { diagnostico: { texto: string } }[];
+    }[];
+    medicamentos?: {
+      nombreCifrado: Uint8Array;
+      dosisCifrado: Uint8Array | null;
+      dias: number | null;
+    }[];
   }) {
     const abrir = (v: Uint8Array | null) => (v ? this.cifrado.descifrar(Buffer.from(v)) : null);
     // Prisma devuelve Decimal, y JSON.stringify ya lo convertia a texto. Hacerlo
@@ -193,6 +229,25 @@ export class AtencionesService {
       motivo: abrir(a.motivoCifrado),
       diagnostico: abrir(a.diagnosticoCifrado),
       tratamiento: abrir(a.tratamientoCifrado),
+      /*
+        Los diagnosticos subrayados en la matriz de problemas.
+
+        Van aparte del campo `diagnostico`, que es texto libre: son cosas
+        distintas y juntarlas en una sola cadena impediria distinguir lo que
+        se eligio del catalogo de lo que alguien escribio a mano.
+
+        El «Otro: ____» cuenta como diagnostico —es la opcion del papel para lo
+        que no esta en la lista impresa— y por eso entra en la misma fila.
+      */
+      diagnosticos: (a.problemas ?? []).flatMap((p) => [
+        ...p.diagnosticos.map((d) => d.diagnostico.texto),
+        ...(abrir(p.otroDiagnosticoCifrado) ? [abrir(p.otroDiagnosticoCifrado)!] : []),
+      ]),
+      medicamentos: (a.medicamentos ?? []).map((m) => ({
+        nombre: this.cifrado.descifrar(Buffer.from(m.nombreCifrado)),
+        dosis: abrir(m.dosisCifrado),
+        dias: m.dias,
+      })),
       notas: abrir(a.notasCifrado),
       pesoKg: decimal(a.pesoKg),
       tallaCm: decimal(a.tallaCm),

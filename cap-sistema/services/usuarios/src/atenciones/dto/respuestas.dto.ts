@@ -9,6 +9,26 @@ import { ApiProperty } from '@nestjs/swagger';
  * convertirlos antes de operar con ellos; documentarlos como numero seria una
  * mentira que reventaria en el primer `toFixed()`.
  */
+/**
+ * Un medicamento recetado, tal como se lee en el historial.
+ *
+ * Se llama distinto del `MedicamentoIndicadoDto` con que se GUARDA una ficha a
+ * proposito: el contrato OpenAPI tiene un solo espacio de nombres para todo el
+ * servicio, asi que dos clases con el mismo nombre se pisan y el cliente
+ * generado acaba usando la forma de entrada —con campos opcionales— donde
+ * espera la de salida.
+ */
+export class MedicamentoRecetadoDto {
+  @ApiProperty({ description: 'Descifrado. En la base es ilegible.' })
+  nombre!: string;
+
+  @ApiProperty({ type: String, nullable: true, example: '1 tableta cada 8 horas' })
+  dosis!: string | null;
+
+  @ApiProperty({ type: Number, nullable: true, example: 7 })
+  dias!: number | null;
+}
+
 export class AtencionDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
@@ -45,8 +65,31 @@ export class AtencionDto {
   @ApiProperty({ type: String, nullable: true })
   diagnostico!: string | null;
 
+  /**
+   * Los diagnosticos subrayados en la matriz de problemas de la ficha.
+   *
+   * Van aparte de `diagnostico`, que es texto libre. En una ficha el
+   * diagnostico casi nunca esta ahi: esta aqui —«Neumonia», «Diarrea con
+   * deshidratacion»—, elegido del catalogo impreso. Juntarlos en una sola
+   * cadena impediria distinguir lo elegido de lo escrito a mano.
+   *
+   * Vacio en las atenciones breves, que no llevan matriz.
+   */
+  @ApiProperty({ type: [String], example: ['Neumonia'] })
+  diagnosticos!: string[];
+
   @ApiProperty({ type: String, nullable: true })
   tratamiento!: string | null;
+
+  /**
+   * Lo que se le receto, en el orden del papel.
+   *
+   * Viaja con el historial y no solo dentro de la ficha porque es la mitad de
+   * la pregunta que se le hace a un expediente —que tuvo y que se le dio—, y
+   * tenerlo aqui evita abrir una ficha por atencion para leerlo.
+   */
+  @ApiProperty({ type: [MedicamentoRecetadoDto] })
+  medicamentos!: MedicamentoRecetadoDto[];
 
   @ApiProperty({ type: String, nullable: true })
   notas!: string | null;

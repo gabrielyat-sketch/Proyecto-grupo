@@ -38,7 +38,9 @@ const atencion = (n: number, extra: Record<string, unknown> = {}) => ({
   tipoFicha: null,
   motivo: 'Consulta numero ' + n,
   diagnostico: null,
+  diagnosticos: [],
   tratamiento: null,
+  medicamentos: [],
   notas: null,
   pesoKg: null,
   tallaCm: null,
@@ -202,16 +204,37 @@ describe('calculos del expediente', () => {
   });
 });
 
-describe('buscar un expediente por su numero', () => {
+/**
+ * El número de expediente es de la FAMILIA. La carpeta de cartón lleva un
+ * número y dentro van las fichas de todos los que viven en esa casa, así que
+ * un número devuelve varias personas. Y se repite entre lugares: hay un
+ * expediente No.1 en El Calvario y otro en El Carpintero, de dos familias que
+ * no se conocen. Quedarse con el primero abriría la ficha de quien no era.
+ */
+describe('buscar por numero de expediente', () => {
+  const ficha = (id: string, nombres: string, apellidos: string, extra: Record<string, unknown> = {}) => ({
+    id,
+    aperturaEn: null,
+    paciente: {
+      id: 'p-' + id,
+      nombres,
+      apellidos,
+      fechaNacimiento: '1985-04-12T00:00:00.000Z',
+      sexo: 'F',
+      comunidad: { id: 'c-1', nombre: 'Purulha Centro' },
+      lugar: { id: 'l-1', nombre: 'El Calvario', tipo: 'BARRIO' },
+      grupoFamiliar: { id: 'g-1', numero: 2, apellidos: 'Xona Isem' },
+      ...extra,
+    },
+    digitalizacion: null,
+  });
+
   it('no busca mientras se escribe: la busqueda es exacta', async () => {
     servidor();
     const usuario = userEvent.setup();
     abrir(RECEPCION, '/expedientes');
 
-    await usuario.type(
-      await screen.findByLabelText(/Numero de expediente/),
-      'EXP-2026-000123',
-    );
+    await usuario.type(await screen.findByLabelText(/mero de expediente/), '2');
     expect(peticiones.filter((p) => p.url.includes('/buscar'))).toHaveLength(0);
 
     await usuario.click(screen.getByRole('button', { name: 'Buscar' }));
@@ -225,7 +248,7 @@ describe('buscar un expediente por su numero', () => {
     const usuario = userEvent.setup();
     abrir(RECEPCION, '/expedientes');
 
-    await usuario.type(await screen.findByLabelText(/Numero de expediente/), 'EXP-9999-999999');
+    await usuario.type(await screen.findByLabelText(/mero de expediente/), '9999');
     await usuario.click(screen.getByRole('button', { name: 'Buscar' }));
 
     expect(await screen.findByText(/la busqueda es exacta/)).toBeInTheDocument();
@@ -234,39 +257,161 @@ describe('buscar un expediente por su numero', () => {
   it('encontrado, lleva al expediente del paciente', async () => {
     servidor({
       expedienteBuscado: {
-        id: 'e-1',
-        numero: 'EXP-2026-000123',
-        aperturaEn: null,
-        paciente: {
-          id: 'p-1',
-          nombres: 'Juana Isabel',
-          apellidos: 'Perez Caal',
-          fechaNacimiento: '1985-04-12T00:00:00.000Z',
-          sexo: 'F',
-          comunidad: { id: 'c-1', nombre: 'Purulha Centro' },
-        },
-        digitalizacion: {
-          estado: 'COMPLETO',
-          digitalizadoPor: null,
-          iniciadoEn: null,
-          completadoEn: null,
-          atencionesTranscritas: 3,
-          observaciones: null,
-        },
+        numero: '2',
+        expedientes: [
+          {
+            ...ficha('e-1', 'Juana Isabel', 'Perez Caal'),
+            digitalizacion: {
+              estado: 'COMPLETO',
+              digitalizadoPor: null,
+              iniciadoEn: null,
+              completadoEn: null,
+              atencionesTranscritas: 3,
+              observaciones: null,
+            },
+          },
+        ],
       },
     });
     const usuario = userEvent.setup();
     abrir(RECEPCION, '/expedientes');
 
-    await usuario.type(await screen.findByLabelText(/Numero de expediente/), 'EXP-2026-000123');
+    await usuario.type(await screen.findByLabelText(/mero de expediente/), '2');
     await usuario.click(screen.getByRole('button', { name: 'Buscar' }));
 
     expect(await screen.findByText('Perez Caal, Juana Isabel')).toBeInTheDocument();
     expect(screen.getByText(/Transcrito/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Abrir el expediente' })).toHaveAttribute(
       'href',
-      '/pacientes/p-1/expediente',
+      '/pacientes/p-e-1/expediente',
     );
+  });
+
+  /** La familia entera, que es lo que hay dentro del folder. */
+  it('ensena a todos los integrantes que llevan ese numero', async () => {
+    servidor({
+      expedienteBuscado: {
+        numero: '2',
+        expedientes: [
+          ficha('e-1', 'Juan', 'Xona Isem'),
+          ficha('e-2', 'Maria', 'Isem Pop'),
+          ficha('e-3', 'Pedrito', 'Xona Isem'),
+        ],
+      },
+    });
+    const usuario = userEvent.setup();
+    abrir(RECEPCION, '/expedientes');
+
+    await usuario.type(await screen.findByLabelText(/mero de expediente/), '2');
+    await usuario.click(screen.getByRole('button', { name: 'Buscar' }));
+
+    expect(await screen.findByText('Xona Isem, Juan')).toBeInTheDocument();
+    expect(screen.getByText('Isem Pop, Maria')).toBeInTheDocument();
+    expect(screen.getByText('Xona Isem, Pedrito')).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Abrir el expediente' })).toHaveLength(3);
+    expect(screen.getByText(/3 fichas con este/)).toBeInTheDocument();
+  });
+
+  /**
+   * Dos familias de barrios distintos con el mismo número. Aquí es donde se
+   * abre la ficha de quien no era, así que el lugar y la carpeta van a la
+   * vista y se advierte de que no son la misma familia.
+   */
+  it('avisa cuando el numero cae en carpetas de lugares distintos', async () => {
+    servidor({
+      expedienteBuscado: {
+        numero: '1',
+        expedientes: [
+          ficha('e-1', 'Juan', 'Xona Isem'),
+          {
+            ...ficha('e-2', 'Carmen', 'Caal Pop'),
+            paciente: {
+              ...ficha('e-2', 'Carmen', 'Caal Pop').paciente,
+              lugar: { id: 'l-2', nombre: 'El Carpintero', tipo: 'BARRIO' },
+              grupoFamiliar: { id: 'g-2', numero: 1, apellidos: 'Caal Pop' },
+            },
+          },
+        ],
+      },
+    });
+    const usuario = userEvent.setup();
+    abrir(RECEPCION, '/expedientes');
+
+    await usuario.type(await screen.findByLabelText(/mero de expediente/), '1');
+    await usuario.click(screen.getByRole('button', { name: 'Buscar' }));
+
+    expect(await screen.findByText(/carpetas distintas/)).toBeInTheDocument();
+    expect(screen.getByText(/El Calvario/)).toBeInTheDocument();
+    expect(screen.getByText(/El Carpintero/)).toBeInTheDocument();
+  });
+});
+
+/**
+ * Lo pidió el CAP: hojeando el historial lo que se busca es qué tuvo la persona
+ * y qué se le dio. El motivo —«tos de tres días»— es lo que dijo al llegar, y
+ * para leer veinte controles de corrido no sirve: lo que se compara entre
+ * visitas es el diagnóstico.
+ */
+describe('el historial ensena el diagnostico y lo recetado', () => {
+  const esperar = () => screen.findByRole('heading', { name: 'Perez Caal, Juana Isabel' });
+
+  it('el diagnostico de la ficha va primero, y el motivo baja a su renglon', async () => {
+    servidor({
+      historial: [
+        atencion(1, {
+          motivo: 'Tos de tres dias',
+          diagnosticos: ['Neumonia'],
+          medicamentos: [{ nombre: 'Amoxicilina', dosis: '500 mg cada 8 horas', dias: 7 }],
+        }),
+      ],
+    });
+    abrir(MEDICO, '/pacientes/p-1/expediente');
+    await esperar();
+
+    expect(await screen.findByText('Neumonia')).toBeInTheDocument();
+    expect(screen.getByText(/Amoxicilina — 500 mg cada 8 horas — 7 días/)).toBeInTheDocument();
+
+    // El motivo no se pierde: deja de ser el titular.
+    expect(screen.getByText('Motivo de la consulta')).toBeInTheDocument();
+    expect(screen.getByText('Tos de tres dias')).toBeInTheDocument();
+  });
+
+  /** Una atención breve no lleva matriz: el diagnóstico está escrito a mano. */
+  it('sin ficha, vale el diagnostico escrito a mano', async () => {
+    servidor({
+      historial: [
+        atencion(1, { motivo: 'Dolor de cabeza', diagnostico: 'Cefalea tensional', tratamiento: 'Acetaminofen' }),
+      ],
+    });
+    abrir(MEDICO, '/pacientes/p-1/expediente');
+    await esperar();
+
+    expect(await screen.findByText('Cefalea tensional')).toBeInTheDocument();
+    expect(screen.getByText('Acetaminofen')).toBeInTheDocument();
+  });
+
+  /** Los dos caminos a la vez, sin repetir lo que ya se dijo. */
+  it('no repite un diagnostico que viene por los dos caminos', async () => {
+    servidor({
+      historial: [atencion(1, { diagnostico: 'Neumonia', diagnosticos: ['Neumonia'] })],
+    });
+    abrir(MEDICO, '/pacientes/p-1/expediente');
+    await esperar();
+
+    expect(await screen.findAllByText('Neumonia')).toHaveLength(1);
+  });
+
+  /**
+   * Callarse es peor que decirlo: una atención sin diagnóstico anotado existe
+   * —las transcritas del papel viejo suelen venir así— y dejar el hueco en
+   * blanco haría pensar que la pantalla falló.
+   */
+  it('lo dice cuando no hay diagnostico ni motivo', async () => {
+    servidor({ historial: [atencion(1, { motivo: null })] });
+    abrir(MEDICO, '/pacientes/p-1/expediente');
+    await esperar();
+
+    expect(await screen.findByText(/Sin diagnóstico anotado/)).toBeInTheDocument();
   });
 });
 
@@ -279,7 +424,7 @@ describe('el expediente de un paciente', () => {
     await esperar();
 
     expect(screen.getByText('EXP-2026-000123')).toBeInTheDocument();
-    expect(screen.getByText(/41 anos/)).toBeInTheDocument();
+    expect(screen.getByText(/41 años/)).toBeInTheDocument();
   });
 
   it('los signos vitales se leen sin abrir nada', async () => {

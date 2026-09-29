@@ -42,8 +42,18 @@ export class GruposController {
     palabra «siguiente-numero». El sintoma seria un 404 en vez de un error de
     ruta, que es de los que cuesta encontrar.
   */
+  /*
+    Enfermeria tambien, porque tambien da de alta.
+
+    Estaba restringido a recepcion y administracion, pero `POST /pacientes` SI
+    admite enfermeria —y el alta es donde se abre la carpeta—. El resultado era
+    que una enfermera podia registrar al paciente pero no ver que numero de
+    folder le tocaba: la casilla salia sin sugerencia y la consola con dos 403
+    por cada intento. Los permisos de una pantalla tienen que alcanzar para
+    todo lo que esa pantalla necesita.
+  */
   @Get('siguiente-numero')
-  @Roles(Rol.RECEPCION, Rol.ADMINISTRADOR)
+  @Roles(Rol.RECEPCION, Rol.ENFERMERIA, Rol.ADMINISTRADOR)
   @ApiOperation({ summary: 'El siguiente numero libre de la serie de ese lugar' })
   @ApiOkResponse({ type: SiguienteNumeroDto })
   siguienteNumero(@Query() consulta: SiguienteNumeroConsultaDto): Promise<SiguienteNumeroDto> {

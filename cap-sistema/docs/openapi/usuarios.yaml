@@ -695,7 +695,9 @@ paths:
       tags: *a7
   /v1/expedientes/buscar:
     get:
-      description: El numero esta cifrado en la base; se resuelve por su indice ciego.
+      description: "El numero esta cifrado en la base; se resuelve por su indice
+        ciego. Devuelve VARIOS: el numero es de la familia y se repite entre
+        lugares."
       operationId: ExpedientesController_porNumero
       parameters:
         - name: numero
@@ -709,7 +711,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ExpedienteEncontradoDto"
+                $ref: "#/components/schemas/BusquedaPorNumeroDto"
         "400":
           description: La informacion enviada no es valida.
           content:
@@ -736,7 +738,7 @@ paths:
                 $ref: "#/components/schemas/RespuestaErrorDto"
       security:
         - bearer: []
-      summary: Busca un expediente por su numero
+      summary: Busca los expedientes con un numero
       tags:
         - expedientes
   /v1/expedientes/{expedienteId}/atenciones:
@@ -2471,6 +2473,22 @@ components:
         - telefono
         - comunidadId
         - lugarId
+    CarpetaDelExpedienteDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        numero:
+          type: number
+          description: El numero escrito en la pestana del folder.
+        apellidos:
+          type: string
+          description: El apellido con que se rotula la carpeta.
+      required:
+        - id
+        - numero
+        - apellidos
     PacienteDelExpedienteDto:
       type: object
       properties:
@@ -2489,6 +2507,16 @@ components:
           example: F
         comunidad:
           $ref: "#/components/schemas/ComunidadResumenDto"
+        lugar:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/LugarResumenDto"
+        grupoFamiliar:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/CarpetaDelExpedienteDto"
       required:
         - id
         - nombres
@@ -2496,6 +2524,8 @@ components:
         - fechaNacimiento
         - sexo
         - comunidad
+        - lugar
+        - grupoFamiliar
     DigitalizacionDelExpedienteDto:
       type: object
       properties:
@@ -2536,9 +2566,6 @@ components:
         id:
           type: string
           format: uuid
-        numero:
-          type: string
-          example: EXP-2026-000123
         aperturaEn:
           type: string
           format: date-time
@@ -2553,10 +2580,41 @@ components:
             - $ref: "#/components/schemas/DigitalizacionDelExpedienteDto"
       required:
         - id
-        - numero
         - aperturaEn
         - paciente
         - digitalizacion
+    BusquedaPorNumeroDto:
+      type: object
+      properties:
+        numero:
+          type: string
+          example: "2"
+          description: El numero buscado, tal como quedo guardado.
+        expedientes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExpedienteEncontradoDto"
+      required:
+        - numero
+        - expedientes
+    MedicamentoRecetadoDto:
+      type: object
+      properties:
+        nombre:
+          type: string
+          description: Descifrado. En la base es ilegible.
+        dosis:
+          type: string
+          nullable: true
+          example: 1 tableta cada 8 horas
+        dias:
+          type: number
+          nullable: true
+          example: 7
+      required:
+        - nombre
+        - dosis
+        - dias
     AtencionDto:
       type: object
       properties:
@@ -2590,9 +2648,19 @@ components:
         diagnostico:
           type: string
           nullable: true
+        diagnosticos:
+          example:
+            - Neumonia
+          type: array
+          items:
+            type: string
         tratamiento:
           type: string
           nullable: true
+        medicamentos:
+          type: array
+          items:
+            $ref: "#/components/schemas/MedicamentoRecetadoDto"
         notas:
           type: string
           nullable: true
@@ -2627,7 +2695,9 @@ components:
         - tipoFicha
         - motivo
         - diagnostico
+        - diagnosticos
         - tratamiento
+        - medicamentos
         - notas
         - pesoKg
         - tallaCm

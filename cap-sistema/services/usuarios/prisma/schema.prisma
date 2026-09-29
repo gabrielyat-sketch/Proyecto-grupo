@@ -384,10 +384,21 @@ model Paciente {
 model Expediente {
   id String @id @default(uuid())
 
-  /// Numero de expediente cifrado + indice ciego, con la unicidad en el
-  /// indice por la misma razon que el DPI.
+  /// Numero de expediente cifrado + indice ciego, igual que el DPI.
+  ///
+  /// El indice NO es unico, y eso es la regla del CAP, no un descuido:
+  ///
+  ///   - Todos los pacientes de una misma carpeta comparten numero. El
+  ///     expediente es de la FAMILIA; la carpeta de carton lleva un numero y
+  ///     las fichas de todos los que viven en esa casa van dentro.
+  ///   - Y el numero se repite entre lugares, como el de la carpeta: hay un
+  ///     expediente No.1 en El Calvario y otro en El Carpintero.
+  ///
+  /// Lo que si es unico es el par (serie, numero) de `GrupoFamiliar`, que es
+  /// de donde sale este numero. Esa restriccion es la que sostiene la unicidad
+  /// por localidad; duplicarla aqui prohibiria justo los dos casos de arriba.
   numeroCifrado Bytes @map("numero_cifrado")
-  numeroIndice  Bytes @unique @map("numero_indice")
+  numeroIndice  Bytes @map("numero_indice")
 
   pacienteId String @unique @map("paciente_id")
 
@@ -400,6 +411,10 @@ model Expediente {
   atenciones     Atencion[]
   digitalizacion RegistroDigitalizacion?
 
+  /// La busqueda «de quien es esta carpeta»: ahora devuelve a toda la familia,
+  /// y al mismo numero de otros lugares, asi que el indice deja de ser unico
+  /// pero sigue siendo el camino de la consulta.
+  @@index([numeroIndice])
   @@map("expediente")
 }
 

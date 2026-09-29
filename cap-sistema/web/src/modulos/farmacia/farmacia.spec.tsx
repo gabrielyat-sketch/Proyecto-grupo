@@ -262,7 +262,7 @@ describe('como se presenta el inventario', () => {
 
   it('el vencimiento se dice en dias cuando falta poco y en meses cuando falta mucho', () => {
     expect(faltanPara(0)).toBe('Vence hoy');
-    expect(faltanPara(1)).toBe('Vence manana');
+    expect(faltanPara(1)).toBe('Vence mañana');
     expect(faltanPara(18)).toBe('En 18 dias');
     expect(faltanPara(90)).toBe('En 3 meses');
   });
@@ -279,7 +279,7 @@ describe('como se presenta el inventario', () => {
    */
   it('el semaforo lleva su plazo con verbo, hacia adelante y hacia atras', () => {
     expect(venceEn(0)).toBe('Vence hoy');
-    expect(venceEn(1)).toBe('Vence manana');
+    expect(venceEn(1)).toBe('Vence mañana');
     expect(venceEn(18)).toBe('Vence en 18 dias');
     expect(venceEn(150)).toBe('Vence en 5 meses');
     expect(venceEn(-1)).toBe('Vencio ayer');

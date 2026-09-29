@@ -28,8 +28,8 @@ import { puedeEntrar } from '../../navegacion/menu';
 
 /** «12 anos», o los meses cuando todavia no cumple uno. */
 function edadDicha(anios: number): string {
-  if (anios === 0) return 'Menos de 1 ano';
-  return anios === 1 ? '1 ano' : anios + ' anos';
+  if (anios === 0) return 'Menos de 1 año';
+  return anios === 1 ? '1 año' : anios + ' años';
 }
 
 /**

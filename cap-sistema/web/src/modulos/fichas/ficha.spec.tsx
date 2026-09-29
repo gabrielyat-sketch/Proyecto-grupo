@@ -209,7 +209,7 @@ describe('ficha clinica de adultos', () => {
     abrir();
     await esperarFicha();
 
-    expect(screen.getByText('41 anos')).toBeInTheDocument();
+    expect(screen.getByText('41 años')).toBeInTheDocument();
     expect(screen.getAllByText('EXP-2026-000123').length).toBeGreaterThan(0);
   });
 

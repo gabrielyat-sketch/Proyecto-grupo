@@ -166,7 +166,7 @@ export function HojaDeEmbarazo({
 const NOMBRE: Record<TipoFicha, string> = {
   ADULTO: 'Adolescente, adulto y adulto mayor',
   NEONATO: 'Menor de 28 dias',
-  NINEZ: 'Lactancia y ninez',
+  NINEZ: 'Lactancia y niñez',
   PRENATAL: 'Prenatal',
   POSPARTO: 'Evaluacion del posparto',
 };

@@ -373,7 +373,7 @@ export function PaginaFicha() {
         nombre={datos.apellidos + ', ' + datos.nombres}
         resumen={
           datos.edad +
-          ' anos · ' +
+          ' años · ' +
           (esMujer ? 'Femenino' : 'Masculino') +
           ' · ' +
           (datos.comunidad?.nombre ?? 'Sin comunidad')
@@ -478,7 +478,7 @@ export function PaginaFicha() {
                 }}
               >
                 <Dato titulo="Nombre" valor={datos.apellidos + ', ' + datos.nombres} />
-                <Dato titulo="Edad" valor={datos.edad + ' anos'} />
+                <Dato titulo="Edad" valor={datos.edad + ' años'} />
                 <Dato titulo="Sexo" valor={esMujer ? 'Femenino' : 'Masculino'} />
                 <Dato titulo="Comunidad" valor={datos.comunidad?.nombre ?? '—'} />
                 <Dato titulo="Telefono" valor={datos.telefono ?? 'Sin registrar'} />

@@ -60,6 +60,28 @@ export function EntradaHistorial({
   const imc = imcDe(atencion.pesoKg, atencion.tallaCm);
   const pa = presion(atencion.presionSistolica, atencion.presionDiastolica);
 
+  /*
+    El diagnostico viene de dos sitios: la matriz de problemas de la ficha —lo
+    subrayado del catalogo impreso— y el campo de texto libre de una atencion
+    breve. Van juntos y sin repetirse: una ficha puede traer el mismo texto por
+    los dos caminos si quien la lleno lo escribio ademas a mano.
+  */
+  const diagnosticos = [
+    ...new Set([...(atencion.diagnosticos ?? []), ...(atencion.diagnostico ? [atencion.diagnostico] : [])]),
+  ];
+
+  /*
+    Lo recetado: los medicamentos de la ficha, con su dosis y sus dias, mas el
+    tratamiento escrito a mano. El papel deja espacio para cuatro y el sistema
+    no pone tope, asi que la lista puede ser mas larga.
+  */
+  const recetado = [
+    ...(atencion.medicamentos ?? []).map(
+      (m) => m.nombre + (m.dosis ? ' — ' + m.dosis : '') + (m.dias ? ' — ' + m.dias + ' días' : ''),
+    ),
+    ...(atencion.tratamiento ? [atencion.tratamiento] : []),
+  ];
+
   const vitales: { rotulo: string; valor: string }[] = [];
   if (atencion.pesoKg) vitales.push({ rotulo: 'Peso', valor: atencion.pesoKg + ' kg' });
   if (atencion.tallaCm) vitales.push({ rotulo: 'Talla', valor: atencion.tallaCm + ' cm' });
@@ -105,14 +127,34 @@ export function EntradaHistorial({
         </Stack>
       </Stack>
 
-      {atencion.motivo ? (
-        <Typography sx={{ mb: 1 }}>{atencion.motivo}</Typography>
+      {/*
+        EL DIAGNOSTICO ES EL TITULAR, no el motivo de la consulta.
+
+        Lo pidio el CAP: hojeando el historial lo que se busca es que tuvo la
+        persona y que se le dio. El motivo —«tos de tres dias»— es lo que dijo
+        al llegar, y para leer de corrido veinte controles no sirve: lo que se
+        compara entre visitas es el diagnostico.
+
+        Viene de dos sitios y los dos cuentan. En una ficha esta subrayado en la
+        matriz de problemas; en una atencion breve, escrito a mano en el campo
+        de texto. Se ensenan los dos, primero lo del catalogo.
+
+        El motivo no se pierde: baja a su renglon, debajo de lo recetado. Que no
+        sea lo primero no lo vuelve prescindible —es lo que dijo el paciente, y
+        a veces es lo unico que hay—.
+      */}
+      {diagnosticos.length > 0 ? (
+        <Typography sx={{ mb: 1, fontWeight: 600 }}>{diagnosticos.join(' · ')}</Typography>
+      ) : !atencion.motivo ? (
+        <Typography sx={{ mb: 1 }} color="text.secondary">
+          Sin diagnóstico anotado
+        </Typography>
       ) : null}
 
       {vitales.length > 0 ? (
         <Stack
           direction="row"
-          sx={{ gap: 2.5, flexWrap: 'wrap', mb: atencion.diagnostico ? 1 : 0 }}
+          sx={{ gap: 2.5, flexWrap: 'wrap', mb: recetado.length > 0 ? 1 : 0 }}
         >
           {vitales.map((v) => (
             <Stack key={v.rotulo} direction="row" sx={{ gap: 0.6, alignItems: 'baseline' }}>
@@ -135,12 +177,27 @@ export function EntradaHistorial({
         </Stack>
       ) : null}
 
-      {atencion.diagnostico ? (
-        <Dato titulo="Diagnostico" texto={atencion.diagnostico} />
+      {/*
+        Lo recetado, a la vista y sin abrir nada.
+
+        Es la otra mitad de la pregunta que se le hace a un expediente. Estaba
+        dentro de la ficha, a una peticion de distancia y un clic por atencion,
+        que es tanto como no estar cuando se hojean veinte controles.
+      */}
+      {recetado.length > 0 ? (
+        <Box sx={{ mt: 0.75 }}>
+          <Rotulo>Recetado</Rotulo>
+          <Stack component="ul" sx={{ gap: 0.25, m: 0, mt: 0.25, pl: 2.5 }}>
+            {recetado.map((r, i) => (
+              <Typography key={i} component="li" variant="body2">
+                {r}
+              </Typography>
+            ))}
+          </Stack>
+        </Box>
       ) : null}
-      {atencion.tratamiento ? (
-        <Dato titulo="Tratamiento" texto={atencion.tratamiento} />
-      ) : null}
+
+      {atencion.motivo ? <Dato titulo="Motivo de la consulta" texto={atencion.motivo} /> : null}
       {atencion.notas ? <Dato titulo="Notas" texto={atencion.notas} /> : null}
 
       {esFicha ? (
