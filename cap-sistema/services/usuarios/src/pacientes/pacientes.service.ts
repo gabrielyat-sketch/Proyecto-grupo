@@ -229,10 +229,23 @@ export class PacientesService {
         select: { id: true },
       })
     ) {
+      /*
+        Hay DOS numeraciones en esta pantalla y se confunden.
+
+        La de la CARPETA se repite en cada lugar: hay un folder No.1 en El
+        Calvario y otro en San Jose. La del EXPEDIENTE es unica en todo el CAP.
+        Quien registra escribe el numero del folder en las dos casillas, la
+        segunda choca contra el expediente de otra comunidad, y el mensaje —que
+        solo decia «ya existe un expediente con ese numero»— se lee como si el
+        numero de carpeta estuviera ocupado. De ahi sale el «choca siempre,
+        venga de donde venga». Asi que el mensaje dice cual de las dos es.
+      */
       throw new ConflictException(
-        'Ya existe un expediente con el numero ' + numero + '. ' +
-          'Si esta transcribiendo una carpeta de papel, revise el numero; ' +
-          'si el paciente es nuevo, deje la casilla vacia y el sistema le asigna uno.',
+        'Ya hay un expediente con el numero ' + numero + '. ' +
+          'Cuidado: este es el NUMERO DE EXPEDIENTE, no el de la carpeta. ' +
+          'El de la carpeta se repite en cada comunidad; el de expediente es ' +
+          'unico en todo el CAP. Si el paciente es nuevo, deje esa casilla ' +
+          'vacia y el sistema le asigna uno.',
       );
     }
 

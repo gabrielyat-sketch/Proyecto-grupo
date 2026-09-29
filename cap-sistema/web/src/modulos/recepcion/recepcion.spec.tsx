@@ -376,6 +376,45 @@ describe('alta de paciente', () => {
       expect(screen.queryByLabelText(/^Esposa/i)).not.toBeInTheDocument();
     });
 
+    /**
+     * Las dos casillas numéricas del formulario se confunden, y confundirlas
+     * atasca el registro: el No. de carpeta se repite en cada lugar —hay un
+     * folder No.1 en El Calvario y otro en San José— mientras que el de
+     * expediente es único en todo el CAP. Quien copia el del folder en las dos
+     * choca contra el expediente de otra comunidad, y el error se lee como si
+     * el número de carpeta estuviera ocupado. El aviso llega mientras se
+     * escribe, no después de guardar.
+     */
+    it('avisa cuando el numero de carpeta y el de expediente son el mismo', async () => {
+      servidorCon();
+      await abrirFormulario();
+      await datosMinimos();
+
+      await userEvent.click(screen.getByLabelText(/Existe la carpeta/i));
+      await userEvent.click(await screen.findByRole('option', { name: /hay que abrirla/i }));
+      await userEvent.type(await screen.findByLabelText(/^Familia/i), 'Lopez Ac');
+      await userEvent.type(screen.getByLabelText(/No. de carpeta/i), '3');
+
+      expect(screen.queryByText(/en las dos casillas/i)).not.toBeInTheDocument();
+
+      await userEvent.type(screen.getByLabelText(/Número de expediente|Numero de expediente/i), '3');
+
+      expect(await screen.findByText(/en las dos casillas/i)).toBeInTheDocument();
+    });
+
+    it('sin numero de expediente no avisa de nada', async () => {
+      servidorCon();
+      await abrirFormulario();
+      await datosMinimos();
+
+      await userEvent.click(screen.getByLabelText(/Existe la carpeta/i));
+      await userEvent.click(await screen.findByRole('option', { name: /hay que abrirla/i }));
+      await userEvent.type(await screen.findByLabelText(/^Familia/i), 'Lopez Ac');
+      await userEvent.type(screen.getByLabelText(/No. de carpeta/i), '3');
+
+      expect(screen.queryByText(/en las dos casillas/i)).not.toBeInTheDocument();
+    });
+
     it('ofrece el siguiente numero libre del lugar, sin ir al archivero', async () => {
       servidorCon();
       await abrirFormulario();

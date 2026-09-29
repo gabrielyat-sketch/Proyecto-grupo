@@ -13,5 +13,10 @@
  * se desincronizaria.
  */
 export function serieDe(comunidadId: string, lugarId?: string | null): string {
-  return lugarId ?? comunidadId;
+  // Cadena vacia, no solo nulo. `??` deja pasar el '' —«sin especificar» en un
+  // desplegable viaja asi—, y entonces la serie seria '' para TODAS las
+  // comunidades: una sola numeracion global donde tiene que haber una por
+  // lugar. El panel hoy omite el campo cuando esta vacio, pero eso es una
+  // costumbre del panel, no una garantia, y el movil es otro cliente.
+  return lugarId && lugarId.trim() !== '' ? lugarId : comunidadId;
 }

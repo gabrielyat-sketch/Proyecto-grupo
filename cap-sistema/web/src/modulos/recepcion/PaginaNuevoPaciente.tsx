@@ -311,6 +311,23 @@ export function PaginaNuevoPaciente() {
     Se piden desde dos letras: con una sola, en un caserio entero, la lista
     seria casi todo el archivero y no ayudaria a elegir.
   */
+  /*
+    El mismo numero escrito en las dos casillas numericas del formulario.
+
+    Es el error que atasca el registro: el No. de carpeta se repite en cada
+    lugar y el de expediente es unico en todo el CAP, asi que copiar el del
+    folder en los dos choca contra el expediente de otra comunidad. Se detecta
+    aqui para avisar mientras se escribe, en vez de despues de guardar.
+  */
+  const numeroExpediente = watch('numeroExpediente');
+  const carpetaNumero = watch('carpetaNumero');
+  const mismoNumero =
+    carpetaExiste === 'NO' &&
+    carpetaNumero.trim() !== '' &&
+    carpetaNumero.trim() === numeroExpediente.trim()
+      ? carpetaNumero.trim()
+      : null;
+
   const carpetas = useQuery({
     queryKey: ['carpetas', comunidadId, lugarId, familia.trim()],
     queryFn: () => buscarCarpetas(comunidadId, familia.trim(), lugarId || undefined),
@@ -975,6 +992,18 @@ export function PaginaNuevoPaciente() {
 
           <TituloSeccion>Expediente de papel</TituloSeccion>
 
+          {/*
+            Esta casilla y la del No. de carpeta se confunden, y confundirlas
+            atasca el registro.
+
+            El numero de CARPETA se repite en cada lugar: hay un folder No.1 en
+            El Calvario y otro en San Jose. El de EXPEDIENTE es unico en todo el
+            CAP. Quien escribe el numero del folder en las dos choca contra el
+            expediente de otra comunidad y lee el error como si el numero de
+            carpeta estuviera ocupado —el sintoma es «choca siempre, venga de
+            donde venga»—. Por eso la casilla lo dice, y por eso se avisa en
+            cuanto los dos numeros coinciden, antes de guardar.
+          */}
           <Stack spacing={1}>
             <Stack
               direction={{ xs: 'column', md: 'row' }}
@@ -982,11 +1011,12 @@ export function PaginaNuevoPaciente() {
               sx={{ alignItems: { md: 'center' } }}
             >
               <TextField
-                label="Numero de expediente"
+                label="Número de expediente"
                 fullWidth
                 error={Boolean(errors.numeroExpediente)}
                 helperText={
-                  errors.numeroExpediente?.message ?? 'Si se deja vacio, el sistema genera uno'
+                  errors.numeroExpediente?.message ??
+                  'Déjelo vacío y el sistema lo asigna. No es el No. de carpeta: este es único en todo el CAP.'
                 }
                 {...register('numeroExpediente')}
               />
@@ -996,6 +1026,15 @@ export function PaginaNuevoPaciente() {
                 sx={{ minWidth: { md: 300 } }}
               />
             </Stack>
+
+            {mismoNumero ? (
+              <Alert severity="warning">
+                Escribió el <b>{mismoNumero}</b> en las dos casillas. El No. de carpeta es el del
+                folder de esta comunidad; el de expediente es único en todo el CAP y lo más probable
+                es que ya lo tenga otro paciente. Si es un paciente nuevo, deje vacío el número de
+                expediente.
+              </Alert>
+            ) : null}
           </Stack>
 
           <Stack direction="row" spacing={2} sx={{ justifyContent: 'flex-end' }}>
