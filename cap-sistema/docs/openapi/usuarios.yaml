@@ -2597,6 +2597,24 @@ components:
       required:
         - numero
         - expedientes
+    MedicamentoRecetadoDto:
+      type: object
+      properties:
+        nombre:
+          type: string
+          description: Descifrado. En la base es ilegible.
+        dosis:
+          type: string
+          nullable: true
+          example: 1 tableta cada 8 horas
+        dias:
+          type: number
+          nullable: true
+          example: 7
+      required:
+        - nombre
+        - dosis
+        - dias
     AtencionDto:
       type: object
       properties:
@@ -2630,9 +2648,19 @@ components:
         diagnostico:
           type: string
           nullable: true
+        diagnosticos:
+          example:
+            - Neumonia
+          type: array
+          items:
+            type: string
         tratamiento:
           type: string
           nullable: true
+        medicamentos:
+          type: array
+          items:
+            $ref: "#/components/schemas/MedicamentoRecetadoDto"
         notas:
           type: string
           nullable: true
@@ -2667,7 +2695,9 @@ components:
         - tipoFicha
         - motivo
         - diagnostico
+        - diagnosticos
         - tratamiento
+        - medicamentos
         - notas
         - pesoKg
         - tallaCm

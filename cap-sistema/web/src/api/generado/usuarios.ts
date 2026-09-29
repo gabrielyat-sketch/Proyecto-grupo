@@ -933,6 +933,14 @@ export interface components {
             numero: string;
             expedientes: components["schemas"]["ExpedienteEncontradoDto"][];
         };
+        MedicamentoRecetadoDto: {
+            /** @description Descifrado. En la base es ilegible. */
+            nombre: string;
+            /** @example 1 tableta cada 8 horas */
+            dosis: string | null;
+            /** @example 7 */
+            dias: number | null;
+        };
         AtencionDto: {
             /** Format: uuid */
             id: string;
@@ -953,7 +961,14 @@ export interface components {
             /** @description Descifrado. En la base es ilegible. */
             motivo: string | null;
             diagnostico: string | null;
+            /**
+             * @example [
+             *       "Neumonia"
+             *     ]
+             */
+            diagnosticos: string[];
             tratamiento: string | null;
+            medicamentos: components["schemas"]["MedicamentoRecetadoDto"][];
             notas: string | null;
             /**
              * Format: decimal

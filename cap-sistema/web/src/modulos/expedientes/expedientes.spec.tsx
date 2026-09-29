@@ -38,7 +38,9 @@ const atencion = (n: number, extra: Record<string, unknown> = {}) => ({
   tipoFicha: null,
   motivo: 'Consulta numero ' + n,
   diagnostico: null,
+  diagnosticos: [],
   tratamiento: null,
+  medicamentos: [],
   notas: null,
   pesoKg: null,
   tallaCm: null,
@@ -341,6 +343,75 @@ describe('buscar por numero de expediente', () => {
     expect(await screen.findByText(/carpetas distintas/)).toBeInTheDocument();
     expect(screen.getByText(/El Calvario/)).toBeInTheDocument();
     expect(screen.getByText(/El Carpintero/)).toBeInTheDocument();
+  });
+});
+
+/**
+ * Lo pidió el CAP: hojeando el historial lo que se busca es qué tuvo la persona
+ * y qué se le dio. El motivo —«tos de tres días»— es lo que dijo al llegar, y
+ * para leer veinte controles de corrido no sirve: lo que se compara entre
+ * visitas es el diagnóstico.
+ */
+describe('el historial ensena el diagnostico y lo recetado', () => {
+  const esperar = () => screen.findByRole('heading', { name: 'Perez Caal, Juana Isabel' });
+
+  it('el diagnostico de la ficha va primero, y el motivo baja a su renglon', async () => {
+    servidor({
+      historial: [
+        atencion(1, {
+          motivo: 'Tos de tres dias',
+          diagnosticos: ['Neumonia'],
+          medicamentos: [{ nombre: 'Amoxicilina', dosis: '500 mg cada 8 horas', dias: 7 }],
+        }),
+      ],
+    });
+    abrir(MEDICO, '/pacientes/p-1/expediente');
+    await esperar();
+
+    expect(await screen.findByText('Neumonia')).toBeInTheDocument();
+    expect(screen.getByText(/Amoxicilina — 500 mg cada 8 horas — 7 días/)).toBeInTheDocument();
+
+    // El motivo no se pierde: deja de ser el titular.
+    expect(screen.getByText('Motivo de la consulta')).toBeInTheDocument();
+    expect(screen.getByText('Tos de tres dias')).toBeInTheDocument();
+  });
+
+  /** Una atención breve no lleva matriz: el diagnóstico está escrito a mano. */
+  it('sin ficha, vale el diagnostico escrito a mano', async () => {
+    servidor({
+      historial: [
+        atencion(1, { motivo: 'Dolor de cabeza', diagnostico: 'Cefalea tensional', tratamiento: 'Acetaminofen' }),
+      ],
+    });
+    abrir(MEDICO, '/pacientes/p-1/expediente');
+    await esperar();
+
+    expect(await screen.findByText('Cefalea tensional')).toBeInTheDocument();
+    expect(screen.getByText('Acetaminofen')).toBeInTheDocument();
+  });
+
+  /** Los dos caminos a la vez, sin repetir lo que ya se dijo. */
+  it('no repite un diagnostico que viene por los dos caminos', async () => {
+    servidor({
+      historial: [atencion(1, { diagnostico: 'Neumonia', diagnosticos: ['Neumonia'] })],
+    });
+    abrir(MEDICO, '/pacientes/p-1/expediente');
+    await esperar();
+
+    expect(await screen.findAllByText('Neumonia')).toHaveLength(1);
+  });
+
+  /**
+   * Callarse es peor que decirlo: una atención sin diagnóstico anotado existe
+   * —las transcritas del papel viejo suelen venir así— y dejar el hueco en
+   * blanco haría pensar que la pantalla falló.
+   */
+  it('lo dice cuando no hay diagnostico ni motivo', async () => {
+    servidor({ historial: [atencion(1, { motivo: null })] });
+    abrir(MEDICO, '/pacientes/p-1/expediente');
+    await esperar();
+
+    expect(await screen.findByText(/Sin diagnóstico anotado/)).toBeInTheDocument();
   });
 });
 
