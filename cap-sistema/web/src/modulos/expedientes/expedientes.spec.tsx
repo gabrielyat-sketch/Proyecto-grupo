@@ -202,16 +202,37 @@ describe('calculos del expediente', () => {
   });
 });
 
-describe('buscar un expediente por su numero', () => {
+/**
+ * El número de expediente es de la FAMILIA. La carpeta de cartón lleva un
+ * número y dentro van las fichas de todos los que viven en esa casa, así que
+ * un número devuelve varias personas. Y se repite entre lugares: hay un
+ * expediente No.1 en El Calvario y otro en El Carpintero, de dos familias que
+ * no se conocen. Quedarse con el primero abriría la ficha de quien no era.
+ */
+describe('buscar por numero de expediente', () => {
+  const ficha = (id: string, nombres: string, apellidos: string, extra: Record<string, unknown> = {}) => ({
+    id,
+    aperturaEn: null,
+    paciente: {
+      id: 'p-' + id,
+      nombres,
+      apellidos,
+      fechaNacimiento: '1985-04-12T00:00:00.000Z',
+      sexo: 'F',
+      comunidad: { id: 'c-1', nombre: 'Purulha Centro' },
+      lugar: { id: 'l-1', nombre: 'El Calvario', tipo: 'BARRIO' },
+      grupoFamiliar: { id: 'g-1', numero: 2, apellidos: 'Xona Isem' },
+      ...extra,
+    },
+    digitalizacion: null,
+  });
+
   it('no busca mientras se escribe: la busqueda es exacta', async () => {
     servidor();
     const usuario = userEvent.setup();
     abrir(RECEPCION, '/expedientes');
 
-    await usuario.type(
-      await screen.findByLabelText(/Numero de expediente/),
-      'EXP-2026-000123',
-    );
+    await usuario.type(await screen.findByLabelText(/mero de expediente/), '2');
     expect(peticiones.filter((p) => p.url.includes('/buscar'))).toHaveLength(0);
 
     await usuario.click(screen.getByRole('button', { name: 'Buscar' }));
@@ -225,7 +246,7 @@ describe('buscar un expediente por su numero', () => {
     const usuario = userEvent.setup();
     abrir(RECEPCION, '/expedientes');
 
-    await usuario.type(await screen.findByLabelText(/Numero de expediente/), 'EXP-9999-999999');
+    await usuario.type(await screen.findByLabelText(/mero de expediente/), '9999');
     await usuario.click(screen.getByRole('button', { name: 'Buscar' }));
 
     expect(await screen.findByText(/la busqueda es exacta/)).toBeInTheDocument();
@@ -234,39 +255,92 @@ describe('buscar un expediente por su numero', () => {
   it('encontrado, lleva al expediente del paciente', async () => {
     servidor({
       expedienteBuscado: {
-        id: 'e-1',
-        numero: 'EXP-2026-000123',
-        aperturaEn: null,
-        paciente: {
-          id: 'p-1',
-          nombres: 'Juana Isabel',
-          apellidos: 'Perez Caal',
-          fechaNacimiento: '1985-04-12T00:00:00.000Z',
-          sexo: 'F',
-          comunidad: { id: 'c-1', nombre: 'Purulha Centro' },
-        },
-        digitalizacion: {
-          estado: 'COMPLETO',
-          digitalizadoPor: null,
-          iniciadoEn: null,
-          completadoEn: null,
-          atencionesTranscritas: 3,
-          observaciones: null,
-        },
+        numero: '2',
+        expedientes: [
+          {
+            ...ficha('e-1', 'Juana Isabel', 'Perez Caal'),
+            digitalizacion: {
+              estado: 'COMPLETO',
+              digitalizadoPor: null,
+              iniciadoEn: null,
+              completadoEn: null,
+              atencionesTranscritas: 3,
+              observaciones: null,
+            },
+          },
+        ],
       },
     });
     const usuario = userEvent.setup();
     abrir(RECEPCION, '/expedientes');
 
-    await usuario.type(await screen.findByLabelText(/Numero de expediente/), 'EXP-2026-000123');
+    await usuario.type(await screen.findByLabelText(/mero de expediente/), '2');
     await usuario.click(screen.getByRole('button', { name: 'Buscar' }));
 
     expect(await screen.findByText('Perez Caal, Juana Isabel')).toBeInTheDocument();
     expect(screen.getByText(/Transcrito/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Abrir el expediente' })).toHaveAttribute(
       'href',
-      '/pacientes/p-1/expediente',
+      '/pacientes/p-e-1/expediente',
     );
+  });
+
+  /** La familia entera, que es lo que hay dentro del folder. */
+  it('ensena a todos los integrantes que llevan ese numero', async () => {
+    servidor({
+      expedienteBuscado: {
+        numero: '2',
+        expedientes: [
+          ficha('e-1', 'Juan', 'Xona Isem'),
+          ficha('e-2', 'Maria', 'Isem Pop'),
+          ficha('e-3', 'Pedrito', 'Xona Isem'),
+        ],
+      },
+    });
+    const usuario = userEvent.setup();
+    abrir(RECEPCION, '/expedientes');
+
+    await usuario.type(await screen.findByLabelText(/mero de expediente/), '2');
+    await usuario.click(screen.getByRole('button', { name: 'Buscar' }));
+
+    expect(await screen.findByText('Xona Isem, Juan')).toBeInTheDocument();
+    expect(screen.getByText('Isem Pop, Maria')).toBeInTheDocument();
+    expect(screen.getByText('Xona Isem, Pedrito')).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Abrir el expediente' })).toHaveLength(3);
+    expect(screen.getByText(/3 fichas con este/)).toBeInTheDocument();
+  });
+
+  /**
+   * Dos familias de barrios distintos con el mismo número. Aquí es donde se
+   * abre la ficha de quien no era, así que el lugar y la carpeta van a la
+   * vista y se advierte de que no son la misma familia.
+   */
+  it('avisa cuando el numero cae en carpetas de lugares distintos', async () => {
+    servidor({
+      expedienteBuscado: {
+        numero: '1',
+        expedientes: [
+          ficha('e-1', 'Juan', 'Xona Isem'),
+          {
+            ...ficha('e-2', 'Carmen', 'Caal Pop'),
+            paciente: {
+              ...ficha('e-2', 'Carmen', 'Caal Pop').paciente,
+              lugar: { id: 'l-2', nombre: 'El Carpintero', tipo: 'BARRIO' },
+              grupoFamiliar: { id: 'g-2', numero: 1, apellidos: 'Caal Pop' },
+            },
+          },
+        ],
+      },
+    });
+    const usuario = userEvent.setup();
+    abrir(RECEPCION, '/expedientes');
+
+    await usuario.type(await screen.findByLabelText(/mero de expediente/), '1');
+    await usuario.click(screen.getByRole('button', { name: 'Buscar' }));
+
+    expect(await screen.findByText(/carpetas distintas/)).toBeInTheDocument();
+    expect(screen.getByText(/El Calvario/)).toBeInTheDocument();
+    expect(screen.getByText(/El Carpintero/)).toBeInTheDocument();
   });
 });
 

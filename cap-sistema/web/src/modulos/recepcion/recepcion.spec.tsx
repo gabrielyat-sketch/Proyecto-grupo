@@ -377,15 +377,15 @@ describe('alta de paciente', () => {
     });
 
     /**
-     * Las dos casillas numéricas del formulario se confunden, y confundirlas
-     * atasca el registro: el No. de carpeta se repite en cada lugar —hay un
-     * folder No.1 en El Calvario y otro en San José— mientras que el de
-     * expediente es único en todo el CAP. Quien copia el del folder en las dos
-     * choca contra el expediente de otra comunidad, y el error se lee como si
-     * el número de carpeta estuviera ocupado. El aviso llega mientras se
-     * escribe, no después de guardar.
+     * El número de expediente es de la FAMILIA, no del paciente.
+     *
+     * La carpeta de cartón lleva un número en la pestaña y dentro van las
+     * fichas de todos los que viven en esa casa. Así que no se teclea: se
+     * hereda de la carpeta y la casilla lo enseña ya puesto. Pedirlo era lo
+     * que atascaba el registro —al segundo integrante no se le podía dar el
+     * número de su propia familia porque el primero ya lo tenía—.
      */
-    it('avisa cuando el numero de carpeta y el de expediente son el mismo', async () => {
+    it('al abrir carpeta, el expediente toma el numero del folder', async () => {
       servidorCon();
       await abrirFormulario();
       await datosMinimos();
@@ -393,26 +393,41 @@ describe('alta de paciente', () => {
       await userEvent.click(screen.getByLabelText(/Existe la carpeta/i));
       await userEvent.click(await screen.findByRole('option', { name: /hay que abrirla/i }));
       await userEvent.type(await screen.findByLabelText(/^Familia/i), 'Lopez Ac');
-      await userEvent.type(screen.getByLabelText(/No. de carpeta/i), '3');
+      await userEvent.type(screen.getByLabelText(/No. de carpeta/i), '7');
 
-      expect(screen.queryByText(/en las dos casillas/i)).not.toBeInTheDocument();
-
-      await userEvent.type(screen.getByLabelText(/Número de expediente|Numero de expediente/i), '3');
-
-      expect(await screen.findByText(/en las dos casillas/i)).toBeInTheDocument();
+      const casilla = screen.getByLabelText(/Número de expediente|Numero de expediente/i);
+      expect(casilla).toHaveValue('7');
+      expect(casilla).toHaveAttribute('readonly');
     });
 
-    it('sin numero de expediente no avisa de nada', async () => {
+    /**
+     * Sin número escrito, el folder toma el que sugiere el servidor —y el
+     * expediente, el mismo—. Enseñar la casilla vacía haría pensar que hay que
+     * rellenarla.
+     */
+    it('sin numero escrito, el expediente ensena el sugerido', async () => {
       servidorCon();
       await abrirFormulario();
       await datosMinimos();
 
       await userEvent.click(screen.getByLabelText(/Existe la carpeta/i));
       await userEvent.click(await screen.findByRole('option', { name: /hay que abrirla/i }));
-      await userEvent.type(await screen.findByLabelText(/^Familia/i), 'Lopez Ac');
-      await userEvent.type(screen.getByLabelText(/No. de carpeta/i), '3');
 
-      expect(screen.queryByText(/en las dos casillas/i)).not.toBeInTheDocument();
+      await screen.findByText(/Siguiente libre aqui: 8|Siguiente libre aquí: 8/);
+      expect(screen.getByLabelText(/Número de expediente|Numero de expediente/i)).toHaveValue('8');
+    });
+
+    /** Sin carpeta no hay familia de la que heredarlo: entonces sí se escribe. */
+    it('sin carpeta, la casilla de expediente se puede escribir', async () => {
+      servidorCon();
+      await abrirFormulario();
+      await datosMinimos();
+
+      const casilla = screen.getByLabelText(/Número de expediente|Numero de expediente/i);
+      expect(casilla).not.toHaveAttribute('readonly');
+
+      await userEvent.type(casilla, '55');
+      expect(casilla).toHaveValue('55');
     });
 
     it('ofrece el siguiente numero libre del lugar, sin ir al archivero', async () => {

@@ -179,8 +179,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Busca un expediente por su numero
-         * @description El numero esta cifrado en la base; se resuelve por su indice ciego.
+         * Busca los expedientes con un numero
+         * @description El numero esta cifrado en la base; se resuelve por su indice ciego. Devuelve VARIOS: el numero es de la familia y se repite entre lugares.
          */
         get: operations["ExpedientesController_porNumero"];
         put?: never;
@@ -881,6 +881,14 @@ export interface components {
             /** Format: uuid */
             lugarId: string | null;
         };
+        CarpetaDelExpedienteDto: {
+            /** Format: uuid */
+            id: string;
+            /** @description El numero escrito en la pestana del folder. */
+            numero: number;
+            /** @description El apellido con que se rotula la carpeta. */
+            apellidos: string;
+        };
         PacienteDelExpedienteDto: {
             /** Format: uuid */
             id: string;
@@ -891,6 +899,8 @@ export interface components {
             /** @example F */
             sexo: string;
             comunidad: components["schemas"]["ComunidadResumenDto"];
+            lugar: components["schemas"]["LugarResumenDto"] | null;
+            grupoFamiliar: components["schemas"]["CarpetaDelExpedienteDto"] | null;
         };
         DigitalizacionDelExpedienteDto: {
             /** @enum {string} */
@@ -907,8 +917,6 @@ export interface components {
         ExpedienteEncontradoDto: {
             /** Format: uuid */
             id: string;
-            /** @example EXP-2026-000123 */
-            numero: string;
             /**
              * Format: date-time
              * @description Apertura del expediente en papel. null cuando no se conoce.
@@ -916,6 +924,14 @@ export interface components {
             aperturaEn: string | null;
             paciente: components["schemas"]["PacienteDelExpedienteDto"];
             digitalizacion: components["schemas"]["DigitalizacionDelExpedienteDto"] | null;
+        };
+        BusquedaPorNumeroDto: {
+            /**
+             * @description El numero buscado, tal como quedo guardado.
+             * @example 2
+             */
+            numero: string;
+            expedientes: components["schemas"]["ExpedienteEncontradoDto"][];
         };
         AtencionDto: {
             /** Format: uuid */
@@ -2807,7 +2823,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ExpedienteEncontradoDto"];
+                    "application/json": components["schemas"]["BusquedaPorNumeroDto"];
                 };
             };
             /** @description La informacion enviada no es valida. */

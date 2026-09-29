@@ -2,6 +2,7 @@ import { apiUsuarios, fallarApi } from '../../api';
 import type { components } from '../../api/generado/usuarios';
 
 export type ExpedienteEncontrado = components['schemas']['ExpedienteEncontradoDto'];
+export type BusquedaPorNumero = components['schemas']['BusquedaPorNumeroDto'];
 export type Atencion = components['schemas']['AtencionDto'];
 export type Ficha = components['schemas']['FichaDto'];
 
@@ -14,14 +15,19 @@ export interface PaginaAtenciones {
 }
 
 /**
- * Busca un expediente por su numero.
+ * Busca los expedientes que llevan un numero. VARIOS.
+ *
+ * El numero es de la familia: la carpeta de carton lleva un numero y dentro van
+ * las fichas de todos los que viven en esa casa. Y se repite entre lugares —hay
+ * un expediente No.1 en El Calvario y otro en El Carpintero—, asi que un numero
+ * puede devolver a dos familias distintas.
  *
  * El numero vive cifrado en la base y se resuelve por su indice ciego, igual
  * que el DPI. Por eso la busqueda es EXACTA: no hay forma de buscar "los que
  * empiezan por 2026" sobre un campo cifrado, y fingir lo contrario obligaria a
  * descifrar los cien mil para comparar.
  */
-export async function buscarExpediente(numero: string): Promise<ExpedienteEncontrado> {
+export async function buscarExpediente(numero: string): Promise<BusquedaPorNumero> {
   const ruta = '/v1/expedientes/buscar';
   const { data, error, response } = await apiUsuarios.GET(ruta, {
     params: { query: { numero } },

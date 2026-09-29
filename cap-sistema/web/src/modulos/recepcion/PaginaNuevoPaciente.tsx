@@ -312,27 +312,43 @@ export function PaginaNuevoPaciente() {
     seria casi todo el archivero y no ayudaria a elegir.
   */
   /*
-    El mismo numero escrito en las dos casillas numericas del formulario.
+    El numero de expediente ES el de la carpeta.
 
-    Es el error que atasca el registro: el No. de carpeta se repite en cada
-    lugar y el de expediente es unico en todo el CAP, asi que copiar el del
-    folder en los dos choca contra el expediente de otra comunidad. Se detecta
-    aqui para avisar mientras se escribe, en vez de despues de guardar.
+    En el CAP la carpeta de carton lleva un numero en la pestana y dentro van
+    las fichas de todos los que viven en esa casa: el marido, la esposa y los
+    hijos comparten expediente. Asi que no se teclea —se hereda—, y la casilla
+    lo ensena ya puesto:
+
+      - Carpeta que ya existe: el numero de la que se eligio.
+      - Carpeta nueva: el numero del folder que se esta escribiendo, o el que el
+        sistema sugiere si la casilla esta en blanco.
+      - Sin carpeta: entonces si se escribe, porque no hay familia de la que
+        heredarlo.
+
+    Lo decide el servidor en cualquier caso; esto es para que se vea antes de
+    guardar, no para mandarlo.
   */
-  const numeroExpediente = watch('numeroExpediente');
   const carpetaNumero = watch('carpetaNumero');
-  const mismoNumero =
-    carpetaExiste === 'NO' &&
-    carpetaNumero.trim() !== '' &&
-    carpetaNumero.trim() === numeroExpediente.trim()
-      ? carpetaNumero.trim()
-      : null;
+  const grupoFamiliarId = watch('grupoFamiliarId');
 
   const carpetas = useQuery({
     queryKey: ['carpetas', comunidadId, lugarId, familia.trim()],
     queryFn: () => buscarCarpetas(comunidadId, familia.trim(), lugarId || undefined),
     enabled: comunidadId !== '' && carpetaExiste === 'SI' && familia.trim().length >= 2,
   });
+
+  /** El numero de expediente que hereda el paciente, o null si no hay carpeta. */
+  const expedienteHeredado = (() => {
+    if (carpetaExiste === 'SI') {
+      const elegida = (carpetas.data ?? []).find((c) => c.id === grupoFamiliarId);
+      return elegida ? String(elegida.numero) : null;
+    }
+    if (carpetaExiste === 'NO') {
+      if (carpetaNumero.trim() !== '') return carpetaNumero.trim();
+      return siguienteNumero.data !== undefined ? String(siguienteNumero.data) : null;
+    }
+    return null;
+  })();
 
   /*
     Los lugares, repartidos por tipo y en el orden en que la gente los nombra.
@@ -993,16 +1009,20 @@ export function PaginaNuevoPaciente() {
           <TituloSeccion>Expediente de papel</TituloSeccion>
 
           {/*
-            Esta casilla y la del No. de carpeta se confunden, y confundirlas
-            atasca el registro.
+            El numero de expediente NO se teclea cuando hay carpeta.
 
-            El numero de CARPETA se repite en cada lugar: hay un folder No.1 en
-            El Calvario y otro en San Jose. El de EXPEDIENTE es unico en todo el
-            CAP. Quien escribe el numero del folder en las dos choca contra el
-            expediente de otra comunidad y lee el error como si el numero de
-            carpeta estuviera ocupado —el sintoma es «choca siempre, venga de
-            donde venga»—. Por eso la casilla lo dice, y por eso se avisa en
-            cuanto los dos numeros coinciden, antes de guardar.
+            En el CAP el expediente es de la familia: la carpeta de carton lleva
+            un numero en la pestana y dentro van las fichas de todos los que
+            viven en esa casa. Asi que el numero del paciente es el de su
+            carpeta, y se ensena ya puesto en vez de pedirlo.
+
+            Pedirlo era lo que atascaba el registro. Quien metia a un segundo
+            paciente en la carpeta No.2 no podia darle el expediente 2 —ya lo
+            tenia su propio hermano—, y el error se leia como si el numero de
+            carpeta estuviera ocupado.
+
+            Solo se escribe cuando el paciente no va a ninguna carpeta: entonces
+            no hay familia de la que heredarlo.
           */}
           <Stack spacing={1}>
             <Stack
@@ -1013,12 +1033,22 @@ export function PaginaNuevoPaciente() {
               <TextField
                 label="Número de expediente"
                 fullWidth
+                value={expedienteHeredado ?? watch('numeroExpediente')}
+                onChange={(e) => setValue('numeroExpediente', e.target.value)}
                 error={Boolean(errors.numeroExpediente)}
+                slotProps={{ input: { readOnly: expedienteHeredado !== null } }}
                 helperText={
                   errors.numeroExpediente?.message ??
-                  'Déjelo vacío y el sistema lo asigna. No es el No. de carpeta: este es único en todo el CAP.'
+                  (carpetaExiste === 'SI'
+                    ? expedienteHeredado !== null
+                      ? 'El de la carpeta elegida. Toda la familia comparte expediente.'
+                      : 'Elija la carpeta y aparecerá su número'
+                    : carpetaExiste === 'NO'
+                      ? expedienteHeredado !== null
+                        ? 'El mismo de la carpeta que se va a abrir'
+                        : 'Será el mismo número de la carpeta'
+                      : 'Déjelo vacío y el sistema lo asigna')
                 }
-                {...register('numeroExpediente')}
               />
               <FormControlLabel
                 control={<Checkbox {...register('digitalizado')} />}
@@ -1027,14 +1057,6 @@ export function PaginaNuevoPaciente() {
               />
             </Stack>
 
-            {mismoNumero ? (
-              <Alert severity="warning">
-                Escribió el <b>{mismoNumero}</b> en las dos casillas. El No. de carpeta es el del
-                folder de esta comunidad; el de expediente es único en todo el CAP y lo más probable
-                es que ya lo tenga otro paciente. Si es un paciente nuevo, deje vacío el número de
-                expediente.
-              </Alert>
-            ) : null}
           </Stack>
 
           <Stack direction="row" spacing={2} sx={{ justifyContent: 'flex-end' }}>

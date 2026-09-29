@@ -79,7 +79,7 @@ export function PaginaExpedientes() {
     <Box sx={{ maxWidth: 780 }}>
       <EncabezadoPagina
         titulo="Expedientes"
-        descripcion="Escriba el numero completo de la carpeta que tiene en la mano."
+        descripcion="Escriba el número de la carpeta que tiene en la mano. El expediente es de la familia: aparecerán todos los que hay dentro."
       />
 
       <Paper
@@ -91,12 +91,12 @@ export function PaginaExpedientes() {
         <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2 }}>
           <TextField
             inputRef={campo}
-            label="Numero de expediente"
+            label="Número de expediente"
             value={texto}
             onChange={(e) => setTexto(e.target.value.toUpperCase())}
             autoFocus
             fullWidth
-            placeholder="EXP-2026-000123"
+            placeholder="2"
             slotProps={{
               input: {
                 startAdornment: (
@@ -106,7 +106,7 @@ export function PaginaExpedientes() {
                 ),
               },
             }}
-            helperText="El numero completo, tal como esta escrito en la carpeta"
+            helperText="Tal como está escrito en la pestaña del folder"
           />
           <Button
             type="submit"
@@ -134,55 +134,98 @@ export function PaginaExpedientes() {
         <AvisoError error={expediente.error} />
       ) : null}
 
+      {/*
+        Una tarjeta por persona, todas bajo el mismo numero.
+
+        El expediente es de la FAMILIA: la carpeta de carton lleva un numero y
+        dentro van las fichas de todos los que viven en esa casa. Quien tiene el
+        folder en la mano y teclea su numero pregunta «de quien es esta
+        carpeta», y la respuesta son las personas que hay dentro.
+
+        Y como el numero se repite entre lugares, el resultado puede abarcar dos
+        familias de barrios distintos. Por eso cada tarjeta dice su lugar y su
+        carpeta: sin eso, elegir es adivinar, y abrir la ficha de quien no era
+        es exactamente lo que esta pantalla tiene que evitar.
+      */}
       {expediente.data && !expediente.isFetching ? (
-        <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider' }}>
-          <Stack sx={{ p: 2.5, gap: 2 }}>
-            <Stack
-              direction={{ xs: 'column', sm: 'row' }}
-              sx={{ gap: 1.5, alignItems: { sm: 'baseline' }, justifyContent: 'space-between' }}
-            >
-              <Stack sx={{ gap: 0.25 }}>
-                <Typography sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>
-                  {expediente.data.numero}
-                </Typography>
-                <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
-                  {expediente.data.paciente.apellidos}, {expediente.data.paciente.nombres}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {expediente.data.paciente.sexo === 'F' ? 'Femenino' : 'Masculino'} ·{' '}
-                  {expediente.data.paciente.comunidad?.nombre}
-                  {fecha(expediente.data.aperturaEn as string | null)
-                    ? ' · Abierto el ' + fecha(expediente.data.aperturaEn as string | null)
-                    : ''}
-                </Typography>
-              </Stack>
-
-              {expediente.data.digitalizacion ? (
-                <Chip
-                  size="small"
-                  variant="outlined"
-                  label={
-                    (ETIQUETA_DIGITALIZACION[expediente.data.digitalizacion.estado] ??
-                      expediente.data.digitalizacion.estado) +
-                    (expediente.data.digitalizacion.atencionesTranscritas > 0
-                      ? ' · ' + expediente.data.digitalizacion.atencionesTranscritas + ' hojas'
-                      : '')
-                  }
-                />
-              ) : null}
-            </Stack>
-
-            <Button
-              component={EnlaceRuta}
-              to={'/pacientes/' + expediente.data.paciente.id + '/expediente'}
-              state={desde('/expedientes', 'Expedientes')}
-              variant="contained"
-              sx={{ alignSelf: 'flex-start' }}
-            >
-              Abrir el expediente
-            </Button>
+        <Stack sx={{ gap: 2 }}>
+          <Stack
+            direction="row"
+            sx={{ gap: 1, alignItems: 'baseline', justifyContent: 'space-between' }}
+          >
+            <Typography sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>
+              Expediente {expediente.data.numero}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {expediente.data.expedientes.length === 1
+                ? '1 ficha'
+                : expediente.data.expedientes.length + ' fichas con este número'}
+            </Typography>
           </Stack>
-        </Paper>
+
+          {expediente.data.expedientes.length > 1 ? (
+            <Alert severity="info">
+              Este número lo llevan varias fichas. Si son de la misma carpeta, es la familia
+              entera. Si aparecen lugares distintos, son <b>carpetas distintas</b> que llevan el
+              mismo número: fíjese en el lugar antes de abrir.
+            </Alert>
+          ) : null}
+
+          {expediente.data.expedientes.map((e) => (
+            <Paper key={e.id} elevation={0} sx={{ border: '1px solid', borderColor: 'divider' }}>
+              <Stack sx={{ p: 2.5, gap: 2 }}>
+                <Stack
+                  direction={{ xs: 'column', sm: 'row' }}
+                  sx={{ gap: 1.5, alignItems: { sm: 'baseline' }, justifyContent: 'space-between' }}
+                >
+                  <Stack sx={{ gap: 0.25 }}>
+                    <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
+                      {e.paciente.apellidos}, {e.paciente.nombres}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {e.paciente.sexo === 'F' ? 'Femenino' : 'Masculino'} ·{' '}
+                      {e.paciente.comunidad?.nombre}
+                      {e.paciente.lugar ? ' · ' + e.paciente.lugar.nombre : ''}
+                      {e.paciente.grupoFamiliar
+                        ? ' · Carpeta No. ' +
+                          e.paciente.grupoFamiliar.numero +
+                          ' · Familia ' +
+                          e.paciente.grupoFamiliar.apellidos
+                        : ' · Sin carpeta'}
+                      {fecha(e.aperturaEn as string | null)
+                        ? ' · Abierto el ' + fecha(e.aperturaEn as string | null)
+                        : ''}
+                    </Typography>
+                  </Stack>
+
+                  {e.digitalizacion ? (
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      label={
+                        (ETIQUETA_DIGITALIZACION[e.digitalizacion.estado] ??
+                          e.digitalizacion.estado) +
+                        (e.digitalizacion.atencionesTranscritas > 0
+                          ? ' · ' + e.digitalizacion.atencionesTranscritas + ' hojas'
+                          : '')
+                      }
+                    />
+                  ) : null}
+                </Stack>
+
+                <Button
+                  component={EnlaceRuta}
+                  to={'/pacientes/' + e.paciente.id + '/expediente'}
+                  state={desde('/expedientes', 'Expedientes')}
+                  variant="contained"
+                  sx={{ alignSelf: 'flex-start' }}
+                >
+                  Abrir el expediente
+                </Button>
+              </Stack>
+            </Paper>
+          ))}
+        </Stack>
       ) : null}
 
       {numero === '' && !expediente.isFetching ? (

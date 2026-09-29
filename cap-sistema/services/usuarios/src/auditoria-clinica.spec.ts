@@ -370,7 +370,9 @@ describe('Leer el expediente queda auditado, pero nunca bloquea la lectura', () 
   };
 
   function expedientes(opciones: Parameters<typeof montar>[0] = {}) {
-    const m = montar({ ...opciones, datos: { 'expediente.findUnique': EXPEDIENTE } });
+    // findMany, no findUnique: el numero es de la familia, asi que la busqueda
+    // devuelve a todos los que van dentro de la carpeta.
+    const m = montar({ ...opciones, datos: { 'expediente.findMany': [EXPEDIENTE] } });
     return { servicio: new ExpedientesService(m.prisma as never, m.cifrado as never, m.auditoria as never), ...m };
   }
 
@@ -378,7 +380,7 @@ describe('Leer el expediente queda auditado, pero nunca bloquea la lectura', () 
     const m = montar({
       ...opciones,
       datos: {
-        'expediente.findUnique': { id: 'e-1' },
+        'expediente.findMany': [{ id: 'e-1', numeroCifrado: new Uint8Array(), paciente: {}, digitalizacion: null }],
         'atencion.findMany': [],
         'atencion.count': 0,
       },
@@ -412,10 +414,34 @@ describe('Leer el expediente queda auditado, pero nunca bloquea la lectura', () 
     expect(JSON.stringify(registradas[0].entrada)).not.toContain('EXP-001');
   });
 
+  /**
+   * El número es de la familia, así que una búsqueda puede abrir varias fichas.
+   * Cada una es algo que alguien vio, y resumirlas en una sola línea perdería
+   * justo lo que la bitácora existe para poder responder: quién vio qué.
+   */
+  it('una carpeta con tres integrantes registra tres CONSULTA', async () => {
+    const m = montar({
+      datos: {
+        'expediente.findMany': ['e-1', 'e-2', 'e-3'].map((id) => ({
+          id,
+          numeroCifrado: new Uint8Array(),
+          paciente: {},
+          digitalizacion: null,
+        })),
+      },
+    });
+    const servicio = new ExpedientesService(m.prisma as never, m.cifrado as never, m.auditoria as never);
+
+    await servicio.porNumero('2', CONTEXTO);
+
+    expect(m.registradas).toHaveLength(3);
+    expect(m.registradas.map((r) => r.entrada.entidadId)).toEqual(['e-1', 'e-2', 'e-3']);
+  });
+
   it('un numero que no existe no registra nada', async () => {
     // Seria llenar la bitacora de errores de tecleo, y no hubo consulta de
     // ningun expediente.
-    const m = montar({ datos: { 'expediente.findUnique': null } });
+    const m = montar({ datos: { 'expediente.findMany': [] } });
     const servicio = new ExpedientesService(m.prisma as never, m.cifrado as never, m.auditoria as never);
 
     await expect(servicio.porNumero('NO-EXISTE', CONTEXTO)).rejects.toThrow();

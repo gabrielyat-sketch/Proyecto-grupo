@@ -220,35 +220,24 @@ export class PacientesService {
       });
     }
 
-    const numero = dto.numeroExpediente?.trim() || (await this.siguienteNumeroExpediente());
-    const numeroIndice = this.cifrado.indiceCiego(numero);
+    /*
+      El numero de expediente es de la FAMILIA, no del paciente.
 
-    if (
-      await this.prisma.expediente.findUnique({
-        where: { numeroIndice: new Uint8Array(numeroIndice) },
-        select: { id: true },
-      })
-    ) {
-      /*
-        Hay DOS numeraciones en esta pantalla y se confunden.
+      La carpeta de carton del CAP lleva un numero escrito en la pestana y
+      dentro van las fichas de todos los que viven en esa casa: el marido, la
+      esposa y los hijos comparten expediente. Asi que el numero no se teclea
+      cuando el paciente entra en una carpeta —se hereda de ella—, y el campo
+      de la pantalla se rellena solo.
 
-        La de la CARPETA se repite en cada lugar: hay un folder No.1 en El
-        Calvario y otro en San Jose. La del EXPEDIENTE es unica en todo el CAP.
-        Quien registra escribe el numero del folder en las dos casillas, la
-        segunda choca contra el expediente de otra comunidad, y el mensaje —que
-        solo decia «ya existe un expediente con ese numero»— se lee como si el
-        numero de carpeta estuviera ocupado. De ahi sale el «choca siempre,
-        venga de donde venga». Asi que el mensaje dice cual de las dos es.
-      */
-      throw new ConflictException(
-        'Ya hay un expediente con el numero ' + numero + '. ' +
-          'Cuidado: este es el NUMERO DE EXPEDIENTE, no el de la carpeta. ' +
-          'El de la carpeta se repite en cada comunidad; el de expediente es ' +
-          'unico en todo el CAP. Si el paciente es nuevo, deje esa casilla ' +
-          'vacia y el sistema le asigna uno.',
-      );
-    }
+      Y se repite entre lugares, como el de la carpeta: hay un expediente No.1
+      en El Calvario y otro en El Carpintero. La unicidad por localidad la
+      sostiene el par (serie, numero) de la carpeta, que ya existe; por eso
+      aqui no hay ninguna comprobacion de numero repetido. La habia, era
+      global, y era justo la que impedia meter a un segundo paciente en la
+      carpeta que ya tenia el numero.
 
+      Solo se teclea —o se genera— cuando el paciente no va a ninguna carpeta.
+    */
     return this.prisma.$transaction(async (tx) => {
       /*
         La carpeta, si hay que abrirla, DENTRO de la transaccion.
@@ -259,6 +248,8 @@ export class PacientesService {
         correlativo que se pueda desperdiciar: es un sitio en el archivero.
       */
       let grupoFamiliarId = dto.grupoFamiliarId;
+      /** El numero de la carpeta donde acaba el paciente, si va a alguna. */
+      let numeroCarpeta: number | null = null;
       if (dto.carpetaNueva) {
         const serieId = serieDe(dto.comunidadId, dto.lugarId);
         const numero =
@@ -304,7 +295,40 @@ export class PacientesService {
           select: { id: true },
         });
         grupoFamiliarId = carpeta.id;
+        numeroCarpeta = numero;
+      } else if (grupoFamiliarId) {
+        /*
+          La carpeta ya existe: su numero es el del expediente.
+
+          Se lee aqui y no se acepta del cliente aunque lo mande. El numero de
+          expediente de una familia no es un dato que la pantalla proponga: es
+          el que esta escrito en el folder, y la unica fuente fiable es la
+          carpeta. Aceptarlo de fuera permitiria meter a un hermano con un
+          numero distinto del de su propia familia.
+        */
+        const carpeta = await tx.grupoFamiliar.findUnique({
+          where: { id: grupoFamiliarId },
+          select: { numero: true },
+        });
+        if (!carpeta) {
+          throw new NotFoundException('No existe la carpeta familiar indicada.');
+        }
+        numeroCarpeta = carpeta.numero;
       }
+
+      /*
+        El numero del expediente.
+
+        Si el paciente va a una carpeta, es el de la carpeta —el de la pestana
+        del folder—, compartido con el resto de la familia. Si no va a ninguna,
+        se respeta el que se haya escrito y, en su defecto, lo genera el
+        sistema: sin carpeta no hay serie a la que pertenecer.
+      */
+      const numero =
+        numeroCarpeta !== null
+          ? String(numeroCarpeta)
+          : dto.numeroExpediente?.trim() || (await this.siguienteNumeroExpediente());
+      const numeroIndice = this.cifrado.indiceCiego(numero);
 
       const paciente = await tx.paciente.create({
         data: {
@@ -423,6 +447,32 @@ export class PacientesService {
       throw new BadRequestException('La comunidad indicada no existe.');
     }
 
+    /*
+      Cambiar de carpeta cambia el numero de expediente.
+
+      El numero es de la familia: si el paciente pasa a la carpeta No.7, su
+      ficha pasa a estar dentro del folder No.7 y el numero que lleva escrito
+      tiene que ser ese. Dejar el anterior deja una ficha con el numero de una
+      familia y guardada en el folder de otra —y quien va al archivero con ese
+      numero saca la carpeta equivocada—.
+
+      Solo cuando de verdad cambia: reescribir el mismo numero gastaria un
+      cifrado y ensuciaria la bitacora con un cambio que no ocurrio.
+    */
+    const cambiaDeCarpeta =
+      dto.grupoFamiliarId !== undefined && dto.grupoFamiliarId !== actual.grupoFamiliarId;
+    let numeroNuevo: string | null = null;
+    if (cambiaDeCarpeta) {
+      const carpeta = await this.prisma.grupoFamiliar.findUnique({
+        where: { id: dto.grupoFamiliarId! },
+        select: { numero: true },
+      });
+      if (!carpeta) {
+        throw new BadRequestException('La carpeta familiar indicada no existe.');
+      }
+      numeroNuevo = String(carpeta.numero);
+    }
+
     await this.prisma.paciente.update({
       where: { id },
       data: {
@@ -443,6 +493,16 @@ export class PacientesService {
           : {}),
       },
     });
+
+    if (numeroNuevo !== null) {
+      await this.prisma.expediente.updateMany({
+        where: { pacienteId: id },
+        data: {
+          numeroCifrado: new Uint8Array(this.cifrado.cifrar(numeroNuevo)),
+          numeroIndice: new Uint8Array(this.cifrado.indiceCiego(numeroNuevo)),
+        },
+      });
+    }
 
     // Solo los campos que de verdad cambiaron: guardar el registro entero
     // llenaria la bitacora de ruido y escondería el cambio que importa.
