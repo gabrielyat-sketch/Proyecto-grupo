@@ -80,6 +80,10 @@ services:
   certbot:
     image: certbot/certbot:latest
     profiles: [certificado]
+    # Sin esto no vuelve tras reiniciar el droplet (y como esta en un perfil, el
+    # `up -d` normal tampoco lo levanta): el certificado dejaria de renovarse
+    # sin que nadie lo note.
+    restart: unless-stopped
     volumes:
       - letsencrypt:/etc/letsencrypt
       - certbot_www:/var/www/certbot

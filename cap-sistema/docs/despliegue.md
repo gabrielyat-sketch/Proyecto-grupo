@@ -201,6 +201,9 @@ $C restart gateway
 $C --profile certificado up -d certbot    # renovación automática (revisa dos veces al día)
 ```
 
+Con `restart: unless-stopped`, el certbot vuelve solo cuando se reinicia el droplet. Si alguna vez
+`$C --profile certificado ps certbot` no lo muestra `Up`, basta con repetir la última línea.
+
 El `--entrypoint certbot` es obligatorio: la entrada normal del servicio es el bucle de renovación, y sin
 él `certonly` se ignora y el comando se queda callado para siempre. Si eso pasa, `docker rm -f` al
 contenedor `certbot` que quedó colgado antes de repetirlo.
