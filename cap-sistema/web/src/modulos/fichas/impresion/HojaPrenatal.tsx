@@ -2,7 +2,8 @@ import type { ReactNode } from 'react';
 import type { Ficha } from '../../expedientes/servicio-expedientes';
 import { presion } from '../../expedientes/servicio-expedientes';
 import type { AntecedentesPaciente, CatalogoFicha, Paciente } from '../servicio-fichas';
-import { SERVICIO_DE_SALUD } from '../servicio-fichas';
+import { SERVICIO_DE_SALUD, textoDelServicio } from '../servicio-fichas';
+import { tamizajesDe } from '../borrador';
 import {
   AntecedentesRestantes,
   ColumnasAntecedentes,
@@ -231,7 +232,7 @@ export function HojaPrenatal({
         <Cuadro>
           <TipoEstablecimiento
             opciones={['PS', 'PSF', 'C/S "B"', 'CENAPA', 'C/S "A"', 'CAP', 'CAIMI', 'CUM', 'HOSPITAL']}
-            marcada={SERVICIO_DE_SALUD.tipo}
+            marcada={textoDelServicio(ficha.tipoServicio)}
             repartidas
           />
           <Fila>
@@ -324,8 +325,8 @@ export function HojaPrenatal({
               </Fila>
               <Fila>
                 <span>Detección de cáncer de cérvix:</span>
-                <Casilla rotulo="Papanicolaou" marcada={o?.tamizajeCervix === 'PAPANICOLAU'} />
-                <Casilla rotulo="IVAA" marcada={o?.tamizajeCervix === 'IVAA'} />
+                <Casilla rotulo="Papanicolaou" marcada={tamizajesDe(o?.tamizajeCervix).includes('PAPANICOLAU')} />
+                <Casilla rotulo="IVAA" marcada={tamizajesDe(o?.tamizajeCervix).includes('IVAA')} />
                 <Campo rotulo="Fecha:" valor={o?.tamizajeFecha ? fechaConBarras(o.tamizajeFecha) : null} ancho={26} />
                 <SiNo rotulo="Resultado Normal:" valor={o?.tamizajeNormal} />
               </Fila>
@@ -562,8 +563,51 @@ export function HojaPrenatal({
             <Campo rotulo="Consejería:" valor={ficha.consejeria} llena />
           </Fila>
         ) : null}
-        <Firma />
+        <Firma valor={ficha.atendio} />
       </Pliego>
+
+      {/*
+        La hoja de notas del final. El CAP pidio un espacio dentro de la ficha
+        para las notas de cada paciente; sale siempre, con lo escrito en la
+        pantalla y renglones libres para seguir a mano.
+      */}
+      <Pliego etiqueta="Ficha clínica prenatal, hoja de notas">
+        <Barra titulo="Notas" />
+        <div className="hoja-observaciones" style={{ ['--renglones' as string]: 30 }}>
+          <div className="hoja-valor" style={{ textAlign: 'center' }}>
+            {ficha.notas ? diaLocal(ficha.fecha) : ''}
+          </div>
+          <div className="hoja-valor">{ficha.notas ?? ''}</div>
+        </div>
+        <Firma valor={ficha.notas ? ficha.atendio : null} />
+      </Pliego>
+    </>
+  );
+}
+
+/**
+ * «Otros controles y observaciones»: fecha, lo observado y quien atendio.
+ *
+ * La hoja de los controles siguientes ya lo traia; el CAP pidio el mismo
+ * espacio tambien despues del primer control, y por eso es un bloque aparte.
+ */
+function OtrosControles({ ficha, renglones }: { ficha: Ficha; renglones: number }) {
+  return (
+    <>
+      <div style={{ marginTop: '3mm' }}>
+        <Barra titulo="Otros controles y observaciones" />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '28mm 1fr', columnGap: '3mm', marginTop: '0.5mm' }}>
+        <Barra titulo="Fecha" ancha />
+        <Barra titulo="Observaciones /Hallazgos adicionales" ancha />
+      </div>
+      <div className="hoja-observaciones" style={{ ['--renglones' as string]: renglones }}>
+        <div className="hoja-valor" style={{ textAlign: 'center' }}>
+          {ficha.notas || ficha.consejeria ? diaLocal(ficha.fecha) : ''}
+        </div>
+        <div className="hoja-valor">{[ficha.notas, ficha.consejeria].filter(Boolean).join('\n')}</div>
+      </div>
+      <Firma valor={ficha.atendio} />
     </>
   );
 }
@@ -615,251 +659,259 @@ export function HojaPosparto({
   const esPrimero = s?.esPrimerControl ?? true;
 
   return (
-    <Pliego etiqueta={esPrimero ? 'Evaluación del posparto, primer control' : 'Controles posparto'}>
-      <h1 className="hoja-titulo" style={{ margin: '0 0 3mm', fontSize: '11pt' }}>
-        EVALUACIÓN DEL POSPARTO
-      </h1>
-      <div className="hoja-cabecera-datos" style={{ marginBottom: '3mm' }}>
-        <RecuadroDato rotulo="No. Expediente:" valor={paciente.expediente?.numero} ancho={90} />
-        <RecuadroDato rotulo="Fecha:" valor={diaLocal(ficha.fecha)} ancho={46} />
-      </div>
+    <>
+      <Pliego etiqueta={esPrimero ? 'Evaluación del posparto, primer control' : 'Controles posparto'}>
+        <h1 className="hoja-titulo" style={{ margin: '0 0 3mm', fontSize: '11pt' }}>
+          EVALUACIÓN DEL POSPARTO
+        </h1>
+        <div className="hoja-cabecera-datos" style={{ marginBottom: '3mm' }}>
+          <RecuadroDato rotulo="No. Expediente:" valor={paciente.expediente?.numero} ancho={90} />
+          <RecuadroDato rotulo="Fecha:" valor={diaLocal(ficha.fecha)} ancho={46} />
+        </div>
 
-      {esPrimero ? (
-        <>
-          <DatosDeLaPaciente paciente={paciente} />
+        {esPrimero ? (
+          <>
+            <DatosDeLaPaciente paciente={paciente} />
 
-          <SignosDePeligro
-            numero="III."
-            titulo="Evalúe signos y síntomas de peligro en el posparto"
-            catalogo={catalogo}
-            ficha={ficha}
-          />
+            <SignosDePeligro
+              numero="III."
+              titulo="Evalúe signos y síntomas de peligro en el posparto"
+              catalogo={catalogo}
+              ficha={ficha}
+            />
 
-          <Barra numero="IV." titulo="Si refirió a la paciente, describa manejo y estabilización" />
-          <Cuadro>
-            <Renglones texto={ficha.manejoEstabilizacion} minimo={3} />
-          </Cuadro>
+            <Barra numero="IV." titulo="Si refirió a la paciente, describa manejo y estabilización" />
+            <Cuadro>
+              <Renglones texto={ficha.manejoEstabilizacion} minimo={3} />
+            </Cuadro>
 
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 0, marginTop: '1.4mm' }}>
-            <Barra numero="V." titulo="Primer control posparto" />
-            <div className="hoja-recuadro" style={{ flex: 1, padding: '0.6mm 2mm', marginBottom: '-0.35mm' }}>
-              <span>Fecha:</span>
-              <span className="hoja-valor">{diaLocal(ficha.fecha)}</span>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 0, marginTop: '1.4mm' }}>
+              <Barra numero="V." titulo="Primer control posparto" />
+              <div className="hoja-recuadro" style={{ flex: 1, padding: '0.6mm 2mm', marginBottom: '-0.35mm' }}>
+                <span>Fecha:</span>
+                <span className="hoja-valor">{diaLocal(ficha.fecha)}</span>
+              </div>
             </div>
-          </div>
-          <table className="hoja-tabla" style={{ marginTop: 0 }}>
-            <tbody>
-              <tr>
-                <td style={{ width: '58mm' }}>Cuántos días después del parto</td>
-                <td className="hoja-valor" style={{ width: '58mm' }}>
-                  {s?.diasDespuesDelParto ?? ''}
-                </td>
-                <td>
-                  <Campo rotulo="P/A" valor={presion(ficha.presionSistolica, ficha.presionDiastolica)} sufijo="Mm/Hg" ancho={20} />
-                </td>
-              </tr>
-              <tr>
-                <td>Dónde fue atendido su parto</td>
-                <td className="hoja-valor">{s?.dondeAtendioParto ?? ''}</td>
-                <td>
-                  <Campo rotulo="FC" valor={ficha.pulso} sufijo="X min" ancho={20} />
-                </td>
-              </tr>
-              <tr>
-                <td>Quién le atendió el parto</td>
-                <td className="hoja-valor">{quien ?? ''}</td>
-                <td>
-                  <Campo rotulo="Temperatura" valor={ficha.temperaturaC} sufijo="°C" ancho={20} />
-                </td>
-              </tr>
-              <tr>
-                <td>Herida operatoria</td>
-                <td className="hoja-valor">{s?.heridaOperatoria ?? ''}</td>
-                <td rowSpan={2}>
-                  Examen de mamas: (describa)
-                  <div className="hoja-valor">{s?.examenMamas ?? ''}</div>
-                </td>
-              </tr>
-              <tr>
-                <td>Involución Uterina</td>
-                <td className="hoja-valor">{s?.involucionUterina ?? ''}</td>
-              </tr>
-              <tr>
-                <td colSpan={3} style={{ height: '24mm', verticalAlign: 'top' }}>
-                  Examen ginecológico (Describa: hallazgos patológicos y características de loquios,
-                  episiorrafía, etc.)
-                  <div className="hoja-valor" style={{ marginTop: '1mm', whiteSpace: 'pre-wrap' }}>
-                    {s?.examenGinecologico ?? ''}
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td colSpan={3}>
-                  <Fila>
-                    <SiNo rotulo="Lactancia materna exclusiva:" valor={s?.lactanciaMaternaExclusiva} />
-                    <Campo rotulo="¿Por qué no?" valor={s?.motivoSinLactancia} llena />
-                  </Fila>
-                </td>
-              </tr>
-              <tr>
-                <td colSpan={3}>
-                  <Fila>
-                    <Campo rotulo="Diagnóstico:" valor={s?.problemasDetectados ?? ficha.diagnostico} llena />
-                  </Fila>
-                  <Fila>
-                    <Campo rotulo="Conducta y Tratamiento:" valor={conductaEnLinea(ficha) || null} llena />
-                  </Fila>
-                </td>
-              </tr>
-              <tr>
-                <td colSpan={3}>
-                  <Fila>
-                    <Campo rotulo="Nombre y cargo de la persona que atiende:" valor={null} llena />
-                  </Fila>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+            <table className="hoja-tabla" style={{ marginTop: 0 }}>
+              <tbody>
+                <tr>
+                  <td style={{ width: '58mm' }}>Cuántos días después del parto</td>
+                  <td className="hoja-valor" style={{ width: '58mm' }}>
+                    {s?.diasDespuesDelParto ?? ''}
+                  </td>
+                  <td>
+                    <Campo rotulo="P/A" valor={presion(ficha.presionSistolica, ficha.presionDiastolica)} sufijo="Mm/Hg" ancho={20} />
+                  </td>
+                </tr>
+                <tr>
+                  <td>Dónde fue atendido su parto</td>
+                  <td className="hoja-valor">{s?.dondeAtendioParto ?? ''}</td>
+                  <td>
+                    <Campo rotulo="FC" valor={ficha.pulso} sufijo="X min" ancho={20} />
+                  </td>
+                </tr>
+                <tr>
+                  <td>Quién le atendió el parto</td>
+                  <td className="hoja-valor">{quien ?? ''}</td>
+                  <td>
+                    <Campo rotulo="Temperatura" valor={ficha.temperaturaC} sufijo="°C" ancho={20} />
+                  </td>
+                </tr>
+                <tr>
+                  <td>Herida operatoria</td>
+                  <td className="hoja-valor">{s?.heridaOperatoria ?? ''}</td>
+                  <td rowSpan={2}>
+                    Examen de mamas: (describa)
+                    <div className="hoja-valor">{s?.examenMamas ?? ''}</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>Involución Uterina</td>
+                  <td className="hoja-valor">{s?.involucionUterina ?? ''}</td>
+                </tr>
+                <tr>
+                  <td colSpan={3} style={{ height: '24mm', verticalAlign: 'top' }}>
+                    Examen ginecológico (Describa: hallazgos patológicos y características de loquios,
+                    episiorrafía, etc.)
+                    <div className="hoja-valor" style={{ marginTop: '1mm', whiteSpace: 'pre-wrap' }}>
+                      {s?.examenGinecologico ?? ''}
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td colSpan={3}>
+                    <Fila>
+                      <SiNo rotulo="Lactancia materna exclusiva:" valor={s?.lactanciaMaternaExclusiva} />
+                      <Campo rotulo="¿Por qué no?" valor={s?.motivoSinLactancia} llena />
+                    </Fila>
+                  </td>
+                </tr>
+                <tr>
+                  <td colSpan={3}>
+                    <Fila>
+                      {/*
+                        El diagnostico escrito en la pantalla, y despues los
+                        problemas detectados: antes solo salian los problemas y
+                        el diagnostico escrito quedaba fuera.
+                      */}
+                      <Campo
+                        rotulo="Diagnóstico:"
+                        valor={[ficha.diagnostico, s?.problemasDetectados].filter(Boolean).join(' — ') || null}
+                        llena
+                      />
+                    </Fila>
+                    <Fila>
+                      <Campo rotulo="Conducta y Tratamiento:" valor={conductaEnLinea(ficha) || null} llena />
+                    </Fila>
+                  </td>
+                </tr>
+                <tr>
+                  <td colSpan={3}>
+                    <Fila>
+                      <Campo rotulo="Nombre y cargo de la persona que atiende:" valor={ficha.atendio} llena />
+                    </Fila>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
 
-          <Barra numero="VI." titulo="Suplementación, medicamentos y consejería en el posparto" />
-          <table className="hoja-tabla" style={{ marginTop: 0 }}>
-            <tbody>
-              {[
-                { rotulo: 'Sulfato Ferroso', valor: s?.sulfatoFerroso, cantidad: s?.sulfatoFerrosoTabletas },
-                { rotulo: 'Ácido Fólico', valor: s?.acidoFolico, cantidad: s?.acidoFolicoTabletas },
-                { rotulo: 'Otro medicamento', valor: s?.otroMedicamento, cantidad: null },
-                { rotulo: 'Td', valor: s?.td, cantidad: s?.tdDosis },
-              ].map((fila, i) => {
-                const consejeria = CONSEJERIA_PRIMER_CONTROL[i];
-                return (
-                  <tr key={fila.rotulo}>
-                    <td style={{ width: '32mm' }}>{fila.rotulo}</td>
-                    <td style={{ width: '30mm' }}>
-                      <SiNoCelda valor={fila.valor} />
-                      {fila.cantidad !== null && fila.cantidad !== undefined ? (
-                        <span className="hoja-valor"> {fila.cantidad}</span>
-                      ) : null}
-                    </td>
-                    <td>{consejeria.texto}</td>
-                    <td style={{ width: '30mm' }} className="hoja-centrado">
-                      <SiNoCelda valor={brindadaAlguno(consejeria.temas)} />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </>
-      ) : (
-        <>
-          <table className="hoja-tabla hoja-tabla-controles" style={{ marginTop: 0 }}>
-            <thead>
-              <tr>
-                <td colSpan={5} className="hoja-celda-barra">
-                  VII. Controles posparto <span>(hasta 6 meses después del parto)</span>
-                </td>
-              </tr>
-              <tr>
-                <th style={{ width: '62mm' }} />
-                <EncabezadoControl
-                  numero=""
-                  nota="Meses (semanas) después del parto:"
-                  semanas={
-                    s?.diasDespuesDelParto !== null && s?.diasDespuesDelParto !== undefined ? (
-                      <span className="hoja-campo-valor hoja-valor" style={{ minWidth: '18mm' }}>
-                        {s.diasDespuesDelParto} días
-                      </span>
-                    ) : undefined
+            <Barra numero="VI." titulo="Suplementación, medicamentos y consejería en el posparto" />
+            <table className="hoja-tabla" style={{ marginTop: 0 }}>
+              <tbody>
+                {[
+                  { rotulo: 'Sulfato Ferroso', valor: s?.sulfatoFerroso, cantidad: s?.sulfatoFerrosoTabletas },
+                  { rotulo: 'Ácido Fólico', valor: s?.acidoFolico, cantidad: s?.acidoFolicoTabletas },
+                  { rotulo: 'Otro medicamento', valor: s?.otroMedicamento, cantidad: null },
+                  { rotulo: 'Td', valor: s?.td, cantidad: s?.tdDosis },
+                ].map((fila, i) => {
+                  const consejeria = CONSEJERIA_PRIMER_CONTROL[i];
+                  return (
+                    <tr key={fila.rotulo}>
+                      <td style={{ width: '32mm' }}>{fila.rotulo}</td>
+                      <td style={{ width: '30mm' }}>
+                        <SiNoCelda valor={fila.valor} />
+                        {fila.cantidad !== null && fila.cantidad !== undefined ? (
+                          <span className="hoja-valor"> {fila.cantidad}</span>
+                        ) : null}
+                      </td>
+                      <td>{consejeria.texto}</td>
+                      <td style={{ width: '30mm' }} className="hoja-centrado">
+                        <SiNoCelda valor={brindadaAlguno(consejeria.temas)} />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </>
+        ) : (
+          <>
+            <table className="hoja-tabla hoja-tabla-controles" style={{ marginTop: 0 }}>
+              <thead>
+                <tr>
+                  <td colSpan={5} className="hoja-celda-barra">
+                    VII. Controles posparto <span>(hasta 6 meses después del parto)</span>
+                  </td>
+                </tr>
+                <tr>
+                  <th style={{ width: '62mm' }} />
+                  <EncabezadoControl
+                    numero=""
+                    nota="Meses (semanas) después del parto:"
+                    semanas={
+                      s?.diasDespuesDelParto !== null && s?.diasDespuesDelParto !== undefined ? (
+                        <span className="hoja-campo-valor hoja-valor" style={{ minWidth: '18mm' }}>
+                          {s.diasDespuesDelParto} días
+                        </span>
+                      ) : undefined
+                    }
+                  />
+                  {[3, 4, 5].map((n) => (
+                    <EncabezadoControl key={n} numero={n} nota="Meses (semanas) después del parto:" />
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <FilaControl rotulo="Fecha de la visita" valor={diaLocal(ficha.fecha)} />
+                <FilaControl rotulo="Involución uterina" valor={s?.involucionUterina} />
+                <FilaControl rotulo="Examen de mamas" valor={s?.examenMamas} />
+                <FilaControl rotulo="Herida operatoria" valor={s?.heridaOperatoria} />
+                <FilaControl
+                  alto={22}
+                  rotulo={
+                    <>
+                      Examen ginecológico
+                      <br />
+                      (Describa: hallazgos patológicos y otros)
+                    </>
+                  }
+                  valor={s?.examenGinecologico}
+                />
+                <FilaControl rotulo="P/A" valor={presion(ficha.presionSistolica, ficha.presionDiastolica)} />
+                <FilaControl rotulo="Mm/Hg" valor={null} />
+                <FilaControl rotulo="FC X min" valor={ficha.pulso} />
+                <FilaControl rotulo="Temperatura °C" valor={ficha.temperaturaC} />
+                <FilaControl
+                  rotulo="Lactancia materna exclusiva:"
+                  valor={
+                    <>
+                      <SiNoCelda valor={s?.lactanciaMaternaExclusiva} />
+                      {s?.motivoSinLactancia ? <div>{s.motivoSinLactancia}</div> : null}
+                    </>
                   }
                 />
-                {[3, 4, 5].map((n) => (
-                  <EncabezadoControl key={n} numero={n} nota="Meses (semanas) después del parto:" />
+                <BarraEnTabla titulo="Clasificación" />
+                <FilaControl rotulo="Problemas detectados" valor={s?.problemasDetectados ?? ficha.diagnostico} />
+                <BarraEnTabla
+                  titulo="Conducta"
+                  nota="(medicamentos indicados, anotar dosis y días de tratamiento. Anotar si se hizo referencia)"
+                />
+                <FilaControl
+                  rotulo={
+                    <>
+                      Sulfato ferroso /anotar número de table-
+                      <br />
+                      tas
+                    </>
+                  }
+                  valor={s?.sulfatoFerrosoTabletas ?? siNoTexto(s?.sulfatoFerroso)}
+                />
+                <FilaControl
+                  rotulo="Ácido fólico / anotar número de tabletas"
+                  valor={s?.acidoFolicoTabletas ?? siNoTexto(s?.acidoFolico)}
+                />
+                <FilaControl
+                  rotulo={
+                    <>
+                      Vacunación madre (Td) /anotar dosis que
+                      <br />
+                      se administra
+                    </>
+                  }
+                  valor={s?.tdDosis ?? siNoTexto(s?.td)}
+                />
+                <FilaControl rotulo="Medicamento" valor={conductaEnLinea(ficha)} />
+                <BarraEnTabla titulo="Consejería" />
+                {temas.map((t) => (
+                  <FilaControl key={t.id} rotulo={t.texto} valor={<SiNoCelda valor={brindada(t)} />} />
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              <FilaControl rotulo="Fecha de la visita" valor={diaLocal(ficha.fecha)} />
-              <FilaControl rotulo="Involución uterina" valor={s?.involucionUterina} />
-              <FilaControl rotulo="Examen de mamas" valor={s?.examenMamas} />
-              <FilaControl rotulo="Herida operatoria" valor={s?.heridaOperatoria} />
-              <FilaControl
-                alto={22}
-                rotulo={
-                  <>
-                    Examen ginecológico
-                    <br />
-                    (Describa: hallazgos patológicos y otros)
-                  </>
-                }
-                valor={s?.examenGinecologico}
-              />
-              <FilaControl rotulo="P/A" valor={presion(ficha.presionSistolica, ficha.presionDiastolica)} />
-              <FilaControl rotulo="Mm/Hg" valor={null} />
-              <FilaControl rotulo="FC X min" valor={ficha.pulso} />
-              <FilaControl rotulo="Temperatura °C" valor={ficha.temperaturaC} />
-              <FilaControl
-                rotulo="Lactancia materna exclusiva:"
-                valor={
-                  <>
-                    <SiNoCelda valor={s?.lactanciaMaternaExclusiva} />
-                    {s?.motivoSinLactancia ? <div>{s.motivoSinLactancia}</div> : null}
-                  </>
-                }
-              />
-              <BarraEnTabla titulo="Clasificación" />
-              <FilaControl rotulo="Problemas detectados" valor={s?.problemasDetectados ?? ficha.diagnostico} />
-              <BarraEnTabla
-                titulo="Conducta"
-                nota="(medicamentos indicados, anotar dosis y días de tratamiento. Anotar si se hizo referencia)"
-              />
-              <FilaControl
-                rotulo={
-                  <>
-                    Sulfato ferroso /anotar número de table-
-                    <br />
-                    tas
-                  </>
-                }
-                valor={s?.sulfatoFerrosoTabletas ?? siNoTexto(s?.sulfatoFerroso)}
-              />
-              <FilaControl
-                rotulo="Ácido fólico / anotar número de tabletas"
-                valor={s?.acidoFolicoTabletas ?? siNoTexto(s?.acidoFolico)}
-              />
-              <FilaControl
-                rotulo={
-                  <>
-                    Vacunación madre (Td) /anotar dosis que
-                    <br />
-                    se administra
-                  </>
-                }
-                valor={s?.tdDosis ?? siNoTexto(s?.td)}
-              />
-              <FilaControl rotulo="Medicamento" valor={conductaEnLinea(ficha)} />
-              <BarraEnTabla titulo="Consejería" />
-              {temas.map((t) => (
-                <FilaControl key={t.id} rotulo={t.texto} valor={<SiNoCelda valor={brindada(t)} />} />
-              ))}
-            </tbody>
-          </table>
+              </tbody>
+            </table>
 
-          <div style={{ marginTop: '3mm' }}>
-            <Barra titulo="Otros controles y observaciones" />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '28mm 1fr', columnGap: '3mm', marginTop: '0.5mm' }}>
-            <Barra titulo="Fecha" ancha />
-            <Barra titulo="Observaciones /Hallazgos adicionales" ancha />
-          </div>
-          <div className="hoja-observaciones" style={{ ['--renglones' as string]: 16 }}>
-            <div className="hoja-valor" style={{ textAlign: 'center' }}>
-              {ficha.notas || ficha.consejeria ? diaLocal(ficha.fecha) : ''}
-            </div>
-            <div className="hoja-valor">{[ficha.notas, ficha.consejeria].filter(Boolean).join('\n')}</div>
-          </div>
-          <Firma />
-        </>
-      )}
-    </Pliego>
+            <OtrosControles ficha={ficha} renglones={16} />
+          </>
+        )}
+      </Pliego>
+
+      {/*
+        Despues del primer control, una hoja mas de «Otros controles y
+        observaciones», como pidio el CAP: en la del primer control no cabe.
+      */}
+      {esPrimero ? (
+        <Pliego etiqueta="Evaluación del posparto, otros controles y observaciones">
+          <OtrosControles ficha={ficha} renglones={30} />
+        </Pliego>
+      ) : null}
+    </>
   );
 }

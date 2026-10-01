@@ -6,6 +6,7 @@ import type {
   NuevaFicha,
   TipoFicha,
 } from './servicio-fichas';
+import { quienAtiendePorDefecto } from './servicio-fichas';
 
 export type Respuesta = 'SI' | 'NO' | 'NO_APLICA';
 
@@ -101,6 +102,31 @@ export function fueraDeRango(campo: CampoExamen, valor: string): boolean {
   return n < min || n > max;
 }
 
+/**
+ * Las pruebas de deteccion de cancer de cervix que se hicieron.
+ *
+ * Papanicolau e IVAA son pruebas distintas y una mujer puede tener las dos:
+ * el CAP pidio poder marcarlas por separado. Se guardan en el mismo campo de
+ * texto, separadas por coma —«PAPANICOLAU,IVAA»—, para no tocar la base; un
+ * valor de antes, con una sola, se sigue leyendo igual.
+ */
+export const TAMIZAJES_CERVIX = ['PAPANICOLAU', 'IVAA'] as const;
+
+export function tamizajesDe(valor: string | null | undefined): string[] {
+  return (valor ?? '')
+    .split(',')
+    .map((t) => t.trim())
+    .filter((t) => t !== '');
+}
+
+/** Marca o desmarca una prueba, conservando el orden del papel. */
+export function alternarTamizaje(valor: string, prueba: string): string {
+  const actuales = new Set(tamizajesDe(valor));
+  if (actuales.has(prueba)) actuales.delete(prueba);
+  else actuales.add(prueba);
+  return TAMIZAJES_CERVIX.filter((t) => actuales.has(t)).join(',');
+}
+
 export interface Obstetricos {
   fur: string;
   gestas: string;
@@ -145,6 +171,10 @@ export interface Borrador {
   diagnostico: string;
   tratamiento: string;
   notas: string;
+  /** Casilla del establecimiento de salud. '' = sin marcar, y no se guarda asi. */
+  tipoServicio: string;
+  /** «Nombre y cargo de la persona que atendio». */
+  atendio: string;
 }
 
 export const hoy = (): string => new Date().toISOString().slice(0, 10);
@@ -225,6 +255,8 @@ export function borradorVacio(catalogo: CatalogoFicha): Borrador {
     diagnostico: '',
     tratamiento: '',
     notas: '',
+    tipoServicio: '',
+    atendio: quienAtiendePorDefecto(),
   };
 }
 
@@ -394,6 +426,8 @@ export function cuerpoDeFicha(borrador: Borrador, tipoFicha: TipoFicha): NuevaFi
   asignar(cuerpo, 'tratamiento', texto(borrador.tratamiento));
   asignar(cuerpo, 'notas', texto(borrador.notas));
   asignar(cuerpo, 'fechaProximaVisita', fecha(borrador.fechaProximaVisita));
+  asignar(cuerpo, 'tipoServicio', texto(borrador.tipoServicio));
+  asignar(cuerpo, 'atendio', texto(borrador.atendio));
 
   for (const campo of CAMPOS_EXAMEN) asignar(cuerpo, campo, numero(borrador.examen[campo]));
 
@@ -565,6 +599,17 @@ export function reparosDe(borrador: Borrador, catalogo: CatalogoFicha): Reparo[]
   }
   if (borrador.fecha > hoy()) {
     reparos.push({ seccion: 'identificacion', mensaje: 'La fecha no puede estar en el futuro.' });
+  }
+  if (borrador.tipoServicio === '') {
+    reparos.push({
+      seccion: 'identificacion',
+      mensaje: 'Marque el tipo de servicio de salud (seccion I).',
+    });
+  }
+  // Con la P/A en una sola casilla, «120» sin la diastolica es facil de dejar
+  // a medias. Media presion no sirve para nada, asi que se pide completa.
+  if ((borrador.examen.presionSistolica === '') !== (borrador.examen.presionDiastolica === '')) {
+    reparos.push({ seccion: 'examen', mensaje: 'Escriba la P/A completa, por ejemplo 120/80.' });
   }
 
   for (const campo of CAMPOS_EXAMEN) {

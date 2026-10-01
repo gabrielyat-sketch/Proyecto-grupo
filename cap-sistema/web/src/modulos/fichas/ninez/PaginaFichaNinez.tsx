@@ -29,8 +29,10 @@ import {
   registrarFicha,
   SERVICIO_DE_SALUD,
   SIN_CONFIRMAR,
+  CASILLAS_SERVICIO,
   type CatalogoFicha,
 } from '../servicio-fichas';
+import { CampoAtendio, CasillasServicio } from '../ServicioYAtencion';
 import type { AvanceSeccion } from '../borrador';
 import { ALTO_BARRA } from '../../../tema';
 import { AvisoDeEdad } from '../CambioDeFicha';
@@ -45,6 +47,7 @@ import {
   respiracionRapida,
   type BorradorNinez,
   type CampoVitalNinez,
+  tieneContenidoNinez,
 } from './borrador-ninez';
 
 /**
@@ -268,6 +271,12 @@ export function PaginaFichaNinez() {
         volverA={volverA}
         volverTexto={volver.etiqueta}
         pacienteId={pacienteId}
+        selector={{
+          tipoActual: 'NINEZ',
+          fechaNacimiento: datos.fechaNacimiento as unknown as string,
+          esMujer: datos.sexo === 'F',
+          sinGuardar: tieneContenidoNinez(actual),
+        }}
         grupoFamiliarId={datos.grupoFamiliar?.id}
         nombre={datos.apellidos + ', ' + datos.nombres}
         resumen={
@@ -362,17 +371,20 @@ export function PaginaFichaNinez() {
             }}
             numeral="2"
             titulo="Identificación del servicio de salud"
-            nota="El papel trae seis casillas —PSF, C/S «A», CENAPA, C/S «B», CAP, CAIMI— porque se imprime igual para todo el país. Aquí no se pregunta: el sistema es de un solo establecimiento."
           >
             <Stack sx={{ gap: 1.5 }}>
+              <CasillasServicio
+                casillas={CASILLAS_SERVICIO.NINOS}
+                valor={actual.tipoServicio}
+                onCambio={(v) => cambiar({ tipoServicio: v })}
+              />
               <Box
                 sx={{
                   display: 'grid',
-                  gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(5, 1fr)' },
+                  gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' },
                   gap: 1.5,
                 }}
               >
-                <Dato titulo="Tipo de servicio" valor={SERVICIO_DE_SALUD.tipo} />
                 <Dato titulo="Nombre del servicio" valor={SERVICIO_DE_SALUD.nombre} />
                 <Dato titulo="Distrito" valor={SERVICIO_DE_SALUD.distrito ?? SIN_CONFIRMAR} />
                 <Dato titulo="Comunidad" valor={SERVICIO_DE_SALUD.comunidad ?? SIN_CONFIRMAR} />
@@ -588,9 +600,36 @@ export function PaginaFichaNinez() {
                     slotProps={{ inputLabel: { shrink: true } }}
                   />
                 </Stack>
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
-                  Quien atiende queda registrado con la sesión; no hay que escribir el nombre.
-                </Typography>
+                {/*
+                  Antes decia que no hacia falta escribir el nombre, pero no
+                  salia en la ficha impresa. Ahora se guarda y se imprime.
+                */}
+                <Box sx={{ mt: 2 }}>
+                  <CampoAtendio
+                    rotulo="Nombre de la persona que atendió"
+                    valor={actual.atendio}
+                    onCambio={(v) => cambiar({ atendio: v })}
+                  />
+                </Box>
+              </BloqueFicha>
+
+              {/*
+                Cuarta hoja del papel, «Otros problemas, controles u
+                observaciones». Se imprimia siempre vacia porque aqui no habia
+                donde escribirla.
+              */}
+              <BloqueFicha titulo="Otros problemas, controles u observaciones">
+                <TextField
+                  label="Observaciones / Hallazgos adicionales / Tratamientos"
+                  value={actual.notas}
+                  onChange={(e) => cambiar({ notas: e.target.value })}
+                  multiline
+                  minRows={3}
+                  fullWidth
+                  size="small"
+                  slotProps={{ htmlInput: { maxLength: 2000 } }}
+                  helperText="Se imprime con la fecha de esta consulta y el nombre de quien atendió."
+                />
               </BloqueFicha>
             </Stack>
           </SeccionFicha>
@@ -603,7 +642,7 @@ export function PaginaFichaNinez() {
             <Button
               variant="contained"
               size="large"
-              disabled={actual.motivo.trim() === '' || guardar.isPending}
+              disabled={actual.motivo.trim() === '' || actual.tipoServicio === '' || guardar.isPending}
               onClick={() => guardar.mutate(cuerpoDeFichaNinez(actual))}
             >
               {guardar.isPending ? 'Guardando...' : 'Guardar la ficha'}
@@ -611,6 +650,11 @@ export function PaginaFichaNinez() {
             {actual.motivo.trim() === '' ? (
               <Typography variant="body2" color="text.secondary">
                 Falta el motivo de consulta.
+              </Typography>
+            ) : null}
+            {actual.tipoServicio === '' ? (
+              <Typography variant="body2" color="text.secondary">
+                Falta marcar el tipo de servicio (sección 2).
               </Typography>
             ) : null}
           </Stack>

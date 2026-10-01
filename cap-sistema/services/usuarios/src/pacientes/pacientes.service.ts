@@ -162,6 +162,8 @@ export class PacientesService {
       lugar: p.lugar,
       migrante: p.migrante,
       lugarOrigen: p.lugarOrigen,
+      ocupacion: p.ocupacion,
+      dpiMadre: p.dpiMadreCifrado ? this.cifrado.descifrar(Buffer.from(p.dpiMadreCifrado)) : null,
       tieneAlergias: p.tieneAlergias,
       alergias: p.alergiasCifrado
         ? this.cifrado.descifrar(Buffer.from(p.alergiasCifrado))
@@ -201,15 +203,30 @@ export class PacientesService {
       }
     }
 
-    // El CUI o DPI es obligatorio, asi que el indice existe siempre y el
-    // control de duplicados se hace en todas las altas, no solo en las que
-    // traian el dato.
-    const dpiIndice = this.cifrado.indiceCiego(dto.dpi);
+    // El CUI o DPI es obligatorio salvo en un caso: el recien nacido que aun
+    // no lo tiene, que se registra con el DPI de su madre. El CAP lo limito a
+    // la ficha del menor de 28 dias, y aqui se sostiene esa frontera.
+    if (!dto.dpi) {
+      if (!dto.dpiMadre) {
+        throw new BadRequestException('El CUI o DPI es obligatorio.');
+      }
+      if (PacientesService.diasDeVida(dto.fechaNacimiento) > 29) {
+        throw new BadRequestException(
+          'Solo el recien nacido (28 dias o menos) se puede registrar con el DPI de la madre.',
+        );
+      }
+    }
 
-    const repetido = await this.prisma.paciente.findUnique({
-      where: { dpiIndice: new Uint8Array(dpiIndice) },
-      select: { id: true },
-    });
+    // Con CUI propio, el control de duplicados se hace siempre. El DPI de la
+    // madre no se controla: ella ya esta registrada con el.
+    const dpiIndice = dto.dpi ? this.cifrado.indiceCiego(dto.dpi) : null;
+
+    const repetido = dpiIndice
+      ? await this.prisma.paciente.findUnique({
+          where: { dpiIndice: new Uint8Array(dpiIndice) },
+          select: { id: true },
+        })
+      : null;
     if (repetido) {
       // El id va en detalles y no como campo suelto: el formato de error es
       // uno solo en los ocho servicios, y el frontend lo usa para ofrecer
@@ -332,8 +349,9 @@ export class PacientesService {
 
       const paciente = await tx.paciente.create({
         data: {
-          dpiCifrado: new Uint8Array(this.cifrado.cifrar(dto.dpi)),
-          dpiIndice: new Uint8Array(dpiIndice),
+          dpiCifrado: dto.dpi ? new Uint8Array(this.cifrado.cifrar(dto.dpi)) : null,
+          dpiIndice: dpiIndice ? new Uint8Array(dpiIndice) : null,
+          dpiMadreCifrado: dto.dpiMadre ? new Uint8Array(this.cifrado.cifrar(dto.dpiMadre)) : null,
           nombres: dto.nombres.trim(),
           apellidos: dto.apellidos.trim(),
           nombreBusqueda: textoDeBusqueda(dto.apellidos, dto.nombres),
@@ -346,6 +364,7 @@ export class PacientesService {
           lugarId: dto.lugarId,
           migrante: dto.migrante ?? false,
           lugarOrigen: dto.lugarOrigen?.trim(),
+          ocupacion: dto.ocupacion?.trim() || null,
           esposo: dto.esposo.trim(),
           // Sin enviarlo queda en null: "no se ha preguntado", que no es lo
           // mismo que "no tiene".
@@ -437,6 +456,7 @@ export class PacientesService {
         comunidadId: true,
         grupoFamiliarId: true,
         telefono: true,
+        ocupacion: true,
         fallecido: true,
       },
     });
@@ -482,6 +502,7 @@ export class PacientesService {
         ...(dto.comunidadId !== undefined ? { comunidadId: dto.comunidadId } : {}),
         ...(dto.grupoFamiliarId !== undefined ? { grupoFamiliarId: dto.grupoFamiliarId } : {}),
         ...(dto.telefono !== undefined ? { telefono: dto.telefono.trim() } : {}),
+        ...(dto.ocupacion !== undefined ? { ocupacion: dto.ocupacion.trim() } : {}),
         ...(dto.fallecido !== undefined ? { fallecido: dto.fallecido } : {}),
         ...(dto.nombres !== undefined || dto.apellidos !== undefined
           ? {
@@ -514,6 +535,7 @@ export class PacientesService {
       'comunidadId',
       'grupoFamiliarId',
       'telefono',
+      'ocupacion',
       'fallecido',
     ] as const) {
       const nuevo = dto[campo];
@@ -669,6 +691,25 @@ export class PacientesService {
           }
         : null,
     };
+  }
+
+  /**
+   * Dias de vida, para la frontera de los 28 dias del recien nacido.
+   *
+   * La fecha de nacimiento llega como medianoche UTC y el servidor puede
+   * correr en UTC mientras el CAP vive en UTC-6: por la noche en Purulha ya
+   * es «manana» aqui. Por eso se cuenta en fechas UTC y quien llama deja un
+   * dia de margen, en vez de rechazar a un bebe de 28 dias por la hora.
+   */
+  static diasDeVida(fechaNacimiento: Date): number {
+    const hoy = new Date();
+    const inicio = Date.UTC(
+      fechaNacimiento.getUTCFullYear(),
+      fechaNacimiento.getUTCMonth(),
+      fechaNacimiento.getUTCDate(),
+    );
+    const fin = Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), hoy.getUTCDate());
+    return Math.max(0, Math.round((fin - inicio) / 86_400_000));
   }
 
   static edad(fechaNacimiento: Date): number {

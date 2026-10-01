@@ -29,8 +29,10 @@ import {
   obtenerPaciente,
   registrarFicha,
   SERVICIO_DE_SALUD,
+  CASILLAS_SERVICIO,
   type CatalogoFicha,
 } from '../servicio-fichas';
+import { CampoAtendio, CasillasServicio } from '../ServicioYAtencion';
 import type { AvanceSeccion } from '../borrador';
 import { ALTO_BARRA } from '../../../tema';
 import { AvisoDeEdad } from '../CambioDeFicha';
@@ -46,6 +48,7 @@ import {
   signosGravesMarcados,
   type BorradorNeonato,
   type CampoExamenNeonato,
+  tieneContenidoNeonato,
 } from './borrador-neonato';
 
 const SECCIONES: readonly EntradaIndice[] = [
@@ -323,6 +326,12 @@ export function PaginaFichaNeonato() {
         volverA={volverA}
         volverTexto={volver.etiqueta}
         pacienteId={pacienteId}
+        selector={{
+          tipoActual: 'NEONATO',
+          fechaNacimiento: datos.fechaNacimiento as unknown as string,
+          esMujer: datos.sexo === 'F',
+          sinGuardar: tieneContenidoNeonato(actual),
+        }}
         grupoFamiliarId={datos.grupoFamiliar?.id}
         nombre={datos.apellidos + ', ' + datos.nombres}
         resumen={
@@ -350,16 +359,20 @@ export function PaginaFichaNeonato() {
             }}
             numeral="1"
             titulo="Identificación del servicio de salud"
-            nota="El papel trae seis casillas —PSF, C/S «A», CENAPA, C/S «B», CAP, CAIMI— porque se imprime igual para todo el país. Aquí no se pregunta: el sistema es de un solo establecimiento."
           >
+            <CasillasServicio
+              casillas={CASILLAS_SERVICIO.NINOS}
+              valor={actual.tipoServicio}
+              onCambio={(v) => cambiar({ tipoServicio: v })}
+            />
             <Box
               sx={{
                 display: 'grid',
                 gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
                 gap: 1.5,
+                mt: 1.5,
               }}
             >
-              <Dato titulo="Tipo de servicio" valor={SERVICIO_DE_SALUD.tipo} />
               <Dato titulo="Nombre del servicio" valor={SERVICIO_DE_SALUD.nombre} />
               <Dato titulo="Área de salud" valor={SERVICIO_DE_SALUD.areaDeSalud} />
             </Box>
@@ -404,6 +417,11 @@ export function PaginaFichaNeonato() {
                 <Dato titulo="Sexo" valor={datos.sexo === 'F' ? 'Femenino' : 'Masculino'} />
                 <Dato titulo="Población migrante" valor={datos.migrante ? 'Sí' : 'No'} />
                 <Dato titulo="Lugar de origen" valor={datos.lugarOrigen ?? '—'} />
+                {/* El bebe registrado sin CUI lleva el DPI de su madre. */}
+                <Dato
+                  titulo={datos.dpi ? 'CUI' : 'DPI de la madre'}
+                  valor={datos.dpi ?? datos.dpiMadre ?? '—'}
+                />
               </Box>
 
               <TextField
@@ -921,6 +939,12 @@ export function PaginaFichaNeonato() {
                 sx={{ width: 220 }}
                 slotProps={{ inputLabel: { shrink: true } }}
               />
+              {/* Al final de la ficha, como pidio el CAP. */}
+              <CampoAtendio
+                rotulo="Nombre de la persona que atendió"
+                valor={actual.atendio}
+                onCambio={(v) => cambiar({ atendio: v })}
+              />
             </Stack>
           </SeccionFicha>
 
@@ -932,7 +956,7 @@ export function PaginaFichaNeonato() {
             <Button
               variant="contained"
               size="large"
-              disabled={actual.motivo.trim() === '' || guardar.isPending}
+              disabled={actual.motivo.trim() === '' || actual.tipoServicio === '' || guardar.isPending}
               onClick={() => guardar.mutate(cuerpoDeFichaNeonato(actual))}
             >
               {guardar.isPending ? 'Guardando...' : 'Guardar la ficha'}
@@ -940,6 +964,11 @@ export function PaginaFichaNeonato() {
             {actual.motivo.trim() === '' ? (
               <Typography variant="body2" color="text.secondary">
                 Falta el motivo de consulta.
+              </Typography>
+            ) : null}
+            {actual.tipoServicio === '' ? (
+              <Typography variant="body2" color="text.secondary">
+                Falta marcar el tipo de servicio (sección 1).
               </Typography>
             ) : null}
           </Stack>

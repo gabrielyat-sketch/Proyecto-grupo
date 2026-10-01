@@ -26,7 +26,7 @@ const PACIENTE = {
   id: 'p-1', dpi: '2547896540101', nombres: 'Juana Isabel', apellidos: 'Perez Caal',
   fechaNacimiento: '1985-04-12', edad: 41, sexo: 'F', idioma: 'QEQCHI', telefono: '55512345',
   fallecido: false, comunidad: { id: 'c-1', nombre: 'Purulha Centro' }, grupoFamiliar: null,
-  lugar: { id: 'l-1', nombre: 'Barrio El Calvario', tipo: 'BARRIO' as const }, migrante: false, lugarOrigen: null,
+  lugar: { id: 'l-1', nombre: 'Barrio El Calvario', tipo: 'BARRIO' as const }, migrante: false, lugarOrigen: null, ocupacion: null, dpiMadre: null,
   tieneAlergias: null, alergias: null,
   expediente: { id: 'e-1', numero: 'EXP-2026-000123', aperturaEn: '2026-01-10T00:00:00.000Z' },
 };
@@ -97,7 +97,7 @@ const CATALOGO_ADULTO = {
 
 const FICHA = {
   id: 'a-1', expedienteId: 'e-1', tipoFicha: 'ADULTO' as const, fecha: '2026-09-10T15:30:00.000Z',
-  registradaPor: 'u-1', digitalizada: false,
+  registradaPor: 'u-1', digitalizada: false, tipoServicio: null, atendio: null,
   motivo: 'Tos de una semana con fiebre por las noches.',
   historiaEnfermedad: 'Inicio hace 7 dias con tos seca, luego productiva. Fiebre no cuantificada por las noches. Niega disnea.',
   manejoEstabilizacion: null, diagnostico: null, tratamiento: null, notas: null,

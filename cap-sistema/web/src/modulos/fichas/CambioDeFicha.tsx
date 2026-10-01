@@ -1,7 +1,17 @@
 import { useState } from 'react';
 import { Link as EnlaceRuta, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Alert, Button, ListItemText, Menu, MenuItem, Typography } from '@mui/material';
+import {
+  Alert,
+  Box,
+  Button,
+  ListItemText,
+  Menu,
+  MenuItem,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+} from '@mui/material';
 import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
 import { obtenerCarpeta } from '../carpetas/servicio-carpetas';
 import { fichaParaPaciente, type FichaSugerida } from './ficha-por-edad';
@@ -196,7 +206,11 @@ export function AvisoDeEdad({
   tipoDeEstaFicha: TipoFicha;
 }) {
   const suya: FichaSugerida = fichaParaPaciente(fechaNacimiento, pacienteId);
-  if (suya.tipo === tipoDeEstaFicha) return null;
+  // La prenatal y la del posparto no las elige la edad: son de una mujer a la
+  // que por edad le toca la de adultos. Compararlas tal cual hacia que la
+  // prenatal avisara siempre «le corresponde la de adultos».
+  const comoAdulto = tipoDeEstaFicha === 'PRENATAL' || tipoDeEstaFicha === 'POSPARTO';
+  if (suya.tipo === (comoAdulto ? 'ADULTO' : tipoDeEstaFicha)) return null;
 
   return (
     <Alert
@@ -216,5 +230,90 @@ export function AvisoDeEdad({
         {suya.motivo.toLowerCase()}. Si esta transcribiendo una consulta antigua, continue.
       </Typography>
     </Alert>
+  );
+}
+
+/** Las rutas de cada hoja, colgando de `/pacientes/:id`. */
+const RUTA_DE_LA_FICHA: Record<TipoFicha, string> = {
+  ADULTO: '/ficha',
+  PRENATAL: '/ficha-prenatal',
+  POSPARTO: '/ficha-posparto',
+  NEONATO: '/ficha-neonato',
+  NINEZ: '/ficha-ninez',
+};
+
+/** Nombres cortos, para que las cinco quepan en una barra. */
+const NOMBRE_CORTO: Record<TipoFicha, string> = {
+  ADULTO: 'Adulto',
+  PRENATAL: 'Prenatal',
+  POSPARTO: 'Posparto',
+  NEONATO: 'Menor de 28 días',
+  NINEZ: 'Lactante y niñez',
+};
+
+/**
+ * La barra para elegir la ficha de un vistazo.
+ *
+ * El CAP la pidió para no confundir a las enfermeras: antes la hoja la
+ * elegía el sistema por la edad, y para cambiarla había que conocer el menú de
+ * «Prenatal o posparto» o el aviso de edad. Aquí están todas a la vista, la
+ * que se está llenando marcada y la que le toca por edad señalada con un
+ * punto. La prenatal y la del posparto solo salen para mujeres.
+ *
+ * Cambiar de hoja con algo escrito pide confirmación: la navegación dentro del
+ * panel no dispara el aviso del navegador, y lo escrito se perdería sin más.
+ */
+export function SelectorDeFicha({
+  pacienteId,
+  tipoActual,
+  fechaNacimiento,
+  esMujer,
+  sinGuardar = false,
+}: {
+  pacienteId: string;
+  tipoActual: TipoFicha;
+  fechaNacimiento: string;
+  esMujer: boolean;
+  sinGuardar?: boolean;
+}) {
+  const navegar = useNavigate();
+  const sugerida = fichaParaPaciente(fechaNacimiento, pacienteId).tipo;
+  const tipos: TipoFicha[] = esMujer
+    ? ['ADULTO', 'PRENATAL', 'POSPARTO', 'NEONATO', 'NINEZ']
+    : ['ADULTO', 'NEONATO', 'NINEZ'];
+
+  return (
+    <Box sx={{ mt: 1, overflowX: 'auto' }}>
+      <ToggleButtonGroup
+        exclusive
+        size="small"
+        value={tipoActual}
+        aria-label="Elegir la ficha"
+        onChange={(_, tipo: TipoFicha | null) => {
+          if (!tipo || tipo === tipoActual) return;
+          if (
+            sinGuardar &&
+            !window.confirm('Lo que escribió en esta ficha no se ha guardado y se perderá. ¿Cambiar de ficha?')
+          ) {
+            return;
+          }
+          navegar('/pacientes/' + pacienteId + RUTA_DE_LA_FICHA[tipo]);
+        }}
+      >
+        {tipos.map((t) => (
+          <ToggleButton key={t} value={t} sx={{ textTransform: 'none', whiteSpace: 'nowrap', px: 1.5 }}>
+            {NOMBRE_CORTO[t]}
+            {t === sugerida ? (
+              <Box
+                component="span"
+                title="La que le corresponde por edad"
+                aria-label="(le corresponde por edad)"
+                sx={{ ml: 0.75, width: 6, height: 6, borderRadius: '50%', bgcolor: 'success.main' }}
+              />
+            ) : null}
+          </ToggleButton>
+        ))}
+      </ToggleButtonGroup>
+    </Box>
   );
 }
