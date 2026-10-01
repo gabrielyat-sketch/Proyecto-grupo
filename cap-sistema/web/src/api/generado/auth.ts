@@ -365,6 +365,10 @@ export interface components {
              * @example jlopez
              */
             usuario: string;
+            /** @example Ana Maria */
+            nombres?: string;
+            /** @example Lopez Caal */
+            apellidos?: string;
             rol: components["schemas"]["Rol"];
             /**
              * @description Si es true, el panel debe obligar al cambio antes de dejar trabajar.
@@ -467,6 +471,10 @@ export interface components {
              * @example jlopez
              */
             usuario: string;
+            /** @example Ana Maria */
+            nombres?: string;
+            /** @example Lopez Caal */
+            apellidos?: string;
             rol: components["schemas"]["Rol"];
             /**
              * @description Si es true, el panel debe obligar al cambio antes de dejar trabajar.

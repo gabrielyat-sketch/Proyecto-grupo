@@ -12,6 +12,7 @@ import {
   Matches,
   MaxDate,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 
@@ -70,12 +71,36 @@ export class CrearPacienteDto {
    * una limitacion tecnica.
    */
   @ApiProperty({
+    required: false,
     example: '1234567890101',
-    description: 'CUI o DPI de 13 digitos. El CUI del menor sirve igual que el DPI del adulto.',
+    description:
+      'CUI o DPI de 13 digitos. El CUI del menor sirve igual que el DPI del adulto. ' +
+      'Solo se omite en el recien nacido registrado con `dpiMadre`.',
   })
+  //
+  // Unica excepcion: el recien nacido que todavia no tiene CUI. Ese se
+  // registra con el DPI de la madre en `dpiMadre`, y entonces este se omite.
+  @ValidateIf((o: CrearPacienteDto) => !o.dpiMadre || o.dpi !== undefined)
   @IsString()
   @Matches(/^[0-9]{13}$/, { message: 'El CUI o DPI debe tener exactamente 13 digitos.' })
-  dpi!: string;
+  dpi?: string;
+
+  /**
+   * DPI de la madre, para el menor de 28 dias que aun no tiene CUI.
+   *
+   * El CAP lo pidio asi: la madre ya esta registrada con ese DPI, y ponerlo
+   * en `dpi` lo rechazaba como repetido. Aqui no se controla la unicidad
+   * —dos gemelos llevan el mismo— y el servicio solo lo acepta sin `dpi` si
+   * el paciente tiene 28 dias o menos.
+   */
+  @ApiPropertyOptional({
+    example: '1234567890101',
+    description: 'DPI de la madre del recien nacido sin CUI. Sustituye a `dpi`.',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[0-9]{13}$/, { message: 'El DPI de la madre debe tener exactamente 13 digitos.' })
+  dpiMadre?: string;
 
   @ApiProperty({ example: 'Juana Isabel' })
   @IsString()
@@ -168,6 +193,13 @@ export class CrearPacienteDto {
   @IsOptional()
   @IsBoolean()
   migrante?: boolean;
+
+  /** La ficha de adultos la pregunta en «Datos generales del paciente». */
+  @ApiPropertyOptional({ maxLength: 120, example: 'Agricultor' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 120)
+  ocupacion?: string;
 
   @ApiPropertyOptional({ maxLength: 160, description: 'De donde viene, si es migrante.' })
   @IsOptional()

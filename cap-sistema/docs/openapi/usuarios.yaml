@@ -2069,6 +2069,13 @@ components:
         lugarOrigen:
           type: string
           nullable: true
+        ocupacion:
+          type: string
+          nullable: true
+        dpiMadre:
+          type: string
+          nullable: true
+          description: DPI de la madre, solo en el recien nacido registrado sin CUI.
         tieneAlergias:
           type: boolean
           nullable: true
@@ -2099,6 +2106,8 @@ components:
         - lugar
         - migrante
         - lugarOrigen
+        - ocupacion
+        - dpiMadre
         - tieneAlergias
         - alergias
         - expediente
@@ -2130,7 +2139,12 @@ components:
           type: string
           example: "1234567890101"
           description: CUI o DPI de 13 digitos. El CUI del menor sirve igual que el DPI
-            del adulto.
+            del adulto. Solo se omite en el recien nacido registrado con
+            `dpiMadre`.
+        dpiMadre:
+          type: string
+          example: "1234567890101"
+          description: DPI de la madre del recien nacido sin CUI. Sustituye a `dpi`.
         nombres:
           type: string
           example: Juana Isabel
@@ -2177,6 +2191,10 @@ components:
         migrante:
           type: boolean
           default: false
+        ocupacion:
+          type: string
+          maxLength: 120
+          example: Agricultor
         lugarOrigen:
           type: string
           maxLength: 160
@@ -2193,7 +2211,6 @@ components:
           maxLength: 500
           description: A que medicamentos es alergico.
       required:
-        - dpi
         - nombres
         - apellidos
         - fechaNacimiento
@@ -2237,6 +2254,9 @@ components:
           type: string
         telefono:
           type: string
+        ocupacion:
+          type: string
+          maxLength: 120
         fallecido:
           type: boolean
     PacienteBorradoDto:
@@ -3113,6 +3133,18 @@ components:
         - antecedentes
         - problemas
         - temasConsejeria
+    TipoServicioSalud:
+      type: string
+      enum:
+        - PS
+        - PSF
+        - CS_B
+        - CENAPA
+        - CS_A
+        - CAP
+        - CAIMI
+        - CUM
+        - HOSPITAL
     SignoPeligroEvaluadoDto:
       type: object
       properties:
@@ -3433,6 +3465,14 @@ components:
         digitalizada:
           type: boolean
           description: true si proviene de transcribir un expediente de papel.
+        tipoServicio:
+          allOf:
+            - $ref: "#/components/schemas/TipoServicioSalud"
+        atendio:
+          type: string
+          description: Nombre y cargo de la persona que atendio, como se imprime al pie de
+            la ficha.
+          example: Ana Lopez — Enfermeria
         motivo:
           type: string
           description: Seccion V. Motivo de la consulta.
@@ -3938,6 +3978,17 @@ components:
           format: uuid
         digitalizada:
           type: boolean
+        tipoServicio:
+          nullable: true
+          description: Casilla del establecimiento de salud. Nula en las fichas anteriores
+            al campo.
+          allOf:
+            - $ref: "#/components/schemas/TipoServicioSalud"
+        atendio:
+          type: string
+          nullable: true
+          description: Nombre y cargo de la persona que atendio. Nulo en las fichas
+            anteriores al campo.
         motivo:
           type: string
           nullable: true
@@ -4047,6 +4098,8 @@ components:
         - fecha
         - registradaPor
         - digitalizada
+        - tipoServicio
+        - atendio
         - motivo
         - historiaEnfermedad
         - manejoEstabilizacion

@@ -3,7 +3,8 @@ import { Link as EnlaceRuta } from 'react-router-dom';
 import { Box, Button, Paper, Stack, TextField, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { ALTO_BARRA } from '../../tema';
-import { OtroIntegrante } from './CambioDeFicha';
+import { OtroIntegrante, SelectorDeFicha } from './CambioDeFicha';
+import type { TipoFicha } from './servicio-fichas';
 
 /**
  * El encabezado que las cuatro fichas del MSPAS traen impreso arriba.
@@ -31,6 +32,7 @@ export function EncabezadoFicha({
   children,
   pacienteId,
   grupoFamiliarId,
+  selector,
 }: {
   /** El nombre de la hoja, tal como está impreso. */
   titulo: string;
@@ -50,6 +52,16 @@ export function EncabezadoFicha({
   pacienteId?: string;
   /** Su carpeta familiar. Sin ella no hay a quien saltar. */
   grupoFamiliarId?: string | null;
+  /**
+   * La barra para cambiar de hoja. Solo en las fichas clinicas, y se esconde
+   * con el bloque pegado: a media hoja estorba y no se cambia de ficha.
+   */
+  selector?: {
+    tipoActual: TipoFicha;
+    fechaNacimiento: string;
+    esMujer: boolean;
+    sinGuardar?: boolean;
+  };
 }) {
   /*
     Pegado, el bloque se encoge.
@@ -218,6 +230,9 @@ export function EncabezadoFicha({
             </Stack>
           </Stack>
           </Stack>
+        {selector && pacienteId && !pegado ? (
+          <SelectorDeFicha pacienteId={pacienteId} {...selector} />
+        ) : null}
       </Paper>
     </>
   );

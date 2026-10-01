@@ -625,10 +625,16 @@ export function ColumnaConducta({
           {fechaConBarras(ficha.fechaProximaVisita)}
         </span>
       </div>
+      {/*
+        Con el nombre guardado en la ficha, sale en la primera raya; en las
+        fichas de antes, las dos rayas quedan en blanco para firmar a mano.
+      */}
       {firma ? (
         <div className="hoja-conducta-bloque" style={{ marginTop: '4mm' }}>
           <span>{firma}</span>
-          <span className="hoja-campo-valor"> </span>
+          <span className={'hoja-campo-valor' + (ficha.atendio ? ' hoja-valor' : '')}>
+            {ficha.atendio || ' '}
+          </span>
           <span className="hoja-campo-valor"> </span>
         </div>
       ) : null}

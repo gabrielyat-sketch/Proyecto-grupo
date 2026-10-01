@@ -40,8 +40,10 @@ import {
   registrarFicha,
   guardarAntecedentes,
   SERVICIO_DE_SALUD,
+  CASILLAS_SERVICIO,
   type FichaCreada,
 } from './servicio-fichas';
+import { CampoAtendio, CasillasServicio } from './ServicioYAtencion';
 import { IndiceFicha, type EntradaIndice } from './IndiceFicha';
 import { MatrizProblemas } from './MatrizProblemas';
 import { SeccionAntecedentes } from './SeccionAntecedentes';
@@ -369,6 +371,12 @@ export function PaginaFicha() {
         volverA={volver.a}
         volverTexto={volver.etiqueta}
         pacienteId={pacienteId}
+        selector={{
+          tipoActual: 'ADULTO',
+          fechaNacimiento: datos.fechaNacimiento as unknown as string,
+          esMujer,
+          sinGuardar: hayCambios,
+        }}
         grupoFamiliarId={datos.grupoFamiliar?.id}
         nombre={datos.apellidos + ', ' + datos.nombres}
         resumen={
@@ -486,6 +494,13 @@ export function PaginaFicha() {
                 <Dato titulo="Establecimiento" valor={SERVICIO_DE_SALUD.nombre} />
                 <Dato titulo="Area de salud" valor={SERVICIO_DE_SALUD.areaDeSalud} />
               </Box>
+
+              <CasillasServicio
+                casillas={CASILLAS_SERVICIO.COMPLETAS}
+                valor={borrador.tipoServicio}
+                onCambio={(v) => campo('tipoServicio', v)}
+                error={reparos.length > 0 && borrador.tipoServicio === ''}
+              />
 
               <Stack direction={{ xs: 'column', md: 'row' }} sx={{ gap: 2, alignItems: { md: 'center' } }}>
                 <TextField
@@ -610,7 +625,7 @@ export function PaginaFicha() {
             titulo="Examen fisico"
             avance={avance.examen ? avance.examen.respondidas + ' de ' + avance.examen.total : undefined}
           >
-            <Examen valores={borrador.examen} onCambio={cambiarExamen} />
+            <Examen valores={borrador.examen} onCambio={cambiarExamen} presionJunta />
           </SeccionFicha>
 
           {/* ─── IX ─────────────────────────────────────────────────────── */}
@@ -664,6 +679,7 @@ export function PaginaFicha() {
                   onChange={(e) => campo('notas', e.target.value)}
                 />
               </BloqueFicha>
+              <CampoAtendio valor={borrador.atendio} onCambio={(v) => campo('atendio', v)} />
             </Stack>
           </SeccionFicha>
 

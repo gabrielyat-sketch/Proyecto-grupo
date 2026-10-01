@@ -27,6 +27,7 @@ import { AvisoDeEdad } from '../CambioDeFicha';
 import {
   conAntecedentesPrevios,
   cuerpoDeAntecedentes,
+  tieneContenido,
   type AvanceSeccion,
   type CampoExamen,
 } from '../borrador';
@@ -38,8 +39,10 @@ import {
   registrarFicha,
   SERVICIO_DE_SALUD,
   SIN_CONFIRMAR,
+  CASILLAS_SERVICIO,
   type CatalogoFicha,
 } from '../servicio-fichas';
+import { CampoAtendio, CasillasServicio } from '../ServicioYAtencion';
 import {
   borradorPrenatalVacio,
   cuerpoDeFichaPrenatal,
@@ -255,6 +258,12 @@ export function PaginaFichaPrenatal() {
         volverA={volverA}
         volverTexto="Expediente"
         pacienteId={pacienteId}
+        selector={{
+          tipoActual: 'PRENATAL',
+          fechaNacimiento: datos.fechaNacimiento as unknown as string,
+          esMujer: datos.sexo === 'F',
+          sinGuardar: tieneContenido(borrador),
+        }}
         grupoFamiliarId={datos.grupoFamiliar?.id}
         nombre={datos.apellidos + ', ' + datos.nombres}
         resumen={(datos.sexo === 'F' ? 'Femenino' : 'Masculino') + ' · ' + (comunidad || 'Sin comunidad')}
@@ -291,11 +300,15 @@ export function PaginaFichaPrenatal() {
             }}
             numeral="I"
             titulo="Identificación del establecimiento y datos de la paciente"
-            nota="No se preguntan: el sistema corre en un solo establecimiento y los datos de la paciente ya están en su expediente."
+            nota="El tipo de servicio se marca como en el papel. Los datos de la paciente ya están en su expediente."
           >
             <BloqueFicha titulo="Establecimiento">
+              <CasillasServicio
+                casillas={CASILLAS_SERVICIO.COMPLETAS}
+                valor={borrador.tipoServicio}
+                onCambio={(v) => cambiar({ tipoServicio: v })}
+              />
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2 }}>
-                <Dato titulo="Tipo" valor={SERVICIO_DE_SALUD.tipo} />
                 <Dato titulo="Nombre" valor={SERVICIO_DE_SALUD.nombre} />
                 <Dato titulo="Distrito" valor={SERVICIO_DE_SALUD.distrito ?? SIN_CONFIRMAR} />
                 <Dato titulo="Área de salud" valor={SERVICIO_DE_SALUD.areaDeSalud} />
@@ -742,6 +755,27 @@ export function PaginaFichaPrenatal() {
                 </Stack>
               </Stack>
             </BloqueFicha>
+
+            {/*
+              La hoja de notas del final. El CAP pidio un espacio libre dentro
+              de la ficha para lo que no cabe en ninguna casilla; se imprime en
+              una hoja aparte, al final.
+            */}
+            <BloqueFicha titulo="Notas">
+              <TextField
+                label="Notas de la paciente"
+                value={borrador.notas}
+                onChange={(e) => cambiar({ notas: e.target.value })}
+                multiline
+                minRows={4}
+                fullWidth
+                size="small"
+                slotProps={{ htmlInput: { maxLength: 2000 } }}
+                helperText="Se imprime en la hoja de notas, al final de la ficha."
+              />
+            </BloqueFicha>
+
+            <CampoAtendio valor={borrador.atendio} onCambio={(v) => cambiar({ atendio: v })} />
           </SeccionFicha>
 
           {registrar.isError ? <AvisoError error={registrar.error} /> : null}
@@ -750,10 +784,15 @@ export function PaginaFichaPrenatal() {
             <Button component={EnlaceRuta} to={volverA} color="inherit">
               Cancelar
             </Button>
+            {borrador.tipoServicio === '' ? (
+              <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>
+                Falta marcar el tipo de servicio (sección I).
+              </Typography>
+            ) : null}
             <Button
               variant="contained"
               onClick={() => registrar.mutate()}
-              disabled={registrar.isPending || borrador.motivo.trim() === ''}
+              disabled={registrar.isPending || borrador.motivo.trim() === '' || borrador.tipoServicio === ''}
             >
               {registrar.isPending ? 'Guardando...' : 'Guardar ficha'}
             </Button>

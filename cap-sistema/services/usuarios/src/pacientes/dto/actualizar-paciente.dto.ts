@@ -41,6 +41,12 @@ export class ActualizarPacienteDto {
   @Length(8, 20)
   telefono?: string;
 
+  @ApiPropertyOptional({ maxLength: 120 })
+  @IsOptional()
+  @IsString()
+  @Length(1, 120)
+  ocupacion?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()

@@ -458,6 +458,21 @@ export class FichaDto {
   @ApiProperty()
   digitalizada!: boolean;
 
+  @ApiProperty({
+    enum: ['PS', 'PSF', 'CS_B', 'CENAPA', 'CS_A', 'CAP', 'CAIMI', 'CUM', 'HOSPITAL'],
+    enumName: 'TipoServicioSalud',
+    nullable: true,
+    description: 'Casilla del establecimiento de salud. Nula en las fichas anteriores al campo.',
+  })
+  tipoServicio!: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'Nombre y cargo de la persona que atendio. Nulo en las fichas anteriores al campo.',
+  })
+  atendio!: string | null;
+
   // ─── Texto clinico, ya descifrado ──────────────────────────────────────
   @ApiProperty({ type: String, nullable: true })
   motivo!: string | null;

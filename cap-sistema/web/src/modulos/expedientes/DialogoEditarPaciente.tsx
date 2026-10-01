@@ -31,6 +31,7 @@ export interface PacienteEditable {
   apellidos: string;
   idioma: string;
   telefono?: string | null;
+  ocupacion?: string | null;
   fallecido: boolean;
   comunidad?: { id: string; nombre: string } | null;
 }
@@ -67,6 +68,7 @@ export function DialogoEditarPaciente({
   const [idioma, setIdioma] = useState(paciente.idioma);
   const [comunidadId, setComunidadId] = useState(paciente.comunidad?.id ?? '');
   const [telefono, setTelefono] = useState(paciente.telefono ?? '');
+  const [ocupacion, setOcupacion] = useState(paciente.ocupacion ?? '');
   const [fallecido, setFallecido] = useState(paciente.fallecido);
   const clienteConsultas = useQueryClient();
 
@@ -84,6 +86,11 @@ export function DialogoEditarPaciente({
   if (idioma !== paciente.idioma) cambios.idioma = idioma as CambiosPaciente['idioma'];
   if (comunidadId && comunidadId !== paciente.comunidad?.id) cambios.comunidadId = comunidadId;
   if (telefono.trim() !== (paciente.telefono ?? '')) cambios.telefono = telefono.trim();
+  // Vacia no se manda: el servidor no acepta una ocupacion en blanco, y dejarla
+  // como estaba es lo que se espera de borrar la casilla por error.
+  if (ocupacion.trim() && ocupacion.trim() !== (paciente.ocupacion ?? '')) {
+    cambios.ocupacion = ocupacion.trim();
+  }
   if (fallecido !== paciente.fallecido) cambios.fallecido = fallecido;
 
   const cuantos = Object.keys(cambios).length;
@@ -166,6 +173,13 @@ export function DialogoEditarPaciente({
             value={telefono}
             onChange={(e) => setTelefono(e.target.value)}
             slotProps={{ htmlInput: { inputMode: 'tel' } }}
+          />
+
+          <TextField
+            label="Ocupacion"
+            value={ocupacion}
+            onChange={(e) => setOcupacion(e.target.value)}
+            slotProps={{ htmlInput: { maxLength: 120 } }}
           />
 
           <FormControlLabel

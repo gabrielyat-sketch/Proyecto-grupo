@@ -16,6 +16,19 @@ export class PerfilDto {
   @ApiProperty({ description: 'Nombre de usuario, siempre en minusculas.', example: 'jlopez' })
   usuario!: string;
 
+  /**
+   * Nombre de la persona. Las fichas lo ofrecen ya escrito en «Nombre y
+   * cargo de la persona que atendio», para que nadie lo teclee en cada
+   * consulta.
+   */
+  // Opcionales en el contrato: el panel guarda la sesion en sessionStorage, y
+  // una abierta antes de este campo llega sin ellos.
+  @ApiPropertyOptional({ example: 'Ana Maria' })
+  nombres?: string;
+
+  @ApiPropertyOptional({ example: 'Lopez Caal' })
+  apellidos?: string;
+
   @ApiProperty({ enum: Rol, enumName: 'Rol' })
   rol!: string;
 

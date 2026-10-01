@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Box, Stack, TextField, Typography } from '@mui/material';
 import type { CampoExamen, ExamenFisico } from './borrador';
 import { RANGOS_EXAMEN, clasificacionImc, fueraDeRango, imcDe } from './borrador';
@@ -25,6 +26,83 @@ const CAMPOS: { campo: CampoExamen; etiqueta: string; unidad: string }[] = [
   { campo: 'circunferenciaCinturaCm', etiqueta: 'Circunferencia de cintura', unidad: 'cm' },
 ];
 
+/** La presion como se escribe en el papel: «120/80». */
+export function textoDePresion(sistolica: string, diastolica: string): string {
+  if (sistolica === '' && diastolica === '') return '';
+  return sistolica + '/' + diastolica;
+}
+
+/** Parte «120/80» en sus dos cifras. Sin barra, todo es la sistolica. */
+export function partirPresion(texto: string): { sistolica: string; diastolica: string } {
+  const [sistolica = '', diastolica = ''] = texto.replace(/\s/g, '').split('/');
+  return { sistolica, diastolica };
+}
+
+/**
+ * La presion arterial en UNA casilla, «P/A mmHg», como la trae el papel.
+ *
+ * El CAP pidio quitar las dos casillas de sistolica y diastolica de la ficha
+ * de adultos. Por dentro se sigue guardando cada cifra en su columna, porque
+ * de ahi salen los indicadores de hipertension; lo que cambia es solo como se
+ * escribe.
+ *
+ * Lleva su propio texto mientras se escribe: «120/» todavia no es una presion,
+ * y reconstruirlo desde las dos cifras borraria la barra bajo el cursor.
+ */
+function CampoPresion({
+  sistolica,
+  diastolica,
+  onCambio,
+}: {
+  sistolica: string;
+  diastolica: string;
+  onCambio: (campo: CampoExamen, valor: string) => void;
+}) {
+  const [texto, setTexto] = useState(() => textoDePresion(sistolica, diastolica));
+
+  // Si las cifras cambian desde fuera —la ficha se vacia para otra atencion—
+  // el texto las sigue. Mientras coincidan, se respeta lo que se esta tecleando.
+  useEffect(() => {
+    const actual = partirPresion(texto);
+    if (actual.sistolica !== sistolica || actual.diastolica !== diastolica) {
+      setTexto(textoDePresion(sistolica, diastolica));
+    }
+  }, [sistolica, diastolica]);
+
+  const malo =
+    fueraDeRango('presionSistolica', sistolica) ||
+    fueraDeRango('presionDiastolica', diastolica) ||
+    (sistolica === '') !== (diastolica === '');
+
+  return (
+    <TextField
+      label="P/A"
+      size="small"
+      value={texto}
+      placeholder="120/80"
+      onChange={(e) => {
+        const limpio = e.target.value.replace(/[^0-9/]/g, '');
+        setTexto(limpio);
+        const partes = partirPresion(limpio);
+        onCambio('presionSistolica', partes.sistolica);
+        onCambio('presionDiastolica', partes.diastolica);
+      }}
+      error={malo}
+      helperText={malo ? 'Escribala completa, por ejemplo 120/80' : 'mmHg'}
+      slotProps={{
+        htmlInput: { inputMode: 'numeric', 'aria-label': 'Presion arterial, P/A en mmHg' },
+        input: {
+          endAdornment: (
+            <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+              mmHg
+            </Typography>
+          ),
+        },
+      }}
+    />
+  );
+}
+
 /**
  * Seccion VIII. Signos vitales y medidas.
  *
@@ -37,6 +115,7 @@ export function SeccionExamenFisico({
   valores,
   onCambio,
   campos,
+  presionJunta = false,
 }: {
   valores: ExamenFisico;
   onCambio: (campo: CampoExamen, valor: string) => void;
@@ -49,6 +128,11 @@ export function SeccionExamenFisico({
    * capturar un dato que despues nadie sabria como leer.
    */
   campos?: readonly CampoExamen[];
+  /**
+   * Una sola casilla «P/A» en lugar de sistolica y diastolica por separado.
+   * La pide la ficha de adultos; las demas hojas no cambian.
+   */
+  presionJunta?: boolean;
 }) {
   const visibles = campos ? CAMPOS.filter((c) => campos.includes(c.campo)) : CAMPOS;
   const imc = imcDe(valores.pesoKg, valores.tallaCm);
@@ -70,6 +154,17 @@ export function SeccionExamenFisico({
         }}
       >
         {visibles.map(({ campo, etiqueta, unidad }) => {
+          if (presionJunta && campo === 'presionDiastolica') return null;
+          if (presionJunta && campo === 'presionSistolica') {
+            return (
+              <CampoPresion
+                key="presion"
+                sistolica={valores.presionSistolica}
+                diastolica={valores.presionDiastolica}
+                onCambio={onCambio}
+              />
+            );
+          }
           const malo = fueraDeRango(campo, valores[campo]);
           const rango = RANGOS_EXAMEN[campo];
           const n = Number(valores[campo]);

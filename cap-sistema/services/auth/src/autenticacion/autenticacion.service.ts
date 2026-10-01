@@ -260,7 +260,14 @@ export class AutenticacionService {
   }
 
   private async emitirSesion(
-    usuario: { id: string; usuario: string; rol: string; debeCambiarContrasena: boolean },
+    usuario: {
+      id: string;
+      usuario: string;
+      nombres: string;
+      apellidos: string;
+      rol: string;
+      debeCambiarContrasena: boolean;
+    },
     datos: DatosSesion,
     mfaVerificado: boolean,
   ): Promise<SesionAbiertaDto> {
@@ -285,10 +292,19 @@ export class AutenticacionService {
     };
   }
 
-  private static perfil(u: { id: string; usuario: string; rol: string; debeCambiarContrasena: boolean }) {
+  private static perfil(u: {
+    id: string;
+    usuario: string;
+    nombres: string;
+    apellidos: string;
+    rol: string;
+    debeCambiarContrasena: boolean;
+  }) {
     return {
       id: u.id,
       usuario: u.usuario,
+      nombres: u.nombres,
+      apellidos: u.apellidos,
       rol: u.rol,
       debeCambiarContrasena: u.debeCambiarContrasena,
     };

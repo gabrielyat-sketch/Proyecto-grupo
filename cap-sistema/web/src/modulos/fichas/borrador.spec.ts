@@ -1,4 +1,5 @@
 import {
+  alternarTamizaje,
   avanceDe,
   borradorVacio,
   clasificacionImc,
@@ -10,6 +11,7 @@ import {
   imcDe,
   porGrupo,
   reparosDe,
+  tamizajesDe,
   tieneContenido,
 } from './borrador';
 import type { CatalogoFicha } from './servicio-fichas';
@@ -309,56 +311,74 @@ describe('cuerpo de los antecedentes', () => {
   });
 });
 
+/** La casilla del servicio ya marcada, como queda antes de guardar. */
+const conServicio = () => ({ ...nuevo(), tipoServicio: 'CAP' });
+
 describe('reparos antes de guardar', () => {
-  it('el motivo de la consulta es lo unico obligatorio', () => {
-    const reparos = reparosDe(nuevo(), CATALOGO);
+  it('con el servicio marcado, el motivo de la consulta es lo unico obligatorio', () => {
+    const reparos = reparosDe(conServicio(), CATALOGO);
     expect(reparos).toHaveLength(1);
     expect(reparos[0].seccion).toBe('consulta');
   });
 
-  it('rechaza "No aplica" donde el papel no lo ofrece', () => {
+  it('pide marcar el tipo de servicio: ya no viene fijo el CAP', () => {
     const b = nuevo();
+    b.motivo = 'Control';
+    expect(reparosDe(b, CATALOGO).map((r) => r.seccion)).toEqual(['identificacion']);
+  });
+
+  it('pide la P/A completa: media presion no sirve', () => {
+    const b = conServicio();
+    b.motivo = 'Control';
+    b.examen.presionSistolica = '120';
+    expect(reparosDe(b, CATALOGO).map((r) => r.seccion)).toEqual(['examen']);
+    b.examen.presionDiastolica = '80';
+    expect(reparosDe(b, CATALOGO)).toEqual([]);
+  });
+
+  it('rechaza "No aplica" donde el papel no lo ofrece', () => {
+    const b = conServicio();
     b.motivo = 'Control';
     b.antecedentes['a-1'].respuesta = 'NO_APLICA';
     expect(reparosDe(b, CATALOGO).map((r) => r.seccion)).toContain('antecedentes');
 
     // En SR si esta impreso.
-    const c = nuevo();
+    const c = conServicio();
     c.motivo = 'Control';
     c.antecedentes['a-2'].respuesta = 'NO_APLICA';
     expect(reparosDe(c, CATALOGO)).toEqual([]);
   });
 
   it('pide describir el signo de peligro "otros"', () => {
-    const b = nuevo();
+    const b = conServicio();
     b.motivo = 'Control';
     b.signosPeligro['sp-2'] = { presente: true, detalle: '' };
     expect(reparosDe(b, CATALOGO).map((r) => r.seccion)).toContain('peligro');
   });
 
   it('un problema marcado como presente sin nada subrayado es un descuido', () => {
-    const b = nuevo();
+    const b = conServicio();
     b.motivo = 'Control';
     b.problemas['p-1'].presente = true;
     expect(reparosDe(b, CATALOGO).map((r) => r.seccion)).toContain('problemas');
   });
 
   it('marcar el problema como ausente no exige subrayar nada', () => {
-    const b = nuevo();
+    const b = conServicio();
     b.motivo = 'Control';
     b.problemas['p-1'].presente = false;
     expect(reparosDe(b, CATALOGO)).toEqual([]);
   });
 
   it('no deja guardar una atencion con fecha futura', () => {
-    const b = nuevo();
+    const b = conServicio();
     b.motivo = 'Control';
     b.fecha = '2099-01-01';
     expect(reparosDe(b, CATALOGO).map((r) => r.seccion)).toContain('identificacion');
   });
 
   it('avisa del valor fuera de rango antes de que lo rechace el servidor', () => {
-    const b = nuevo();
+    const b = conServicio();
     b.motivo = 'Control';
     b.examen.tallaCm = '1580';
     expect(reparosDe(b, CATALOGO).map((r) => r.seccion)).toContain('examen');
@@ -389,5 +409,38 @@ describe('agrupacion del catalogo de antecedentes', () => {
 describe('hoy()', () => {
   it('entrega la fecha en el formato del campo de fecha', () => {
     expect(hoy()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+describe('observaciones del CAP (30 sep 2026)', () => {
+  it('el servicio marcado y quien atendio viajan con la ficha', () => {
+    const b = conServicio();
+    b.motivo = 'Control';
+    b.atendio = ' Ana Lopez — Enfermería ';
+    const cuerpo = cuerpoDeFicha(b, 'ADULTO');
+    expect(cuerpo.tipoServicio).toBe('CAP');
+    expect(cuerpo.atendio).toBe('Ana Lopez — Enfermería');
+  });
+
+  it('sin servicio ni nombre, no viajan', () => {
+    const b = nuevo();
+    b.motivo = 'Control';
+    b.atendio = '';
+    const cuerpo = cuerpoDeFicha(b, 'ADULTO');
+    expect(cuerpo).not.toHaveProperty('tipoServicio');
+    expect(cuerpo).not.toHaveProperty('atendio');
+  });
+
+  it('Papanicolau e IVAA se marcan por separado y pueden ir las dos', () => {
+    let v = alternarTamizaje('', 'IVAA');
+    expect(v).toBe('IVAA');
+    v = alternarTamizaje(v, 'PAPANICOLAU');
+    // En el orden del papel, sin importar el orden en que se marcaron.
+    expect(v).toBe('PAPANICOLAU,IVAA');
+    expect(tamizajesDe(v)).toEqual(['PAPANICOLAU', 'IVAA']);
+    expect(alternarTamizaje(v, 'IVAA')).toBe('PAPANICOLAU');
+    // Lo guardado antes, con una sola prueba, se sigue leyendo igual.
+    expect(tamizajesDe('PAPANICOLAU')).toEqual(['PAPANICOLAU']);
+    expect(tamizajesDe(null)).toEqual([]);
   });
 });

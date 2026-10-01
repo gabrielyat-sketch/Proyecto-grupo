@@ -673,6 +673,9 @@ export interface components {
             /** @description Si viene de fuera de Purulha. */
             migrante: boolean;
             lugarOrigen: string | null;
+            ocupacion: string | null;
+            /** @description DPI de la madre, solo en el recien nacido registrado sin CUI. */
+            dpiMadre: string | null;
             /** @description null significa que NO se ha preguntado, que no es lo mismo que no tener. */
             tieneAlergias: boolean | null;
             /** @description A que medicamentos. */
@@ -700,10 +703,15 @@ export interface components {
         };
         CrearPacienteDto: {
             /**
-             * @description CUI o DPI de 13 digitos. El CUI del menor sirve igual que el DPI del adulto.
+             * @description CUI o DPI de 13 digitos. El CUI del menor sirve igual que el DPI del adulto. Solo se omite en el recien nacido registrado con `dpiMadre`.
              * @example 1234567890101
              */
-            dpi: string;
+            dpi?: string;
+            /**
+             * @description DPI de la madre del recien nacido sin CUI. Sustituye a `dpi`.
+             * @example 1234567890101
+             */
+            dpiMadre?: string;
             /** @example Juana Isabel */
             nombres: string;
             /** @example Perez Caal */
@@ -733,6 +741,8 @@ export interface components {
             lugarId?: string;
             /** @default false */
             migrante: boolean;
+            /** @example Agricultor */
+            ocupacion?: string;
             /** @description De donde viene, si es migrante. */
             lugarOrigen?: string;
             /** @description Nombre del esposo o conviviente. */
@@ -758,6 +768,7 @@ export interface components {
             comunidadId?: string;
             grupoFamiliarId?: string;
             telefono?: string;
+            ocupacion?: string;
             fallecido?: boolean;
         };
         PacienteBorradoDto: {
@@ -1185,6 +1196,8 @@ export interface components {
             /** @description Vacio en las fichas donde la consejeria es un texto libre, como la de adultos. */
             temasConsejeria: components["schemas"]["TemaConsejeriaCatalogoDto"][];
         };
+        /** @enum {string} */
+        TipoServicioSalud: "PS" | "PSF" | "CS_B" | "CENAPA" | "CS_A" | "CAP" | "CAIMI" | "CUM" | "HOSPITAL";
         SignoPeligroEvaluadoDto: {
             /** Format: uuid */
             signoId: string;
@@ -1353,6 +1366,12 @@ export interface components {
             fecha?: string;
             /** @description true si proviene de transcribir un expediente de papel. */
             digitalizada?: boolean;
+            tipoServicio?: components["schemas"]["TipoServicioSalud"];
+            /**
+             * @description Nombre y cargo de la persona que atendio, como se imprime al pie de la ficha.
+             * @example Ana Lopez — Enfermeria
+             */
+            atendio?: string;
             /** @description Seccion V. Motivo de la consulta. */
             motivo: string;
             /** @description Seccion VI. Historia de la enfermedad actual. */
@@ -1541,6 +1560,10 @@ export interface components {
             /** Format: uuid */
             registradaPor: string;
             digitalizada: boolean;
+            /** @description Casilla del establecimiento de salud. Nula en las fichas anteriores al campo. */
+            tipoServicio: components["schemas"]["TipoServicioSalud"] | null;
+            /** @description Nombre y cargo de la persona que atendio. Nulo en las fichas anteriores al campo. */
+            atendio: string | null;
             motivo: string | null;
             historiaEnfermedad: string | null;
             manejoEstabilizacion: string | null;

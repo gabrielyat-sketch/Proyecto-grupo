@@ -1,6 +1,7 @@
 import type { CatalogoFicha, NuevaFicha } from '../servicio-fichas';
 import type { CasillaSignoPeligro, FilaMedicamento, FilaProblema } from '../borrador';
 import { hoy } from '../borrador';
+import { quienAtiendePorDefecto } from '../servicio-fichas';
 
 /**
  * El estado de la hoja de consulta del lactante y niñez mientras se llena.
@@ -51,6 +52,12 @@ export interface BorradorNinez {
   vacunaAdministrada: string;
   referencia: string;
   fechaProximaVisita: string;
+  /** Casilla del servicio de salud. '' = sin marcar, y no se guarda asi. */
+  tipoServicio: string;
+  /** «Nombre de la persona que atendio la consulta». */
+  atendio: string;
+  /** Hoja «Otros problemas, controles u observaciones». */
+  notas: string;
 }
 
 const vitalesVacios = (): SignosVitalesNinez => ({
@@ -95,6 +102,9 @@ export function borradorNinezVacio(catalogo: CatalogoFicha): BorradorNinez {
     vacunaAdministrada: '',
     referencia: '',
     fechaProximaVisita: '',
+    tipoServicio: '',
+    atendio: quienAtiendePorDefecto(),
+    notas: '',
   };
 }
 
@@ -249,6 +259,9 @@ export function cuerpoDeFichaNinez(borrador: BorradorNinez): NuevaFicha {
   }
   if (texto(borrador.referencia)) cuerpo.referencia = texto(borrador.referencia);
   if (borrador.fechaProximaVisita) cuerpo.fechaProximaVisita = borrador.fechaProximaVisita;
+  if (borrador.tipoServicio) cuerpo.tipoServicio = borrador.tipoServicio as NuevaFicha['tipoServicio'];
+  if (texto(borrador.atendio)) cuerpo.atendio = texto(borrador.atendio);
+  if (texto(borrador.notas)) cuerpo.notas = texto(borrador.notas);
 
   const v = borrador.vitales;
   if (numero(v.temperaturaC) !== undefined) cuerpo.temperaturaC = numero(v.temperaturaC);
@@ -270,5 +283,5 @@ export function tieneContenidoNinez(b: BorradorNinez): boolean {
   if (Object.values(b.consejeria).some((c) => c)) return true;
   if (Object.values(b.vitales).some((v) => v.trim() !== '')) return true;
   if (b.medicamentos.some((m) => m.nombre.trim() !== '')) return true;
-  return [b.vacunaAdministrada, b.referencia].some((v) => v.trim() !== '');
+  return [b.vacunaAdministrada, b.referencia, b.notas].some((v) => v.trim() !== '');
 }
