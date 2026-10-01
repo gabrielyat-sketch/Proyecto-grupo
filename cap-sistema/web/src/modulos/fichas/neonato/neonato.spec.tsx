@@ -12,6 +12,13 @@ import {
   signosGravesMarcados,
 } from './borrador-neonato';
 
+/** El servicio de salud ya no viene fijo: sin marcarlo no se guarda. */
+async function marcarServicio(usuario: ReturnType<typeof userEvent.setup>) {
+  await usuario.click(
+    within(screen.getByRole('group', { name: 'Tipo de servicio de salud' })).getByLabelText('CAP'),
+  );
+}
+
 const MEDICO: Perfil = {
   id: 'u-1',
   usuario: 'jperez',
@@ -451,6 +458,7 @@ describe('la ficha en pantalla', () => {
     await usuario.paste('6');
     await usuario.click(screen.getByLabelText('Peso (onzas)'));
     await usuario.paste('4');
+    await marcarServicio(usuario);
     await usuario.click(screen.getByRole('button', { name: 'Guardar la ficha' }));
 
     await waitFor(() => {
