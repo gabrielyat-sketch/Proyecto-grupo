@@ -27,6 +27,30 @@ describe('acceso a la aplicacion', () => {
     expect(screen.getByRole('button', { name: /Entrar/i })).toBeInTheDocument();
   });
 
+  it('la pantalla de entrada nombra a los integrantes del proyecto', async () => {
+    render(<App />);
+
+    const lista = await screen.findByRole('list', { name: /Integrantes del proyecto/i });
+    expect(lista).toHaveTextContent('Dennis Alessandro Xona Isem');
+    expect(lista).toHaveTextContent('Zulma Romineya López Ac');
+    expect(lista).toHaveTextContent('Ramiro Gabriel Yat Yat');
+  });
+
+  it('las politicas de privacidad se abren sin sesion, desde el login', async () => {
+    render(<App />);
+
+    const enlace = await screen.findByRole('link', { name: /Políticas de privacidad/i });
+    expect(enlace).toHaveAttribute('href', '/privacidad');
+
+    window.history.pushState({}, '', '/privacidad');
+    render(<App />);
+    expect(
+      await screen.findByRole('heading', { level: 1, name: /Políticas de privacidad/i }),
+    ).toBeInTheDocument();
+    // Publica: no la manda al login.
+    expect(window.location.pathname).toBe('/privacidad');
+  });
+
   it('el foco entra solo al campo de usuario: se escribe sin tocar el mouse', async () => {
     render(<App />);
 
