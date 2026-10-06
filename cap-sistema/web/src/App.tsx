@@ -13,6 +13,7 @@ import { EnConstruccion } from './rutas/EnConstruccion';
 import { PaginaRecepcion } from './modulos/recepcion/PaginaRecepcion';
 import { PaginaNuevoPaciente } from './modulos/recepcion/PaginaNuevoPaciente';
 import { PaginaNoEncontrada } from './rutas/PaginaNoDisponible';
+import { PaginaPrivacidad } from './rutas/PaginaPrivacidad';
 import { PaginaAuditoria } from './modulos/auditoria/PaginaAuditoria';
 import { PaginaProgramas } from './modulos/programas/PaginaProgramas';
 import { PaginaCarpetas } from './modulos/carpetas/PaginaCarpetas';
@@ -69,6 +70,8 @@ export function App() {
           <VigilanciaInactividad />
           <Routes>
             <Route path="/acceso" element={<PaginaLogin />} />
+            {/* Publica: se abre desde el login y desde la app movil. */}
+            <Route path="/privacidad" element={<PaginaPrivacidad />} />
 
             {/*
               Protegida —hace falta sesion para cambiar la propia contrasena—
