@@ -1,31 +1,22 @@
 import { useMemo, useState } from 'react';
-import { Link as EnlaceRuta } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Box,
-  Chip,
   InputAdornment,
-  Link,
   ListSubheader,
   MenuItem,
   Pagination,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import { AvisoError } from '../../componentes/AvisoError';
+import { BaldosaArchivo, ReticulaArchivo } from '../../componentes/BaldosaArchivo';
 import { EncabezadoPagina, NotaPagina } from '../../componentes/EncabezadoPagina';
 import { MENU_FILTRO } from '../../componentes/menuFiltro';
-import { desde } from '../../navegacion/usarVolver';
 import { listarComunidades, listarLugares } from '../recepcion/servicio-pacientes';
-import { listarCarpetas, nombresDeCarpeta } from './servicio-carpetas';
+import { listarCarpetas } from './servicio-carpetas';
 
 /** En plural, porque titula un grupo y no una fila. */
 const ETIQUETA_GRUPO_LUGAR: Record<string, string> = {
@@ -210,59 +201,37 @@ export function PaginaCarpetas() {
             {resultados.total === 1 ? '1 carpeta' : resultados.total + ' carpetas'}
           </Typography>
 
-          <TableContainer sx={{ overflowX: 'auto' }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell align="right">No.</TableCell>
-                  <TableCell>Familia</TableCell>
-                  <TableCell>Barrio o caserio</TableCell>
-                  <TableCell>Comunidad</TableCell>
-                  <TableCell align="right">Integrantes</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {resultados.datos.map((c) => (
-                  <TableRow key={c.id} hover>
-                    <TableCell align="right" sx={{ fontFamily: 'monospace' }}>
-                      <Link
-                        component={EnlaceRuta}
-                        to={'/carpetas/' + c.id}
-                        state={desde('/carpetas', 'Carpetas')}
-                        sx={{ fontFamily: 'monospace' }}
-                      >
-                        {c.numero}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      <Typography component="span" sx={{ fontWeight: 600, display: 'block' }}>
-                        Familia {c.apellidos}
-                      </Typography>
-                      {nombresDeCarpeta(c) ? (
-                        <Typography variant="body2" color="text.secondary">
-                          {nombresDeCarpeta(c)}
-                        </Typography>
-                      ) : null}
-                    </TableCell>
-                    <TableCell>{c.lugar?.nombre ?? '—'}</TableCell>
-                    <TableCell>{c.comunidad.nombre}</TableCell>
-                    <TableCell align="right">
-                      {/*
-                        Una carpeta sin nadie dentro es un numero gastado, y
-                        casi siempre un registro que quedo a medias. Se marca
-                        para que se pueda corregir en vez de quedar ahi.
-                      */}
-                      {c.integrantes === 0 ? (
-                        <Chip size="small" label="Vacia" color="warning" variant="outlined" />
-                      ) : (
-                        c.integrantes
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          {/*
+            Una baldosa por carpeta, no una fila de tabla.
+
+            Lo pidio el CAP y el motivo es el archivero real: ahi nadie lee una
+            lista de numeros, se mira el estante y se reconoce el folder.
+
+            El numero sigue a la vista pero YA NO es la puerta: antes habia que
+            pulsar sobre el para entrar, lo que lo hacia dos cosas a la vez —el
+            dato que se copia para ir al archivo y el boton—. Ahora se entra por
+            la baldosa entera y el numero es solo lo que dice. Va con su lugar
+            al lado, porque por si solo no identifica nada: hay un No.1 en cada
+            barrio.
+          */}
+          <ReticulaArchivo>
+            {resultados.datos.map((c) => (
+              <BaldosaArchivo
+                key={c.id}
+                a={'/carpetas/' + c.id}
+                tipo="carpeta"
+                nombre={'Familia ' + c.apellidos}
+                detalle={'No. ' + c.numero + ' · ' + (c.lugar?.nombre ?? c.comunidad.nombre)}
+                insignia={c.integrantes}
+                /*
+                  Una carpeta sin nadie dentro es un numero gastado, y casi
+                  siempre un registro que quedo a medias. Se marca para que se
+                  pueda corregir en vez de quedar ahi.
+                */
+                aviso={c.integrantes === 0 ? 'Vacia' : undefined}
+              />
+            ))}
+          </ReticulaArchivo>
 
           {resultados.totalPaginas > 1 ? (
             <Box sx={{ display: 'flex', justifyContent: 'center' }}>

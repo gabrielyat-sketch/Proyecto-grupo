@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App, clienteConsultas } from '../../App';
 import { almacenSesion, type Perfil } from '../../api';
@@ -125,16 +125,32 @@ beforeEach(() => {
 
 afterEach(() => vi.unstubAllGlobals());
 
+/**
+ * La baldosa de una carpeta o de una ficha. Es un ENLACE entero, no una fila
+ * con un enlace dentro: el CAP pidio que se entrara por la carpeta y no por su
+ * numero, que antes era lo unico pulsable.
+ */
+const baldosa = (nombre: RegExp) => screen.findByRole('link', { name: nombre });
+
 describe('el archivero de carpetas', () => {
-  it('cada fila es un folder: numero, familia y lugar', async () => {
+  /**
+   * El numero se quedo a la vista pero YA NO es la puerta: antes habia que
+   * pulsar sobre el para entrar, lo que lo hacia dos cosas a la vez —el dato
+   * que se copia para ir al archivo y el boton—. Ahora se entra por la baldosa
+   * entera.
+   */
+  it('cada baldosa es un folder: familia, numero y lugar', async () => {
     servidorCon();
     entrarComo(RECEPCION);
     render(<App />);
 
-    const fila = await screen.findByRole('row', { name: /Lopez Ac/ });
-    expect(within(fila).getByRole('link', { name: '3' })).toBeInTheDocument();
-    expect(fila).toHaveTextContent('El Calvario');
-    expect(fila).toHaveTextContent('Purulha Centro');
+    const folder = await baldosa(/Familia Lopez Ac/);
+    expect(folder).toHaveAttribute('href', '/carpetas/g-1');
+    expect(folder).toHaveTextContent('No. 3');
+    expect(folder).toHaveTextContent('El Calvario');
+
+    // Y el numero, por si solo, ya no lleva a ninguna parte.
+    expect(screen.queryByRole('link', { name: '3' })).toBeNull();
   });
 
   /**
@@ -148,7 +164,7 @@ describe('el archivero de carpetas', () => {
     const usuario = userEvent.setup();
     render(<App />);
 
-    await screen.findByRole('row', { name: /Lopez Ac/ });
+    await baldosa(/Familia Lopez Ac/);
     expect(screen.getByLabelText(/Barrio o caserio/i)).toHaveAttribute('aria-disabled', 'true');
 
     await usuario.click(screen.getByLabelText(/Comunidad/i));
@@ -171,7 +187,7 @@ describe('el archivero de carpetas', () => {
     const usuario = userEvent.setup();
     render(<App />);
 
-    await screen.findByRole('row', { name: /Lopez Ac/ });
+    await baldosa(/Familia Lopez Ac/);
     await usuario.type(screen.getByLabelText(/No. de carpeta/i), '3');
 
     expect(
@@ -188,8 +204,7 @@ describe('el archivero de carpetas', () => {
     entrarComo(RECEPCION);
     render(<App />);
 
-    const fila = await screen.findByRole('row', { name: /Lopez Ac/ });
-    expect(within(fila).getByText(/Vacia/i)).toBeInTheDocument();
+    expect(await baldosa(/Familia Lopez Ac/)).toHaveTextContent(/Vacia/i);
   });
 
   it('abrir una carpeta muestra a la familia y lleva a cada expediente', async () => {
@@ -202,8 +217,7 @@ describe('el archivero de carpetas', () => {
     // Los nombres de la tapa, debajo del apellido, como en el folder.
     expect(screen.getByText('Juan Lopez Tzul y Maria Ac Caal')).toBeInTheDocument();
 
-    const fila = await screen.findByRole('row', { name: /Juana Isabel/ });
-    expect(within(fila).getByRole('link', { name: /Ver expediente/i })).toHaveAttribute(
+    expect(await baldosa(/Juana Isabel/)).toHaveAttribute(
       'href',
       '/pacientes/p-1/expediente',
     );
@@ -221,8 +235,7 @@ describe('el archivero de carpetas', () => {
     entrarComo(RECEPCION, '/carpetas/g-1');
     render(<App />);
 
-    const fila = await screen.findByRole('row', { name: /Juana Isabel/ });
-    expect(within(fila).getByText('EXP-2026-000123')).toBeInTheDocument();
+    expect(await baldosa(/Juana Isabel/)).toHaveTextContent('EXP-2026-000123');
   });
 
   /** Se puede estar en la carpeta sin tener expediente abierto todavia. */
@@ -231,8 +244,7 @@ describe('el archivero de carpetas', () => {
     entrarComo(RECEPCION, '/carpetas/g-1');
     render(<App />);
 
-    const fila = await screen.findByRole('row', { name: /Marcos/ });
-    expect(within(fila).getByText(/Sin expediente/i)).toBeInTheDocument();
+    expect(await baldosa(/Marcos/)).toHaveTextContent(/Sin expediente/i);
   });
 
   /**

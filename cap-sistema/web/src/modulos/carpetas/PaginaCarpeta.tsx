@@ -1,25 +1,11 @@
 import { Link as EnlaceRuta, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import {
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  Link,
-  Paper,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Typography,
-} from '@mui/material';
+import { Box, Button, CircularProgress, Paper, Stack, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { AvisoError } from '../../componentes/AvisoError';
+import { BaldosaArchivo, ReticulaArchivo } from '../../componentes/BaldosaArchivo';
 import { NotaPagina } from '../../componentes/EncabezadoPagina';
-import { desde, usarVolver } from '../../navegacion/usarVolver';
+import { usarVolver } from '../../navegacion/usarVolver';
 import { ETIQUETA_TIPO_LUGAR } from '../recepcion/servicio-pacientes';
 import { nombresDeCarpeta, obtenerCarpeta } from './servicio-carpetas';
 import ChildCareOutlinedIcon from '@mui/icons-material/ChildCareOutlined';
@@ -183,70 +169,34 @@ export function PaginaCarpeta() {
             {c.integrantes.length === 1 ? '1 integrante' : c.integrantes.length + ' integrantes'}
           </Typography>
 
-          <TableContainer sx={{ overflowX: 'auto' }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Nombre</TableCell>
-                  <TableCell align="right">Edad</TableCell>
-                  <TableCell>Sexo</TableCell>
-                  <TableCell>Expediente</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {c.integrantes.map((p) => (
-                  <TableRow key={p.id} hover>
-                    <TableCell>
-                      <Stack sx={{ gap: 0.5 }}>
-                        <Typography sx={{ fontWeight: 600 }}>
-                          {p.apellidos + ', ' + p.nombres}
-                        </Typography>
-                        {p.fallecido ? (
-                          <Chip label="Fallecido" size="small" sx={{ width: 'fit-content' }} />
-                        ) : null}
-                      </Stack>
-                    </TableCell>
-                    <TableCell align="right">{edadDicha(p.edad)}</TableCell>
-                    <TableCell>{p.sexo}</TableCell>
-                    <TableCell>
-                      {/*
-                        El NUMERO, y debajo el enlace.
+          {/*
+            Una ficha por integrante, con el icono que pidio el CAP.
 
-                        Quien abre esta pantalla suele estar a punto de ir al
-                        archivo, y ahi los historiales se piden por su numero:
-                        con solo el enlace habia que entrar a cada integrante
-                        para anotarlos uno por uno.
+            La carpeta agrupa personas; las fichas viven en el expediente de
+            cada una. Por eso cada baldosa lleva al EXPEDIENTE y no a una ficha
+            concreta: cual toca depende de la edad y de para que se le atiende.
 
-                        La carpeta agrupa personas; las fichas viven en el
-                        expediente de cada una. Por eso se sale de aqui hacia
-                        el expediente y no hacia una ficha concreta: cual toca
-                        depende de la edad y de para que se le atiende.
-                      */}
-                      <Stack sx={{ gap: 0.25 }}>
-                        {p.numeroExpediente ? (
-                          <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                            {p.numeroExpediente}
-                          </Typography>
-                        ) : (
-                          <Typography variant="body2" color="text.secondary">
-                            Sin expediente
-                          </Typography>
-                        )}
-                        <Link
-                          component={EnlaceRuta}
-                          to={'/pacientes/' + p.id + '/expediente'}
-                          state={desde('/carpetas/' + c.id, 'la carpeta')}
-                          variant="body2"
-                        >
-                          Ver expediente
-                        </Link>
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+            El numero de expediente va debajo, a la vista. Quien abre esta
+            pantalla suele estar a punto de ir al archivo, y ahi los historiales
+            se piden por ese numero: tenerlo que buscar entrando a cada
+            integrante seria anotarlos de uno en uno.
+          */}
+          <ReticulaArchivo>
+            {c.integrantes.map((p) => (
+              <BaldosaArchivo
+                key={p.id}
+                a={'/pacientes/' + p.id + '/expediente'}
+                tipo="ficha"
+                nombre={p.apellidos + ', ' + p.nombres}
+                detalle={
+                  edadDicha(p.edad) +
+                  ' · ' +
+                  (p.numeroExpediente ? 'Exp. ' + p.numeroExpediente : 'Sin expediente')
+                }
+                aviso={p.fallecido ? 'Fallecido' : undefined}
+              />
+            ))}
+          </ReticulaArchivo>
         </Stack>
       )}
     </Box>

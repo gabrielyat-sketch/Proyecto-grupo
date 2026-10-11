@@ -161,6 +161,33 @@ export function Layout() {
   const activoTexto = oscuro ? '#fff' : MENU_ACTIVO_TEXTO_CLARO;
 
   /*
+    Como se esconde el texto del menu al contraerse: se OCULTA, no se desmonta.
+
+    Desmontarlo era la causa del salto. «Sala de espera» no cabe en una linea
+    mientras el panel se estrecha, asi que al reaparecer envolvia en dos
+    renglones, la fila crecia de 46 a 66 pixeles y la lista entera daba un
+    tiron a mitad de la animacion. Montado siempre y con `nowrap`, la altura de
+    cada fila es la misma en los dos extremos y lo unico que pasa es que el
+    panel recorta el texto al encogerse —que es justo lo que parece que hace
+    un cajon que se cierra—.
+
+    `visibility` ademas de `opacity` porque un texto transparente sigue
+    saliendo en el recorrido del lector de pantalla y se puede enfocar con el
+    tabulador: estaria leyendo etiquetas que nadie ve.
+  */
+  const textoDelMenu = {
+    opacity: estrecho ? 0 : 1,
+    visibility: (estrecho ? 'hidden' : 'visible') as 'hidden' | 'visible',
+    transition: tema.transitions.create(['opacity', 'visibility'], {
+      duration: estrecho ? 120 : 200,
+      // Al desplegar el texto entra con un poco de retraso: primero se ve el
+      // hueco y despues lo que lo llena. Al reves parece que el texto empuja
+      // el panel.
+      delay: estrecho ? 0 : 90,
+    }),
+  };
+
+  /*
     El deslizamiento. 260 ms con una curva que frena al final, no la lineal:
     el CAP pidio que la animacion fuera «suave y no brusca», y lo que se nota
     de brusco en un panel que se abre no es la duracion sino el frenazo.
@@ -200,8 +227,11 @@ export function Layout() {
           alignItems: 'center',
           gap: 1.25,
           minHeight: 72,
-          px: estrecho ? 0 : 2.5,
-          justifyContent: estrecho ? 'center' : 'flex-start',
+          // El logo NO se recentra al contraer: moverlo horizontalmente
+          // mientras el panel cambia de ancho es un segundo movimiento encima
+          // del primero, y es parte de lo que se veia a saltos.
+          pl: '19px',
+          pr: 2.5,
           color: 'inherit',
           textDecoration: 'none',
           flexShrink: 0,
@@ -209,16 +239,14 @@ export function Layout() {
         }}
       >
         <LogoCap tamano={34} />
-        {!estrecho ? (
-          <Stack sx={{ minWidth: 0 }}>
-            <Typography sx={{ fontWeight: 800, lineHeight: 1.15, fontSize: 17 }} noWrap>
-              CAP Purulha
-            </Typography>
-            <Typography variant="caption" sx={{ opacity: 0.78 }} noWrap>
-              {ETIQUETA_ROL[usuario?.rol ?? ''] ?? usuario?.rol}
-            </Typography>
-          </Stack>
-        ) : null}
+        <Stack sx={{ minWidth: 0, ...textoDelMenu }}>
+          <Typography sx={{ fontWeight: 800, lineHeight: 1.15, fontSize: 17 }} noWrap>
+            CAP Purulha
+          </Typography>
+          <Typography variant="caption" sx={{ opacity: 0.78 }} noWrap>
+            {ETIQUETA_ROL[usuario?.rol ?? ''] ?? usuario?.rol}
+          </Typography>
+        </Stack>
       </Stack>
 
       <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.16)' }} />
@@ -239,9 +267,16 @@ export function Layout() {
                 mx: 1,
                 my: 0.25,
                 borderRadius: 2.5,
-                minHeight: 46,
-                justifyContent: estrecho ? 'center' : 'flex-start',
-                px: estrecho ? 0 : 2,
+                // Alto FIJO. Con la altura libre, la fila de dos renglones
+                // —«Sala de espera», o cualquiera con «En construccion»
+                // debajo— cambiaba de tamano durante el deslizamiento.
+                height: 48,
+                justifyContent: 'flex-start',
+                // El icono cae exactamente en el centro de la columna
+                // estrecha: 8 del margen + 8 de este relleno + 20 de media
+                // caja = 36, que es la mitad de 72. Asi no se mueve ni un
+                // pixel al desplegar, y lo unico que viaja es el panel.
+                px: 1,
                 color: '#fff',
                 '&:hover': { bgcolor: realce },
                 '&.active': {
@@ -253,25 +288,25 @@ export function Layout() {
               }}
             >
               <ListItemIcon
-                sx={{
-                  minWidth: estrecho ? 0 : 40,
-                  color: 'inherit',
-                  justifyContent: 'center',
-                }}
+                sx={{ minWidth: 40, flexShrink: 0, color: 'inherit', justifyContent: 'center' }}
               >
                 {/* Un poco mas grandes que los 24 de serie, como pidio el CAP. */}
                 <Icono sx={{ fontSize: 26 }} />
               </ListItemIcon>
-              {!estrecho ? (
-                <ListItemText
-                  primary={etiqueta}
-                  secondary={pendiente ? 'En construccion' : undefined}
-                  slotProps={{
-                    primary: { sx: { fontWeight: 'inherit' } },
-                    secondary: { sx: { fontSize: 12, color: 'inherit', opacity: 0.65 } },
-                  }}
-                />
-              ) : null}
+              <ListItemText
+                primary={etiqueta}
+                secondary={pendiente ? 'En construccion' : undefined}
+                sx={{ my: 0, ...textoDelMenu }}
+                slotProps={{
+                  // `noWrap` en los dos: es lo que impide que «Sala de espera»
+                  // se parta en dos renglones mientras el panel es estrecho.
+                  primary: { noWrap: true, sx: { fontWeight: 'inherit' } },
+                  secondary: {
+                    noWrap: true,
+                    sx: { fontSize: 12, color: 'inherit', opacity: 0.65 },
+                  },
+                }}
+              />
             </ListItemButton>
           );
 
@@ -294,83 +329,6 @@ export function Layout() {
         })}
       </List>
 
-      {/* ─── El pie: lo que bajo de la barra superior ─── */}
-      <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.16)' }} />
-      <Stack sx={{ p: estrecho ? 0.75 : 1.5, gap: 0.5, flexShrink: 0 }}>
-        {!estrecho ? (
-          <Box sx={{ px: 1, pb: 0.5, opacity: 0.85 }}>
-            <Reloj conFecha />
-          </Box>
-        ) : null}
-
-        <Stack
-          direction="row"
-          sx={{ gap: 0.5, justifyContent: estrecho ? 'center' : 'flex-start' }}
-        >
-          <Tooltip title="Apariencia" placement="right">
-            <IconButton
-              onClick={(e) => setMenuTema(e.currentTarget)}
-              aria-label={'Apariencia: ' + (APARIENCIA.find((a) => a.modo === modo)?.etiqueta ?? '')}
-              aria-haspopup="menu"
-              sx={{ color: '#fff', '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.14)' } }}
-            >
-              {modo === 'claro' ? (
-                <LightModeOutlinedIcon />
-              ) : modo === 'oscuro' ? (
-                <DarkModeOutlinedIcon />
-              ) : (
-                <SettingsBrightnessOutlinedIcon />
-              )}
-            </IconButton>
-          </Tooltip>
-
-          {/*
-            La cuenta con el nombre a la vista, no un icono suelto: en una
-            computadora compartida entre turnos, saber con que cuenta se esta
-            trabajando no puede exigir abrir un menu. El nombre a la vista es lo
-            que evita que alguien registre media jornada bajo la sesion de otro.
-          */}
-          <Stack
-            component="button"
-            type="button"
-            direction="row"
-            onClick={(e) => setMenuCuenta(e.currentTarget)}
-            aria-label={'Cuenta de ' + (usuario?.usuario ?? '')}
-            aria-haspopup="menu"
-            aria-expanded={Boolean(menuCuenta)}
-            sx={{
-              alignItems: 'center',
-              gap: 1,
-              flexGrow: estrecho ? 0 : 1,
-              minWidth: 0,
-              px: estrecho ? 0.5 : 1,
-              py: 0.5,
-              border: 0,
-              borderRadius: 999,
-              cursor: 'pointer',
-              font: 'inherit',
-              color: '#fff',
-              bgcolor: 'rgba(255, 255, 255, 0.14)',
-              '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.24)' },
-            }}
-          >
-            <AvatarUsuario
-              usuario={usuario?.usuario ?? '?'}
-              conectado={conectado}
-              tamano={30}
-              descripcion={
-                (usuario?.usuario ?? '') +
-                (conectado ? ' · conectado' : ' · sin conexion de red')
-              }
-            />
-            {!estrecho ? (
-              <Typography component="span" sx={{ fontWeight: 700, minWidth: 0 }} noWrap>
-                {usuario?.usuario}
-              </Typography>
-            ) : null}
-          </Stack>
-        </Stack>
-      </Stack>
     </Stack>
   );
 
@@ -474,19 +432,108 @@ export function Layout() {
 
       <Box
         component="main"
-        sx={{ flexGrow: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}
+        sx={{
+          flexGrow: 1,
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          bgcolor: 'background.default',
+          // Espacio a la izquierda para que el boton del menu no se pose
+          // encima del primer titulo de cada pantalla.
+          pl: { xs: 2, md: 4.5 },
+          pr: { xs: 2, md: 3.5 },
+          pt: { xs: 1.5, md: 2 },
+          pb: { xs: 2, md: 3.5 },
+        }}
       >
-        <Box
-          sx={{
-            flexGrow: 1,
-            // Espacio a la izquierda para que el boton del menu no se pose
-            // encima del primer titulo de cada pantalla.
-            pl: { xs: 2, md: 4.5 },
-            pr: { xs: 2, md: 3.5 },
-            py: { xs: 2, md: 3.5 },
-            bgcolor: 'background.default',
-          }}
+        {/*
+          El reloj y la cuenta, arriba a la derecha.
+
+          Estuvieron un rato al pie del menu lateral y el CAP lo rechazo: ahi
+          compiten con la navegacion, que es lo unico que ese panel deberia
+          contener. Aqui vuelven donde estaban —la esquina de «quien y
+          cuando»— pero sin la banda de 76 pixeles que los sostenia: es una
+          fila suelta sobre el area de trabajo, no una barra.
+        */}
+        <Stack
+          direction="row"
+          sx={{ alignItems: 'center', gap: 1, justifyContent: 'flex-end', mb: 1.5 }}
         >
+          <Box sx={{ display: { xs: 'none', sm: 'block' }, color: 'text.secondary' }}>
+            <Reloj conFecha={pantallaAncha} />
+          </Box>
+
+          <Tooltip title="Apariencia">
+            <IconButton
+              onClick={(e) => setMenuTema(e.currentTarget)}
+              aria-label={
+                'Apariencia: ' + (APARIENCIA.find((a) => a.modo === modo)?.etiqueta ?? '')
+              }
+              aria-haspopup="menu"
+              sx={{ color: 'text.secondary' }}
+            >
+              {modo === 'claro' ? (
+                <LightModeOutlinedIcon />
+              ) : modo === 'oscuro' ? (
+                <DarkModeOutlinedIcon />
+              ) : (
+                <SettingsBrightnessOutlinedIcon />
+              )}
+            </IconButton>
+          </Tooltip>
+
+          {/*
+            La cuenta con el nombre a la vista, no un icono suelto: en una
+            computadora compartida entre turnos, saber con que cuenta se esta
+            trabajando no puede exigir abrir un menu. El nombre a la vista es
+            lo que evita que alguien registre media jornada bajo la sesion de
+            otro.
+          */}
+          <Stack
+            component="button"
+            type="button"
+            direction="row"
+            onClick={(e) => setMenuCuenta(e.currentTarget)}
+            aria-label={'Cuenta de ' + (usuario?.usuario ?? '')}
+            aria-haspopup="menu"
+            aria-expanded={Boolean(menuCuenta)}
+            sx={{
+              alignItems: 'center',
+              gap: 1,
+              minWidth: 0,
+              pl: 0.5,
+              pr: { xs: 0.5, sm: 1.5 },
+              py: 0.5,
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 999,
+              cursor: 'pointer',
+              font: 'inherit',
+              color: 'text.primary',
+              bgcolor: 'background.paper',
+              '&:hover': { borderColor: 'primary.main' },
+            }}
+          >
+            <AvatarUsuario
+              usuario={usuario?.usuario ?? '?'}
+              conectado={conectado}
+              tamano={30}
+              descripcion={
+                (usuario?.usuario ?? '') +
+                (conectado ? ' · conectado' : ' · sin conexion de red')
+              }
+            />
+            <Typography
+              component="span"
+              sx={{ fontWeight: 700, minWidth: 0, display: { xs: 'none', sm: 'block' } }}
+              noWrap
+            >
+              {usuario?.usuario}
+            </Typography>
+          </Stack>
+        </Stack>
+
+        <Box sx={{ flexGrow: 1 }}>
           <Outlet />
         </Box>
       </Box>
@@ -496,9 +543,9 @@ export function Layout() {
         anchorEl={menuTema}
         open={Boolean(menuTema)}
         onClose={() => setMenuTema(null)}
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-        transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        slotProps={{ paper: { sx: { minWidth: 220 } } }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        slotProps={{ paper: { sx: { mt: 1, minWidth: 220 } } }}
       >
         {APARIENCIA.map(({ modo: m, etiqueta, icono: Icono }) => (
           <MenuItem
@@ -523,9 +570,9 @@ export function Layout() {
         anchorEl={menuCuenta}
         open={Boolean(menuCuenta)}
         onClose={() => setMenuCuenta(null)}
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-        transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        slotProps={{ paper: { sx: { minWidth: 268, overflow: 'hidden' } } }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        slotProps={{ paper: { sx: { mt: 1, minWidth: 268, overflow: 'hidden' } } }}
       >
         {/*
           La cabecera no es un MenuItem deshabilitado: no se puede pulsar, no

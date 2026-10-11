@@ -11,6 +11,15 @@ function entrarComo(rol: Perfil['rol']): Perfil {
 
 const navegacion = () => screen.getByRole('navigation', { name: /Modulos del sistema/i });
 
+/**
+ * El nombre escrito de una opcion del menu.
+ *
+ * Contraido NO se desmonta, se oculta: por eso se comprueba con
+ * `toBeVisible()` y no con `toBeInTheDocument()`. Ver el comentario de
+ * `textoDelMenu` en el Layout.
+ */
+const nombreEnElMenu = (texto: string) => within(navegacion()).getByText(texto);
+
 beforeEach(() => {
   almacenSesion.limpiar();
   // El menu contraido se recuerda en el navegador. Sin limpiarlo, una prueba
@@ -31,7 +40,13 @@ beforeEach(() => {
   }));
 });
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  // Y los espias. Una prueba que rompe `localStorage` y falla antes de
+  // restaurarlo deja a las siguientes sin almacenamiento, y el informe acusa a
+  // pruebas que no tienen nada que ver.
+  vi.restoreAllMocks();
+});
 
 /**
  * La barra superior ya no existe: el CAP pidio quitarla y el diseno que dieron
@@ -80,19 +95,22 @@ describe('sin barra superior', () => {
   });
 
   /**
-   * La cuenta y el reloj bajaron al pie del menu. Si se pierden ahi, no hay
-   * otro sitio desde donde cerrar sesion: por eso se comprueban aqui y no solo
-   * en la prueba que abre el menu de la cuenta.
+   * El reloj y la cuenta estuvieron un rato al pie del menu lateral y el CAP lo
+   * rechazo: ahi compiten con la navegacion, que es lo unico que ese panel
+   * deberia contener. Estan arriba a la derecha, FUERA del menu, que es donde
+   * estaban cuando habia barra.
    */
-  it('la cuenta vive en el pie del menu, con el reloj', async () => {
+  it('el reloj y la cuenta estan arriba, fuera del menu', async () => {
     entrarComo('ENFERMERIA');
     render(<App />);
 
     const nav = await waitFor(navegacion);
-    expect(
-      within(nav).getByRole('button', { name: /Cuenta de prueba/i }),
-    ).toBeInTheDocument();
-    expect(within(nav).getByRole('button', { name: /Apariencia/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Cuenta de prueba/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Apariencia/i })).toBeInTheDocument();
+
+    // Y NO dentro del panel izquierdo.
+    expect(within(nav).queryByRole('button', { name: /Cuenta de prueba/i })).toBeNull();
+    expect(within(nav).queryByRole('button', { name: /Apariencia/i })).toBeNull();
   });
 
   it('en telefono el menu se abre con el boton de afuera', async () => {
@@ -221,11 +239,16 @@ describe('contraer el menu lateral', () => {
     await usuario.click(screen.getByRole('button', { name: 'Contraer el menu' }));
 
     // Contraido quedan los iconos, no los nombres.
-    await waitFor(() => expect(navegacion()).not.toHaveTextContent('Recepcion'));
+    /*
+      El nombre sigue en el DOM pero OCULTO, no desmontado: desmontarlo era lo
+      que hacia que «Sala de espera» se partiera en dos renglones al volver y
+      la lista diera un tiron a mitad de la animacion.
+    */
+    await waitFor(() => expect(nombreEnElMenu('Recepcion')).not.toBeVisible());
 
     // Y el boton ahora ofrece lo contrario.
     await usuario.click(await screen.findByRole('button', { name: 'Desplegar el menu' }));
-    await waitFor(() => expect(navegacion()).toHaveTextContent('Recepcion'));
+    await waitFor(() => expect(nombreEnElMenu('Recepcion')).toBeVisible());
   });
 
   /**
@@ -253,7 +276,7 @@ describe('contraer el menu lateral', () => {
 
     await waitFor(navegacion);
     await usuario.click(screen.getByRole('button', { name: 'Contraer el menu' }));
-    await waitFor(() => expect(navegacion()).not.toHaveTextContent('Recepcion'));
+    await waitFor(() => expect(nombreEnElMenu('Recepcion')).not.toBeVisible());
 
     primera.unmount();
     render(<App />);
@@ -274,7 +297,6 @@ describe('contraer el menu lateral', () => {
     entrarComo('ADMINISTRADOR');
     const usuario = userEvent.setup();
 
-    const original = window.localStorage.getItem;
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('almacenamiento bloqueado');
     });
@@ -288,10 +310,7 @@ describe('contraer el menu lateral', () => {
 
     // Y el boton sigue haciendo su trabajo aunque no se pueda recordar.
     await usuario.click(screen.getByRole('button', { name: 'Contraer el menu' }));
-    await waitFor(() => expect(navegacion()).not.toHaveTextContent('Recepcion'));
-
-    vi.restoreAllMocks();
-    expect(typeof original).toBe('function');
+    await waitFor(() => expect(nombreEnElMenu('Recepcion')).not.toBeVisible());
   });
 });
 
@@ -319,18 +338,14 @@ describe('el menu contraido se despliega al pasar el cursor', () => {
     await waitFor(navegacion);
     await usuario.click(screen.getByRole('button', { name: 'Contraer el menu' }));
 
-    // Contraido: el nombre del centro no se escribe, solo el logo.
-    await waitFor(() => {
-      expect(within(navegacion()).queryByText('CAP Purulha')).not.toBeInTheDocument();
-    });
+    // Contraido: del encabezado solo se ve el logo.
+    await waitFor(() => expect(nombreEnElMenu('CAP Purulha')).not.toBeVisible());
 
     await usuario.hover(navegacion());
-    expect(await within(navegacion()).findByText('CAP Purulha')).toBeInTheDocument();
+    await waitFor(() => expect(nombreEnElMenu('CAP Purulha')).toBeVisible());
 
     await usuario.unhover(navegacion());
-    await waitFor(() => {
-      expect(within(navegacion()).queryByText('CAP Purulha')).not.toBeInTheDocument();
-    });
+    await waitFor(() => expect(nombreEnElMenu('CAP Purulha')).not.toBeVisible());
   });
 
   /**
