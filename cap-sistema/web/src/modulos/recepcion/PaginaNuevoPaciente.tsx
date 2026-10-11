@@ -35,6 +35,7 @@ import {
   rotuloDeCarpeta,
   siguienteNumeroDeCarpeta,
 } from '../carpetas/servicio-carpetas';
+import { DIAS_MAXIMO_NEONATO, edadEnDias } from '../fichas/ficha-por-edad';
 
 const IDIOMAS = [
   { valor: 'ESPANOL', etiqueta: 'Espanol' },
@@ -60,12 +61,19 @@ const hoy = () => new Date().toISOString().slice(0, 10);
  * Lo que esto sigue dejando fuera es a quien no esta inscrito en RENAP. Es una
  * decision del CAP, no una limitacion tecnica, y esta anotada como tal.
  */
-const esquema = z.object({
-  dpi: z
-    .string()
-    .trim()
-    .min(1, 'Escriba el CUI o DPI')
-    .regex(/^[0-9]{13}$/, 'El CUI o DPI debe tener exactamente 13 digitos'),
+const esquema = z
+  .object({
+  /** Se valida abajo: deja de ser obligatorio en el recien nacido sin CUI. */
+  dpi: z.string().trim(),
+  /**
+   * El recien nacido que todavia no tiene CUI se registra con el DPI de la
+   * madre. El CAP lo pidio solo para el menor de 28 dias: con el DPI de ella
+   * en la casilla del CUI, el sistema lo rechazaba por repetido.
+   */
+  sinCui: z.boolean(),
+  dpiMadre: z.string().trim(),
+  /** La pide la ficha de adultos en «Datos generales del paciente». */
+  ocupacion: z.string().trim().max(120, 'La ocupacion no puede pasar de 120 caracteres'),
   nombres: z.string().trim().min(1, 'Escriba los nombres').max(120),
   apellidos: z.string().trim().min(1, 'Escriba los apellidos').max(120),
   fechaNacimiento: z
@@ -135,9 +143,41 @@ const esquema = z.object({
    */
   tieneAlergias: z.enum(['', 'SI', 'NO']),
   alergias: z.string().trim().max(500),
-});
+  })
+  .superRefine((c, ctx) => {
+    if (usaDpiDeLaMadre(c)) {
+      if (!/^[0-9]{13}$/.test(c.dpiMadre)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['dpiMadre'],
+          message: 'El DPI de la madre debe tener exactamente 13 digitos',
+        });
+      }
+      return;
+    }
+    if (c.dpi === '') {
+      ctx.addIssue({ code: 'custom', path: ['dpi'], message: 'Escriba el CUI o DPI' });
+    } else if (!/^[0-9]{13}$/.test(c.dpi)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['dpi'],
+        message: 'El CUI o DPI debe tener exactamente 13 digitos',
+      });
+    }
+  });
 
 type Campos = z.infer<typeof esquema>;
+
+/**
+ * La casilla «sin CUI» solo cuenta en el recien nacido. Si se marco y despues
+ * se corrigio la fecha a mas de 28 dias, la casilla desaparece de la pantalla
+ * y aqui deja de valer, en vez de exigir un DPI de la madre que ya no se ve.
+ */
+function usaDpiDeLaMadre(c: { sinCui: boolean; fechaNacimiento: string }): boolean {
+  return (
+    c.sinCui && c.fechaNacimiento !== '' && edadEnDias(c.fechaNacimiento) <= DIAS_MAXIMO_NEONATO
+  );
+}
 
 /** El orden en que la gente nombra los lugares, de lo grande a lo pequeno. */
 const ORDEN_GRUPOS = ['ALDEA', 'BARRIO', 'CASERIO', 'OTRO'];
@@ -238,6 +278,9 @@ export function PaginaNuevoPaciente() {
     resolver: zodResolver(esquema),
     defaultValues: {
       dpi: '',
+      sinCui: false,
+      dpiMadre: '',
+      ocupacion: '',
       nombres: recienNacido ? NOMBRE_PROVISIONAL : '',
       apellidos: recienNacido?.apellidos ?? '',
       // Hoy, que es lo que suele ser: se corrige si nacio hace unos dias.
@@ -278,6 +321,11 @@ export function PaginaNuevoPaciente() {
   */
   const comunidadDeFuera = (comunidades.data ?? []).find((c) => c.codigo === 'FUERA');
   const tieneAlergias = watch('tieneAlergias');
+  const sinCui = watch('sinCui');
+  const fechaNacimiento = watch('fechaNacimiento');
+  // La casilla del DPI de la madre solo se ofrece al recien nacido.
+  const esRecienNacido =
+    fechaNacimiento !== '' && edadEnDias(fechaNacimiento) <= DIAS_MAXIMO_NEONATO;
 
   const lugares = useQuery({
     queryKey: ['lugares', comunidadId],
@@ -429,7 +477,8 @@ export function PaginaNuevoPaciente() {
             }
           : {};
     alta.mutate({
-      dpi: campos.dpi,
+      ...(usaDpiDeLaMadre(campos) ? { dpiMadre: campos.dpiMadre } : { dpi: campos.dpi }),
+      ...(campos.ocupacion ? { ocupacion: campos.ocupacion } : {}),
       nombres: campos.nombres,
       apellidos: campos.apellidos,
       // El campo de fecha entrega 'aaaa-mm-dd' y se manda tal cual. Construir un
@@ -575,17 +624,31 @@ export function PaginaNuevoPaciente() {
           </Stack>
 
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-            <TextField
-              label="CUI o DPI *"
-              fullWidth
-              inputMode="numeric"
-              error={Boolean(errors.dpi)}
-              helperText={
-                errors.dpi?.message ??
-                'Obligatorio: 13 digitos. El CUI del menor sirve igual que el DPI del adulto'
-              }
-              {...register('dpi')}
-            />
+            {sinCui && esRecienNacido ? (
+              <TextField
+                label="DPI de la madre *"
+                fullWidth
+                inputMode="numeric"
+                error={Boolean(errors.dpiMadre)}
+                helperText={
+                  errors.dpiMadre?.message ??
+                  '13 digitos. Puede ser el mismo de la madre ya registrada: aqui no se rechaza'
+                }
+                {...register('dpiMadre')}
+              />
+            ) : (
+              <TextField
+                label="CUI o DPI *"
+                fullWidth
+                inputMode="numeric"
+                error={Boolean(errors.dpi)}
+                helperText={
+                  errors.dpi?.message ??
+                  'Obligatorio: 13 digitos. El CUI del menor sirve igual que el DPI del adulto'
+                }
+                {...register('dpi')}
+              />
+            )}
             <TextField
               label="Telefono"
               fullWidth
@@ -595,6 +658,31 @@ export function PaginaNuevoPaciente() {
               {...register('telefono')}
             />
           </Stack>
+
+          {/*
+            Solo para el menor de 28 dias: todavia no lo han inscrito en RENAP
+            y no tiene CUI. Se registra con el DPI de la madre, aparte.
+          */}
+          {esRecienNacido ? (
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={sinCui}
+                  onChange={(e) => setValue('sinCui', e.target.checked)}
+                />
+              }
+              label="Recien nacido que aun no tiene CUI: registrar con el DPI de la madre"
+            />
+          ) : null}
+
+          <TextField
+            label="Ocupacion"
+            fullWidth
+            error={Boolean(errors.ocupacion)}
+            helperText={errors.ocupacion?.message ?? 'Opcional. La pide la ficha de adultos'}
+            slotProps={{ htmlInput: { maxLength: 120 } }}
+            {...register('ocupacion')}
+          />
 
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
             <TextField

@@ -179,6 +179,8 @@ export class FichasService {
           fecha,
           digitalizada: dto.digitalizada ?? false,
           tipoFicha: dto.tipoFicha,
+          tipoServicio: dto.tipoServicio ?? null,
+          atendio: dto.atendio?.trim() || null,
 
           motivoCifrado: new Uint8Array(this.cifrado.cifrar(dto.motivo)),
           historiaEnfermedadCifrado: this.cifrar(dto.historiaEnfermedad),
@@ -810,6 +812,8 @@ export class FichasService {
       fecha: a.fecha,
       registradaPor: a.registradaPor,
       digitalizada: a.digitalizada,
+      tipoServicio: a.tipoServicio,
+      atendio: a.atendio,
 
       motivo: this.descifrar(a.motivoCifrado),
       historiaEnfermedad: this.descifrar(a.historiaEnfermedadCifrado),

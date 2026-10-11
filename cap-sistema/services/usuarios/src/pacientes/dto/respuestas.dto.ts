@@ -127,6 +127,16 @@ export class PacienteDto {
   @ApiProperty({ type: String, nullable: true })
   lugarOrigen!: string | null;
 
+  @ApiProperty({ type: String, nullable: true })
+  ocupacion!: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'DPI de la madre, solo en el recien nacido registrado sin CUI.',
+  })
+  dpiMadre!: string | null;
+
   @ApiProperty({
     type: Boolean,
     nullable: true,

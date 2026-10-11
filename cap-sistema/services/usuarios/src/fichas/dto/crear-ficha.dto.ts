@@ -637,6 +637,19 @@ export class DatosPospartoDto {
   otroMedicamento?: boolean;
 }
 
+/** Las casillas de «Identificacion del establecimiento de salud». */
+export enum TipoServicioSaludDto {
+  PS = 'PS',
+  PSF = 'PSF',
+  CS_B = 'CS_B',
+  CENAPA = 'CENAPA',
+  CS_A = 'CS_A',
+  CAP = 'CAP',
+  CAIMI = 'CAIMI',
+  CUM = 'CUM',
+  HOSPITAL = 'HOSPITAL',
+}
+
 export class CrearFichaDto {
   @ApiProperty({ enum: TipoFichaDto })
   @IsEnum(TipoFichaDto)
@@ -653,6 +666,24 @@ export class CrearFichaDto {
   @IsOptional()
   @IsBoolean()
   digitalizada?: boolean;
+
+  /**
+   * La casilla del establecimiento de salud. El panel obliga a marcarla; aqui
+   * es opcional para no romper a quien ya integra con el servicio.
+   */
+  @ApiPropertyOptional({ enum: TipoServicioSaludDto, enumName: 'TipoServicioSalud' })
+  @IsOptional()
+  @IsEnum(TipoServicioSaludDto)
+  tipoServicio?: TipoServicioSaludDto;
+
+  @ApiPropertyOptional({
+    description: 'Nombre y cargo de la persona que atendio, como se imprime al pie de la ficha.',
+    example: 'Ana Lopez — Enfermeria',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(1, 200)
+  atendio?: string;
 
   // ─── Secciones V y VI ──────────────────────────────────────────────────
   @ApiProperty({ description: 'Seccion V. Motivo de la consulta.' })

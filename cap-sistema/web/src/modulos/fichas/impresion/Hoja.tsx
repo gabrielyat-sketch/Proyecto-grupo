@@ -271,13 +271,25 @@ export function Renglones({ texto, minimo = 2 }: { texto: string | null | undefi
   );
 }
 
-/** «Nombre y cargo de la persona que atendio: ____». Se firma a mano. */
-export function Firma({ rotulo = 'Nombre y cargo de la persona que atendió:' }: { rotulo?: string }) {
+/**
+ * «Nombre y cargo de la persona que atendio: ____».
+ *
+ * Con `valor`, la raya lleva el nombre y cargo que se guardaron con la ficha
+ * —el CAP pidio que saliera impreso—. Las fichas anteriores a ese campo no lo
+ * tienen, y su raya queda en blanco para firmarse a mano, como siempre.
+ */
+export function Firma({
+  rotulo = 'Nombre y cargo de la persona que atendió:',
+  valor,
+}: {
+  rotulo?: string;
+  valor?: string | null;
+}) {
   return (
     <div className="hoja-firma">
       <span>{rotulo}</span>
       <span className="hoja-campo-valor" style={{ flex: 1 }}>
-        {' '}
+        {valor || ' '}
       </span>
     </div>
   );
@@ -354,10 +366,11 @@ export function Encabezado({
 }
 
 /**
- * Las casillas del tipo de establecimiento, con el CAP marcado.
+ * Las casillas del tipo de establecimiento, con la que se marco en la ficha.
  *
  * Cada hoja trae su propia lista —la de adultos tiene nueve, la del neonato
- * seis— asi que se recibe entera y solo se marca la del CAP.
+ * seis— asi que se recibe entera y solo se marca la elegida. Las fichas
+ * anteriores a la casilla imprimen el CAP: ver `textoDelServicio`.
  */
 export function TipoEstablecimiento({
   opciones,

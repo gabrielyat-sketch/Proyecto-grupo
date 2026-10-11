@@ -1,6 +1,6 @@
 import type { Ficha } from '../../expedientes/servicio-expedientes';
 import type { AntecedentesPaciente, CatalogoFicha, Paciente } from '../servicio-fichas';
-import { SERVICIO_DE_SALUD } from '../servicio-fichas';
+import { SERVICIO_DE_SALUD, textoDelServicio } from '../servicio-fichas';
 import {
   AntecedentesRestantes,
   LineaAntecedente,
@@ -151,7 +151,7 @@ export function HojaNeonato({
           </div>
           <TipoEstablecimiento
             opciones={['PSF', 'C/S "A"', 'CENAPA', 'C/S "B"', 'CAP', 'CAIMI']}
-            marcada={SERVICIO_DE_SALUD.tipo}
+            marcada={textoDelServicio(ficha.tipoServicio)}
             repartidas
           />
           <Fila>
@@ -446,7 +446,7 @@ export function HojaNeonato({
         ) : null}
 
         <div style={{ marginLeft: '30%', marginTop: '8mm' }}>
-          <Firma rotulo="Nombre de la persona que atendió" />
+          <Firma rotulo="Nombre de la persona que atendió" valor={ficha.atendio} />
         </div>
       </Pliego>
     </>

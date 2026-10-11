@@ -1,7 +1,15 @@
 import { useState, type ReactNode } from 'react';
-import { Box, Button, Collapse, Paper, Stack, Typography } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
+import { Box, Button, Collapse, Link, Paper, Stack, Typography } from '@mui/material';
 import HelpOutlinedIcon from '@mui/icons-material/HelpOutlined';
 import { LogoCap } from './LogoCap';
+
+/** Integrantes del proyecto, en el orden en que los dio el equipo. */
+const INTEGRANTES = [
+  'Dennis Alessandro Xona Isem',
+  'Zulma Romineya López Ac',
+  'Ramiro Gabriel Yat Yat',
+];
 
 /**
  * Fondo de las pantallas de acceso: la sala de espera del CAP.
@@ -87,34 +95,61 @@ function CreditoUniversidad() {
 
   return (
     <Stack
-      direction="row"
-      spacing={1}
+      spacing={0.75}
       sx={{
         alignItems: 'center',
-        justifyContent: 'center',
         pt: 1.25,
         mt: 1,
         borderTop: '1px solid',
         borderColor: 'divider',
       }}
     >
-      {!sinLogo ? (
-        <Box
-          component="img"
-          src="/logo-umg.png"
-          alt=""
-          aria-hidden
-          onError={() => setSinLogo(true)}
-          sx={{ height: 26, width: 'auto', opacity: 0.85, flexShrink: 0 }}
-        />
-      ) : null}
-      <Typography
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'center' }}>
+        {!sinLogo ? (
+          <Box
+            component="img"
+            src="/logo-umg.png"
+            alt=""
+            aria-hidden
+            onError={() => setSinLogo(true)}
+            sx={{ height: 26, width: 'auto', opacity: 0.85, flexShrink: 0 }}
+          />
+        ) : null}
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ lineHeight: 1.25, textAlign: 'center' }}
+        >
+          Universidad Mariano Gálvez
+        </Typography>
+      </Stack>
+
+      {/* Quienes hicieron el proyecto. Uno por renglon: en una sola linea los
+          tres nombres completos no caben en un telefono y se cortarian a la
+          mitad de un apellido. */}
+      <Box component="ul" aria-label="Integrantes del proyecto" sx={{ m: 0, p: 0, listStyle: 'none' }}>
+        {INTEGRANTES.map((nombre) => (
+          <Typography
+            key={nombre}
+            component="li"
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: 'block', lineHeight: 1.4, textAlign: 'center', fontSize: '0.7rem' }}
+          >
+            {nombre}
+          </Typography>
+        ))}
+      </Box>
+
+      <Link
+        component={RouterLink}
+        to="/privacidad"
         variant="caption"
         color="text.secondary"
-        sx={{ lineHeight: 1.25, textAlign: 'center' }}
+        underline="always"
       >
-        Universidad Mariano Galvez
-      </Typography>
+        Políticas de privacidad
+      </Link>
     </Stack>
   );
 }

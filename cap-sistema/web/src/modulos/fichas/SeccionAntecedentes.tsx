@@ -1,6 +1,6 @@
-import { Box, Collapse, Stack, TextField, Typography } from '@mui/material';
+import { Box, Checkbox, Collapse, FormControlLabel, Stack, TextField, Typography } from '@mui/material';
 import type { CasillaAntecedente, Obstetricos } from './borrador';
-import { hoy, porGrupo } from './borrador';
+import { alternarTamizaje, hoy, porGrupo, tamizajesDe } from './borrador';
 import type { AntecedenteCatalogo } from './servicio-fichas';
 import { BloqueFicha } from './SeccionFicha';
 import {
@@ -189,19 +189,36 @@ function Obstetricia({
         direction={{ xs: 'column', md: 'row' }}
         sx={{ gap: 2, alignItems: { md: 'flex-start' } }}
       >
-        <TextField
-          select
-          label="Deteccion de cancer de cervix"
-          size="small"
-          value={valores.tamizajeCervix}
-          onChange={(e) => cambiar('tamizajeCervix', e.target.value)}
-          slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
-          sx={{ minWidth: { md: 240 } }}
-        >
-          <option value="">Sin registrar</option>
-          <option value="PAPANICOLAU">Papanicolau</option>
-          <option value="IVAA">IVAA</option>
-        </TextField>
+        {/*
+          Dos casillas y no una lista: Papanicolau e IVAA son pruebas
+          distintas y se pueden haber hecho las dos. Asi lo pidio el CAP, y
+          asi estan en el papel. Ninguna marcada es «sin registrar».
+        */}
+        <Box role="group" aria-label="Deteccion de cancer de cervix" sx={{ minWidth: { md: 240 } }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 600 }}>
+            Deteccion de cancer de cervix
+          </Typography>
+          <Stack direction="row" sx={{ gap: 1 }}>
+            {[
+              { valor: 'PAPANICOLAU', texto: 'Papanicolau' },
+              { valor: 'IVAA', texto: 'IVAA' },
+            ].map((p) => (
+              <FormControlLabel
+                key={p.valor}
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={tamizajesDe(valores.tamizajeCervix).includes(p.valor)}
+                    onChange={() =>
+                      cambiar('tamizajeCervix', alternarTamizaje(valores.tamizajeCervix, p.valor))
+                    }
+                  />
+                }
+                label={p.texto}
+              />
+            ))}
+          </Stack>
+        </Box>
         <TextField
           label="Fecha"
           type="date"

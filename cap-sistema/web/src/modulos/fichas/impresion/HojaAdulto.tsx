@@ -1,7 +1,7 @@
 import type { Ficha } from '../../expedientes/servicio-expedientes';
 import { presion } from '../../expedientes/servicio-expedientes';
 import type { AntecedentesPaciente, CatalogoFicha, Paciente } from '../servicio-fichas';
-import { SERVICIO_DE_SALUD } from '../servicio-fichas';
+import { SERVICIO_DE_SALUD, textoDelServicio } from '../servicio-fichas';
 import { ColumnaConducta, MatrizProblemas, SignosPeligroSiNo } from './Bloques';
 import { AntecedentesAdulto } from './AntecedentesAdulto';
 import {
@@ -29,8 +29,10 @@ import {
  *
  * Sigue el papel seccion por seccion, con sus numerales romanos, para que
  * quien la reciba impresa la lea igual que las que se llenan a mano. Lo que
- * el sistema no captura —ocupacion, nombre del responsable, quirurgicos— sale
- * con su raya en blanco, como en el original, y no se inventa.
+ * el sistema no captura —el nombre del responsable— sale con su raya en
+ * blanco, como en el original, y no se inventa. La ocupacion, los quirurgicos
+ * y quien atendio se capturan desde el 30 sep 2026; en las fichas de antes
+ * salen en blanco igual.
  */
 export function HojaAdulto({
   ficha,
@@ -62,7 +64,7 @@ export function HojaAdulto({
         <Cuadro>
           <TipoEstablecimiento
             opciones={['PS', 'PSF', 'C/S "B"', 'CENAPA', 'C/S "A"', 'CAP', 'CAIMI', 'CUM', 'HOSPITAL']}
-            marcada={SERVICIO_DE_SALUD.tipo}
+            marcada={textoDelServicio(ficha.tipoServicio)}
           />
           <Fila>
             <Campo rotulo="Nombre del distrito:" valor={SERVICIO_DE_SALUD.distrito} llena />
@@ -92,7 +94,7 @@ export function HojaAdulto({
             {paciente.migrante && paciente.lugarOrigen ? (
               <Campo rotulo="Lugar:" valor={paciente.lugarOrigen} ancho={20} />
             ) : null}
-            <Campo rotulo="Ocupación:" valor={null} llena />
+            <Campo rotulo="Ocupación:" valor={paciente.ocupacion} llena />
           </Fila>
         </Cuadro>
 
@@ -210,7 +212,7 @@ export function HojaAdulto({
           </Fila>
         ) : null}
 
-        <Firma />
+        <Firma valor={ficha.atendio} />
       </Pliego>
     </>
   );

@@ -427,6 +427,13 @@ describe('la hoja de consulta en pantalla', () => {
 
     await usuario.type(screen.getByLabelText(/^Motivo de consulta/), 'Tos de tres días');
     await usuario.type(screen.getByLabelText('Peso'), '30');
+    await usuario.click(
+      within(screen.getByRole('group', { name: 'Tipo de servicio de salud' })).getByLabelText('CAP'),
+    );
+    await usuario.type(
+      screen.getByLabelText('Observaciones / Hallazgos adicionales / Tratamientos'),
+      'Control en dos semanas',
+    );
     await usuario.click(screen.getByRole('button', { name: 'Guardar la ficha' }));
 
     await waitFor(() => {
@@ -435,6 +442,8 @@ describe('la hoja de consulta en pantalla', () => {
           tipoFicha: 'NINEZ',
           motivo: 'Tos de tres días',
           pesoKg: 13.61,
+          tipoServicio: 'CAP',
+          notas: 'Control en dos semanas',
         }),
       );
     });

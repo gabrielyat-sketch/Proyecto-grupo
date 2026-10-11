@@ -24,13 +24,16 @@ import { ListaMedicamentos } from '../ListaMedicamentos';
 import { SeccionExamenFisico } from '../SeccionExamenFisico';
 import { LineaPregunta, SelectorSiNo } from '../SelectorRespuesta';
 import type { AvanceSeccion, CampoExamen } from '../borrador';
+import { tieneContenido } from '../borrador';
 import {
   obtenerCatalogo,
   obtenerPaciente,
   registrarFicha,
   SERVICIO_DE_SALUD,
+  CASILLAS_SERVICIO,
   type CatalogoFicha,
 } from '../servicio-fichas';
+import { CampoAtendio, CasillasServicio } from '../ServicioYAtencion';
 import {
   borradorPospartoVacio,
   cuerpoDeFichaPosparto,
@@ -179,6 +182,12 @@ export function PaginaFichaPosparto() {
         volverA={volverA}
         volverTexto="Expediente"
         pacienteId={pacienteId}
+        selector={{
+          tipoActual: 'POSPARTO',
+          fechaNacimiento: datos.fechaNacimiento as unknown as string,
+          esMujer: datos.sexo === 'F',
+          sinGuardar: tieneContenido(borrador),
+        }}
         grupoFamiliarId={datos.grupoFamiliar?.id}
         nombre={datos.apellidos + ', ' + datos.nombres}
         resumen={(datos.sexo === 'F' ? 'Femenino' : 'Masculino') + ' · ' + (comunidad || 'Sin comunidad')}
@@ -208,8 +217,13 @@ export function PaginaFichaPosparto() {
             }}
             numeral="II"
             titulo="Establecimiento y datos de la paciente"
-            nota="No se preguntan: ya están en el expediente."
+            nota="El tipo de servicio se marca como en el papel. Los datos de la paciente ya están en el expediente."
           >
+            <CasillasServicio
+              casillas={CASILLAS_SERVICIO.COMPLETAS}
+              valor={borrador.tipoServicio}
+              onCambio={(v) => cambiar({ tipoServicio: v })}
+            />
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2 }}>
               <Dato titulo="Establecimiento" valor={SERVICIO_DE_SALUD.nombre} />
               <Dato titulo="Nombre" valor={datos.apellidos + ', ' + datos.nombres} />
@@ -420,6 +434,35 @@ export function PaginaFichaPosparto() {
                   fullWidth
                   size="small"
                 />
+
+                {/*
+                  Diagnostico, conducta y quien atiende van aqui, justo despues
+                  de los problemas, porque asi los trae la tabla del papel. Antes
+                  estaban abajo, en el cierre, y el CAP no los encontraba.
+                */}
+                <TextField
+                  label="Diagnóstico"
+                  value={borrador.diagnostico}
+                  onChange={(e) => cambiar({ diagnostico: e.target.value })}
+                  multiline
+                  minRows={2}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  label="Conducta y tratamiento"
+                  value={borrador.tratamiento}
+                  onChange={(e) => cambiar({ tratamiento: e.target.value })}
+                  multiline
+                  minRows={2}
+                  fullWidth
+                  size="small"
+                />
+                <CampoAtendio
+                  rotulo="Nombre y cargo de la persona que atiende"
+                  valor={borrador.atendio}
+                  onCambio={(v) => cambiar({ atendio: v })}
+                />
               </Stack>
             </BloqueFicha>
           </SeccionFicha>
@@ -530,24 +573,6 @@ export function PaginaFichaPosparto() {
                 size="small"
                 required
               />
-              <TextField
-                label="Diagnóstico"
-                value={borrador.diagnostico}
-                onChange={(e) => cambiar({ diagnostico: e.target.value })}
-                multiline
-                minRows={2}
-                fullWidth
-                size="small"
-              />
-              <TextField
-                label="Conducta y tratamiento"
-                value={borrador.tratamiento}
-                onChange={(e) => cambiar({ tratamiento: e.target.value })}
-                multiline
-                minRows={2}
-                fullWidth
-                size="small"
-              />
               <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2 }}>
                 <TextField
                   label="Referencia"
@@ -566,6 +591,25 @@ export function PaginaFichaPosparto() {
                   sx={{ width: 220 }}
                 />
               </Stack>
+
+              {/*
+                «Otros controles y observaciones» del papel: fecha y lo que se
+                observo. La fecha es la de esta evaluacion; aqui se escribe solo
+                lo observado.
+              */}
+              <BloqueFicha titulo="Otros controles y observaciones">
+                <TextField
+                  label="Observaciones / Hallazgos adicionales"
+                  value={borrador.notas}
+                  onChange={(e) => cambiar({ notas: e.target.value })}
+                  multiline
+                  minRows={3}
+                  fullWidth
+                  size="small"
+                  slotProps={{ htmlInput: { maxLength: 2000 } }}
+                  helperText="Se imprime con la fecha de esta evaluación y el nombre de quien atendió."
+                />
+              </BloqueFicha>
             </Stack>
           </SeccionFicha>
 
@@ -575,10 +619,15 @@ export function PaginaFichaPosparto() {
             <Button component={EnlaceRuta} to={volverA} color="inherit">
               Cancelar
             </Button>
+            {borrador.tipoServicio === '' ? (
+              <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>
+                Falta marcar el tipo de servicio (sección II).
+              </Typography>
+            ) : null}
             <Button
               variant="contained"
               onClick={() => registrar.mutate()}
-              disabled={registrar.isPending || borrador.motivo.trim() === ''}
+              disabled={registrar.isPending || borrador.motivo.trim() === '' || borrador.tipoServicio === ''}
             >
               {registrar.isPending ? 'Guardando...' : 'Guardar evaluación'}
             </Button>

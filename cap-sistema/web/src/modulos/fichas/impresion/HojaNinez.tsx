@@ -1,6 +1,6 @@
 import type { Ficha } from '../../expedientes/servicio-expedientes';
 import type { AntecedentesPaciente, CatalogoFicha, Paciente } from '../servicio-fichas';
-import { SERVICIO_DE_SALUD } from '../servicio-fichas';
+import { SERVICIO_DE_SALUD, textoDelServicio } from '../servicio-fichas';
 import type { Carnet, CatalogoCarnet, TramoEdad } from '../ninez/servicio-carnet';
 import { COLUMNAS_DOSIS, ETIQUETA_TRAMO, TRAMOS, casillasDe } from '../ninez/carnet-ninez';
 import {
@@ -256,7 +256,7 @@ export function HojaNinez({
         <Cuadro>
           <TipoEstablecimiento
             opciones={['PSF', 'C/S "A"', 'CENAPA', 'C/S "B"', 'CAP', 'CAIMI']}
-            marcada={SERVICIO_DE_SALUD.tipo}
+            marcada={textoDelServicio(ficha.tipoServicio)}
             repartidas
           />
           <Fila>
@@ -719,7 +719,7 @@ export function HojaNinez({
             {observaciones}
           </div>
         </div>
-        <Firma rotulo="Nombre de la persona que atendió:" />
+        <Firma rotulo="Nombre de la persona que atendió:" valor={ficha.atendio} />
       </Pliego>
     </>
   );

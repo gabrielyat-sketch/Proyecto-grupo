@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { AntecedentesPaciente, CatalogoFicha } from '../servicio-fichas';
+import { tamizajesDe } from '../borrador';
 import { AntecedentesRestantes, BloqueConTitulo } from './Bloques';
 import { Campo, Casilla, Fila, fechaConBarras } from './Hoja';
 
@@ -102,6 +103,8 @@ export function AntecedentesAdulto({
   const sr = marcado('MED_SR');
   const otroFamiliar = marcado('FAM_OTRO');
   const fuma = marcado('HAB_FUMA');
+  const quirurgicos = marcado('MED_QUIRURGICOS');
+  const tamizajes = tamizajesDe(o?.tamizajeCervix);
 
   const colocados = [
     'MED_ASMA', 'MED_CARDIOPATIA', 'MED_ITS', 'MED_INF_URINARIAS', 'MED_MEDICAMENTOS', 'MED_PSICOSOCIAL',
@@ -110,6 +113,7 @@ export function AntecedentesAdulto({
     'FAM_DIABETES', 'FAM_TUBERCULOSIS', 'FAM_HTA', 'FAM_NEFROPATIA', 'FAM_CANCER', 'FAM_OTRO',
     'HAB_FUMA', 'HAB_ALCOHOL', 'HAB_DROGAS', 'HAB_MULTIPLES_PAREJAS', 'HAB_CONDON',
     'HAB_ACTIVIDAD_MENOS_60', 'HAB_ACTIVIDAD_60_149', 'HAB_ACTIVIDAD_MAS_150', 'HAB_FRUTAS_VERDURAS',
+    'MED_QUIRURGICOS',
   ];
 
   return (
@@ -168,8 +172,8 @@ export function AntecedentesAdulto({
           <Campo rotulo="Detección de cáncer de cérvix:" valor={null} ancho={20} />
         </Fila>
         <Fila>
-          <Casilla rotulo="Papanicolau" marcada={o?.tamizajeCervix === 'PAPANICOLAU'} />
-          <Casilla rotulo="IVAA" marcada={o?.tamizajeCervix === 'IVAA'} />
+          <Casilla rotulo="Papanicolau" marcada={tamizajes.includes('PAPANICOLAU')} />
+          <Casilla rotulo="IVAA" marcada={tamizajes.includes('IVAA')} />
           <Campo rotulo="Fecha:" valor={o?.tamizajeFecha ? fechaConBarras(o.tamizajeFecha) : null} ancho={24} />
           <span className="hoja-sino" role="group" aria-label="Resultado Normal">
             <span>Resultado Normal:</span>
@@ -196,7 +200,22 @@ export function AntecedentesAdulto({
 
       <BloqueConTitulo titulo="QUIRÚRGICOS">
         <Fila>
-          <Campo rotulo="Anote" valor={null} llena />
+          {/*
+            Lo que se anoto en «Quirurgicos» de la pantalla. Con SI se imprime
+            lo escrito en «Cual»; con NO, «No». Sin responder, la raya en blanco
+            como antes.
+          */}
+          <Campo
+            rotulo="Anote"
+            valor={
+              quirurgicos?.respuesta === 'SI'
+                ? quirurgicos.detalle || 'Sí'
+                : quirurgicos?.respuesta === 'NO'
+                  ? 'No'
+                  : null
+            }
+            llena
+          />
         </Fila>
       </BloqueConTitulo>
 

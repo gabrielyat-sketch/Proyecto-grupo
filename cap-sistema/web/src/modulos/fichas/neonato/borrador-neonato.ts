@@ -1,6 +1,7 @@
 import type { CatalogoFicha, NuevaFicha } from '../servicio-fichas';
 import type { CasillaSignoPeligro, FilaMedicamento, FilaProblema } from '../borrador';
 import { hoy } from '../borrador';
+import { quienAtiendePorDefecto } from '../servicio-fichas';
 
 /**
  * El estado de la ficha de menor de 28 días mientras se llena.
@@ -101,6 +102,10 @@ export interface BorradorNeonato {
   tratamiento: string;
   notas: string;
   fechaProximaVisita: string;
+  /** Casilla del servicio de salud. '' = sin marcar, y no se guarda asi. */
+  tipoServicio: string;
+  /** «Nombre de la persona que atendio», al final de la hoja. */
+  atendio: string;
 }
 
 const partoVacio = (): Parto => ({
@@ -177,6 +182,8 @@ export function borradorNeonatoVacio(catalogo: CatalogoFicha): BorradorNeonato {
     tratamiento: '',
     notas: '',
     fechaProximaVisita: '',
+    tipoServicio: '',
+    atendio: quienAtiendePorDefecto(),
   };
 }
 
@@ -327,6 +334,8 @@ export function cuerpoDeFichaNeonato(borrador: BorradorNeonato): NuevaFicha {
   if (texto(borrador.notas)) cuerpo.notas = texto(borrador.notas);
   if (texto(borrador.referencia)) cuerpo.referencia = texto(borrador.referencia);
   if (borrador.fechaProximaVisita) cuerpo.fechaProximaVisita = borrador.fechaProximaVisita;
+  if (borrador.tipoServicio) cuerpo.tipoServicio = borrador.tipoServicio as NuevaFicha['tipoServicio'];
+  if (texto(borrador.atendio)) cuerpo.atendio = texto(borrador.atendio);
 
   // El examen fisico que SI comparte con las demas fichas.
   if (numero(borrador.examen.temperaturaC) !== undefined) {

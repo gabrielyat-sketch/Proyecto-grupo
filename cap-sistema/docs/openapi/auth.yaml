@@ -870,6 +870,12 @@ components:
           type: string
           description: Nombre de usuario, siempre en minusculas.
           example: jlopez
+        nombres:
+          type: string
+          example: Ana Maria
+        apellidos:
+          type: string
+          example: Lopez Caal
         rol:
           allOf:
             - $ref: "#/components/schemas/Rol"
@@ -1039,6 +1045,12 @@ components:
           type: string
           description: Nombre de usuario, siempre en minusculas.
           example: jlopez
+        nombres:
+          type: string
+          example: Ana Maria
+        apellidos:
+          type: string
+          example: Lopez Caal
         rol:
           allOf:
             - $ref: "#/components/schemas/Rol"

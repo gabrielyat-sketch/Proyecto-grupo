@@ -98,6 +98,25 @@ enum QuienAtendioParto {
   OTRO
 }
 
+/// La casilla marcada en «Identificacion del establecimiento de salud».
+///
+/// Se marca a mano en cada ficha, como en el papel: el CAP pidio no dejarla
+/// fija porque el establecimiento puede cambiar. Las fichas de adulto y
+/// prenatal traen las nueve casillas; las de neonato y ninez, seis.
+enum TipoServicioSalud {
+  PS
+  PSF
+  /// Centro de salud tipo B.
+  CS_B
+  CENAPA
+  /// Centro de salud tipo A.
+  CS_A
+  CAP
+  CAIMI
+  CUM
+  HOSPITAL
+}
+
 enum TipoParto {
   NORMAL
   CESAREA
@@ -269,6 +288,13 @@ model Paciente {
   /// paciente quedaria duplicado.
   dpiIndice  Bytes? @unique @map("dpi_indice")
 
+  /// DPI de la madre, para el recien nacido que todavia no tiene CUI.
+  ///
+  /// Va aparte y SIN indice unico a proposito: la madre ya esta registrada con
+  /// ese mismo DPI, y ponerlo en `dpiIndice` chocaria con ella. Cifrado como
+  /// el DPI propio.
+  dpiMadreCifrado Bytes? @map("dpi_madre_cifrado")
+
   // ─── Datos que NO se cifran ────────────────────────────────────────────
   //
   // Requieren busqueda parcial, orden alfabetico o filtros estadisticos.
@@ -428,6 +454,15 @@ model Atencion {
   /// del JWT: NO es una llave foranea, porque las cuentas viven en el
   /// servicio auth y un servicio nunca consulta la base de otro.
   registradaPor String @map("registrada_por")
+
+  /// «Nombre y cargo de la persona que atendio», como se imprime al pie de la
+  /// ficha. Texto y no el id de arriba: la cuenta puede desactivarse o cambiar
+  /// de rol, y la ficha tiene que seguir diciendo quien firmo ese dia. Nulo en
+  /// las atenciones anteriores a este campo.
+  atendio      String?            @db.VarChar(200)
+  /// Casilla marcada en «Identificacion del establecimiento de salud». Nula
+  /// en las atenciones anteriores a este campo.
+  tipoServicio TipoServicioSalud? @map("tipo_servicio")
 
   // ─── Datos clinicos: CIFRADOS, sin indice ──────────────────────────────
   //

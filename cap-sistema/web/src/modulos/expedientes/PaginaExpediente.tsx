@@ -266,6 +266,7 @@ export function PaginaExpediente() {
             apellidos: p.apellidos,
             idioma: p.idioma,
             telefono: p.telefono,
+            ocupacion: p.ocupacion,
             fallecido: p.fallecido,
             comunidad: p.comunidad,
           }}

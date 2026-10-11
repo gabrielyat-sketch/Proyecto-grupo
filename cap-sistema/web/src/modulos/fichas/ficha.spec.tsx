@@ -3,6 +3,13 @@ import userEvent from '@testing-library/user-event';
 import { App, clienteConsultas } from '../../App';
 import { almacenSesion, type Perfil } from '../../api';
 
+/** El servicio de salud ya no viene fijo: sin marcarlo no se guarda. */
+async function marcarServicio(usuario: ReturnType<typeof userEvent.setup>) {
+  await usuario.click(
+    within(screen.getByRole('group', { name: 'Tipo de servicio de salud' })).getByLabelText('CAP'),
+  );
+}
+
 const MEDICO: Perfil = {
   id: 'u-1',
   usuario: 'jlopez',
@@ -318,6 +325,7 @@ describe('ficha clinica de adultos', () => {
     within(grupo).getAllByRole('radio')[0].focus();
     await usuario.keyboard('s');
 
+    await marcarServicio(usuario);
     await usuario.click(screen.getAllByRole('button', { name: 'Guardar ficha' })[0]);
     await screen.findByText('Ficha registrada');
 
@@ -341,6 +349,7 @@ describe('ficha clinica de adultos', () => {
     abrir();
     await esperarFicha();
 
+    await marcarServicio(usuario);
     await usuario.type(screen.getByLabelText(/Motivo de la consulta/), 'Control');
     await usuario.keyboard('{Control>}{Enter}{/Control}');
 
@@ -366,6 +375,7 @@ describe('ficha clinica de adultos', () => {
     await esperarFicha();
 
     await usuario.type(screen.getByLabelText(/Motivo de la consulta/), 'Tos de tres dias');
+    await marcarServicio(usuario);
     await usuario.click(screen.getAllByRole('button', { name: 'Guardar ficha' })[0]);
 
     expect(await screen.findByText('No se pudo registrar la ficha.')).toBeInTheDocument();
@@ -535,6 +545,7 @@ describe('ficha clinica de adultos', () => {
       await esperarFicha();
 
       await usuario.type(screen.getByLabelText(/Motivo de la consulta/), 'Consulta de 2019');
+      await marcarServicio(usuario);
       await usuario.click(screen.getAllByRole('button', { name: 'Guardar ficha' })[0]);
       await screen.findByText('Ficha registrada');
 

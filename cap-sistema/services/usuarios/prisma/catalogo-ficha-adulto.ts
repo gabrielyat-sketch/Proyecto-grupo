@@ -108,6 +108,15 @@ const ANTECEDENTES: {
     grupo: 'HABITO',
     texto: 'Consume 5 porciones diarias de frutas y verduras',
   },
+
+  // ── Quirurgicos ────────────────────────────────────────────────────────
+  //
+  // El papel lo trae como bloque propio («QUIRURGICOS — Anote») y la pantalla
+  // no lo preguntaba. Es el MISMO antecedente que ya usa la hoja prenatal:
+  // cuelga del paciente, asi que lo que se anote en una ficha aparece en la
+  // otra. Va al final de la lista y no entre los medicos para no mover el
+  // orden de los que ya existen: `orden` es unico por ficha.
+  { codigo: 'MED_QUIRURGICOS', grupo: 'MEDICO', texto: 'Quirúrgicos', pideDetalle: true },
 ];
 
 /**
