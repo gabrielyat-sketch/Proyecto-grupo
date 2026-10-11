@@ -77,7 +77,7 @@ export function Inicio() {
             resumen={resumen}
             acento={acento}
             icono={icono}
-            estado={pendiente ? 'En construccion' : 'Disponible'}
+            estado={pendiente ? 'En construccion' : undefined}
           />
         ))}
       </Box>

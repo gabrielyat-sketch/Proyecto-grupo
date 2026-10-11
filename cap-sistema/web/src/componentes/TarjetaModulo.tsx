@@ -58,8 +58,16 @@ export function TarjetaModulo({
   resumen: string;
   acento: NombreAcento;
   icono: ComponentType<SvgIconProps>;
-  /** «Disponible», o «En construccion» si el modulo todavia no existe. */
-  estado: string;
+  /**
+   * «En construccion», y solo en los modulos que todavia no existen.
+   *
+   * El CAP quito el «Disponible» que llevaban todas, y con razon: una tarjeta
+   * que se puede ver y pulsar ya dice que esta disponible, asi que esa linea
+   * repetia en nueve sitios algo que la pantalla demuestra sola. Lo que NO se
+   * puede adivinar es lo contrario —que un modulo esta a medias— y por eso ese
+   * aviso se queda.
+   */
+  estado?: string;
 }) {
   const tema = useTheme();
   const oscuro = tema.palette.mode === 'dark';
@@ -172,15 +180,17 @@ export function TarjetaModulo({
         El subtitulo va en el acento, como manda el CSS del CAP. Sobre la crema
         eso mide 1.8:1 y la WCAG pide 4.5 para texto: se deja asi porque es el
         diseno que el CAP eligio despues de que se le senalara. El dato que
-        importa de cada tarjeta —el nombre del modulo y si esta disponible— si
-        cumple de sobra, y la navegacion no depende de leer esta linea.
+        importa de cada tarjeta —el nombre del modulo— si cumple de sobra, y la
+        navegacion no depende de leer esta linea.
         `ACENTOS[...].texto` tiene la version que si pasa, por si se revisa.
       */}
       <Typography sx={{ fontSize: 12, fontWeight: 700, color: pastel }}>{resumen}</Typography>
 
-      <Typography sx={{ mt: '17px', color: oscuro ? '#9db4d0' : '#71807f' }}>
-        {estado}
-      </Typography>
+      {estado ? (
+        <Typography sx={{ mt: '17px', color: oscuro ? '#9db4d0' : '#71807f' }}>
+          {estado}
+        </Typography>
+      ) : null}
     </Stack>
   );
 }
