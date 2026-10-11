@@ -34,13 +34,13 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 /**
- * En telefono el menu es un cajon que se guarda, asi que el logo —que es el
- * camino de vuelta al inicio— no esta a la vista. Habia que abrir el menu para
- * volver al principio y nada en la pantalla lo decia. Estas pruebas fijan que
- * en pantalla angosta la barra misma lleve a Inicio, y que el nombre que sale
- * sea el corto: «Centro de Atencion Permanente» no cabe y se cortaba.
+ * La barra superior ya no existe: el CAP pidio quitarla y el diseno que dieron
+ * no la tiene. Lo que llevaba no se perdio —el nombre del centro ya estaba en
+ * la cabecera del menu, y el reloj y la cuenta bajaron a su pie— y estas
+ * pruebas fijan justamente eso, que es lo que se rompe si alguien «limpia» el
+ * pie del menu sin saber de donde vino.
  */
-describe('la barra en telefono', () => {
+describe('sin barra superior', () => {
   const enTelefono = () =>
     vi.stubGlobal('matchMedia', (consulta: string) => ({
       matches: false,
@@ -53,30 +53,60 @@ describe('la barra en telefono', () => {
       onchange: null,
     }));
 
-  it('el titulo es el camino a Inicio, con el nombre que cabe', async () => {
-    enTelefono();
-    entrarComo('ENFERMERIA');
-    window.history.pushState({}, '', '/programas');
-    render(<App />);
-
-    const inicio = await screen.findByRole('link', { name: /^Inicio$/i });
-    expect(inicio).toHaveAttribute('href', '/');
-    expect(inicio).toHaveTextContent('CAP Purulha');
-    // El largo no cabe en un telefono: se cortaba en «Centro de Atenci…».
-    expect(inicio).not.toHaveTextContent('Centro de Atencion Permanente');
-  });
-
-  it('en pantalla ancha el titulo sigue siendo llano, porque el logo del menu ya esta a la vista', async () => {
+  it('no queda ninguna barra arriba', async () => {
     entrarComo('ENFERMERIA');
     render(<App />);
 
     await waitFor(navegacion);
-    // Uno solo: el del menu lateral. Dos caminos a Inicio a diez centimetros
-    // uno de otro obligan a averiguar si son distintos.
-    expect(screen.getAllByRole('link', { name: /^Inicio$/i })).toHaveLength(1);
-    expect(screen.getByText('Centro de Atencion Permanente')).toBeInTheDocument();
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument();
+    expect(screen.queryByText('Centro de Atencion Permanente')).not.toBeInTheDocument();
+  });
+
+  /**
+   * UN solo camino a Inicio, el del menu. Cuando el titulo de la barra tambien
+   * llevaba, eran dos a diez centimetros uno de otro y habia que averiguar si
+   * hacian lo mismo.
+   */
+  it('el logo del menu sigue siendo el camino a Inicio, y es el unico', async () => {
+    entrarComo('ENFERMERIA');
+    window.history.pushState({}, '', '/programas');
+    render(<App />);
+
+    await waitFor(navegacion);
+    const enlaces = screen.getAllByRole('link', { name: /^Inicio$/i });
+    expect(enlaces).toHaveLength(1);
+    expect(enlaces[0]).toHaveAttribute('href', '/');
+    expect(enlaces[0]).toHaveTextContent('CAP Purulha');
+  });
+
+  /**
+   * La cuenta y el reloj bajaron al pie del menu. Si se pierden ahi, no hay
+   * otro sitio desde donde cerrar sesion: por eso se comprueban aqui y no solo
+   * en la prueba que abre el menu de la cuenta.
+   */
+  it('la cuenta vive en el pie del menu, con el reloj', async () => {
+    entrarComo('ENFERMERIA');
+    render(<App />);
+
+    const nav = await waitFor(navegacion);
+    expect(
+      within(nav).getByRole('button', { name: /Cuenta de prueba/i }),
+    ).toBeInTheDocument();
+    expect(within(nav).getByRole('button', { name: /Apariencia/i })).toBeInTheDocument();
+  });
+
+  it('en telefono el menu se abre con el boton de afuera', async () => {
+    enTelefono();
+    entrarComo('ENFERMERIA');
+    // La ruta se hereda de la prueba anterior, y alguna termina en /acceso:
+    // sin esto se renderiza la pantalla de entrada y no hay menu que abrir.
+    window.history.pushState({}, '', '/');
+    render(<App />);
+
+    expect(await screen.findByRole('button', { name: 'Abrir el menu' })).toBeInTheDocument();
   });
 });
+
 
 describe('layout con menu por rol', () => {
   it('Recepcion no ve Programas ni Administracion', async () => {
@@ -273,6 +303,89 @@ describe('contraer el menu lateral', () => {
  * —es donde la gente ya lo busca— y por eso tiene que tener nombre accesible
  * propio: quien navega con lector de pantalla no ve el logo.
  */
+/**
+ * Contraido se ven solo los iconos, y un icono sin su nombre se adivina.
+ * Acercar el cursor despliega el panel ENCIMA del contenido y retirarlo lo
+ * vuelve a encoger. Encima y no empujando: si el area de trabajo se corriera
+ * 176 pixeles cada vez que el cursor roza el borde, la tabla que se esta
+ * leyendo saltaria sola.
+ */
+describe('el menu contraido se despliega al pasar el cursor', () => {
+  it('con el cursor encima aparecen los nombres, y al salir se van', async () => {
+    entrarComo('ADMINISTRADOR');
+    const usuario = userEvent.setup();
+    render(<App />);
+
+    await waitFor(navegacion);
+    await usuario.click(screen.getByRole('button', { name: 'Contraer el menu' }));
+
+    // Contraido: el nombre del centro no se escribe, solo el logo.
+    await waitFor(() => {
+      expect(within(navegacion()).queryByText('CAP Purulha')).not.toBeInTheDocument();
+    });
+
+    await usuario.hover(navegacion());
+    expect(await within(navegacion()).findByText('CAP Purulha')).toBeInTheDocument();
+
+    await usuario.unhover(navegacion());
+    await waitFor(() => {
+      expect(within(navegacion()).queryByText('CAP Purulha')).not.toBeInTheDocument();
+    });
+  });
+
+  /**
+   * Pasar el cursor NO cuenta como desplegar el menu: el boton sigue
+   * ofreciendo desplegarlo. Si cambiara, bastaria rozar el borde para que la
+   * preferencia guardada pareciera otra.
+   */
+  it('sobrevolar no cambia la preferencia', async () => {
+    entrarComo('ADMINISTRADOR');
+    const usuario = userEvent.setup();
+    render(<App />);
+
+    await waitFor(navegacion);
+    await usuario.click(screen.getByRole('button', { name: 'Contraer el menu' }));
+    await usuario.hover(navegacion());
+
+    expect(
+      await screen.findByRole('button', { name: 'Desplegar el menu' }),
+    ).toBeInTheDocument();
+    expect(window.localStorage.getItem('cap.menu.contraido')).toBe('1');
+  });
+});
+
+/**
+ * Claro, oscuro o el del sistema. «Sistema» no es un adorno de la lista: en el
+ * CAP las computadoras se comparten entre turnos y Windows ya cambia solo por
+ * la tarde.
+ */
+describe('apariencia', () => {
+  it('se puede elegir el modo, y se recuerda', async () => {
+    entrarComo('ADMINISTRADOR');
+    const usuario = userEvent.setup();
+    render(<App />);
+
+    await waitFor(navegacion);
+    await usuario.click(screen.getByRole('button', { name: /Apariencia/i }));
+    await usuario.click(await screen.findByRole('menuitem', { name: 'Modo oscuro' }));
+
+    await waitFor(() => {
+      expect(window.localStorage.getItem('cap.modo-color')).toBe('oscuro');
+    });
+    expect(screen.getByRole('button', { name: /Apariencia: Modo oscuro/i })).toBeInTheDocument();
+  });
+
+  it('por omision sigue al sistema', async () => {
+    entrarComo('ADMINISTRADOR');
+    render(<App />);
+
+    await waitFor(navegacion);
+    expect(
+      screen.getByRole('button', { name: /Apariencia: El del sistema/i }),
+    ).toBeInTheDocument();
+  });
+});
+
 describe('volver al inicio', () => {
   it('la marca del menu lleva al menu de tarjetas desde cualquier modulo', async () => {
     const perfil = entrarComo('ADMINISTRADOR');

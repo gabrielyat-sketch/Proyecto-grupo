@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { AvisoError } from '../../../componentes/AvisoError';
-import { ALTO_BARRA } from '../../../tema';
+import { TOPE_PEGAJOSO } from '../../../tema';
 import { BloqueFicha, Dato, SeccionFicha } from '../SeccionFicha';
 import { EncabezadoFicha } from '../EncabezadoFicha';
 import { IndiceFicha, type EntradaIndice } from '../IndiceFicha';
@@ -196,7 +196,7 @@ export function PaginaFichaPosparto() {
       </EncabezadoFicha>
 
       <Stack direction={{ xs: 'column', md: 'row' }} sx={{ gap: 3, alignItems: 'flex-start' }}>
-        <Box sx={{ position: { md: 'sticky' }, top: ALTO_BARRA + 24, flexShrink: 0 }}>
+        <Box sx={{ position: { md: 'sticky' }, top: TOPE_PEGAJOSO + 24, flexShrink: 0 }}>
           <IndiceFicha entradas={SECCIONES} avance={avance} activa={activa} onIr={irA} />
         </Box>
 
