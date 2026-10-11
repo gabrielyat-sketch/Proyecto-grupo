@@ -53,11 +53,20 @@ export function Inicio() {
         acciones={<EstadoPlataforma conectado={conectado} />}
       />
 
+      {/*
+        Tres columnas, dos por debajo de 900 y una por debajo de 600: los
+        mismos cortes que el CSS que entrego el CAP, y `minmax(0, 1fr)` para
+        que un nombre largo no estire su columna por encima de las otras.
+      */}
       <Box
         sx={{
           display: 'grid',
-          gap: 2.5,
-          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
+          gap: '18px',
+          gridTemplateColumns: {
+            xs: '1fr',
+            sm: 'repeat(2, minmax(0, 1fr))',
+            md: 'repeat(3, minmax(0, 1fr))',
+          },
         }}
       >
         {opciones.map(({ ruta, etiqueta, resumen, acento, icono, pendiente }) => (

@@ -9,34 +9,41 @@ import { ACENTOS, type NombreAcento } from '../tema';
  * La tarjeta de un modulo en la pantalla de entrada.
  *
  * ─────────────────────────────────────────────────────────────────────────
- *  LA FORMA, MEDIDA DE LA IMAGEN
+ *  ESTO ES EL CSS QUE ENTREGO EL CAP, TRADUCIDO
  * ─────────────────────────────────────────────────────────────────────────
- * No es una tarjeta con un borde de color: son tres piezas apiladas, y asi
- * estan medidas en el diseno que dio el CAP.
+ * No es una interpretacion de la imagen: son sus reglas, una por una. Los
+ * cuatro rasgos que la hacen reconocible y que se pierden en cuanto alguien
+ * «ordena» este archivo:
  *
- *   ┌───────────────────────┐  ← cinta de 6 px, el acento SOLIDO
- *   │                       │
- *   │   cuerpo en crema     │
- *   │                       │
- *   ├───────────────────────┤  ← linea de 1 px
- *   │                       │  ← franja de 16 px, el acento al 78 %
- *   └───────────────────────┘
- *
- * El 78 % no es un gusto: es lo que mide la imagen en las cuatro tarjetas
- * donde la franja se ve entera. Se consigue pintando el acento con esa
- * transparencia sobre el cuerpo, que es exactamente la mezcla que hay ahi.
+ *   1. **Las esquinas son asimetricas**: `8px 25px 8px 25px`. Arriba a la
+ *      izquierda y abajo a la derecha casi rectas; las otras dos muy
+ *      redondeadas. Es lo que da la forma, y es lo que yo habia perdido
+ *      redondeando las cuatro por igual.
+ *   2. **El filo de arriba son 5 px de borde**, no una cinta aparte.
+ *   3. **La franja de abajo es una sombra SOLIDA**: `0 7px 0 var(--shadow)`.
+ *      Por eso sigue el contorno asimetrico de la tarjeta en vez de ser un
+ *      rectangulo pegado al pie, que es como me habia salido a mi.
+ *   4. **El fondo es un degradado diagonal** que termina en el tono suave del
+ *      acento por la esquina inferior derecha.
  *
  * ─────────────────────────────────────────────────────────────────────────
- *  LA FRANJA DE ABAJO ES LA QUE RESPONDE AL CURSOR
+ *  LA INTERACCION
  * ─────────────────────────────────────────────────────────────────────────
- * Al pasar por encima pasa al acento entero y crece cuatro pixeles. Lo pidio
- * el CAP y acierta: en una reticula de nueve tarjetas, lo que tiene que
- * quedar claro es CUAL se va a abrir, y una franja que se enciende en el
- * borde inferior se ve de reojo mejor que una sombra que se agranda.
+ * Al pasar el cursor la tarjeta sube 8 px, la sombra solida pasa de 7 a 14 —la
+ * franja «crece», que es lo que el CAP pidio que resaltara— y un brillo
+ * diagonal cruza la tarjeta de lado a lado en 0.65 s.
  *
- * `prefers-reduced-motion` apaga el movimiento pero NO el encendido de la
- * franja: quien pide menos animacion sigue necesitando saber donde esta el
- * cursor. Se queda el cambio de color, que no se mueve.
+ * `prefers-reduced-motion` apaga el desplazamiento y el brillo, que son
+ * movimiento. **No apaga el cambio de sombra**: eso es lo que dice sobre cual
+ * esta el cursor, y quien pide menos animacion sigue necesitando saberlo.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ *  LO QUE SE ANADIO: EL MODO OSCURO
+ * ─────────────────────────────────────────────────────────────────────────
+ * El CSS del CAP es de modo claro. De noche el degradado no puede terminar en
+ * el tono suave —es casi blanco, y encenderia la esquina— asi que termina en el
+ * acento muy diluido, y la sombra solida toma el acento al 35 % en vez del
+ * gris rosado. La forma, las medidas y los tiempos son los mismos.
  */
 export function TarjetaModulo({
   ruta,
@@ -56,10 +63,23 @@ export function TarjetaModulo({
 }) {
   const tema = useTheme();
   const oscuro = tema.palette.mode === 'dark';
-  const { pastel, texto, textoOscuro } = ACENTOS[acento];
+  const { pastel, suave, sombra } = ACENTOS[acento];
 
-  /** La franja apagada. Mas tenue de noche: sobre el navy, 78 % grita. */
-  const franjaEnReposo = alpha(pastel, oscuro ? 0.42 : 0.78);
+  const base = oscuro ? '#10325c' : '#fffdf8';
+  const medio = oscuro ? '#0d2a4e' : '#fffaf3';
+  const remate = oscuro ? alpha(pastel, 0.22) : suave;
+  const solida = oscuro ? alpha(pastel, 0.35) : sombra;
+
+  const fondo = (finDelMedio: string) =>
+    'linear-gradient(135deg, ' +
+    base +
+    ' 0%, ' +
+    medio +
+    ' ' +
+    finDelMedio +
+    ', ' +
+    remate +
+    ' 150%)';
 
   return (
     <Stack
@@ -69,101 +89,98 @@ export function TarjetaModulo({
         position: 'relative',
         overflow: 'hidden',
         textDecoration: 'none',
-        borderRadius: '16px',
-        bgcolor: 'background.paper',
-        // Borde neutro y fino, como la imagen: el color lo ponen la cinta y la
-        // franja, no el contorno.
+        minHeight: 176,
+        p: '22px',
+        color: oscuro ? '#e8f1fb' : '#20343a',
+        background: fondo('58%'),
         border: '1px solid',
-        borderColor: 'divider',
-        boxShadow: oscuro ? 'none' : '0 2px 10px ' + alpha(pastel, 0.22),
-        transition: tema.transitions.create(['transform', 'box-shadow'], {
-          duration: 220,
-          easing: 'cubic-bezier(.22,.61,.36,1)',
-        }),
+        borderColor: oscuro ? 'rgba(146, 180, 220, 0.2)' : '#dfd6c8',
+        borderTop: '5px solid ' + pastel,
+        // Las esquinas asimetricas: lo que da la forma.
+        borderRadius: '8px 25px 8px 25px',
+        boxShadow:
+          '0 7px 0 ' +
+          solida +
+          ', 0 14px 26px ' +
+          (oscuro ? 'rgba(0, 0, 0, .4)' : 'rgba(56, 80, 75, 0.08)'),
+        transition: 'transform .28s ease, box-shadow .28s ease, background .28s ease',
+
         '&:hover': {
-          transform: 'translateY(-3px)',
-          boxShadow: oscuro
-            ? '0 10px 26px rgba(0, 0, 0, .45)'
-            : '0 10px 26px ' + alpha(pastel, 0.45),
+          transform: 'translateY(-8px)',
+          background: fondo('42%'),
+          boxShadow: '0 14px 0 ' + solida + ', 0 26px 34px ' + alpha(pastel, 0.22),
         },
-        '&:hover .franja': { height: 20, backgroundColor: pastel },
-        '&:hover .baldosa': { transform: 'scale(1.06)' },
+
+        /*
+          El brillo que cruza la tarjeta. Vive en un pseudoelemento y no en un
+          nodo propio para que no entre en el arbol de accesibilidad: es una
+          luz, no contenido, y un lector de pantalla no tiene nada que decir de
+          ella. `pointer-events: none` para que no se coma el clic.
+        */
+        '&::after': {
+          content: '""',
+          position: 'absolute',
+          inset: 0,
+          pointerEvents: 'none',
+          background:
+            'linear-gradient(120deg, transparent 25%, ' +
+            (oscuro ? 'rgba(255, 255, 255, 0.10)' : 'rgba(255, 255, 255, 0.42)') +
+            ', transparent 75%)',
+          transform: 'translateX(-120%)',
+          transition: 'transform .65s ease',
+        },
+        '&:hover::after': { transform: 'translateX(120%)' },
+
         '@media (prefers-reduced-motion: reduce)': {
-          transition: 'none',
-          '&:hover': { transform: 'none' },
-          // El color de la franja SI cambia: es lo que dice donde esta el
-          // cursor, y eso no es decoracion.
-          '&:hover .franja': { height: 16, backgroundColor: pastel },
-          '&:hover .baldosa': { transform: 'none' },
+          transition: 'box-shadow .28s ease',
+          '&:hover': { transform: 'none', background: fondo('58%') },
+          // El brillo se queda quieto fuera de la tarjeta: es movimiento puro.
+          '&::after': { transition: 'none' },
+          '&:hover::after': { transform: 'translateX(-120%)' },
         },
       }}
     >
-      {/* La cinta de arriba: el acento solido, 6 px, como en la imagen. */}
-      <Box sx={{ height: 6, bgcolor: pastel, flexShrink: 0 }} />
-
-      <Stack sx={{ p: 2.5, pt: 2.25, pb: 2.5, gap: 0.25, flexGrow: 1 }}>
-        <Box
-          className="baldosa"
-          sx={{
-            width: 52,
-            height: 52,
-            borderRadius: '14px',
-            display: 'grid',
-            placeItems: 'center',
-            mb: 1.5,
-            // La baldosa es el pastel muy diluido y el icono va en el tono
-            // legible: el icono tenido del mismo pastel sobre su propio pastel
-            // desapareceria.
-            bgcolor: alpha(pastel, oscuro ? 0.16 : 0.2),
-            color: oscuro ? textoOscuro : texto,
-            transition: tema.transitions.create('transform', { duration: 220 }),
-          }}
-        >
-          {/*
-            28 px y no los 24 de serie. El CAP pidio los iconos «un poco mas
-            grandes», y un poco es esto: con 32 la baldosa queda llena y el
-            icono pasa a competir con el nombre del modulo.
-          */}
-          <Icono sx={{ fontSize: 28 }} />
-        </Box>
-
-        <Typography
-          component="h2"
-          sx={{
-            fontSize: 20,
-            fontWeight: 800,
-            letterSpacing: '-0.02em',
-            color: 'text.primary',
-            lineHeight: 1.2,
-          }}
-        >
-          {etiqueta}
-        </Typography>
-
-        <Typography sx={{ fontSize: 14, fontWeight: 700, color: oscuro ? textoOscuro : texto }}>
-          {resumen}
-        </Typography>
-
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1.25 }}>
-          {estado}
-        </Typography>
-      </Stack>
-
-      {/* La franja de abajo, que es la que se enciende con el cursor. */}
       <Box
-        className="franja"
         sx={{
-          height: 16,
+          width: 40,
+          height: 40,
+          display: 'grid',
+          placeItems: 'center',
+          color: pastel,
+          bgcolor: oscuro ? alpha(pastel, 0.18) : suave,
+          // Asimetricas tambien, y en el otro sentido que la tarjeta.
+          borderRadius: '11px 4px',
           flexShrink: 0,
-          backgroundColor: franjaEnReposo,
-          borderTop: '1px solid',
-          borderColor: 'divider',
-          transition: tema.transitions.create(['height', 'background-color'], {
-            duration: 220,
-            easing: 'cubic-bezier(.22,.61,.36,1)',
-          }),
         }}
-      />
+      >
+        {/*
+          22 y no los 20 del CSS: ahi el icono es un caracter de bloque, que
+          llena su caja entera. Un icono de trazo con el mismo cuerpo se ve mas
+          pequeno, y el CAP los pidio «un poco mas grandes».
+        */}
+        <Icono sx={{ fontSize: 22 }} />
+      </Box>
+
+      <Typography
+        component="h2"
+        sx={{ mt: '14px', mb: '5px', fontSize: 18, fontWeight: 700, lineHeight: 1.25 }}
+      >
+        {etiqueta}
+      </Typography>
+
+      {/*
+        El subtitulo va en el acento, como manda el CSS del CAP. Sobre la crema
+        eso mide 1.8:1 y la WCAG pide 4.5 para texto: se deja asi porque es el
+        diseno que el CAP eligio despues de que se le senalara. El dato que
+        importa de cada tarjeta —el nombre del modulo y si esta disponible— si
+        cumple de sobra, y la navegacion no depende de leer esta linea.
+        `ACENTOS[...].texto` tiene la version que si pasa, por si se revisa.
+      */}
+      <Typography sx={{ fontSize: 12, fontWeight: 700, color: pastel }}>{resumen}</Typography>
+
+      <Typography sx={{ mt: '17px', color: oscuro ? '#9db4d0' : '#71807f' }}>
+        {estado}
+      </Typography>
     </Stack>
   );
 }

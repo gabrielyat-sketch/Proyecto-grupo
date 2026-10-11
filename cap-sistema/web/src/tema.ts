@@ -141,35 +141,73 @@ export const TOPE_PEGAJOSO = 0;
 // ══════════════════════ Los acentos de los modulos ══════════════════════
 
 /**
- * El acento de un modulo: su pastel y su version legible.
+ * El acento de un modulo: los tres valores que usa la tarjeta.
  *
- * `pastel` pinta la cinta de la tarjeta y la baldosa del icono. `texto` escribe
- * el subtitulo. Ver la nota de arriba sobre por que no es el mismo valor.
+ * Los nombres y los numeros salen del CSS que entrego el CAP, no de una
+ * interpretacion: `pastel` es su `--accent`, `suave` su `--accent-soft` y
+ * `sombra` su `--shadow`.
  */
 export interface Acento {
-  /** El de la imagen del CAP. Decorativo: cintas, baldosas, realces. */
+  /** `--accent`: el filo de arriba, el icono y el subtitulo. */
   pastel: string;
-  /** El mismo tono oscurecido hasta pasar 4.5:1 sobre la crema. */
+  /** `--accent-soft`: la baldosa del icono y el final del degradado. */
+  suave: string;
+  /** `--shadow`: la sombra solida que hace de franja bajo la tarjeta. */
+  sombra: string;
+  /** El mismo tono oscurecido, para cuando hace falta que un texto se lea. */
   texto: string;
   /** El mismo tono aclarado, para cuando el fondo es el navy de noche. */
   textoOscuro: string;
 }
 
 /**
- * Los cinco pasteles.
+ * Los cinco acentos.
  *
- * Cuatro salen de la imagen —menta, rosa, naranja y cian— y el quinto, la
- * lavanda, se construyo igual para los modulos que la imagen no mostraba. Son
- * cinco y no diez a proposito: con diez tonos distintos ninguno se reconoce, y
- * lo que hace util el color de una fila es que sea SIEMPRE el mismo, no que
- * ninguna se repita. La propia imagen del CAP ya repite el menta y el naranja.
+ * Menta, rosa y naranja vienen tal cual del CSS del CAP. El cian y la lavanda
+ * se construyeron con la misma receta para los modulos que ese CSS no cubria:
+ * el suave es el acento a un 79 % hacia el blanco y la sombra, el mismo tono
+ * apagado y bajado.
+ *
+ * Son cinco y no diez a proposito: con diez tonos distintos ninguno se
+ * reconoce, y lo que hace util el color de una fila es que sea SIEMPRE el
+ * mismo, no que ninguna se repita.
  */
 export const ACENTOS = {
-  menta: { pastel: "#68d5b5", texto: "#0f7a5e", textoOscuro: "#6fe0c0" },
-  rosa: { pastel: "#ee95a8", texto: "#b0405a", textoOscuro: "#f7a9bb" },
-  naranja: { pastel: "#f3a67f", texto: "#a9521f", textoOscuro: "#f8b894" },
-  cian: { pastel: "#62cacb", texto: "#0e6f78", textoOscuro: "#6fdbdd" },
-  lavanda: { pastel: "#b2a6e8", texto: "#5a44a8", textoOscuro: "#c3b7f2" },
+  menta: {
+    pastel: "#65d5b4",
+    suave: "#dff6ed",
+    sombra: "#b4dacb",
+    texto: "#0f7a5e",
+    textoOscuro: "#6fe0c0",
+  },
+  rosa: {
+    pastel: "#ed91a7",
+    suave: "#fbe6eb",
+    sombra: "#e6c0c5",
+    texto: "#b0405a",
+    textoOscuro: "#f7a9bb",
+  },
+  naranja: {
+    pastel: "#f3a17b",
+    suave: "#ffeadf",
+    sombra: "#e8c5af",
+    texto: "#a9521f",
+    textoOscuro: "#f8b894",
+  },
+  cian: {
+    pastel: "#62cacb",
+    suave: "#dcf2f2",
+    sombra: "#aed3d3",
+    texto: "#0e6f78",
+    textoOscuro: "#6fdbdd",
+  },
+  lavanda: {
+    pastel: "#b2a6e8",
+    suave: "#eae6fa",
+    sombra: "#c8c2de",
+    texto: "#5a44a8",
+    textoOscuro: "#c3b7f2",
+  },
 } as const satisfies Record<string, Acento>;
 
 export type NombreAcento = keyof typeof ACENTOS;
