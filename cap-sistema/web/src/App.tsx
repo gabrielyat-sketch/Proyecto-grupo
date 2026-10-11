@@ -1,7 +1,7 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { CssBaseline, ThemeProvider } from '@mui/material';
-import { tema } from './tema';
+import { CssBaseline } from '@mui/material';
+import { ProveedorModoColor } from './modo-color';
 import { Layout } from './componentes/Layout';
 import { PaginaLogin } from './modulos/sesion/PaginaLogin';
 import { PaginaCambiarContrasena } from './modulos/sesion/PaginaCambiarContrasena';
@@ -59,7 +59,12 @@ export const clienteConsultas = new QueryClient({
 export function App() {
   return (
     <QueryClientProvider client={clienteConsultas}>
-      <ThemeProvider theme={tema}>
+      {/*
+        El tema vive dentro del proveedor del modo de color: claro, oscuro o el
+        que pida el sistema. Antes era uno fijo, construido al importar el
+        modulo.
+      */}
+      <ProveedorModoColor>
         <CssBaseline />
         <BrowserRouter>
           {/*
@@ -334,7 +339,7 @@ export function App() {
             </Route>
           </Routes>
         </BrowserRouter>
-      </ThemeProvider>
+      </ProveedorModoColor>
     </QueryClientProvider>
   );
 }

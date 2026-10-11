@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 import type { SvgIconProps } from '@mui/material';
+import type { NombreAcento } from '../tema';
 import BadgeIcon from '@mui/icons-material/Badge';
 import FolderSharedIcon from '@mui/icons-material/FolderShared';
 import ScannerIcon from '@mui/icons-material/Scanner';
@@ -35,16 +36,29 @@ export interface ElementoMenu {
   /** Tipado con SvgIconProps para poder darle color y tamano donde se use. */
   icono: ComponentType<SvgIconProps>;
   /**
-   * Color del icono, uno por modulo.
+   * El acento del modulo, uno por fila.
    *
    * El color no dice nada por si mismo —ninguno significa "farmacia"— y por eso
    * la etiqueta nunca desaparece. Lo que hace es dar a cada fila una marca fija
    * que se reconoce sin leer, para quien entra y sale del mismo modulo veinte
    * veces al dia. Vive aqui y no en las pantallas porque el menu lateral y las
-   * tarjetas de inicio deben pintar el mismo color, y con la definicion en dos
-   * sitios acabarian separandose.
+   * tarjetas de inicio deben pintar el mismo, y con la definicion en dos sitios
+   * acabarian separandose.
+   *
+   * Es un NOMBRE y no un codigo hexadecimal porque cada acento son tres
+   * valores: el pastel decorativo y sus dos versiones legibles, de dia y de
+   * noche. Ver `ACENTOS` en el tema.
    */
-  color: string;
+  acento: NombreAcento;
+
+  /**
+   * Dos o tres palabras de que hace el modulo, para la tarjeta de inicio.
+   *
+   * Distinto de `descripcion`, que es un parrafo y solo se ensena mientras el
+   * modulo esta pendiente. Este se lee de un vistazo bajo el nombre, que es lo
+   * que pide el diseno del CAP.
+   */
+  resumen: string;
   /** Roles que pueden entrar. Copiado de los @Roles de cada controlador. */
   roles: readonly Rol[];
   /** Todavia sin construir: la pantalla existe pero avisa que falta. */
@@ -71,7 +85,8 @@ const CLINICOS: readonly Rol[] = ['ADMINISTRADOR', 'DIRECTOR', 'MEDICO', 'ENFERM
 export const MENU: readonly ElementoMenu[] = [
   {
     ruta: '/recepcion',
-    color: '#1a7a1f', // verde
+    acento: 'menta',
+    resumen: 'Ingreso y orientación',
     descripcion:
       'Busqueda de pacientes por DPI, nombre o comunidad, alta de nuevos pacientes y apertura de expediente. Es la pantalla de la Etapa 5.',
     etiqueta: 'Recepcion',
@@ -81,7 +96,8 @@ export const MENU: readonly ElementoMenu[] = [
   },
   {
     ruta: '/espera',
-    color: '#b3261e', // rojo
+    acento: 'rosa',
+    resumen: 'Turnos activos',
     descripcion:
       'Quienes llegaron hoy y todavia no tienen ficha, en orden de llegada. Recepcion marca la llegada al entrar; la visita se cierra sola al guardar la ficha.',
     etiqueta: 'Sala de espera',
@@ -92,7 +108,8 @@ export const MENU: readonly ElementoMenu[] = [
   },
   {
     ruta: '/expedientes',
-    color: '#9e7700', // mostaza
+    acento: 'naranja',
+    resumen: 'Historias clínicas',
     descripcion:
       'Consulta del expediente y su historial de atenciones. El acceso al historial clinico queda restringido al personal medico y de enfermeria.',
     etiqueta: 'Expedientes',
@@ -105,7 +122,8 @@ export const MENU: readonly ElementoMenu[] = [
   },
   {
     ruta: '/carpetas',
-    color: '#00838f', // cian
+    acento: 'cian',
+    resumen: 'El archivero familiar',
     descripcion:
       'El archivero del CAP: las carpetas familiares con su numero, su apellido y el lugar donde viven. Dentro de cada una, la familia y sus expedientes.',
     etiqueta: 'Carpetas',
@@ -116,7 +134,8 @@ export const MENU: readonly ElementoMenu[] = [
   },
   {
     ruta: '/digitalizacion',
-    color: '#1565c0', // azul
+    acento: 'naranja',
+    resumen: 'Carga documental',
     descripcion:
       'Modo de captura rapida por teclado para transcribir los expedientes en papel (RF-08), con avance por comunidad y autoguardado.',
     etiqueta: 'Digitalizacion',
@@ -127,7 +146,8 @@ export const MENU: readonly ElementoMenu[] = [
   },
   {
     ruta: '/programas',
-    color: '#6a1b9a', // morado
+    acento: 'menta',
+    resumen: 'Seguimiento médico',
     descripcion:
       'Seguimiento de hipertension y embarazo: quien esta en riesgo, quien se atraso en su control, y donde se inscribe, se anota la cita y se cierra el seguimiento.',
     etiqueta: 'Programas',
@@ -137,7 +157,8 @@ export const MENU: readonly ElementoMenu[] = [
   },
   {
     ruta: '/farmacia',
-    color: '#1a7a1f', // verde
+    acento: 'cian',
+    resumen: 'Medicamentos e insumos',
     descripcion:
       'Inventario por lotes, alertas de vencimiento y entrega de medicamentos con seleccion FEFO (Etapa 8).',
     etiqueta: 'Farmacia',
@@ -149,7 +170,8 @@ export const MENU: readonly ElementoMenu[] = [
   },
   {
     ruta: '/reportes',
-    color: '#558b2f', // verde limon
+    acento: 'lavanda',
+    resumen: 'Indicadores del centro',
     descripcion:
       'Panel de indicadores y las cifras que el CAP reporta periodicamente al MSPAS, con exportacion a hoja de calculo (Etapa 10).',
     etiqueta: 'Reportes',
@@ -159,7 +181,8 @@ export const MENU: readonly ElementoMenu[] = [
   },
   {
     ruta: '/auditoria',
-    color: '#e65100', // naranja
+    acento: 'rosa',
+    resumen: 'Bitácora del sistema',
     descripcion:
       'Consulta de la traza: quien vio o modifico cada dato clinico, con cadena de hash verificable (Etapa 9).',
     etiqueta: 'Auditoria',
@@ -168,7 +191,8 @@ export const MENU: readonly ElementoMenu[] = [
   },
   {
     ruta: '/administracion',
-    color: '#6d4c41', // cafe
+    acento: 'lavanda',
+    resumen: 'Cuentas y catálogos',
     descripcion:
       'Cuentas del personal, roles y restablecimiento de contrasenas. Exclusivo del Administrador.',
     etiqueta: 'Administracion',

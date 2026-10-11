@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link as EnlaceRuta } from 'react-router-dom';
 import { Box, Button, Paper, Stack, TextField, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { ALTO_BARRA } from '../../tema';
+import { TOPE_PEGAJOSO } from '../../tema';
 import { OtroIntegrante, SelectorDeFicha } from './CambioDeFicha';
 import type { TipoFicha } from './servicio-fichas';
 
@@ -88,7 +88,7 @@ export function EncabezadoFicha({
 
     const observador = new IntersectionObserver(
       ([entrada]) => setPegado(!entrada.isIntersecting),
-      { rootMargin: '-' + (ALTO_BARRA + 1) + 'px 0px 0px 0px' },
+      { rootMargin: '-' + (TOPE_PEGAJOSO + 1) + 'px 0px 0px 0px' },
     );
     observador.observe(nodo);
     return () => observador.disconnect();
@@ -107,11 +107,11 @@ export function EncabezadoFicha({
             Con `top: 0` se pegaba detras de la barra fija, que es opaca y va por
             encima: al bajar, el bloque se metia debajo de ella y solo asomaba la
             ultima franja, que quedaba flotando sobre los campos tapandolos a
-            medias. El numero sale de `ALTO_BARRA` y no escrito a mano justamente
+            medias. El numero sale de `TOPE_PEGAJOSO` y no escrito a mano justamente
             por eso: era un 0 calculado para una barra que despues crecio, y lo
             mismo puede volver a pasar.
           */
-          top: ALTO_BARRA,
+          top: TOPE_PEGAJOSO,
           zIndex: 3,
           // La sombra solo cuando esta pegado: quieto en su sitio es una fila mas
           // de la hoja, y una sombra ahi seria un relieve que no significa nada.

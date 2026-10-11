@@ -34,7 +34,7 @@ import {
 } from '../servicio-fichas';
 import { CampoAtendio, CasillasServicio } from '../ServicioYAtencion';
 import type { AvanceSeccion } from '../borrador';
-import { ALTO_BARRA } from '../../../tema';
+import { TOPE_PEGAJOSO } from '../../../tema';
 import { AvisoDeEdad } from '../CambioDeFicha';
 import { antecedentesPreviosDeNeonato, conAntecedentesPrevios } from './antecedentes-previos';
 import { usarVolver } from '../../../navegacion/usarVolver';
@@ -347,7 +347,7 @@ export function PaginaFichaNeonato() {
       />
 
       <Stack direction={{ xs: 'column', md: 'row' }} sx={{ gap: 3, alignItems: 'flex-start' }}>
-        <Box sx={{ position: { md: 'sticky' }, top: ALTO_BARRA + 24, flexShrink: 0 }}>
+        <Box sx={{ position: { md: 'sticky' }, top: TOPE_PEGAJOSO + 24, flexShrink: 0 }}>
           <IndiceFicha entradas={SECCIONES} avance={avance} activa={activa} onIr={irA} />
         </Box>
 
