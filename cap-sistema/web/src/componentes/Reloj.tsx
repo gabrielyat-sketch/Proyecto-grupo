@@ -63,12 +63,19 @@ export function Reloj({ conFecha = true }: { conFecha?: boolean }) {
       dateTime={ahora.toISOString()}
       title={completa}
       sx={{
-        // Blanco con el texto en el azul institucional, al reves que el resto
-        // de la barra: sobre el teal, un bloque claro es lo unico que se lee de
-        // un vistazo desde lejos, que es como se mira un reloj.
+        // Una pastilla del color del papel con el texto en el azul del
+        // sistema: un bloque de distinto tono es lo que hace que la hora se lea
+        // de un vistazo desde lejos, que es como se mira un reloj.
+        //
+        // `background.paper` y no un blanco fijo. Blanco funcionaba cuando el
+        // reloj vivia sobre la barra oscura; arriba del area de trabajo y con
+        // modo oscuro, era una pastilla blanca encendida con el azul claro del
+        // tema encima, que da 2.3:1.
         display: 'flex',
         alignItems: 'center',
-        bgcolor: '#fff',
+        bgcolor: 'background.paper',
+        border: '1px solid',
+        borderColor: 'divider',
         color: 'primary.main',
         borderRadius: 1.5,
         px: 1.5,
@@ -90,7 +97,7 @@ export function Reloj({ conFecha = true }: { conFecha?: boolean }) {
         </Typography>
         {conFecha ? (
           <>
-            <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(21,96,122,0.25)' }} />
+            <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider' }} />
             <Typography
               component="span"
               // Las fechas de es-GT llegan en minuscula ("domingo, 30 de

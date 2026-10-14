@@ -1,5 +1,5 @@
-import { Box, Stack, Typography } from '@mui/material';
-import { AVISO, ERROR, EXITO } from '../../tema';
+import { Box, Stack, Typography, useTheme } from '@mui/material';
+import { AVISO } from '../../tema';
 import { ETIQUETA_SEMAFORO, SIGNIFICADO_SEMAFORO, venceEn } from './servicio-farmacia';
 
 /**
@@ -8,20 +8,32 @@ import { ETIQUETA_SEMAFORO, SIGNIFICADO_SEMAFORO, venceEn } from './servicio-far
  * El rojo y el verde son los del tema. El amarillo no: el ámbar del tema está
  * oscurecido para servir de texto legible, y como relleno de un círculo se
  * lee marrón. La etiqueta de papel del CAP es amarilla, y la de la pantalla
- * tiene que ser la misma para que se reconozcan como la misma cosa. El borde
- * ámbar oscuro le da el contraste que el amarillo puro no tiene sobre blanco.
+ * tiene que ser la misma para que se reconozcan como la misma cosa.
+ *
+ * **De noche el rojo y el verde se aclaran.** No es un capricho de estilo: el
+ * verde del modo claro está oscurecido para leerse sobre crema, y sobre el navy
+ * da 1.9:1 —un punto verde oscuro sobre fondo azul oscuro, que es exactamente
+ * lo que no se ve—. El tono es el mismo; cambia el valor. El amarillo se queda
+ * igual porque sobre los dos fondos se ve.
+ *
+ * El borde es lo que le da contraste al relleno contra el papel de la pantalla,
+ * así que también se invierte: oscuro de día, claro de noche.
  */
-const RELLENO: Record<string, string> = {
-  ROJO: ERROR,
-  AMARILLO: '#f2c811',
-  VERDE: EXITO,
-};
-
-const BORDE: Record<string, string> = {
-  ROJO: '#8e1b1b',
-  AMARILLO: AVISO,
-  VERDE: '#0f5228',
-};
+function usarSemaforo() {
+  const tema = useTheme();
+  const oscuro = tema.palette.mode === 'dark';
+  const relleno: Record<string, string> = {
+    ROJO: tema.palette.error.main,
+    AMARILLO: '#f2c811',
+    VERDE: tema.palette.success.main,
+  };
+  const borde: Record<string, string> = {
+    ROJO: oscuro ? '#ffb3b3' : '#8e1b1b',
+    AMARILLO: oscuro ? '#6b4e00' : AVISO,
+    VERDE: oscuro ? '#a9ecc4' : '#0f5228',
+  };
+  return { relleno, borde };
+}
 
 /**
  * El círculo de color, solo. Con su nombre para quien no lo ve.
@@ -39,6 +51,8 @@ export function PuntoSemaforo({
   tamano?: number;
   decorativo?: boolean;
 }) {
+  const { relleno, borde } = usarSemaforo();
+
   return (
     <Box
       component="span"
@@ -53,9 +67,9 @@ export function PuntoSemaforo({
         height: tamano,
         borderRadius: '50%',
         flexShrink: 0,
-        bgcolor: RELLENO[color] ?? 'grey.400',
+        bgcolor: relleno[color] ?? 'grey.400',
         border: '2px solid',
-        borderColor: BORDE[color] ?? 'grey.600',
+        borderColor: borde[color] ?? 'grey.600',
       }}
     />
   );
