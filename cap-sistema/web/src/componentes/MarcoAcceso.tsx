@@ -127,6 +127,12 @@ function IntegrantesDelProyecto() {
           '0 1px 2px rgba(255,255,255,.95), 0 0 10px rgba(255,255,255,.75)',
       }}
     >
+      {/* La universidad encabeza el credito: el proyecto se hizo en ella. */}
+      <Typography
+        sx={{ fontSize: { xs: 14, md: 16 }, fontWeight: 700, color: '#0e2b36', mb: 0.5 }}
+      >
+        Universidad Mariano Gálvez de Guatemala
+      </Typography>
       <Typography
         id="titulo-integrantes"
         component="h2"
