@@ -4,7 +4,7 @@ import { Box, Button, Collapse, Link, Paper, Stack, Typography } from '@mui/mate
 import { ThemeProvider } from '@mui/material/styles';
 import HelpOutlinedIcon from '@mui/icons-material/HelpOutlined';
 import { LogoCap } from './LogoCap';
-import { tema } from '../tema';
+import { ENTRAR, tema } from '../tema';
 
 /** Integrantes del proyecto, en el orden en que los dio el equipo. */
 const INTEGRANTES = [
@@ -14,23 +14,30 @@ const INTEGRANTES = [
 ];
 
 /**
- * Los tres escudos que acreditan el proyecto, en la esquina de arriba.
+ * Los tres escudos que acreditan el proyecto, arriba a la izquierda.
  *
- * El del Ministerio, el de la carrera y el de la universidad. Van juntos y
+ * El de la universidad, el del Ministerio y el de la carrera. Van juntos y
  * fuera de la tarjeta porque acreditan la PANTALLA, no el formulario: metidos
  * dentro competian con los dos campos que hay que llenar, que es a lo unico
  * que se viene aqui.
  *
- * Sobre un panel blanco, y no sueltos sobre la fotografia, por un motivo
- * concreto: los tres archivos son JPEG con fondo blanco opaco. Puestos
- * directamente sobre la foto se verian como tres recortes rectangulares
- * pegados encima. Sobre el panel el blanco del archivo y el del panel son el
- * mismo, asi que las siluetas quedan limpias.
+ * ─────────────────────────────────────────────────────────────────────────
+ *  POR QUE `mixBlendMode: multiply` Y NO UN PANEL BLANCO DETRAS
+ * ─────────────────────────────────────────────────────────────────────────
+ * Los tres archivos son JPEG con fondo blanco OPACO. Puestos tal cual sobre la
+ * fotografia se ven como tres recortes rectangulares pegados encima; metidos
+ * en un panel blanco dejan de recortarse pero aparece una caja que el diseno
+ * del CAP no tiene.
+ *
+ * `multiply` resuelve las dos cosas: multiplicar por blanco deja el fondo
+ * intacto —el blanco del JPEG desaparece— y oscurece solo donde el escudo
+ * tiene tinta. Funciona porque el fondo de esta pantalla es claro; sobre uno
+ * oscuro el truco se invierte y habria que recortar los PNG de verdad.
  */
 const ESCUDOS = [
+  { src: '/logo-umg.png', alto: 'Universidad Mariano Galvez' },
   { src: '/logo-ministerio.jpg', alto: 'Ministerio de Salud Publica y Asistencia Social' },
   { src: '/logo-sistemas.jpg', alto: 'Ingenieria en Sistemas, UMG Coban' },
-  { src: '/logo-umg.png', alto: 'Universidad Mariano Galvez' },
 ];
 
 /**
@@ -40,7 +47,7 @@ const ESCUDOS = [
  * —y en una pantalla de acceso, peor aun: parece que el sistema esta averiado
  * antes de haber entrado—.
  */
-function Escudo({ src, alto, altura }: { src: string; alto: string; altura: number }) {
+function Escudo({ src, alto }: { src: string; alto: string }) {
   const [falta, setFalta] = useState(false);
   if (falta) return null;
 
@@ -50,71 +57,47 @@ function Escudo({ src, alto, altura }: { src: string; alto: string; altura: numb
       src={src}
       alt={alto}
       onError={() => setFalta(true)}
-      sx={{ height: altura, width: 'auto', maxWidth: 160, objectFit: 'contain', flexShrink: 0 }}
+      sx={{
+        height: { xs: 34, md: 44 },
+        width: 'auto',
+        maxWidth: 190,
+        objectFit: 'contain',
+        flexShrink: 0,
+        mixBlendMode: 'multiply',
+      }}
     />
   );
 }
 
 function FilaDeEscudos() {
   return (
-    <Stack
-      direction="row"
-      sx={{
-        alignItems: 'center',
-        gap: { xs: 1.25, sm: 2 },
-        px: { xs: 1.5, sm: 2 },
-        py: { xs: 1, sm: 1.25 },
-        borderRadius: 3,
-        bgcolor: 'rgba(255, 255, 255, 0.92)',
-        border: '1px solid rgba(15, 50, 64, 0.08)',
-        boxShadow: '0 6px 20px -10px rgba(12, 45, 58, 0.35)',
-        // Si la pantalla es muy angosta, los escudos se reparten en dos
-        // renglones antes que salirse del panel.
-        flexWrap: 'wrap',
-      }}
-    >
+    <Stack direction="row" sx={{ alignItems: 'center', gap: { xs: 1.5, md: 2.5 }, flexWrap: 'wrap' }}>
       {ESCUDOS.map((e) => (
-        <Escudo key={e.src} {...e} altura={38} />
+        <Escudo key={e.src} {...e} />
       ))}
     </Stack>
   );
 }
 
 /**
- * Quienes hicieron el proyecto, abajo a la derecha.
+ * Quienes hicieron el proyecto, a la derecha.
  *
  * Estaban dentro de la tarjeta, bajo el boton de entrar. Ahi los leia todo el
  * personal del CAP cada manana, que no es a quien acreditan: el credito
  * academico interesa a quien revisa el proyecto, una vez. Fuera de la tarjeta
  * sigue estando a la vista y deja de estorbar al trabajo diario.
  *
- * Uno por renglon: en una sola linea los tres nombres completos no caben en un
- * telefono y se cortarian a la mitad de un apellido.
+ * Sin recuadro y con una barra de color al costado, como el ejemplo que dio el
+ * CAP. La barra hace el trabajo que haria una caja —decir donde empieza y
+ * termina el bloque— sin tapar un palmo de la fotografia.
  */
 function IntegrantesDelProyecto() {
   return (
-    <Stack
-      sx={{
-        gap: 0.25,
-        px: 2,
-        py: 1.5,
-        borderRadius: 3,
-        textAlign: { xs: 'left', sm: 'right' },
-        bgcolor: 'rgba(255, 255, 255, 0.9)',
-        border: '1px solid rgba(15, 50, 64, 0.08)',
-        boxShadow: '0 6px 20px -10px rgba(12, 45, 58, 0.3)',
-      }}
-    >
+    <Box sx={{ borderLeft: '3px solid', borderColor: ENTRAR, pl: 1.75 }}>
       <Typography
         id="titulo-integrantes"
         component="h2"
-        sx={{
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: '0.12em',
-          textTransform: 'uppercase',
-          color: 'primary.main',
-        }}
+        sx={{ fontSize: 15, fontWeight: 700, color: ENTRAR, mb: 0.75 }}
       >
         Integrantes del Proyecto
       </Typography>
@@ -127,56 +110,61 @@ function IntegrantesDelProyecto() {
       <Box
         component="ul"
         aria-labelledby="titulo-integrantes"
-        sx={{ m: 0, p: 0, listStyle: 'none' }}
+        sx={{ m: 0, pl: 2.5, listStyle: 'disc', color: '#17333d' }}
       >
         {INTEGRANTES.map((nombre) => (
           <Typography
             key={nombre}
             component="li"
-            variant="caption"
-            sx={{ display: 'block', lineHeight: 1.45, color: 'text.primary' }}
+            sx={{ fontSize: 14, lineHeight: 1.75, color: 'inherit' }}
           >
             {nombre}
           </Typography>
         ))}
       </Box>
-
-      {/*
-        La universidad, escrita. Su escudo esta arriba con los otros dos, pero a
-        38 pixeles es un sello ilegible: quien quiera saber de quien es el
-        proyecto necesita leerlo, no reconocerlo.
-      */}
-      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
-        Universidad Mariano Gálvez
-      </Typography>
-    </Stack>
+    </Box>
   );
 }
 
 /**
  * Fondo de las pantallas de acceso: la sala de espera del CAP.
  *
- * Las capas van de arriba hacia abajo, que es el orden en que CSS las pinta.
- * Sobre la fotografia hay dos tintes —la luz calida del ventanal y el teal del
- * mobiliario— y un velo claro. Hacen dos trabajos: unen la foto con la paleta
- * del panel, y le bajan el contraste para que la tarjeta y los dos paneles
- * blancos se lean encima sin esfuerzo.
+ * Va en una capa propia —un `::before` que cubre la pantalla— y no como
+ * `background-image` del contenedor, por una razon: necesita `filter`, y un
+ * filtro aplicado al contenedor se heredaria a la tarjeta, a los escudos y al
+ * texto. En su propia capa afecta solo a la fotografia.
  *
- * El velo es mas denso que con la foto anterior, y a proposito: esta tiene
- * paredes naranjas, carteles y un zocalo oscuro, asi que sin el las esquinas
- * blancas caerian sobre manchas de todos los tonos.
+ * ─────────────────────────────────────────────────────────────────────────
+ *  POR QUE TAN LAVADA
+ * ─────────────────────────────────────────────────────────────────────────
+ * La foto tiene paredes naranjas, carteles de colores y un zocalo casi negro.
+ * Encima van tres cosas claras —los escudos, la tarjeta y los nombres— y dos de
+ * ellas sin recuadro que las despegue. Sobre la foto cruda, los escudos caerian
+ * mitad sobre pared naranja y mitad sobre un televisor.
  *
- * El degradado del final es el respaldo: es lo que se ve mientras el JPEG
- * carga, y lo que queda si el archivo faltara. La pantalla nunca aparece en
+ * `saturate(.38)` le quita el naranja sin volverla gris del todo, `brightness`
+ * la sube, y la opacidad la deja en un recuerdo de la sala: se reconoce el
+ * sitio, y nada de lo que hay encima pelea con ella. Es el mismo grado de
+ * lavado que el ejemplo que dio el CAP, con los tonos del sistema en vez de los
+ * suyos.
+ *
+ * El color de fondo del contenedor es el respaldo: es lo que se ve mientras el
+ * JPEG carga y lo que queda si el archivo faltara. La pantalla nunca aparece en
  * blanco.
  */
-const FONDO_ACCESO = [
-  'radial-gradient(1100px 520px at 50% -10%, rgba(255, 206, 148, 0.22), rgba(255, 206, 148, 0) 70%)',
-  'radial-gradient(900px 720px at 97% 82%, rgba(21, 96, 122, 0.18), rgba(21, 96, 122, 0) 70%)',
-  'linear-gradient(180deg, rgba(240, 245, 246, 0.52) 0%, rgba(219, 230, 233, 0.6) 100%)',
-  'url("/fondo-login.jpg")',
-  'linear-gradient(180deg, #eef3f4 0%, #dde7ea 100%)',
-].join(', ');
+const CAPA_FOTO = {
+  content: '""',
+  position: 'absolute',
+  inset: 0,
+  zIndex: 0,
+  backgroundImage: 'url("/fondo-login.jpg")',
+  backgroundSize: 'cover',
+  backgroundPosition: 'center',
+  backgroundRepeat: 'no-repeat',
+  filter: 'saturate(.38) brightness(1.2)',
+  opacity: 0.5,
+  pointerEvents: 'none',
+} as const;
 
 /**
  * La franja curva del costado, tal como la trae la referencia del CAP.
@@ -260,24 +248,19 @@ export function MarcoAcceso({
     <ThemeProvider theme={tema}>
       <Box
         sx={{
+          position: 'relative',
           minHeight: '100dvh',
-          display: 'flex',
-          flexDirection: 'column',
+          display: 'grid',
+          placeItems: 'center',
+          gap: 3,
           px: { xs: 2, md: 3 },
-          py: { xs: 2, md: 3 },
+          py: { xs: 3, md: 3 },
           colorScheme: 'light',
-          backgroundColor: '#eef3f4',
-          backgroundImage: FONDO_ACCESO,
-          // La foto es vertical (1200x1600) y `cover` la recorta por arriba y
-          // por abajo en pantallas apaisadas. Centrada, lo que sobrevive al
-          // recorte es el mostrador y las sillas, que es lo que la hace
-          // reconocible como el CAP.
-          //
-          // Nada de `background-attachment: fixed`, que Safari de iOS dibuja
-          // mal y hace tironear el desplazamiento.
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
+          backgroundColor: '#eef2f2',
+          overflow: 'hidden',
+          '&::before': CAPA_FOTO,
+          // Todo lo que va dentro, por encima de la capa de la foto.
+          '& > *': { position: 'relative', zIndex: 1 },
         }}
       >
         {/*
@@ -285,7 +268,26 @@ export function MarcoAcceso({
           posicionados en absoluto: asi en un telefono empujan la tarjeta hacia
           abajo en vez de taparla.
         */}
-        <Box sx={{ alignSelf: 'flex-start' }}>
+        {/*
+          Fuera del flujo en pantalla ancha, en flujo en una angosta.
+
+          Es lo que quita la barra de desplazamiento que habia: con los escudos
+          arriba y los nombres abajo apilados con la tarjeta, los tres juntos
+          pasaban del alto de la ventana y la pantalla de acceso se volvia una
+          pagina que hay que recorrer. Posicionados, lo unico que ocupa alto es
+          la tarjeta, que es lo que tiene que caber.
+
+          En un telefono vuelven al flujo: ahi no hay sitio a los costados y
+          taparian el formulario.
+        */}
+        <Box
+          sx={{
+            position: { xs: 'static', md: 'absolute' },
+            top: { md: 26 },
+            left: { md: 32 },
+            justifySelf: { xs: 'center', md: 'start' },
+          }}
+        >
           <FilaDeEscudos />
         </Box>
 
@@ -410,7 +412,14 @@ export function MarcoAcceso({
           </Paper>
         </Box>
 
-        <Box sx={{ alignSelf: { xs: 'stretch', sm: 'flex-end' } }}>
+        <Box
+          sx={{
+            position: { xs: 'static', md: 'absolute' },
+            right: { md: 44 },
+            top: { md: '58%' },
+            justifySelf: { xs: 'start', md: 'end' },
+          }}
+        >
           <IntegrantesDelProyecto />
         </Box>
       </Box>
