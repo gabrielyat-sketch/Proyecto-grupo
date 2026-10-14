@@ -22,17 +22,18 @@ const INTEGRANTES = [
  * que se viene aqui.
  *
  * ─────────────────────────────────────────────────────────────────────────
- *  POR QUE `mixBlendMode: multiply` Y NO UN PANEL BLANCO DETRAS
+ *  POR QUE VAN SOBRE UN PANEL BLANCO
  * ─────────────────────────────────────────────────────────────────────────
- * Los tres archivos son JPEG con fondo blanco OPACO. Puestos tal cual sobre la
- * fotografia se ven como tres recortes rectangulares pegados encima; metidos
- * en un panel blanco dejan de recortarse pero aparece una caja que el diseno
- * del CAP no tiene.
+ * Los tres archivos son JPEG con fondo blanco OPACO. Sueltos sobre la
+ * fotografia se ven como tres recortes rectangulares pegados encima.
  *
- * `multiply` resuelve las dos cosas: multiplicar por blanco deja el fondo
- * intacto —el blanco del JPEG desaparece— y oscurece solo donde el escudo
- * tiene tinta. Funciona porque el fondo de esta pantalla es claro; sobre uno
- * oscuro el truco se invierte y habria que recortar los PNG de verdad.
+ * Se probo `mixBlendMode: multiply`, que borra el blanco del archivo dejando
+ * solo la tinta, y el CAP lo rechazo: en los bordes de cada escudo el blanco no
+ * es blanco puro —es un JPEG, y la compresion deja un halo gris— asi que el
+ * recorte seguia viendose, ahora sucio.
+ *
+ * El panel lo resuelve de la forma aburrida y segura: el blanco del archivo y
+ * el del panel son el mismo color, asi que no hay borde que ver.
  */
 const ESCUDOS = [
   { src: '/logo-umg.png', alto: 'Universidad Mariano Galvez' },
@@ -58,12 +59,14 @@ function Escudo({ src, alto }: { src: string; alto: string }) {
       alt={alto}
       onError={() => setFalta(true)}
       sx={{
-        height: { xs: 34, md: 44 },
+        // En telefono bajan a 38: tres escudos de 58 no caben en 390 pixeles
+        // de ancho y se repartirian en dos renglones, que es mas alto que la
+        // tarjeta que viene debajo.
+        height: { xs: 38, sm: 50, md: 58 },
         width: 'auto',
-        maxWidth: 190,
+        maxWidth: { xs: 120, md: 240 },
         objectFit: 'contain',
         flexShrink: 0,
-        mixBlendMode: 'multiply',
       }}
     />
   );
@@ -71,7 +74,21 @@ function Escudo({ src, alto }: { src: string; alto: string }) {
 
 function FilaDeEscudos() {
   return (
-    <Stack direction="row" sx={{ alignItems: 'center', gap: { xs: 1.5, md: 2.5 }, flexWrap: 'wrap' }}>
+    <Stack
+      direction="row"
+      sx={{
+        alignItems: 'center',
+        gap: { xs: 1.5, md: 2.5 },
+        px: { xs: 1.5, md: 2.5 },
+        py: { xs: 1, md: 1.5 },
+        borderRadius: 3,
+        // Blanco entero, no translucido: con transparencia la fotografia se
+        // cuela por detras y vuelve el borde que el panel viene a quitar.
+        bgcolor: '#fff',
+        boxShadow: '0 8px 24px -12px rgba(12, 45, 58, 0.45)',
+        flexWrap: 'nowrap',
+      }}
+    >
       {ESCUDOS.map((e) => (
         <Escudo key={e.src} {...e} />
       ))}
@@ -93,11 +110,27 @@ function FilaDeEscudos() {
  */
 function IntegrantesDelProyecto() {
   return (
-    <Box sx={{ borderLeft: '3px solid', borderColor: ENTRAR, pl: 1.75 }}>
+    <Box
+      sx={{
+        borderLeft: '4px solid',
+        borderColor: ENTRAR,
+        pl: 2,
+        /*
+          El halo blanco detras de la letra, no un recuadro.
+
+          Se veian «transparentes» y no lo eran: era texto fino sobre una
+          fotografia con manchas de todos los tonos, y ahi el ojo lee cualquier
+          cosa como desvaida. Esto lo despega sin encajonarlo, que es lo que el
+          ejemplo del CAP pide.
+        */
+        textShadow:
+          '0 1px 2px rgba(255,255,255,.95), 0 0 10px rgba(255,255,255,.75)',
+      }}
+    >
       <Typography
         id="titulo-integrantes"
         component="h2"
-        sx={{ fontSize: 15, fontWeight: 700, color: ENTRAR, mb: 0.75 }}
+        sx={{ fontSize: { xs: 15, md: 17 }, fontWeight: 800, color: ENTRAR, mb: 0.75 }}
       >
         Integrantes del Proyecto
       </Typography>
@@ -110,13 +143,13 @@ function IntegrantesDelProyecto() {
       <Box
         component="ul"
         aria-labelledby="titulo-integrantes"
-        sx={{ m: 0, pl: 2.5, listStyle: 'disc', color: '#17333d' }}
+        sx={{ m: 0, pl: 2.5, listStyle: 'disc', color: '#0e2b36' }}
       >
         {INTEGRANTES.map((nombre) => (
           <Typography
             key={nombre}
             component="li"
-            sx={{ fontSize: 14, lineHeight: 1.75, color: 'inherit' }}
+            sx={{ fontSize: { xs: 14, md: 15 }, fontWeight: 600, lineHeight: 1.8, color: 'inherit' }}
           >
             {nombre}
           </Typography>
@@ -129,28 +162,22 @@ function IntegrantesDelProyecto() {
 /**
  * Fondo de las pantallas de acceso: la sala de espera del CAP.
  *
+ * `cover`, centrada y lavada. Nada mas: se probaron un encuadre desplazado, dos
+ * capas apiladas —una desenfocada de relleno y otra con la foto entera— y una
+ * fotografia distinta, y el CAP volvio a esta. Es la version que aprobo.
+ *
  * Va en una capa propia —un `::before` que cubre la pantalla— y no como
- * `background-image` del contenedor, por una razon: necesita `filter`, y un
- * filtro aplicado al contenedor se heredaria a la tarjeta, a los escudos y al
- * texto. En su propia capa afecta solo a la fotografia.
+ * `background-image` del contenedor por una razon concreta: necesita `filter`,
+ * y un filtro aplicado al contenedor se heredaria a la tarjeta, a los escudos y
+ * al texto. En su propia capa afecta solo a la foto.
  *
- * ─────────────────────────────────────────────────────────────────────────
- *  POR QUE TAN LAVADA
- * ─────────────────────────────────────────────────────────────────────────
- * La foto tiene paredes naranjas, carteles de colores y un zocalo casi negro.
- * Encima van tres cosas claras —los escudos, la tarjeta y los nombres— y dos de
- * ellas sin recuadro que las despegue. Sobre la foto cruda, los escudos caerian
- * mitad sobre pared naranja y mitad sobre un televisor.
+ * El lavado no es timidez. Encima van tres cosas, y dos de ellas sin recuadro
+ * que las despegue: sobre la foto cruda los nombres caerian sobre el piso y las
+ * sillas. `saturate(.38)` le quita el naranja de las paredes y la opacidad la
+ * deja en un fondo, no en una imagen que mirar.
  *
- * `saturate(.38)` le quita el naranja sin volverla gris del todo, `brightness`
- * la sube, y la opacidad la deja en un recuerdo de la sala: se reconoce el
- * sitio, y nada de lo que hay encima pelea con ella. Es el mismo grado de
- * lavado que el ejemplo que dio el CAP, con los tonos del sistema en vez de los
- * suyos.
- *
- * El color de fondo del contenedor es el respaldo: es lo que se ve mientras el
- * JPEG carga y lo que queda si el archivo faltara. La pantalla nunca aparece en
- * blanco.
+ * El color del contenedor es el respaldo: es lo que se ve mientras el JPEG
+ * carga y lo que queda si el archivo faltara. La pantalla nunca sale en blanco.
  */
 const CAPA_FOTO = {
   content: '""',
@@ -257,17 +284,9 @@ export function MarcoAcceso({
           py: { xs: 3, md: 3 },
           colorScheme: 'light',
           backgroundColor: '#eef2f2',
-          overflow: 'hidden',
           '&::before': CAPA_FOTO,
-          // Todo lo que va dentro, por encima de la capa de la foto.
-          '& > *': { position: 'relative', zIndex: 1 },
         }}
       >
-        {/*
-          Los tres en fila, arriba a la izquierda. En flujo normal y no
-          posicionados en absoluto: asi en un telefono empujan la tarjeta hacia
-          abajo en vez de taparla.
-        */}
         {/*
           Fuera del flujo en pantalla ancha, en flujo en una angosta.
 
@@ -282,16 +301,22 @@ export function MarcoAcceso({
         */}
         <Box
           sx={{
-            position: { xs: 'static', md: 'absolute' },
-            top: { md: 26 },
-            left: { md: 32 },
+            position: { xs: 'relative', md: 'absolute' },
+            zIndex: 1,
+            top: { md: 16 },
+            left: { md: 20 },
             justifySelf: { xs: 'center', md: 'start' },
           }}
         >
           <FilaDeEscudos />
         </Box>
 
-        <Box sx={{ flexGrow: 1, display: 'grid', placeItems: 'center', py: { xs: 3, md: 4 } }}>
+        {/*
+          El UNICO elemento en flujo. Los otros dos estan posicionados, asi que
+          la reticula centra esto y nada mas: la tarjeta queda en el medio de la
+          pantalla, no en el medio de una pila de tres cosas.
+        */}
+        <Box sx={{ position: 'relative', zIndex: 1, width: '100%', display: 'grid', placeItems: 'center' }}>
           <Paper
             elevation={0}
             sx={{
@@ -414,9 +439,12 @@ export function MarcoAcceso({
 
         <Box
           sx={{
-            position: { xs: 'static', md: 'absolute' },
+            position: { xs: 'relative', md: 'absolute' },
+            zIndex: 1,
             right: { md: 44 },
-            top: { md: '58%' },
+            // Anclados ABAJO y no a media altura: a media altura quedaban a la
+            // par de la tarjeta, compitiendo con el formulario.
+            bottom: { md: 36 },
             justifySelf: { xs: 'start', md: 'end' },
           }}
         >

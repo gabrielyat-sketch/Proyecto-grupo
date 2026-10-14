@@ -26,7 +26,7 @@ import {
 import { alpha } from '@mui/material/styles';
 import { AvisoError } from '../../componentes/AvisoError';
 import { EncabezadoPagina, NotaPagina } from '../../componentes/EncabezadoPagina';
-import { ARMAZON, AVISO, ERROR, EXITO, PRIMARIO } from '../../tema';
+import { usarColores, usarTinte, type ColoresDeAccion } from '../../colores';
 import { NombrePaciente } from './NombrePaciente';
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import MonitorHeartOutlinedIcon from '@mui/icons-material/MonitorHeartOutlined';
@@ -53,14 +53,21 @@ const fecha = (iso: string | null) =>
 const NOMBRE_EMBARAZO = (e: { semanasGestacion: number }) =>
   'Embarazo · ' + e.semanasGestacion + ' semanas';
 
-/** El color de cada clasificacion de presion, del juego del panel. */
-const COLOR_PRESION: Record<string, string> = {
-  NORMAL: EXITO,
-  ELEVADA: AVISO,
-  ESTADIO_1: AVISO,
-  ESTADIO_2: ERROR,
-  CRISIS: ERROR,
-};
+/**
+ * El color de cada clasificacion de presion, del juego del panel.
+ *
+ * Una funcion y no una tabla fija: los tonos dependen del modo de color, y una
+ * tabla construida al importar el modulo se queda con los del modo claro para
+ * siempre. De noche, el verde de «normal» queda mas oscuro que el fondo.
+ */
+const colorDePresion = (clasificacion: string, c: ColoresDeAccion): string =>
+  ({
+    NORMAL: c.exito,
+    ELEVADA: c.aviso,
+    ESTADIO_1: c.aviso,
+    ESTADIO_2: c.peligro,
+    CRISIS: c.peligro,
+  })[clasificacion] ?? c.armazon;
 
 /**
  * Las acciones de una fila, tras un solo boton.
@@ -78,6 +85,9 @@ function AccionesDeFila({
   onCerrar: () => void;
   puede: boolean;
 }) {
+  const colores = usarColores();
+  const tinte = usarTinte();
+
   const [ancla, setAncla] = useState<null | HTMLElement>(null);
   if (!puede) return null;
 
@@ -91,36 +101,36 @@ function AccionesDeFila({
           width: 34,
           height: 34,
           borderRadius: 2,
-          color: PRIMARIO,
-          bgcolor: alpha(PRIMARIO, 0.08),
+          color: colores.principal,
+          bgcolor: tinte(colores.principal),
           border: '1px solid',
-          borderColor: alpha(PRIMARIO, 0.22),
-          '&:hover': { bgcolor: alpha(PRIMARIO, 0.16) },
+          borderColor: alpha(colores.principal, 0.36),
+          '&:hover': { bgcolor: tinte(colores.principal, 'fuerte') },
         }}
       >
         <ExpandMoreRoundedIcon fontSize="small" />
       </IconButton>
       <Menu anchorEl={ancla} open={Boolean(ancla)} onClose={() => setAncla(null)}>
         <MenuItem
-          sx={{ mx: 0.75, my: 0.25, borderRadius: 2, bgcolor: alpha(PRIMARIO, 0.08) }}
+          sx={{ mx: 0.75, my: 0.25, borderRadius: 2, bgcolor: tinte(colores.principal) }}
           onClick={() => {
             setAncla(null);
             onControl();
           }}
         >
-          <ListItemIcon sx={{ color: PRIMARIO }}>
+          <ListItemIcon sx={{ color: colores.principal }}>
             <MonitorHeartOutlinedIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText primary="Registrar control" />
         </MenuItem>
         <MenuItem
-          sx={{ mx: 0.75, my: 0.25, borderRadius: 2, bgcolor: alpha(ERROR, 0.08) }}
+          sx={{ mx: 0.75, my: 0.25, borderRadius: 2, bgcolor: tinte(colores.peligro) }}
           onClick={() => {
             setAncla(null);
             onCerrar();
           }}
         >
-          <ListItemIcon sx={{ color: ERROR }}>
+          <ListItemIcon sx={{ color: colores.peligro }}>
             <TaskAltOutlinedIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText primary="Cerrar seguimiento" />
@@ -154,12 +164,13 @@ function Etiqueta({ texto, color }: { texto: string; color: string }) {
  * calculo mental fila por fila.
  */
 function Proximo({ iso }: { iso: string | null }) {
+  const colores = usarColores();
   if (!iso) return <>—</>;
   const dias = diasDesde(iso);
   if (dias > 0) {
-    return <Etiqueta texto={'Atrasado ' + dias + (dias === 1 ? ' dia' : ' dias')} color={ERROR} />;
+    return <Etiqueta texto={'Atrasado ' + dias + (dias === 1 ? ' dia' : ' dias')} color={colores.peligro} />;
   }
-  if (dias === 0) return <Etiqueta texto="Hoy" color={AVISO} />;
+  if (dias === 0) return <Etiqueta texto="Hoy" color={colores.aviso} />;
   return (
     <Typography variant="body2" color="text.secondary">
       {fecha(iso)}
@@ -201,6 +212,8 @@ export function PaginaProgramas() {
 }
 
 function Embarazos() {
+  const colores = usarColores();
+  const tinte = usarTinte();
   const [pagina, setPagina] = useState(1);
   const { usuario } = usarSesion();
   // Inscribir y registrar controles es del personal clinico. Direccion mira.
@@ -256,12 +269,12 @@ function Embarazos() {
           sx={{
             p: 2,
             border: '1px solid',
-            borderColor: alpha(ERROR, 0.4),
-            bgcolor: alpha(ERROR, 0.04),
+            borderColor: alpha(colores.peligro, 0.5),
+            bgcolor: tinte(colores.peligro),
             borderRadius: 2,
           }}
         >
-          <Typography sx={{ fontWeight: 700, color: ERROR, mb: 1 }}>
+          <Typography sx={{ fontWeight: 700, color: colores.peligro, mb: 1 }}>
             {riesgo.data!.length === 1
               ? '1 embarazo de alto riesgo'
               : riesgo.data!.length + ' embarazos de alto riesgo'}
@@ -332,9 +345,9 @@ function Embarazos() {
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>{fecha(e.fpp)}</TableCell>
                     <TableCell>
                       {e.riesgo === 'ALTO' ? (
-                        <Etiqueta texto="Alto" color={ERROR} />
+                        <Etiqueta texto="Alto" color={colores.peligro} />
                       ) : (
-                        <Etiqueta texto="Bajo" color={ARMAZON} />
+                        <Etiqueta texto="Bajo" color={colores.armazon} />
                       )}
                     </TableCell>
                     <TableCell>
@@ -344,7 +357,7 @@ function Embarazos() {
                       {(e.ultimoControl?.alertas ?? []).length > 0 ? (
                         <Stack sx={{ gap: 0.5 }}>
                           {e.ultimoControl!.alertas.map((a) => (
-                            <Typography key={a} variant="caption" sx={{ color: ERROR }}>
+                            <Typography key={a} variant="caption" sx={{ color: colores.peligro }}>
                               {a}
                             </Typography>
                           ))}
@@ -403,6 +416,8 @@ function Embarazos() {
 }
 
 function Hipertensos() {
+  const colores = usarColores();
+  const tinte = usarTinte();
   const [pagina, setPagina] = useState(1);
   const { usuario } = usarSesion();
   // Inscribir y registrar controles es del personal clinico. Direccion mira.
@@ -452,12 +467,12 @@ function Hipertensos() {
           sx={{
             p: 2,
             border: '1px solid',
-            borderColor: alpha(ERROR, 0.4),
-            bgcolor: alpha(ERROR, 0.04),
+            borderColor: alpha(colores.peligro, 0.5),
+            bgcolor: tinte(colores.peligro),
             borderRadius: 2,
           }}
         >
-          <Typography sx={{ fontWeight: 700, color: ERROR, mb: 1 }}>
+          <Typography sx={{ fontWeight: 700, color: colores.peligro, mb: 1 }}>
             {atrasados.data!.length === 1
               ? '1 paciente con el control atrasado'
               : atrasados.data!.length + ' pacientes con el control atrasado'}
@@ -483,7 +498,7 @@ function Hipertensos() {
                     h.diasDeAtraso +
                     (h.diasDeAtraso === 1 ? ' dia' : ' dias')
                   }
-                  color={ERROR}
+                  color={colores.peligro}
                 />
                 <Typography variant="body2" color="text.secondary">
                   Tocaba el {fecha(h.proximoControl)}
@@ -541,7 +556,7 @@ function Hipertensos() {
                             ETIQUETA_PRESION[h.ultimoControl.clasificacion] ??
                             h.ultimoControl.clasificacion
                           }
-                          color={COLOR_PRESION[h.ultimoControl.clasificacion] ?? ARMAZON}
+                          color={colorDePresion(h.ultimoControl.clasificacion, colores)}
                         />
                       ) : (
                         '—'
@@ -550,11 +565,11 @@ function Hipertensos() {
                     <TableCell>
                       {h.ultimoControl ? (
                         h.ultimoControl.enMeta ? (
-                          <Etiqueta texto="Si" color={EXITO} />
+                          <Etiqueta texto="Si" color={colores.exito} />
                         ) : (
                           <Etiqueta
                             texto={'Meta ' + h.metaSistolica + '/' + h.metaDiastolica}
-                            color={PRIMARIO}
+                            color={colores.principal}
                           />
                         )
                       ) : (

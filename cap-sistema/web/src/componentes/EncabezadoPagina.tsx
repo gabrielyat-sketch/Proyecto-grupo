@@ -68,7 +68,13 @@ export function NotaPagina({ children, sx }: { children: ReactNode; sx?: object 
         borderRadius: 1,
         borderLeft: '4px solid',
         borderColor: 'secondary.main',
-        bgcolor: 'rgba(16, 114, 115, 0.07)',
+        // Del tono del tema y no un teal fijo: el 7 % de un teal claro sobre el
+        // navy de noche no se distingue del navy, y la nota deja de verse como
+        // un bloque.
+        bgcolor: (t) =>
+          t.palette.mode === 'dark'
+            ? 'rgba(146, 180, 220, 0.1)'
+            : 'rgba(16, 114, 115, 0.07)',
         color: 'text.primary',
         ...sx,
       }}

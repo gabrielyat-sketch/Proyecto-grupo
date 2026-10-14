@@ -5,7 +5,6 @@ import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 import SearchOffOutlinedIcon from '@mui/icons-material/SearchOffOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { usarSesion } from '../modulos/sesion/contexto';
-import { PRIMARIO } from '../tema';
 
 const ETIQUETA_ROL: Record<string, string> = {
   ADMINISTRADOR: 'Administrador',
@@ -67,7 +66,7 @@ function Aviso({
               height: 72,
               borderRadius: '50%',
               bgcolor: 'rgba(11, 107, 181, 0.08)',
-              color: PRIMARIO,
+              color: 'primary.main',
             }}
           >
             {icono}

@@ -111,7 +111,7 @@ export function AvatarUsuario({
                 backgroundColor: conectado ? VERDE_CONECTADO : GRIS_DESCONECTADO,
                 // El anillo separa el punto del avatar y de la barra teal.
                 // Sin el, sobre ciertos colores el punto desaparece.
-                boxShadow: '0 0 0 2px #fff',
+                boxShadow: (t) => '0 0 0 2px ' + t.palette.background.paper,
               },
             }}
           >

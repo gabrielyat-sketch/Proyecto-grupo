@@ -32,13 +32,12 @@ import { fichaParaPaciente } from '../fichas/ficha-por-edad';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
-import { PRIMARIO } from '../../tema';
 import KeyboardDoubleArrowUpIcon from '@mui/icons-material/KeyboardDoubleArrowUp';
 import PersonOffOutlinedIcon from '@mui/icons-material/PersonOffOutlined';
 import StethoscopeIcon from '@mui/icons-material/MonitorHeartOutlined';
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import { alpha } from '@mui/material/styles';
-import { ARMAZON, ERROR } from '../../tema';
+import { usarColores, usarTinte } from '../../colores';
 import {
   ESPERA_LARGA_MINUTOS,
   cambiarOrden,
@@ -84,12 +83,12 @@ const REFRESCO_MS = 30_000;
  * El texto va en el mismo color y con mas peso —no en gris— porque sobre un
  * fondo tenido el negro corriente se ve sucio.
  */
-const opcion = (color: string) => ({
+const opcion = (color: string, tinte: (c: string, f?: 'suave' | 'fuerte') => string) => ({
   mx: 0.75,
   my: 0.25,
   borderRadius: 2,
-  bgcolor: alpha(color, 0.08),
-  '&:hover': { bgcolor: alpha(color, 0.16) },
+  bgcolor: tinte(color),
+  '&:hover': { bgcolor: tinte(color, 'fuerte') },
   '& .MuiListItemText-primary': { color, fontWeight: 600 },
 });
 
@@ -206,6 +205,10 @@ export function PaginaSalaEspera() {
   const { usuario } = usarSesion();
   const navegar = useNavigate();
   const clienteConsultas = useQueryClient();
+  // Los tonos del modo que se esta pintando. Escritos fijos, los tintes de los
+  // botones de atender desaparecian sobre el navy de noche.
+  const colores = usarColores();
+  const tinte = usarTinte();
 
   const [retirando, setRetirando] = useState<VisitaEnEspera | null>(null);
   const [motivo, setMotivo] = useState('');
@@ -514,7 +517,7 @@ export function PaginaSalaEspera() {
                     // Lo que se arrastra se apaga; donde va a caer se marca con
                     // una linea arriba. Sin esas dos senales, soltar es a ciegas.
                     opacity: seArrastra ? 0.4 : 1,
-                    boxShadow: caeAqui ? 'inset 0 3px 0 0 ' + PRIMARIO : 'none',
+                    boxShadow: caeAqui ? 'inset 0 3px 0 0 ' + colores.principal : 'none',
                     transition: 'opacity .12s ease',
                     '&:hover': { bgcolor: 'action.hover' },
                   }}
@@ -628,12 +631,12 @@ export function PaginaSalaEspera() {
                             width: 34,
                             height: 34,
                             borderRadius: 2,
-                            color: PRIMARIO,
-                            bgcolor: alpha(PRIMARIO, 0.08),
+                            color: colores.principal,
+                            bgcolor: tinte(colores.principal),
                             border: '1px solid',
-                            borderColor: alpha(PRIMARIO, 0.22),
+                            borderColor: alpha(colores.principal, 0.36),
                             transition: 'background-color .15s ease, transform .15s ease',
-                            '&:hover': { bgcolor: alpha(PRIMARIO, 0.16) },
+                            '&:hover': { bgcolor: tinte(colores.principal, 'fuerte') },
                             // El galon se da la vuelta con el menu abierto: dice
                             // que lo que se despliega sale de aqui, y que
                             // volver a pulsar lo cierra.
@@ -680,9 +683,9 @@ export function PaginaSalaEspera() {
               atender(v);
             }}
           
-            sx={opcion(PRIMARIO)}
+            sx={opcion(colores.principal, tinte)}
           >
-            <ListItemIcon sx={{ color: PRIMARIO }}>
+            <ListItemIcon sx={{ color: colores.principal }}>
               <StethoscopeIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText primary="Atender" secondary="Abre su ficha" />
@@ -699,9 +702,9 @@ export function PaginaSalaEspera() {
               setJustificando({ visita: v, posicion: 1, origen: 'frente' });
             }}
           
-            sx={opcion(ERROR)}
+            sx={opcion(colores.peligro, tinte)}
           >
-            <ListItemIcon sx={{ color: ERROR }}>
+            <ListItemIcon sx={{ color: colores.peligro }}>
               <KeyboardDoubleArrowUpIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText primary="Al frente" secondary="Pide el motivo" />
@@ -712,7 +715,7 @@ export function PaginaSalaEspera() {
           <Divider key="sep" />,
           <MenuItem
             key="se-fue"
-            sx={opcion(ARMAZON)}
+            sx={opcion(colores.armazon, tinte)}
             onClick={() => {
               const v = menuDe.visita;
               setMenuDe(null);
@@ -720,7 +723,7 @@ export function PaginaSalaEspera() {
               setRetirando(v);
             }}
           >
-            <ListItemIcon sx={{ color: ARMAZON }}>
+            <ListItemIcon sx={{ color: colores.armazon }}>
               <PersonOffOutlinedIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText primary="Se fue" secondary="Sin ser atendido" />

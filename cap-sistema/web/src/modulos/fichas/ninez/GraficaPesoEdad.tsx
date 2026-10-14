@@ -1,4 +1,4 @@
-import { Box, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import { Box, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography, useTheme } from '@mui/material';
 import type { PuntoCrecimiento, TendenciaPeso } from './servicio-carnet';
 import { edadDicha } from './carnet-ninez';
 
@@ -40,15 +40,63 @@ export const TENDENCIA: Record<
   SIN_ANTERIOR: { texto: 'Primer control', forma: 'circulo', color: 'text.secondary' },
 };
 
-/** Los colores resueltos, que dentro de un SVG no entienden los tokens de MUI. */
-const COLOR: Record<TendenciaPeso, string> = {
-  CRECE_BIEN: '#1b5e20',
-  NO_GANO: '#8a5a00',
-  PERDIO: '#b3261e',
-  SIN_ANTERIOR: '#4a6572',
+/**
+ * Los colores resueltos, que dentro de un SVG no entienden los tokens de MUI.
+ *
+ * Dos juegos, uno por modo. Los de dia estan oscurecidos para leerse sobre el
+ * papel claro; sobre el navy de noche el verde de «crece bien» y el azul de los
+ * ejes quedan mas oscuros que el fondo y la grafica se borra —las lineas, los
+ * numeros de los ejes y la mitad de los puntos—. Los de noche son los mismos
+ * tonos subidos de valor.
+ *
+ * Va aqui dentro y no en el tema porque son colores de UNA grafica: el tema
+ * tiene los de la interfaz, y mezclarlos haria que cambiar un boton moviera una
+ * curva de crecimiento.
+ */
+interface PaletaGrafica {
+  tendencia: Record<TendenciaPeso, string>;
+  /** La reticula gruesa de los kilos y la fina de los meses. */
+  rejilla: string;
+  rejillaFina: string;
+  /** Los numeros y los rotulos de los ejes. */
+  ejes: string;
+  /** La linea que une los controles. */
+  linea: string;
+  /** El relleno de los puntos y su halo: el color del papel de la grafica. */
+  papel: string;
+}
+
+const CLARA: PaletaGrafica = {
+  tendencia: {
+    CRECE_BIEN: '#1b5e20',
+    NO_GANO: '#8a5a00',
+    PERDIO: '#b3261e',
+    SIN_ANTERIOR: '#4a6572',
+  },
+  rejilla: '#d0dcdf',
+  rejillaFina: '#e8eff1',
+  ejes: '#4a6572',
+  linea: '#15607a',
+  papel: '#ffffff',
+};
+
+const OSCURA: PaletaGrafica = {
+  tendencia: {
+    CRECE_BIEN: '#5fd48a',
+    NO_GANO: '#e0a93a',
+    PERDIO: '#f26a6a',
+    SIN_ANTERIOR: '#9db4d0',
+  },
+  rejilla: '#2a4a6e',
+  rejillaFina: '#1b3a5c',
+  ejes: '#9db4d0',
+  linea: '#6fc5f5',
+  papel: '#0d2a4e',
 };
 
 export function GraficaPesoEdad({ puntos }: { puntos: readonly PuntoCrecimiento[] }) {
+  const paleta = useTheme().palette.mode === 'dark' ? OSCURA : CLARA;
+  const COLOR = paleta.tendencia;
   const conEdad = puntos.filter((p) => p.edadEnMeses !== null);
 
   if (conEdad.length === 0) {
@@ -104,10 +152,10 @@ export function GraficaPesoEdad({ puntos }: { puntos: readonly PuntoCrecimiento[
                 x2={ANCHO - MARGEN.derecha}
                 y1={y(v)}
                 y2={y(v)}
-                stroke="#d0dcdf"
+                stroke={paleta.rejilla}
                 strokeWidth={1}
               />
-              <text x={MARGEN.izquierda - 8} y={y(v) + 4} textAnchor="end" fontSize={11} fill="#4a6572">
+              <text x={MARGEN.izquierda - 8} y={y(v) + 4} textAnchor="end" fontSize={11} fill={paleta.ejes}>
                 {Math.round(v)}
               </text>
             </g>
@@ -120,7 +168,7 @@ export function GraficaPesoEdad({ puntos }: { puntos: readonly PuntoCrecimiento[
                 x2={x(a * 12)}
                 y1={MARGEN.arriba}
                 y2={MARGEN.arriba + TRAZO.alto}
-                stroke="#e8eff1"
+                stroke={paleta.rejillaFina}
                 strokeWidth={1}
               />
               <text
@@ -128,7 +176,7 @@ export function GraficaPesoEdad({ puntos }: { puntos: readonly PuntoCrecimiento[
                 y={ALTO - MARGEN.abajo + 18}
                 textAnchor="middle"
                 fontSize={11}
-                fill="#4a6572"
+                fill={paleta.ejes}
               >
                 {a === 0 ? 'Nace' : a + (a === 1 ? ' año' : ' años')}
               </text>
@@ -140,13 +188,13 @@ export function GraficaPesoEdad({ puntos }: { puntos: readonly PuntoCrecimiento[
             y={MARGEN.arriba - 4}
             textAnchor="end"
             fontSize={11}
-            fill="#4a6572"
+            fill={paleta.ejes}
           >
             Lb
           </text>
 
           {/* La linea del nino. Dos pixeles: es el dato, no el fondo. */}
-          <path d={linea} fill="none" stroke="#15607a" strokeWidth={2} />
+          <path d={linea} fill="none" stroke={paleta.linea} strokeWidth={2} />
 
           {/*
             El estado va en la FORMA, no en el color. Los tres colores de estado
@@ -172,7 +220,7 @@ export function GraficaPesoEdad({ puntos }: { puntos: readonly PuntoCrecimiento[
                   y={cy - 5}
                   width={10}
                   height={10}
-                  fill="#ffffff"
+                  fill={paleta.papel}
                   stroke={color}
                   strokeWidth={2.5}
                 >
@@ -188,7 +236,7 @@ export function GraficaPesoEdad({ puntos }: { puntos: readonly PuntoCrecimiento[
                     cx + ',' + (cy + 6) + ' ' + (cx - 6) + ',' + (cy - 5) + ' ' + (cx + 6) + ',' + (cy - 5)
                   }
                   fill={color}
-                  stroke="#ffffff"
+                  stroke={paleta.papel}
                   strokeWidth={1.5}
                 >
                   <title>{titulo}</title>
@@ -196,7 +244,7 @@ export function GraficaPesoEdad({ puntos }: { puntos: readonly PuntoCrecimiento[
               );
             }
             return (
-              <circle key={p.fecha} cx={cx} cy={cy} r={5} fill={color} stroke="#ffffff" strokeWidth={1.5}>
+              <circle key={p.fecha} cx={cx} cy={cy} r={5} fill={color} stroke={paleta.papel} strokeWidth={1.5}>
                 <title>{titulo}</title>
               </circle>
             );
@@ -261,12 +309,13 @@ export function GraficaPesoEdad({ puntos }: { puntos: readonly PuntoCrecimiento[
 
 /** La misma forma que en la gráfica, en pequeño. */
 function MarcaLeyenda({ tendencia }: { tendencia: TendenciaPeso }) {
+  const paleta = useTheme().palette.mode === 'dark' ? OSCURA : CLARA;
   const { forma } = TENDENCIA[tendencia];
-  const color = COLOR[tendencia];
+  const color = paleta.tendencia[tendencia];
   return (
     <svg width={14} height={14} aria-hidden focusable="false">
       {forma === 'cuadro' ? (
-        <rect x={2} y={2} width={10} height={10} fill="#ffffff" stroke={color} strokeWidth={2.5} />
+        <rect x={2} y={2} width={10} height={10} fill={paleta.papel} stroke={color} strokeWidth={2.5} />
       ) : forma === 'triangulo' ? (
         <polygon points="7,13 1,3 13,3" fill={color} />
       ) : (

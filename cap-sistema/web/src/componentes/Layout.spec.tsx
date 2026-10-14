@@ -121,7 +121,16 @@ describe('sin barra superior', () => {
     window.history.pushState({}, '', '/');
     render(<App />);
 
-    expect(await screen.findByRole('button', { name: 'Abrir el menu' })).toBeInTheDocument();
+    /*
+      `waitFor` y no `findByRole`, que seria lo natural: el reloj del panel se
+      actualiza solo, asi que React reemplaza nodos de esta zona por su cuenta.
+      `findByRole` devuelve el nodo que encontro y, si el reemplazo cae entre
+      medias, la asercion mira un nodo que ya no esta en el documento. Aqui se
+      vuelve a buscar en cada intento.
+    */
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Abrir el menu' })).toBeInTheDocument();
+    });
   });
 });
 

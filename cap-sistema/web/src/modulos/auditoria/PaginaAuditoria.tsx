@@ -26,7 +26,7 @@ import GppMaybeOutlinedIcon from '@mui/icons-material/GppMaybeOutlined';
 import { AvisoError } from '../../componentes/AvisoError';
 import { EncabezadoPagina, NotaPagina } from '../../componentes/EncabezadoPagina';
 import { MENU_FILTRO } from '../../componentes/menuFiltro';
-import { ARMAZON, ERROR, EXITO, PRIMARIO } from '../../tema';
+import { usarColores, type ColoresDeAccion } from '../../colores';
 import {
   consultarBitacora,
   ETIQUETA_ACCION,
@@ -35,15 +35,23 @@ import {
   type Registro,
 } from './servicio-auditoria';
 
-/** El color con que se lee cada accion, del mismo juego que el resto del panel. */
-const COLOR_ACCION: Record<string, string> = {
-  CONSULTA: ARMAZON,
-  CREACION: EXITO,
-  MODIFICACION: PRIMARIO,
-  ELIMINACION: ERROR,
-  IMPRESION: ARMAZON,
-  EXPORTACION: ERROR,
-};
+/**
+ * El color con que se lee cada accion, del mismo juego que el resto del panel.
+ *
+ * Una funcion y no una tabla fija: los tonos dependen del modo de color, y una
+ * tabla construida al importar el modulo se queda con los del modo claro para
+ * siempre. De noche, el azul del armazon es mas oscuro que el fondo sobre el
+ * que se dibuja y la columna de acciones se apaga entera.
+ */
+const colorDeAccion = (accion: string, c: ColoresDeAccion): string =>
+  ({
+    CONSULTA: c.armazon,
+    CREACION: c.exito,
+    MODIFICACION: c.principal,
+    ELIMINACION: c.peligro,
+    IMPRESION: c.armazon,
+    EXPORTACION: c.peligro,
+  })[accion] ?? c.armazon;
 
 const hoy = () => new Date().toISOString().slice(0, 10);
 
@@ -90,6 +98,7 @@ function Cambio({ r }: { r: Registro }) {
  * ningun diagnostico.
  */
 export function PaginaAuditoria() {
+  const colores = usarColores();
   const [servicio, setServicio] = useState('');
   const [accion, setAccion] = useState('');
   const [entidadId, setEntidadId] = useState('');
@@ -270,7 +279,7 @@ export function PaginaAuditoria() {
               </TableHead>
               <TableBody>
                 {resultados.datos.map((r) => {
-                  const color = COLOR_ACCION[r.accion] ?? ARMAZON;
+                  const color = colorDeAccion(r.accion, colores);
                   return (
                     <TableRow key={r.numero} hover>
                       <TableCell align="right" sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>

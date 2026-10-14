@@ -27,7 +27,6 @@ import {
   type PacienteCreado,
 } from './servicio-pacientes';
 import { MENU_FILTRO } from '../../componentes/menuFiltro';
-import { PRIMARIO } from '../../tema';
 import { NotaPagina } from '../../componentes/EncabezadoPagina';
 import {
   buscarCarpetas,
@@ -204,7 +203,7 @@ const ETIQUETA_GRUPO_LUGAR: Record<string, string> = {
 function TituloSeccion({ children }: { children: ReactNode }) {
   return (
     <Stack direction="row" sx={{ alignItems: 'center', gap: 1.25, mt: 1 }}>
-      <Box sx={{ width: 4, height: 20, borderRadius: 4, bgcolor: PRIMARIO, flexShrink: 0 }} />
+      <Box sx={{ width: 4, height: 20, borderRadius: 4, bgcolor: 'primary.main', flexShrink: 0 }} />
       <Typography
         component="h2"
         sx={{
