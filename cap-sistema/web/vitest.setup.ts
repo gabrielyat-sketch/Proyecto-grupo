@@ -73,6 +73,8 @@ configure({ asyncUtilTimeout: 10_000 });
  * prueba que quiera comprobar que se subio arriba pueda contar las llamadas.
  */
 beforeEach(() => {
+  // Las pruebas con `@vitest-environment node` (web/pruebas/) no tienen DOM.
+  if (typeof Element === 'undefined') return;
   Element.prototype.scrollIntoView = vi.fn();
   window.scrollTo = vi.fn();
 });

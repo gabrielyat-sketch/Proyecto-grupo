@@ -9,4 +9,5 @@ export * from './logging';
 export * from './openapi';
 export * from './paginacion';
 export * from './texto';
+export * from './transporte';
 export * from './traza';
