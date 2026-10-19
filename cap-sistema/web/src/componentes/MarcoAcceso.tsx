@@ -38,7 +38,15 @@ const INTEGRANTES = [
 const ESCUDOS = [
   { src: '/logo-umg.png', alto: 'Universidad Mariano Galvez' },
   { src: '/logo-ministerio.jpg', alto: 'Ministerio de Salud Publica y Asistencia Social' },
-  { src: '/logo-sistemas.jpg', alto: 'Ingenieria en Sistemas, UMG Coban' },
+  /*
+    El de la carrera va algo mas bajo que los otros dos, y no es un descuido.
+
+    Es un lockup apaisado —cuatro veces y media mas ancho que alto— mientras
+    que los otros dos son casi cuadrados. A la MISMA altura ocupa el doble de
+    superficie y se lee como el mas importante de los tres, que no es lo que
+    debe decir una fila de creditos. Bajarlo un 20 % los iguala a la vista.
+  */
+  { src: '/logo-sistemas.jpg', alto: 'Ingenieria en Sistemas, UMG Coban', escala: 0.8 },
 ];
 
 /**
@@ -48,9 +56,14 @@ const ESCUDOS = [
  * —y en una pantalla de acceso, peor aun: parece que el sistema esta averiado
  * antes de haber entrado—.
  */
-function Escudo({ src, alto }: { src: string; alto: string }) {
+function Escudo({ src, alto, escala = 1 }: { src: string; alto: string; escala?: number }) {
   const [falta, setFalta] = useState(false);
   if (falta) return null;
+
+  // En telefono bajan a 38: tres escudos de 58 no caben en 390 pixeles de
+  // ancho y se repartirian en dos renglones, que es mas alto que la tarjeta
+  // que viene debajo.
+  const alturas = { xs: 38, sm: 50, md: 58 };
 
   return (
     <Box
@@ -59,10 +72,11 @@ function Escudo({ src, alto }: { src: string; alto: string }) {
       alt={alto}
       onError={() => setFalta(true)}
       sx={{
-        // En telefono bajan a 38: tres escudos de 58 no caben en 390 pixeles
-        // de ancho y se repartirian en dos renglones, que es mas alto que la
-        // tarjeta que viene debajo.
-        height: { xs: 38, sm: 50, md: 58 },
+        height: {
+          xs: Math.round(alturas.xs * escala),
+          sm: Math.round(alturas.sm * escala),
+          md: Math.round(alturas.md * escala),
+        },
         width: 'auto',
         maxWidth: { xs: 120, md: 240 },
         objectFit: 'contain',
