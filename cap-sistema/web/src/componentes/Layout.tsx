@@ -343,7 +343,10 @@ export function Layout() {
         traen fondo blanco opaco y sueltos sobre el azul se verian como dos
         recortes. Y pequenos —22 pixeles— porque esto es un credito, no una
         marca: si pesaran mas que el nombre del centro que esta arriba, la
-        jerarquia del panel quedaria al reves.
+        jerarquia del panel quedaria al reves. El de la universidad va algo mas
+        alto que el de la carrera —28 contra 16— porque es un sello cuadrado y
+        el otro un lockup apaisado: a la misma altura, el apaisado ocupa el
+        triple de ancho y se come la fila.
 
         Con el menu encogido no se dibujan. En 72 pixeles de ancho los dos no
         caben, y partirlos en dos renglones convertiria el pie en un bloque mas
@@ -366,7 +369,7 @@ export function Layout() {
             component="img"
             src="/logo-umg.png"
             alt="Universidad Mariano Galvez"
-            sx={{ height: 22, width: 'auto', flexShrink: 0 }}
+            sx={{ height: 28, width: 'auto', flexShrink: 0 }}
           />
           {/*
             El de la carrera, mas bajo: es apaisado y el otro casi cuadrado, asi
