@@ -432,3 +432,32 @@ describe('volver al inicio', () => {
     ).toBeInTheDocument();
   });
 });
+
+/**
+ * El CAP los pidio dentro del sistema y no solo en la entrada: al pie del menu
+ * estan en TODAS las pantallas, no solo en la de inicio. Es la clase de detalle
+ * que desaparece en la primera limpieza de un archivo de 500 lineas si nadie lo
+ * fija.
+ *
+ * Que se oculten con el menu encogido no tiene prueba propia: salen con el
+ * mismo `textoDelMenu` que las etiquetas, y eso ya esta cubierto.
+ */
+describe('los escudos de la universidad y la carrera', () => {
+  it('estan al pie del menu, tambien dentro de un modulo', async () => {
+    entrarComo('ENFERMERIA');
+    window.history.pushState({}, '', '/programas');
+    render(<App />);
+
+    /*
+      Se vuelve a buscar en cada intento. El reloj del panel se actualiza solo,
+      asi que React reemplaza nodos de esta zona por su cuenta: un elemento
+      guardado en una variable puede estar fuera del documento una linea
+      despues.
+    */
+    await waitFor(() => {
+      const nav = navegacion();
+      expect(within(nav).getByAltText(/Universidad Mariano G/i)).toBeVisible();
+      expect(within(nav).getByAltText(/Ingenieria en Sistemas/i)).toBeVisible();
+    });
+  });
+});

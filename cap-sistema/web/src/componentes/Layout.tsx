@@ -329,6 +329,58 @@ export function Layout() {
         })}
       </List>
 
+      {/*
+        Los escudos de la universidad y de la carrera, al pie del menu.
+
+        El CAP los pidio dentro del sistema y no solo en la entrada. Van aqui
+        por descarte razonado: en el area de trabajo estorbarian —es donde se
+        leen tablas y se llenan fichas— y en una sola pantalla no cumplirian el
+        encargo, porque en cuanto se abre un modulo desaparecen. Al pie del
+        menu estan en TODAS las pantallas y en la unica franja que no compite
+        con nada: debajo de la ultima opcion y encima del borde.
+
+        Sobre una pastilla blanca por lo mismo que en la entrada: los archivos
+        traen fondo blanco opaco y sueltos sobre el azul se verian como dos
+        recortes. Y pequenos —22 pixeles— porque esto es un credito, no una
+        marca: si pesaran mas que el nombre del centro que esta arriba, la
+        jerarquia del panel quedaria al reves.
+
+        Con el menu encogido no se dibujan. En 72 pixeles de ancho los dos no
+        caben, y partirlos en dos renglones convertiria el pie en un bloque mas
+        alto que las propias opciones.
+      */}
+      <Stack sx={{ p: 1.5, pt: 0, flexShrink: 0, ...textoDelMenu }}>
+        <Stack
+          direction="row"
+          sx={{
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 1.25,
+            px: 1.25,
+            py: 0.75,
+            borderRadius: 2,
+            bgcolor: '#fff',
+          }}
+        >
+          <Box
+            component="img"
+            src="/logo-umg.png"
+            alt="Universidad Mariano Galvez"
+            sx={{ height: 22, width: 'auto', flexShrink: 0 }}
+          />
+          {/*
+            El de la carrera, mas bajo: es apaisado y el otro casi cuadrado, asi
+            que a la misma altura ocuparia el doble y se leeria como el
+            principal. Es el mismo ajuste que en la pantalla de entrada.
+          */}
+          <Box
+            component="img"
+            src="/logo-sistemas.jpg"
+            alt="Ingenieria en Sistemas, UMG Coban"
+            sx={{ height: 16, width: 'auto', maxWidth: 110, objectFit: 'contain', flexShrink: 1 }}
+          />
+        </Stack>
+      </Stack>
     </Stack>
   );
 
