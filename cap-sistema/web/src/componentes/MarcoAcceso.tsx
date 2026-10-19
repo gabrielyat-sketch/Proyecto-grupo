@@ -127,18 +127,42 @@ function IntegrantesDelProyecto() {
           '0 1px 2px rgba(255,255,255,.95), 0 0 10px rgba(255,255,255,.75)',
       }}
     >
+      {/*
+        Tres renglones y no uno, de mayor a menor: la institucion, la carrera y
+        lo que el equipo hizo. Puestos en una sola linea habria que leerla
+        entera para llegar a lo ultimo, que es lo que presenta a los nombres de
+        abajo.
+      */}
+      <Typography
+        component="h2"
+        sx={{ fontSize: { xs: 15, md: 17 }, fontWeight: 800, color: ENTRAR, lineHeight: 1.3 }}
+      >
+        Universidad Mariano Gálvez de Guatemala
+      </Typography>
+      <Typography
+        sx={{ fontSize: { xs: 13.5, md: 15 }, fontWeight: 700, color: ENTRAR, lineHeight: 1.35 }}
+      >
+        Ingeniería en Sistemas
+      </Typography>
       <Typography
         id="titulo-integrantes"
-        component="h2"
-        sx={{ fontSize: { xs: 15, md: 17 }, fontWeight: 800, color: ENTRAR, mb: 0.75 }}
+        sx={{
+          fontSize: { xs: 13, md: 14 },
+          fontWeight: 700,
+          color: '#0e2b36',
+          mb: 0.75,
+          mt: 0.25,
+        }}
       >
-        Integrantes del Proyecto
+        Desarrolladores e Investigadores
       </Typography>
 
       {/*
-        La lista toma su nombre del titulo de arriba, no de un `aria-label`
+        La lista toma su nombre del renglon de arriba, no de un `aria-label`
         aparte: asi lo que lee un lector de pantalla y lo que se ve escrito son
-        la misma cadena, y no pueden separarse al editar una de las dos.
+        la misma cadena, y no pueden separarse al editar una de las dos. De los
+        tres renglones el que la nombra es el tercero, que es el que dice QUE
+        son las personas de la lista.
       */}
       <Box
         component="ul"

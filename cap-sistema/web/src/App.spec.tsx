@@ -27,10 +27,20 @@ describe('acceso a la aplicacion', () => {
     expect(screen.getByRole('button', { name: /Entrar/i })).toBeInTheDocument();
   });
 
+  /**
+   * El bloque de credito pasa de un titulo a tres renglones —institucion,
+   * carrera y lo que el equipo hizo— y el que nombra a la lista es el tercero,
+   * que es el que dice QUE son las personas que vienen debajo.
+   */
   it('la pantalla de entrada nombra a los integrantes del proyecto', async () => {
     render(<App />);
 
-    const lista = await screen.findByRole('list', { name: /Integrantes del proyecto/i });
+    expect(
+      await screen.findByRole('heading', { name: /Universidad Mariano G.lvez de Guatemala/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Ingeniería en Sistemas')).toBeInTheDocument();
+
+    const lista = await screen.findByRole('list', { name: /Desarrolladores e Investigadores/i });
     expect(lista).toHaveTextContent('Dennis Alessandro Xona Isem');
     expect(lista).toHaveTextContent('Zulma Romineya López Ac');
     expect(lista).toHaveTextContent('Ramiro Gabriel Yat Yat');
