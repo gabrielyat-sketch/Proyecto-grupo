@@ -146,6 +146,9 @@ function IntegrantesDelProyecto() {
         lo que el equipo hizo. Puestos en una sola linea habria que leerla
         entera para llegar a lo ultimo, que es lo que presenta a los nombres de
         abajo.
+
+        `develop` traia la misma idea con solo el primer renglon; esta version
+        la incluye y anade la carrera, que es lo que el CAP pidio despues.
       */}
       <Typography
         component="h2"
