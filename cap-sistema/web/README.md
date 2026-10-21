@@ -4,7 +4,7 @@ React + TypeScript + Vite + MUI (arquitectura §7).
 
 ## Módulos
 
-`recepcion` · `expedientes` · `digitalizacion` · `programas` · `farmacia` · `reportes` ·
+`recepcion` · `expedientes` · `digitalizacion` · `programas` · `farmacia` ·
 `impresion` · `cms` · `administracion` · `auditoria`
 
 ## El requisito de usabilidad que no es cosmético

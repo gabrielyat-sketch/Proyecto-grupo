@@ -7,7 +7,6 @@ import ScannerIcon from '@mui/icons-material/Scanner';
 import EventSeatIcon from '@mui/icons-material/EventSeat';
 import MonitorHeartIcon from '@mui/icons-material/MonitorHeart';
 import MedicationIcon from '@mui/icons-material/Medication';
-import InsightsIcon from '@mui/icons-material/Insights';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import HistoryEduIcon from '@mui/icons-material/HistoryEdu';
 import FolderCopyIcon from '@mui/icons-material/FolderCopy';
@@ -167,17 +166,6 @@ export const MENU: readonly ElementoMenu[] = [
     // Lo que NO ve es la alerta de vencimientos: esa es de farmacia, y el
     // propio controlador la guarda para Farmacia, Administrador y Director.
     roles: ['ADMINISTRADOR', 'DIRECTOR', 'FARMACIA', 'MEDICO', 'ENFERMERIA'],
-  },
-  {
-    ruta: '/reportes',
-    acento: 'lavanda',
-    resumen: 'Indicadores del centro',
-    descripcion:
-      'Panel de indicadores y las cifras que el CAP reporta periodicamente al MSPAS, con exportacion a hoja de calculo (Etapa 10).',
-    etiqueta: 'Reportes',
-    icono: InsightsIcon,
-    roles: ['ADMINISTRADOR', 'DIRECTOR'],
-    pendiente: true,
   },
   {
     ruta: '/auditoria',
