@@ -147,13 +147,23 @@ describe('layout con menu por rol', () => {
     expect(menu).not.toHaveTextContent('Administracion');
   });
 
-  it('Farmacia ve su modulo pero no Digitalizacion ni Reportes', async () => {
+  it('Farmacia ve su modulo pero no Digitalizacion ni Auditoria', async () => {
     entrarComo('FARMACIA');
     render(<App />);
 
     const menu = await waitFor(navegacion);
     expect(menu).toHaveTextContent('Farmacia');
     expect(menu).not.toHaveTextContent('Digitalizacion');
+    expect(menu).not.toHaveTextContent('Auditoria');
+  });
+
+  it('Reportes ya no sale en el menu, ni para Direccion', async () => {
+    // Era de Direccion y del Administrador. El CAP pidio quitarlo.
+    entrarComo('ADMINISTRADOR');
+    render(<App />);
+
+    const menu = await waitFor(navegacion);
+    expect(menu).toHaveTextContent('Auditoria');
     expect(menu).not.toHaveTextContent('Reportes');
   });
 
@@ -192,28 +202,26 @@ describe('layout con menu por rol', () => {
 
   it('al pulsar una opcion se abre su pantalla', async () => {
     /*
-      Se usa un modulo que TODAVIA esta pendiente.
+      Antes se usaba Reportes, que no tenia pantalla y no consultaba nada. Se
+      quito, y ya no queda ningun modulo vacio del que tirar.
 
-      Ya paso dos veces: primero con Farmacia y ahora con Programas, que acaban
-      de tener pantalla propia. Una pantalla real consulta al servidor y aqui no
-      hay ninguno levantado, asi que la prueba dejaba de medir la navegacion del
-      menu —que es lo suyo— para medir una consulta que nunca responde.
-
-      El ultimo que queda pendiente es Reportes. Cuando tenga pantalla, esta
-      prueba habra que rehacerla montando un servidor de mentira, porque ya no
-      quedara ningun modulo vacio del que tirar.
+      Auditoria consulta al servidor y aqui no hay ninguno. Se deja la consulta
+      esperando para siempre: si fallara, el error cerraria la sesion y la
+      prueba mediria el login en vez de la navegacion del menu, que es lo suyo.
+      El encabezado se dibuja sin esperar los datos.
     */
-    // Direccion, porque Reportes es suyo y del Administrador; un medico no lo
+    vi.stubGlobal('fetch', () => new Promise(() => {}));
+    // Direccion, porque Auditoria es suya y del Administrador; un medico no la
     // tiene en el menu.
     entrarComo('DIRECTOR');
     render(<App />);
 
     await waitFor(navegacion);
     // Acotado al menu: el inicio tambien pinta una tarjeta con el mismo nombre.
-    await userEvent.click(within(navegacion()).getByRole('link', { name: /Reportes/i }));
+    await userEvent.click(within(navegacion()).getByRole('link', { name: /Auditoria/i }));
 
-    await waitFor(() => expect(window.location.pathname).toBe('/reportes'));
-    expect(screen.getByText(/aun no esta construido/i)).toBeInTheDocument();
+    await waitFor(() => expect(window.location.pathname).toBe('/auditoria'));
+    expect(await screen.findByRole('heading', { name: 'Auditoria' })).toBeInTheDocument();
   });
 
   it('el menu de cuenta permite cerrar sesion', async () => {
@@ -415,16 +423,21 @@ describe('volver al inicio', () => {
     const perfil = entrarComo('ADMINISTRADOR');
     const usuario = userEvent.setup();
     /*
-      Se arranca en Reportes y no en Recepcion a proposito: Recepcion pide las
-      comunidades al montar, aqui no hay servidor que conteste, y el fallo de
-      esa peticion cierra la sesion y devuelve al login. La prueba terminaba
-      comprobando la pantalla de entrar en vez del camino de vuelta. Reportes
-      esta pendiente, asi que dibuja su aviso sin pedir nada.
+      Se arranca en una direccion que no existe y no en Recepcion a proposito:
+      Recepcion pide las comunidades al montar, aqui no hay servidor que
+      conteste, y el fallo de esa peticion cierra la sesion y devuelve al
+      login. La prueba terminaba comprobando la pantalla de entrar en vez del
+      camino de vuelta. El aviso de "no existe" se dibuja con el menu al lado
+      y sin pedir nada.
+
+      Es /reportes, que existio hasta que el CAP pidio quitarlo: de paso se
+      comprueba que un enlace viejo no deja a nadie atrapado.
     */
     window.history.pushState({}, '', '/reportes');
     render(<App />);
 
     await waitFor(navegacion);
+    expect(screen.getByRole('heading', { name: /no existe/i })).toBeInTheDocument();
     await usuario.click(within(navegacion()).getByRole('link', { name: 'Inicio' }));
 
     expect(

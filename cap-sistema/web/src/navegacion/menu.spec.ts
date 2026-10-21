@@ -55,15 +55,19 @@ describe('menu por rol', () => {
     expect(porRol('/expedientes')).toEqual(todos);
   });
 
-  it('Reportes y Auditoria son de Administrador y Direccion', () => {
+  it('Auditoria es de Administrador y Direccion', () => {
     const esperado = Object.fromEntries(
       ROLES.map((r) => [r, r === 'ADMINISTRADOR' || r === 'DIRECTOR']),
     );
     const porRol = (ruta: string) =>
       Object.fromEntries(ROLES.map((r) => [r, puedeEntrar(r, ruta)]));
 
-    expect(porRol('/reportes')).toEqual(esperado);
     expect(porRol('/auditoria')).toEqual(esperado);
+  });
+
+  it('Reportes ya no existe: el CAP pidio quitarlo', () => {
+    expect(MENU.map((e) => e.ruta)).not.toContain('/reportes');
+    for (const rol of ROLES) expect(puedeEntrar(rol, '/reportes')).toBe(false);
   });
 
   it('un rol desconocido o ausente no ve nada', () => {
