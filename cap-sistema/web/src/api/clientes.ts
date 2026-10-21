@@ -4,6 +4,7 @@ import type { paths as RutasUsuarios } from './generado/usuarios';
 import type { paths as RutasProgramas } from './generado/programas';
 import type { paths as RutasMedicamentos } from './generado/medicamentos';
 import type { paths as RutasTrazabilidad } from './generado/trazabilidad';
+import { crearFetchCifrado } from './cifrado';
 import { almacenSesion } from './sesion-almacen';
 import { estaVigente } from './token';
 
@@ -33,6 +34,22 @@ const BASES = {
 } as const;
 
 /**
+ * Como salen las peticiones.
+ *
+ * En produccion, cifradas por encima de HTTPS (ver cifrado.ts): un proxy en el
+ * equipo, como Burp Suite, no ve ni puede editar usuario, contrasena, tokens
+ * ni datos. En desarrollo y en las pruebas van en claro, salvo con
+ * VITE_CIFRADO=1, para poder seguirlas en las herramientas del navegador.
+ *
+ * Se llama a `fetch` en cada peticion y no se guarda una referencia: las
+ * pruebas lo sustituyen despues de cargar este modulo.
+ */
+const CIFRAR = import.meta.env?.PROD === true || import.meta.env?.VITE_CIFRADO === '1';
+const enviar: (peticion: Request) => Promise<Response> = CIFRAR
+  ? crearFetchCifrado(BASES.auth + '/v1/transporte/llave', (peticion) => fetch(peticion))
+  : (peticion) => fetch(peticion);
+
+/**
  * Cliente sin middleware, exclusivo para renovar la sesion.
  *
  * Si el refresco pasara por el middleware, un 401 al renovar dispararia otro
@@ -40,7 +57,7 @@ const BASES = {
  */
 const clienteSinSesion = createClient<RutasAuth>({
   baseUrl: BASES.auth,
-  fetch: (peticion) => fetch(peticion),
+  fetch: enviar,
 });
 
 /**
@@ -144,7 +161,7 @@ const conSesion: Middleware = {
 };
 
 function crear<T extends object>(base: string) {
-  const cliente = createClient<T>({ baseUrl: base, fetch: (peticion) => fetch(peticion) });
+  const cliente = createClient<T>({ baseUrl: base, fetch: enviar });
   cliente.use(conSesion);
   return cliente;
 }

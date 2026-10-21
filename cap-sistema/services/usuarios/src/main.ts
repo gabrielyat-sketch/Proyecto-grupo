@@ -10,7 +10,7 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
-import { construirDocumentoOpenApi, FiltroExcepciones } from '@cap/shared';
+import { construirDocumentoOpenApi, FiltroExcepciones, instalarCifradoTransporte } from '@cap/shared';
 import { AppModule } from './app.module';
 import { leerEntorno } from './config/entorno';
 
@@ -24,6 +24,11 @@ async function arrancar(): Promise<void> {
   const app = await NestFactory.create(AppModule, { bufferLogs: false });
 
   app.use(helmet());
+
+  // Cifra el contenido de lo que va y viene del panel, por encima de HTTPS
+  // (ver transporte.ts en @cap/shared). Va aqui, antes de que Nest arranque,
+  // para quedar por delante del parser de JSON.
+  instalarCifradoTransporte(app, { jwtSecret: env.JWT_SECRET, obligatorio: env.NODE_ENV === 'production' });
 
   // En produccion el servicio vive detras del gateway de nginx y NUNCA se
   // expone directo (docker-compose.prod.yml no le publica puerto). Sin esto,
