@@ -53,7 +53,9 @@ describe('contrasena temporal', () => {
     render(<App />);
 
     await waitFor(() =>
-      expect(screen.getByRole('heading', { name: /Buen dia/i })).toBeInTheDocument(),
+      expect(
+        screen.getByRole('heading', { name: /Centro de Atención Permanente/i }),
+      ).toBeInTheDocument(),
     );
   });
 

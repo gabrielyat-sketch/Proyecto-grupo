@@ -86,7 +86,9 @@ describe('acceso a la aplicacion', () => {
     render(<App />);
 
     await waitFor(() =>
-      expect(screen.getByRole('heading', { name: /Buen dia, jlopez/i })).toBeInTheDocument(),
+      expect(
+        screen.getByRole('heading', { name: /Centro de Atención Permanente/i }),
+      ).toBeInTheDocument(),
     );
     // El inicio lista los modulos del rol, no el login.
     expect(screen.getByText(/modulos disponibles para su rol/i)).toBeInTheDocument();

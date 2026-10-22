@@ -420,7 +420,7 @@ describe('apariencia', () => {
 
 describe('volver al inicio', () => {
   it('la marca del menu lleva al menu de tarjetas desde cualquier modulo', async () => {
-    const perfil = entrarComo('ADMINISTRADOR');
+    entrarComo('ADMINISTRADOR');
     const usuario = userEvent.setup();
     /*
       Se arranca en una direccion que no existe y no en Recepcion a proposito:
@@ -441,7 +441,7 @@ describe('volver al inicio', () => {
     await usuario.click(within(navegacion()).getByRole('link', { name: 'Inicio' }));
 
     expect(
-      await screen.findByRole('heading', { name: new RegExp('Buen dia, ' + perfil.usuario) }),
+      await screen.findByRole('heading', { name: /Centro de Atención Permanente/ }),
     ).toBeInTheDocument();
   });
 });

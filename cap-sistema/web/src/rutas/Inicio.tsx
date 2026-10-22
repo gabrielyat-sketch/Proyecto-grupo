@@ -48,7 +48,7 @@ export function Inicio() {
       </Typography>
 
       <EncabezadoPagina
-        titulo={'Buen dia, ' + (usuario?.usuario ?? '')}
+        titulo="Centro de Atención Permanente"
         descripcion="Estos son los modulos disponibles para su rol."
         acciones={<EstadoPlataforma conectado={conectado} />}
       />
