@@ -5,7 +5,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   InputAdornment,
   Paper,
   Stack,
@@ -23,6 +22,7 @@ import { AvisoError } from '../../componentes/AvisoError';
 import { usarAtajo } from '../../navegacion/usarAtajo';
 import { interpretarBusqueda, motivoSinBuscar } from '../recepcion/busqueda';
 import { buscarPacientes, type PacienteResumen } from '../recepcion/servicio-pacientes';
+import { EsqueletoLista } from '../../componentes/Esqueletos';
 
 /**
  * Elegir a quién se le entrega.
@@ -88,9 +88,7 @@ export function SelectorPaciente({
       {resultados.isError ? <AvisoError error={resultados.error} /> : null}
 
       {puedeBuscar && resultados.isPending ? (
-        <Stack sx={{ alignItems: 'center', py: 3 }}>
-          <CircularProgress />
-        </Stack>
+        <EsqueletoLista filas={3} etiqueta="Buscando pacientes" />
       ) : null}
 
       {puedeBuscar && resultados.data && resultados.data.total === 0 ? (

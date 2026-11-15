@@ -120,6 +120,29 @@ function abrir(perfil: Perfil, ruta = '/administracion') {
 
 const esperarPanel = () => screen.findByRole('heading', { name: 'Administracion' });
 
+/**
+ * Abre el menu de acciones de la primera ficha y pulsa una de sus opciones.
+ *
+ * De las tres acciones de una cuenta, solo "Editar" esta a la vista; las dos
+ * que cierran la sesion de alguien viven tras el menu de la ficha. Abrirlo es
+ * parte del camino real del usuario, asi que la prueba lo recorre igual en vez
+ * de buscar un boton que ya no existe suelto.
+ */
+async function pulsarAccion(
+  usuario: ReturnType<typeof userEvent.setup>,
+  etiqueta: string | RegExp,
+) {
+  const menus = await screen.findAllByRole('button', { name: /^Mas acciones para/ });
+  await usuario.click(menus[0]);
+  await usuario.click(await screen.findByRole('menuitem', { name: etiqueta }));
+}
+
+/** Abre el menu de la primera ficha, para comprobar QUE opciones ofrece. */
+async function abrirMenuDeAcciones(usuario: ReturnType<typeof userEvent.setup>) {
+  const menus = await screen.findAllByRole('button', { name: /^Mas acciones para/ });
+  await usuario.click(menus[0]);
+}
+
 beforeEach(() => {
   peticiones = [];
   cuerpos = [];
@@ -173,7 +196,7 @@ describe('lista de cuentas', () => {
     abrir(ADMIN);
     await esperarPanel();
 
-    expect(await screen.findByText('Caal Xol, Maria')).toBeInTheDocument();
+    expect(await screen.findByText('Maria Caal Xol')).toBeInTheDocument();
     expect(screen.getByText('mcaal')).toBeInTheDocument();
     expect(screen.getByText('Enfermeria')).toBeInTheDocument();
   });
@@ -195,8 +218,10 @@ describe('lista de cuentas', () => {
     abrir(ADMIN);
     await esperarPanel();
 
-    const fila = (await screen.findByText('Administradora, Ana')).closest('tr') as HTMLElement;
-    expect(within(fila).getByText('Usted')).toBeInTheDocument();
+    const ficha = (await screen.findByText('Ana Administradora')).closest(
+      'article',
+    ) as HTMLElement;
+    expect(within(ficha).getByText('Usted')).toBeInTheDocument();
   });
 
   it('filtra por rol', async () => {
@@ -424,7 +449,7 @@ describe('restablecer la contrasena', () => {
     const usuario = userEvent.setup();
     abrir(ADMIN);
     await esperarPanel();
-    await usuario.click(await screen.findByRole('button', { name: /Restablecer contrasena/ }));
+    await pulsarAccion(usuario, /Restablecer contrasena/);
 
     expect(screen.getByText(/Su sesion se cierra de inmediato/)).toBeInTheDocument();
   });
@@ -439,7 +464,7 @@ describe('restablecer la contrasena', () => {
     const usuario = userEvent.setup();
     abrir(ADMIN);
     await esperarPanel();
-    await usuario.click(await screen.findByRole('button', { name: /Restablecer contrasena/ }));
+    await pulsarAccion(usuario, /Restablecer contrasena/);
 
     expect(screen.getByText(/tambien la desbloquea/)).toBeInTheDocument();
   });
@@ -449,7 +474,7 @@ describe('restablecer la contrasena', () => {
     const usuario = userEvent.setup();
     abrir(ADMIN);
     await esperarPanel();
-    await usuario.click(await screen.findByRole('button', { name: /Restablecer contrasena/ }));
+    await pulsarAccion(usuario, /Restablecer contrasena/);
     await usuario.click(screen.getByRole('button', { name: 'Restablecer' }));
 
     expect(await screen.findByText('Contrasena restablecida')).toBeInTheDocument();
@@ -461,7 +486,7 @@ describe('restablecer la contrasena', () => {
     const usuario = userEvent.setup();
     abrir(ADMIN);
     await esperarPanel();
-    await usuario.click(await screen.findByRole('button', { name: /Restablecer contrasena/ }));
+    await pulsarAccion(usuario, /Restablecer contrasena/);
     await usuario.click(screen.getByRole('button', { name: 'Cancelar' }));
 
     const envios = peticiones.filter((p) => p.url.includes('restablecer'));
@@ -509,9 +534,9 @@ describe('el estado de una cuenta', () => {
     abrir(ADMIN);
     await esperarPanel();
 
-    const con = (await screen.findByText('conmfa')).closest('tr') as HTMLElement;
-    const sin = (await screen.findByText('sinmfa')).closest('tr') as HTMLElement;
-    expect(within(con).getByText('2FA')).toBeInTheDocument();
+    const con = (await screen.findByText('conmfa')).closest('article') as HTMLElement;
+    const sin = (await screen.findByText('sinmfa')).closest('article') as HTMLElement;
+    expect(within(con).getByText('2FA activo')).toBeInTheDocument();
     expect(within(sin).getByText('2FA pendiente')).toBeInTheDocument();
   });
 
@@ -535,10 +560,12 @@ describe('reiniciar el segundo factor', () => {
    */
   it('se ofrece en las cuentas que lo tienen configurado', async () => {
     servidor({ cuentas: [cuenta({ mfaActivo: true })] });
+    const usuario = userEvent.setup();
     abrir(ADMIN);
     await esperarPanel();
+    await abrirMenuDeAcciones(usuario);
 
-    expect(await screen.findByRole('button', { name: 'Reiniciar 2FA' })).toBeInTheDocument();
+    expect(await screen.findByRole('menuitem', { name: 'Reiniciar 2FA' })).toBeInTheDocument();
   });
 
   /**
@@ -547,11 +574,13 @@ describe('reiniciar el segundo factor', () => {
    */
   it('NO se ofrece en una cuenta que no lo tiene', async () => {
     servidor({ cuentas: [cuenta({ mfaActivo: false, rol: 'DIRECTOR' })] });
+    const usuario = userEvent.setup();
     abrir(ADMIN);
     await esperarPanel();
-
     await screen.findByText('mcaal');
-    expect(screen.queryByRole('button', { name: 'Reiniciar 2FA' })).not.toBeInTheDocument();
+    await abrirMenuDeAcciones(usuario);
+
+    expect(screen.queryByRole('menuitem', { name: 'Reiniciar 2FA' })).not.toBeInTheDocument();
   });
 
   it('explica lo que se borra antes de hacerlo', async () => {
@@ -559,7 +588,7 @@ describe('reiniciar el segundo factor', () => {
     const usuario = userEvent.setup();
     abrir(ADMIN);
     await esperarPanel();
-    await usuario.click(await screen.findByRole('button', { name: 'Reiniciar 2FA' }));
+    await pulsarAccion(usuario, 'Reiniciar 2FA');
 
     expect(screen.getByText(/codigos de respaldo, y su sesion se cierra/)).toBeInTheDocument();
   });
@@ -570,7 +599,7 @@ describe('reiniciar el segundo factor', () => {
     const usuario = userEvent.setup();
     abrir(ADMIN);
     await esperarPanel();
-    await usuario.click(await screen.findByRole('button', { name: 'Reiniciar 2FA' }));
+    await pulsarAccion(usuario, 'Reiniciar 2FA');
 
     expect(screen.getByText(/haciendose pasar por ella/)).toBeInTheDocument();
   });
@@ -580,7 +609,7 @@ describe('reiniciar el segundo factor', () => {
     const usuario = userEvent.setup();
     abrir(ADMIN);
     await esperarPanel();
-    await usuario.click(await screen.findByRole('button', { name: 'Reiniciar 2FA' }));
+    await pulsarAccion(usuario, 'Reiniciar 2FA');
     await usuario.click(screen.getByRole('button', { name: 'Reiniciar' }));
 
     expect(await screen.findByText(/le pedira configurarlo de nuevo/)).toBeInTheDocument();
@@ -591,7 +620,7 @@ describe('reiniciar el segundo factor', () => {
     const usuario = userEvent.setup();
     abrir(ADMIN);
     await esperarPanel();
-    await usuario.click(await screen.findByRole('button', { name: 'Reiniciar 2FA' }));
+    await pulsarAccion(usuario, 'Reiniciar 2FA');
     await usuario.click(screen.getByRole('button', { name: 'Reiniciar' }));
 
     expect(await screen.findByText(/entrara sin el hasta que decida/)).toBeInTheDocument();
@@ -602,7 +631,7 @@ describe('reiniciar el segundo factor', () => {
     const usuario = userEvent.setup();
     abrir(ADMIN);
     await esperarPanel();
-    await usuario.click(await screen.findByRole('button', { name: 'Reiniciar 2FA' }));
+    await pulsarAccion(usuario, 'Reiniciar 2FA');
     await usuario.click(screen.getByRole('button', { name: 'Cancelar' }));
 
     expect(peticiones.filter((p) => p.url.includes('reiniciar-mfa'))).toHaveLength(0);

@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   IconButton,
   ListItemIcon,
   ListItemText,
@@ -44,6 +43,7 @@ import {
   listarEmbarazos,
   listarHipertensos,
 } from './servicio-programas';
+import { EsqueletoTabla } from '../../componentes/Esqueletos';
 
 /** «17/09/2026» */
 const fecha = (iso: string | null) =>
@@ -249,9 +249,7 @@ function Embarazos() {
   if (todos.isError) return <AvisoError error={todos.error} />;
   if (todos.isPending) {
     return (
-      <Stack sx={{ alignItems: 'center', py: 6 }}>
-        <CircularProgress />
-      </Stack>
+      <EsqueletoTabla columnas={6} filas={4} etiqueta="Cargando el seguimiento" />
     );
   }
 
@@ -453,9 +451,7 @@ function Hipertensos() {
   if (todos.isError) return <AvisoError error={todos.error} />;
   if (todos.isPending) {
     return (
-      <Stack sx={{ alignItems: 'center', py: 6 }}>
-        <CircularProgress />
-      </Stack>
+      <EsqueletoTabla columnas={6} filas={4} etiqueta="Cargando el seguimiento" />
     );
   }
 

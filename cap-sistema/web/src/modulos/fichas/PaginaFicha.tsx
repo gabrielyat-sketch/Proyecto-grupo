@@ -8,7 +8,6 @@ import {
   Button,
   Checkbox,
   Chip,
-  CircularProgress,
   FormControlLabel,
   Stack,
   TextField,
@@ -54,6 +53,7 @@ import { EncabezadoFicha } from './EncabezadoFicha';
 import { LineaPregunta, SelectorSiNo } from './SelectorRespuesta';
 import { usarVolver } from '../../navegacion/usarVolver';
 import { AvisoDeEdad, HojaDeEmbarazo } from './CambioDeFicha';
+import { EsqueletoLista, EsqueletoResumen } from '../../componentes/Esqueletos';
 
 /**
  * Memorizadas porque la ficha entera es un solo estado.
@@ -320,10 +320,13 @@ export function PaginaFicha() {
     if (paciente.isError) return <AvisoError error={paciente.error} />;
     if (catalogo.isError) return <AvisoError error={catalogo.error} />;
     if (antecedentes.isError) return <AvisoError error={antecedentes.error} />;
+    // La ficha espera tres consultas —paciente, catalogo y antecedentes— y en
+    // la red del CAP eso son segundos. La silueta deja la cabecera del
+    // paciente en su sitio para que el formulario no entre empujandola.
     return (
-      <Stack sx={{ alignItems: 'center', py: 8, gap: 2 }}>
-        <CircularProgress />
-        <Typography color="text.secondary">Cargando el formulario...</Typography>
+      <Stack sx={{ gap: 2 }}>
+        <EsqueletoResumen campos={4} etiqueta="Cargando el formulario" />
+        <EsqueletoLista filas={3} etiqueta="Cargando las secciones" />
       </Stack>
     );
   }

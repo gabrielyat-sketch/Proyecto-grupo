@@ -30,6 +30,7 @@ import {
   type EstadoDigitalizacion,
   type ExpedienteEnCola,
 } from './servicio-digitalizacion';
+import { EsqueletoLista } from '../../componentes/Esqueletos';
 
 /** Quien llena las fichas del papel. Recepcion captura los datos personales. */
 const TRANSCRIBEN = ['MEDICO', 'ENFERMERIA'];
@@ -322,9 +323,7 @@ export function PaginaDigitalizacion() {
           </Stack>
 
           {expedientes.isLoading && !expedientes.data ? (
-            <Stack sx={{ alignItems: 'center', py: 4 }}>
-              <CircularProgress />
-            </Stack>
+            <EsqueletoLista filas={4} etiqueta="Cargando la cola de trabajo" />
           ) : expedientes.isError ? (
             <AvisoError error={expedientes.error} />
           ) : expedientes.data && expedientes.data.total === 0 ? (

@@ -57,6 +57,25 @@ export interface AvatarUsuarioProps {
   tamano?: number;
   /** Texto del tooltip. Sin el, el avatar no dice nada a quien no reconoce las iniciales. */
   descripcion?: string;
+  /**
+   * Color de fondo impuesto desde fuera.
+   *
+   * Por defecto el avatar se pinta con un color derivado del usuario, que da a
+   * cada persona una marca estable. En las fichas del personal eso chocaba: el
+   * anillo iba del color del ROL y el relleno de otro color cualquiera, de modo
+   * que una misma ficha mostraba dos sistemas de color a la vez. Alli se impone
+   * el del rol para que la ficha se lea como una sola pieza.
+   */
+  color?: string;
+  /**
+   * Como `color`, pero un degradado CSS completo. Tiene prioridad sobre el.
+   * Lo usan las fichas del personal, donde el retrato y el boton comparten el
+   * mismo degradado del rol y eso es lo que hace que la ficha se vea de una
+   * pieza.
+   */
+  degradado?: string;
+  /** Acompana a `color`: el tono de las iniciales que de verdad contraste con el. */
+  colorTexto?: string;
 }
 
 export function AvatarUsuario({
@@ -66,6 +85,9 @@ export function AvatarUsuario({
   conectado,
   tamano = 36,
   descripcion,
+  color,
+  degradado,
+  colorTexto,
 }: AvatarUsuarioProps) {
   const iniciales = inicialesDe(usuario, nombres, apellidos);
   const estado = conectado === undefined ? '' : conectado ? ', conectado' : ', desconectado';
@@ -76,8 +98,9 @@ export function AvatarUsuario({
       sx={{
         width: tamano,
         height: tamano,
-        bgcolor: colorDe(usuario),
-        color: '#fff',
+        bgcolor: color ?? colorDe(usuario),
+        ...(degradado ? { background: degradado } : null),
+        color: colorTexto ?? '#fff',
         // La proporcion la marca el tamano: un avatar de 24 px con la letra de
         // uno de 40 se ve roto.
         fontSize: Math.round(tamano * 0.4),

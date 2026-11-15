@@ -7,7 +7,6 @@ import {
   Box,
   Button,
   Checkbox,
-  CircularProgress,
   Divider,
   FormControlLabel,
   Stack,
@@ -49,6 +48,7 @@ import {
   type CampoVitalNinez,
   tieneContenidoNinez,
 } from './borrador-ninez';
+import { EsqueletoResumen } from '../../../componentes/Esqueletos';
 
 /**
  * Las secciones, con el numeral que trae la hoja.
@@ -182,9 +182,7 @@ export function PaginaFichaNinez() {
 
   if (paciente.isPending || catalogo.isPending) {
     return (
-      <Stack sx={{ alignItems: 'center', py: 6 }}>
-        <CircularProgress />
-      </Stack>
+      <EsqueletoResumen campos={4} etiqueta="Cargando la ficha" />
     );
   }
 

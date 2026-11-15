@@ -1,6 +1,6 @@
 import { Link as EnlaceRuta, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Box, Button, CircularProgress, Paper, Stack, Typography } from '@mui/material';
+import { Box, Button, Paper, Stack, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { AvisoError } from '../../componentes/AvisoError';
 import { BaldosaArchivo, ReticulaArchivo } from '../../componentes/BaldosaArchivo';
@@ -11,6 +11,7 @@ import { nombresDeCarpeta, obtenerCarpeta } from './servicio-carpetas';
 import ChildCareOutlinedIcon from '@mui/icons-material/ChildCareOutlined';
 import { usarSesion } from '../sesion/contexto';
 import { puedeEntrar } from '../../navegacion/menu';
+import { EsqueletoResumen } from '../../componentes/Esqueletos';
 
 /** «12 anos», o los meses cuando todavia no cumple uno. */
 function edadDicha(anios: number): string {
@@ -41,9 +42,7 @@ export function PaginaCarpeta() {
 
   if (carpeta.isPending) {
     return (
-      <Stack sx={{ alignItems: 'center', py: 6 }}>
-        <CircularProgress />
-      </Stack>
+      <EsqueletoResumen campos={3} etiqueta="Cargando la carpeta" />
     );
   }
   if (carpeta.isError) return <AvisoError error={carpeta.error} />;

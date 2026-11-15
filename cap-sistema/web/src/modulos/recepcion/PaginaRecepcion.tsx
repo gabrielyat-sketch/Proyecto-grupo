@@ -5,7 +5,6 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -29,6 +28,7 @@ import { MENU_FILTRO } from '../../componentes/menuFiltro';
 import { EncabezadoPagina, NotaPagina } from '../../componentes/EncabezadoPagina';
 import { marcarLlegada } from '../espera/servicio-espera';
 import { TablaPacientes } from './TablaPacientes';
+import { EsqueletoTabla } from '../../componentes/Esqueletos';
 
 /**
  * Busqueda de recepcion: el camino critico del sistema.
@@ -201,9 +201,7 @@ export function PaginaRecepcion() {
       ) : null}
 
       {resultados.isFetching ? (
-        <Stack sx={{ alignItems: 'center', py: 4 }}>
-          <CircularProgress />
-        </Stack>
+        <EsqueletoTabla columnas={7} filas={4} etiqueta="Cargando los pacientes" />
       ) : null}
 
       {resultados.isError ? <AvisoError error={resultados.error} /> : null}

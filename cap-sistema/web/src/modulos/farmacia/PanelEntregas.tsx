@@ -4,7 +4,6 @@ import {
   Alert,
   Box,
   Chip,
-  CircularProgress,
   Pagination,
   Paper,
   Stack,
@@ -19,6 +18,7 @@ import {
 import { AvisoError } from '../../componentes/AvisoError';
 import { conUnidad } from './servicio-farmacia';
 import { fechaHora, listarEntregas } from './servicio-entregas';
+import { EsqueletoTabla } from '../../componentes/Esqueletos';
 
 /**
  * Historial de entregas, lo más reciente primero.
@@ -42,9 +42,7 @@ export function PanelEntregas() {
 
   if (entregas.isPending) {
     return (
-      <Stack sx={{ alignItems: 'center', py: 4 }}>
-        <CircularProgress />
-      </Stack>
+      <EsqueletoTabla columnas={5} filas={4} etiqueta="Cargando las entregas" />
     );
   }
   if (entregas.isError) return <AvisoError error={entregas.error} />;
