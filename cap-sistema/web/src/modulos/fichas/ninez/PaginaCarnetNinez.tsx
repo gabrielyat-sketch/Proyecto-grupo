@@ -43,6 +43,7 @@ import {
   fechaEntrega,
   tramosAlcanzados,
 } from './carnet-ninez';
+import { EsqueletoResumen } from '../../../componentes/Esqueletos';
 
 const ESCOLARIDAD = [
   { valor: 'NINGUNO', texto: 'Ninguno' },
@@ -124,9 +125,7 @@ export function PaginaCarnetNinez() {
 
   if (paciente.isPending || catalogo.isPending || carnet.isPending) {
     return (
-      <Stack sx={{ alignItems: 'center', py: 6 }}>
-        <CircularProgress />
-      </Stack>
+      <EsqueletoResumen campos={4} etiqueta="Cargando el carnet" />
     );
   }
 

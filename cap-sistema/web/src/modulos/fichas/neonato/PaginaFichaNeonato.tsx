@@ -7,7 +7,6 @@ import {
   Box,
   Button,
   Checkbox,
-  CircularProgress,
   Collapse,
   Divider,
   FormControlLabel,
@@ -50,6 +49,7 @@ import {
   type CampoExamenNeonato,
   tieneContenidoNeonato,
 } from './borrador-neonato';
+import { EsqueletoResumen } from '../../../componentes/Esqueletos';
 
 const SECCIONES: readonly EntradaIndice[] = [
   { clave: 'servicio', numeral: '1', titulo: 'Identificación del servicio' },
@@ -240,9 +240,7 @@ export function PaginaFichaNeonato() {
 
   if (paciente.isPending || catalogo.isPending) {
     return (
-      <Stack sx={{ alignItems: 'center', py: 6 }}>
-        <CircularProgress />
-      </Stack>
+      <EsqueletoResumen campos={4} etiqueta="Cargando la ficha" />
     );
   }
 

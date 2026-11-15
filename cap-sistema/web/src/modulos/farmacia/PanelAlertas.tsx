@@ -6,7 +6,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Pagination,
   Paper,
   Stack,
@@ -37,12 +36,11 @@ import {
   URGENTE_DIAS,
   vencidoHace,
 } from './servicio-farmacia';
+import { EsqueletoTabla } from '../../componentes/Esqueletos';
 
 function Cargando() {
   return (
-    <Stack sx={{ alignItems: 'center', py: 4 }}>
-      <CircularProgress />
-    </Stack>
+    <EsqueletoTabla columnas={5} filas={4} etiqueta="Cargando las alertas" />
   );
 }
 

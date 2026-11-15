@@ -6,7 +6,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Divider,
   Paper,
   Stack,
@@ -39,6 +38,7 @@ import {
   puede,
   PUEDE_ADMINISTRAR,
 } from './servicio-farmacia';
+import { EsqueletoResumen } from '../../componentes/Esqueletos';
 
 /**
  * Lo que los diálogos de conteo y de baja necesitan saber del lote.
@@ -115,9 +115,7 @@ export function PaginaMedicamento() {
 
   if (medicamento.isPending) {
     return (
-      <Stack sx={{ alignItems: 'center', py: 6 }}>
-        <CircularProgress />
-      </Stack>
+      <EsqueletoResumen campos={5} etiqueta="Cargando el medicamento" />
     );
   }
 

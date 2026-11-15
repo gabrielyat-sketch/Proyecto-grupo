@@ -5,7 +5,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   FormControlLabel,
   InputAdornment,
   Link,
@@ -36,6 +35,7 @@ import {
   puede,
   PUEDE_ADMINISTRAR,
 } from './servicio-farmacia';
+import { EsqueletoTabla } from '../../componentes/Esqueletos';
 
 /**
  * El catálogo, que es la pregunta de todos los días: "¿hay de esto?".
@@ -135,9 +135,7 @@ export function PanelCatalogo() {
       {catalogo.isError ? <AvisoError error={catalogo.error} /> : null}
 
       {catalogo.isPending ? (
-        <Stack sx={{ alignItems: 'center', py: 4 }}>
-          <CircularProgress />
-        </Stack>
+        <EsqueletoTabla columnas={7} filas={5} etiqueta="Cargando el catalogo" />
       ) : null}
 
       {catalogo.data ? (

@@ -6,7 +6,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   MenuItem,
   Pagination,
   Paper,
@@ -34,6 +33,7 @@ import {
   verificarCadena,
   type Registro,
 } from './servicio-auditoria';
+import { EsqueletoTabla } from '../../componentes/Esqueletos';
 
 /**
  * El color con que se lee cada accion, del mismo juego que el resto del panel.
@@ -248,9 +248,7 @@ export function PaginaAuditoria() {
       {bitacora.isError ? <AvisoError error={bitacora.error} /> : null}
 
       {bitacora.isPending ? (
-        <Stack sx={{ alignItems: 'center', py: 6 }}>
-          <CircularProgress />
-        </Stack>
+        <EsqueletoTabla columnas={6} filas={6} etiqueta="Cargando la bitacora" />
       ) : null}
 
       {resultados && resultados.datos.length === 0 ? (

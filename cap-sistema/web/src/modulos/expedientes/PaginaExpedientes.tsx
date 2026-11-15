@@ -6,7 +6,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   InputAdornment,
   Paper,
   Stack,
@@ -20,6 +19,7 @@ import { EncabezadoPagina } from '../../componentes/EncabezadoPagina';
 import { usarAtajo } from '../../navegacion/usarAtajo';
 import { esErrorApi } from '../../api';
 import { buscarExpediente } from './servicio-expedientes';
+import { EsqueletoLista } from '../../componentes/Esqueletos';
 
 const ETIQUETA_DIGITALIZACION: Record<string, string> = {
   PENDIENTE: 'Sin transcribir',
@@ -120,9 +120,7 @@ export function PaginaExpedientes() {
       </Paper>
 
       {expediente.isFetching ? (
-        <Stack sx={{ alignItems: 'center', py: 4 }}>
-          <CircularProgress />
-        </Stack>
+        <EsqueletoLista filas={3} etiqueta="Buscando el expediente" />
       ) : null}
 
       {noExiste ? (

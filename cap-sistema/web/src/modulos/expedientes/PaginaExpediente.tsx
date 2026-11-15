@@ -7,7 +7,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Pagination,
   Paper,
   Stack,
@@ -26,6 +25,7 @@ import { obtenerHistorial } from './servicio-expedientes';
 import { fichaParaPaciente } from '../fichas/ficha-por-edad';
 import { DialogoEditarPaciente } from './DialogoEditarPaciente';
 import { DialogoBorrarPaciente } from './DialogoBorrarPaciente';
+import { EsqueletoLista, EsqueletoResumen } from '../../componentes/Esqueletos';
 
 /**
  * Quien puede corregir los datos de un paciente.
@@ -87,9 +87,7 @@ export function PaginaExpediente() {
 
   if (paciente.isLoading) {
     return (
-      <Stack sx={{ alignItems: 'center', py: 8 }}>
-        <CircularProgress />
-      </Stack>
+      <EsqueletoResumen campos={4} etiqueta="Cargando el paciente" />
     );
   }
 
@@ -215,9 +213,7 @@ export function PaginaExpediente() {
           </Stack>
 
           {historial.isLoading && !historial.data ? (
-            <Stack sx={{ alignItems: 'center', py: 4 }}>
-              <CircularProgress />
-            </Stack>
+            <EsqueletoLista filas={3} etiqueta="Cargando el historial" />
           ) : historial.isError ? (
             <AvisoError error={historial.error} />
           ) : historial.data && historial.data.total === 0 ? (

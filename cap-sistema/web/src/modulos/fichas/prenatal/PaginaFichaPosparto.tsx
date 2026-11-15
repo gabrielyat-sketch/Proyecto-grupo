@@ -7,7 +7,6 @@ import {
   Box,
   Button,
   Checkbox,
-  CircularProgress,
   FormControlLabel,
   MenuItem,
   Stack,
@@ -40,6 +39,7 @@ import {
   type BorradorPosparto,
   type HojaPosparto,
 } from './borrador-prenatal';
+import { EsqueletoResumen } from '../../../componentes/Esqueletos';
 
 const SECCIONES: readonly EntradaIndice[] = [
   { clave: 'datos', numeral: 'II', titulo: 'Establecimiento y paciente' },
@@ -132,9 +132,7 @@ export function PaginaFichaPosparto() {
 
   if (paciente.isPending || catalogo.isPending) {
     return (
-      <Stack sx={{ alignItems: 'center', py: 6 }}>
-        <CircularProgress />
-      </Stack>
+      <EsqueletoResumen campos={4} etiqueta="Cargando la ficha" />
     );
   }
 

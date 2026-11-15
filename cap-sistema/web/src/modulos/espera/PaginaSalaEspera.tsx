@@ -6,7 +6,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -46,6 +45,7 @@ import {
   retirarVisita,
   type VisitaEnEspera,
 } from './servicio-espera';
+import { EsqueletoLista } from '../../componentes/Esqueletos';
 
 const ATIENDEN = ['MEDICO', 'ENFERMERIA'];
 const CIERRAN = ['RECEPCION', 'ADMINISTRADOR', 'ENFERMERIA'];
@@ -437,9 +437,7 @@ export function PaginaSalaEspera() {
       ) : null}
 
       {espera.isLoading ? (
-        <Stack sx={{ alignItems: 'center', py: 6 }}>
-          <CircularProgress />
-        </Stack>
+        <EsqueletoLista filas={4} etiqueta="Cargando la cola" />
       ) : gente.length === 0 ? (
         <Alert severity="info">
           No hay nadie esperando. Recepcion marca la llegada de cada paciente al entrar.

@@ -7,7 +7,6 @@ import {
   Box,
   Button,
   Checkbox,
-  CircularProgress,
   FormControlLabel,
   Stack,
   TextField,
@@ -49,6 +48,7 @@ import {
   type BorradorPrenatal,
   type HojaPrenatal,
 } from './borrador-prenatal';
+import { EsqueletoResumen } from '../../../componentes/Esqueletos';
 
 /**
  * Las secciones, con el numeral que trae la hoja.
@@ -202,9 +202,7 @@ export function PaginaFichaPrenatal() {
 
   if (paciente.isPending || catalogo.isPending) {
     return (
-      <Stack sx={{ alignItems: 'center', py: 6 }}>
-        <CircularProgress />
-      </Stack>
+      <EsqueletoResumen campos={4} etiqueta="Cargando la ficha" />
     );
   }
 
