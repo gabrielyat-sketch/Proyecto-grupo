@@ -4,8 +4,6 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -14,37 +12,29 @@ import {
   InputAdornment,
   MenuItem,
   Pagination,
-  Paper,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import { AvisoError } from '../../componentes/AvisoError';
-import { AvatarUsuario } from '../../componentes/AvatarUsuario';
 import { EncabezadoPagina } from '../../componentes/EncabezadoPagina';
 import { MENU_FILTRO } from '../../componentes/menuFiltro';
 import { usarAtajo } from '../../navegacion/usarAtajo';
 import { usarSesion } from '../sesion/contexto';
 import { DialogoContrasenaTemporal } from './DialogoContrasenaTemporal';
 import { DialogoEditarCuenta, DialogoNuevaCuenta } from './DialogoCuenta';
+import { TarjetaCuenta } from './TarjetaCuenta';
 import {
   ETIQUETA_ROL,
-  EXIGEN_MFA,
   LISTA_ROLES,
   listarCuentas,
   reiniciarMfa,
   restablecerContrasena,
-  ultimoAccesoEnPalabras,
   type Cuenta,
 } from './servicio-cuentas';
+import { EsqueletoFichas } from '../../componentes/Esqueletos';
 
 /** Lo que hay que mostrar de una contraseña recién generada. */
 interface Temporal {
@@ -186,10 +176,13 @@ export function PaginaAdministracion() {
         </Alert>
       ) : null}
 
+      {/*
+        Seis siluetas y no una: es el tamano habitual de la plantilla del CAP,
+        asi que la rejilla queda del alto que va a tener y la pagina no brinca
+        cuando llegan las cuentas.
+      */}
       {cuentas.isPending ? (
-        <Stack sx={{ alignItems: 'center', py: 4 }}>
-          <CircularProgress />
-        </Stack>
+        <EsqueletoFichas cantidad={6} alto={300} minimo={260} etiqueta="Cargando las cuentas" />
       ) : null}
 
       {cuentas.data && cuentas.data.total === 0 ? (
@@ -204,151 +197,30 @@ export function PaginaAdministracion() {
             {cuentas.data.total === 1 ? '1 cuenta' : cuentas.data.total + ' cuentas'}
           </Typography>
 
-          <TableContainer
-            component={Paper}
-            elevation={0}
-            sx={{ border: '1px solid', borderColor: 'divider', overflowX: 'auto' }}
+          {/*
+            `auto-fill` y no `auto-fit`: con dos cuentas, `auto-fit` las
+            estiraria hasta ocupar la pantalla entera y un retrato de 64 px
+            dentro de una ficha de 700 se ve roto. Con `auto-fill` las fichas
+            conservan su ancho y la fila queda a medias, que es lo correcto.
+          */}
+          <Box
+            sx={{
+              display: 'grid',
+              gap: 2,
+              gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+            }}
           >
-            <Table size="medium">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Persona</TableCell>
-                  <TableCell>Usuario</TableCell>
-                  <TableCell>Rol</TableCell>
-                  <TableCell>Estado</TableCell>
-                  <TableCell>Ultimo acceso</TableCell>
-                  <TableCell>Acciones</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {cuentas.data.datos.map((c) => {
-                  const esMiCuenta = sesion?.id === c.id;
-                  return (
-                    <TableRow key={c.id} hover>
-                      <TableCell>
-                        <Stack direction="row" sx={{ gap: 1.25, alignItems: 'center' }}>
-                          {/*
-                            Sin punto de presencia a proposito. El servidor no
-                            sabe quien esta dentro ahora mismo: `ultimoAcceso`
-                            se escribe al iniciar sesion, asi que quien entro a
-                            las siete y sigue trabajando se veria igual que
-                            quien se fue a media manana. Un punto verde ahi
-                            afirmaria algo que nadie ha comprobado. La columna
-                            "Ultimo acceso" dice la verdad que si se tiene.
-                          */}
-                          <AvatarUsuario
-                            usuario={c.usuario}
-                            nombres={c.nombres}
-                            apellidos={c.apellidos}
-                            tamano={32}
-                            descripcion={c.nombres + ' ' + c.apellidos + ' (' + c.usuario + ')'}
-                          />
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {c.apellidos}, {c.nombres}
-                          </Typography>
-                          {esMiCuenta ? (
-                            <Chip size="small" variant="outlined" label="Usted" />
-                          ) : null}
-                        </Stack>
-                      </TableCell>
-                      <TableCell sx={{ fontFamily: 'monospace' }}>{c.usuario}</TableCell>
-                      <TableCell>
-                        <Stack direction="row" sx={{ gap: 0.5, alignItems: 'center' }}>
-                          {ETIQUETA_ROL[c.rol] ?? c.rol}
-                          {/*
-                            Se distingue el segundo factor CONFIGURADO del que
-                            solo esta exigido por el rol: una cuenta
-                            administrativa recien creada exige 2FA y todavia no
-                            lo tiene, y son dos situaciones distintas.
-                          */}
-                          {c.mfaActivo ? (
-                            <Chip size="small" color="success" variant="outlined" label="2FA" />
-                          ) : EXIGEN_MFA.includes(c.rol) ? (
-                            <Chip size="small" variant="outlined" label="2FA pendiente" />
-                          ) : null}
-                        </Stack>
-                      </TableCell>
-                      <TableCell>
-                        <Stack direction="row" sx={{ gap: 0.5, flexWrap: 'wrap' }}>
-                          {!c.activo ? (
-                            <Chip size="small" color="default" label="Desactivada" />
-                          ) : null}
-                          {/*
-                            El bloqueo por intentos fallidos era invisible: la
-                            cuenta se veia igual que cualquier otra, y habia que
-                            restablecer la contrasena a ciegas porque alguien lo
-                            pedia por telefono.
-                          */}
-                          {c.bloqueada ? (
-                            <Chip size="small" color="error" label="Bloqueada" />
-                          ) : null}
-                          {/*
-                            "Contrasena sin cambiar" es el dato que dice que
-                            alguien todavia no ha entrado con la temporal que se
-                            le entrego, o que se le acaba de restablecer.
-                          */}
-                          {c.debeCambiarContrasena ? (
-                            <Chip size="small" color="warning" label="Contrasena sin cambiar" />
-                          ) : null}
-                          {c.activo && !c.debeCambiarContrasena && !c.bloqueada ? (
-                            <Typography variant="body2" color="text.secondary">
-                              —
-                            </Typography>
-                          ) : null}
-                        </Stack>
-                      </TableCell>
-                      <TableCell sx={{ color: 'text.secondary' }}>
-                        {ultimoAccesoEnPalabras(c.ultimoAcceso as unknown as string | null)}
-                      </TableCell>
-                      <TableCell>
-                        <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
-                          {/*
-                            Rellenos, no delineados: en una tabla de seis
-                            columnas los botones delineados se perdian entre las
-                            lineas de las celdas. El color separa lo que hace
-                            cada uno —azul para editar los datos de la cuenta,
-                            cafe para lo que genera una contrasena nueva y
-                            deja sin entrar a quien tenia la anterior.
-                          */}
-                          <Button
-                            size="small"
-                            variant="contained"
-                            onClick={() => setEditando(c)}
-                          >
-                            Editar
-                          </Button>
-                          <Button
-                            size="small"
-                            variant="contained"
-                            color="warning"
-                            onClick={() => setConfirmando(c)}
-                          >
-                            Restablecer contrasena
-                          </Button>
-                          {/*
-                            Solo si de verdad tiene algo que reiniciar. En una
-                            cuenta sin segundo factor el servidor responde 400,
-                            y ofrecer el boton seria prometer una accion que no
-                            existe para ese caso.
-                          */}
-                          {c.mfaActivo ? (
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              color="warning"
-                              onClick={() => setReiniciando(c)}
-                            >
-                              Reiniciar 2FA
-                            </Button>
-                          ) : null}
-                        </Stack>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
+            {cuentas.data.datos.map((c) => (
+              <TarjetaCuenta
+                key={c.id}
+                cuenta={c}
+                esMiCuenta={sesion?.id === c.id}
+                onEditar={() => setEditando(c)}
+                onRestablecer={() => setConfirmando(c)}
+                onReiniciarMfa={() => setReiniciando(c)}
+              />
+            ))}
+          </Box>
 
           {cuentas.data.totalPaginas > 1 ? (
             <Box sx={{ display: 'flex', justifyContent: 'center' }}>
