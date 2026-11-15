@@ -22,6 +22,11 @@
 #     entradas retrofechadas que por diseno nadie puede borrar.
 #   - Ningun servicio recibe archivos: multipart se rechaza en la puerta.
 
+# Sin numero de version en la cabecera `Server` ni en las paginas de error.
+# No cierra ningun agujero por si solo: lo que quita es el atajo de buscar
+# "nginx 1.27.x exploit" sin haber probado antes nada contra nosotros.
+server_tokens off;
+
 # Limite para las rutas de auth sin token: 10 por minuto por IP, con margen
 # de 5 seguidas. Un humano que se equivoca de contrasena no lo nota; un
 # script que prueba cuentas si.
