@@ -132,7 +132,7 @@ export class EmbarazoController {
   }
 
   @Patch(':id/cierre')
-  @Roles(Rol.MEDICO, Rol.ADMINISTRADOR)
+  @Roles(Rol.MEDICO, Rol.ADMINISTRADOR, Rol.DIRECTOR)
   @ApiOperation({ summary: 'Cierra el seguimiento con su resultado' })
   @ApiOkResponse({
     type: ProgramaEmbarazoBaseDto,

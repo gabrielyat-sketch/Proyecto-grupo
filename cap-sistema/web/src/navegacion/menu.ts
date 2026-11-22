@@ -182,11 +182,14 @@ export const MENU: readonly ElementoMenu[] = [
     acento: 'lavanda',
     resumen: 'Cuentas y catálogos',
     descripcion:
-      'Cuentas del personal, roles y restablecimiento de contrasenas. Exclusivo del Administrador.',
+      'Cuentas del personal, roles y restablecimiento de contrasenas. Del Administrador y del Director.',
     etiqueta: 'Administracion',
     icono: ManageAccountsIcon,
-    // El modulo de cuentas es exclusivo del Administrador.
-    roles: ['ADMINISTRADOR'],
+    // Director quedo igualado a Administrador al entregarle el sistema al CAP:
+    // alli el director ES quien administra, y dejarlo fuera obligaba a mantener
+    // una cuenta aparte que nadie iba a usar.
+
+    roles: ['ADMINISTRADOR', 'DIRECTOR'],
   },
 ];
 
@@ -237,7 +240,7 @@ const RUTAS_FUERA_DEL_MENU: Record<string, readonly Rol[]> = {
     recepcion a media consulta es lo que hace que el dato acabe en un papel
     suelto.
   */
-  '/recepcion/nuevo': ['RECEPCION', 'ENFERMERIA', 'ADMINISTRADOR'],
+  '/recepcion/nuevo': ['RECEPCION', 'ENFERMERIA', 'ADMINISTRADOR', 'DIRECTOR'],
   // Un medicamento concreto. Entran los mismos cinco roles que a Farmacia: lo
   // que cambia por rol es que se puede HACER dentro —solo Farmacia y
   // Administracion ingresan lotes o dan de baja— no si se puede abrir.
@@ -245,7 +248,7 @@ const RUTAS_FUERA_DEL_MENU: Record<string, readonly Rol[]> = {
   // El despacho de medicamentos. Se llega desde Farmacia, con el boton de
   // arriba. Los roles son los del POST /v1/entregas: el medico consulta el
   // historial pero no despacha.
-  '/farmacia/entrega': ['FARMACIA', 'ADMINISTRADOR'],
+  '/farmacia/entrega': ['FARMACIA', 'ADMINISTRADOR', 'DIRECTOR'],
 };
 
 /** Opciones visibles para un rol. Vacio si el rol no se reconoce. */

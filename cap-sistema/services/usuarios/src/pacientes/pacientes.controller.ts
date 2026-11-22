@@ -70,7 +70,7 @@ export class PacientesController {
     los dos es el bueno.
   */
   @Post()
-  @Roles(Rol.RECEPCION, Rol.ENFERMERIA, Rol.ADMINISTRADOR)
+  @Roles(Rol.RECEPCION, Rol.ENFERMERIA, Rol.ADMINISTRADOR, Rol.DIRECTOR)
   @ApiOperation({ summary: 'Registra un paciente y abre su expediente' })
   @ApiCreatedResponse({ type: PacienteCreadoDto })
   crear(
@@ -82,7 +82,7 @@ export class PacientesController {
   }
 
   @Patch(':id')
-  @Roles(Rol.RECEPCION, Rol.ADMINISTRADOR)
+  @Roles(Rol.RECEPCION, Rol.ADMINISTRADOR, Rol.DIRECTOR)
   @ApiOperation({ summary: 'Corrige datos del paciente' })
   @ApiOkResponse({ type: PacienteDto })
   actualizar(
@@ -102,7 +102,7 @@ export class PacientesController {
    * con atenciones no se borra aunque lo pida un administrador.
    */
   @Delete(':id')
-  @Roles(Rol.ADMINISTRADOR)
+  @Roles(Rol.ADMINISTRADOR, Rol.DIRECTOR)
   @ApiOperation({ summary: 'Borra un paciente sin historial clinico' })
   @ApiOkResponse({ type: PacienteBorradoDto })
   eliminar(

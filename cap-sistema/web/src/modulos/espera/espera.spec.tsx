@@ -263,15 +263,13 @@ describe('sala de espera', () => {
       expect(window.history.state?.usr).toMatchObject({ volverA: '/espera' });
     });
 
-    it('direccion mira la sala pero no la toca', async () => {
+    it('direccion tiene las mismas acciones que el administrador en la sala', async () => {
       servidor({ sala: [visita(1)] });
       abrir(DIRECTOR);
       await esperarSala();
 
       await screen.findByText('Perez Caal, Juana 1');
-      // Sin ninguna de las tres acciones, la fila no tiene ni menu que abrir.
-      expect(screen.queryByRole('button', { name: /^Acciones para/ })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /Subir un puesto/ })).not.toBeInTheDocument();
+      expect(await screen.findByRole('button', { name: /^Acciones para/ })).toBeInTheDocument();
     });
 
     /**

@@ -58,7 +58,7 @@ export function PaginaRecepcion() {
     Registrar es de quien necesita un expediente donde guardar lo que atiende.
     Son dos cosas distintas y ahora se preguntan por separado.
   */
-  const puedeMarcarLlegada = ['RECEPCION', 'ADMINISTRADOR'].includes(usuario?.rol ?? '');
+  const puedeMarcarLlegada = ['RECEPCION', 'ADMINISTRADOR', 'DIRECTOR'].includes(usuario?.rol ?? '');
 
   const [texto, setTexto] = useState('');
   const [comunidadId, setComunidadId] = useState('');

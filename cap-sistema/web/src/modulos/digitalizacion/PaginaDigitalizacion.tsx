@@ -35,7 +35,7 @@ import { EsqueletoLista } from '../../componentes/Esqueletos';
 /** Quien llena las fichas del papel. Recepcion captura los datos personales. */
 const TRANSCRIBEN = ['MEDICO', 'ENFERMERIA'];
 /** Quien puede mover el estado de una carpeta en el archivo. */
-const MARCAN = ['ADMINISTRADOR', 'RECEPCION', 'ENFERMERIA'];
+const MARCAN = ['ADMINISTRADOR', 'DIRECTOR', 'RECEPCION', 'ENFERMERIA'];
 
 const ESTADOS = ['PENDIENTE', 'EN_PROCESO', 'COMPLETO', 'NO_LOCALIZADO'];
 

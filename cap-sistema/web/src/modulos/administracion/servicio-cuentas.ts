@@ -103,8 +103,8 @@ export const ETIQUETA_ROL: Record<string, string> = {
 
 /** Qué hace cada rol, para elegirlo sin tener que saberse la arquitectura. */
 export const QUE_HACE_EL_ROL: Record<string, string> = {
-  ADMINISTRADOR: 'Administra cuentas y ve todo el sistema. Exige segundo factor.',
-  DIRECTOR: 'Consulta indicadores y reportes, sin capturar. Exige segundo factor.',
+  ADMINISTRADOR: 'Todo el sistema y las cuentas del personal. Exige segundo factor.',
+  DIRECTOR: 'Lo mismo que Administrador: todo el sistema y las cuentas. Exige segundo factor.',
   MEDICO: 'Atiende, llena fichas clinicas y consulta existencias.',
   ENFERMERIA: 'Atiende, llena fichas y transcribe el archivo de papel.',
   FARMACIA: 'Inventario y entrega de medicamentos. No entra al historial clinico.',

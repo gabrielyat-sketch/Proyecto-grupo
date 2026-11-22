@@ -125,7 +125,7 @@ export class HipertensionController {
   }
 
   @Patch(':id/egreso')
-  @Roles(Rol.MEDICO, Rol.ADMINISTRADOR)
+  @Roles(Rol.MEDICO, Rol.ADMINISTRADOR, Rol.DIRECTOR)
   @ApiOperation({ summary: 'Cierra la inscripcion en el programa' })
   @ApiOkResponse({ type: ProgramaHipertensionDto })
   egresar(

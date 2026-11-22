@@ -475,7 +475,7 @@ describe('quien hace que', () => {
     expect(alertas).toHaveLength(0);
   });
 
-  it('el director mira las alertas pero no da de baja nada', async () => {
+  it('el director da de baja un lote igual que farmacia', async () => {
     servidor();
     const usuario = userEvent.setup();
     abrir(DIRECTOR);
@@ -483,7 +483,7 @@ describe('quien hace que', () => {
 
     await usuario.click(await screen.findByRole('tab', { name: /Vencidos/ }));
     await screen.findByText('Ibuprofeno');
-    expect(screen.queryByRole('button', { name: 'Dar de baja' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Dar de baja' }).length).toBeGreaterThan(0);
   });
 
   it('recepcion no entra a farmacia', async () => {
