@@ -67,7 +67,7 @@ export class CatalogoController {
   }
 
   @Post()
-  @Roles(Rol.FARMACIA, Rol.ADMINISTRADOR)
+  @Roles(Rol.FARMACIA, Rol.ADMINISTRADOR, Rol.DIRECTOR)
   @ApiOperation({ summary: 'Da de alta un medicamento en el catalogo' })
   @ApiCreatedResponse({ type: MedicamentoDto })
   crear(@Body() dto: CrearMedicamentoDto): Promise<MedicamentoDto> {
@@ -75,7 +75,7 @@ export class CatalogoController {
   }
 
   @Patch(':id')
-  @Roles(Rol.FARMACIA, Rol.ADMINISTRADOR)
+  @Roles(Rol.FARMACIA, Rol.ADMINISTRADOR, Rol.DIRECTOR)
   @ApiOperation({ summary: 'Ajusta existencia minima, receta obligatoria o estado' })
   @ApiOkResponse({ type: MedicamentoDto })
   actualizar(

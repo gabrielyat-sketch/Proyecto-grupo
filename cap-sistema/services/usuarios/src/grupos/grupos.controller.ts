@@ -53,7 +53,7 @@ export class GruposController {
     todo lo que esa pantalla necesita.
   */
   @Get('siguiente-numero')
-  @Roles(Rol.RECEPCION, Rol.ENFERMERIA, Rol.ADMINISTRADOR)
+  @Roles(Rol.RECEPCION, Rol.ENFERMERIA, Rol.ADMINISTRADOR, Rol.DIRECTOR)
   @ApiOperation({ summary: 'El siguiente numero libre de la serie de ese lugar' })
   @ApiOkResponse({ type: SiguienteNumeroDto })
   siguienteNumero(@Query() consulta: SiguienteNumeroConsultaDto): Promise<SiguienteNumeroDto> {
@@ -69,7 +69,7 @@ export class GruposController {
   }
 
   @Post()
-  @Roles(Rol.RECEPCION, Rol.ADMINISTRADOR)
+  @Roles(Rol.RECEPCION, Rol.ADMINISTRADOR, Rol.DIRECTOR)
   @ApiOperation({ summary: 'Abre una carpeta familiar' })
   @ApiCreatedResponse({ type: GrupoFamiliarCreadoDto })
   crear(@Body() dto: CrearGrupoDto): Promise<GrupoFamiliarCreadoDto> {

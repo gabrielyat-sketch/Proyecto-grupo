@@ -16,9 +16,20 @@ describe('menu por rol', () => {
     expect(menuPara('ADMINISTRADOR')).toHaveLength(MENU.length);
   });
 
-  it('solo el Administrador entra a Administracion', () => {
+  /**
+   * Al entregarle el sistema al CAP, Director quedo igualado a Administrador:
+   * alli el director ES quien administra, y mantener una cuenta aparte solo
+   * para las altas significaba una credencial mas que nadie iba a usar.
+   */
+  it('el Director ve el mismo menu que el Administrador', () => {
+    expect(menuPara('DIRECTOR')).toHaveLength(MENU.length);
+  });
+
+  it('a Administracion entran el Administrador y el Director', () => {
     for (const rol of ROLES) {
-      expect(puedeEntrar(rol, '/administracion')).toBe(rol === 'ADMINISTRADOR');
+      expect(puedeEntrar(rol, '/administracion')).toBe(
+        rol === 'ADMINISTRADOR' || rol === 'DIRECTOR',
+      );
     }
   });
 

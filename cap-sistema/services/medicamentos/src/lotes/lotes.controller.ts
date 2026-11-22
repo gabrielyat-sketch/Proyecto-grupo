@@ -40,7 +40,7 @@ export class LotesController {
   constructor(private readonly servicio: LotesService) {}
 
   @Post('medicamentos/:medicamentoId/lotes')
-  @Roles(Rol.FARMACIA, Rol.ADMINISTRADOR)
+  @Roles(Rol.FARMACIA, Rol.ADMINISTRADOR, Rol.DIRECTOR)
   @ApiOperation({ summary: 'Ingresa un lote al inventario' })
   @ApiCreatedResponse({ type: LoteDto })
   ingresar(
@@ -130,7 +130,7 @@ export class LotesController {
   }
 
   @Patch('lotes/:id/ajuste')
-  @Roles(Rol.FARMACIA, Rol.ADMINISTRADOR)
+  @Roles(Rol.FARMACIA, Rol.ADMINISTRADOR, Rol.DIRECTOR)
   @ApiOperation({
     summary: 'Ajusta la existencia de un lote a lo que se conto en el estante',
     description:
@@ -151,7 +151,7 @@ export class LotesController {
   }
 
   @Patch('lotes/:id/baja')
-  @Roles(Rol.FARMACIA, Rol.ADMINISTRADOR)
+  @Roles(Rol.FARMACIA, Rol.ADMINISTRADOR, Rol.DIRECTOR)
   @ApiOperation({ summary: 'Da de baja lo que queda de un lote' })
   @ApiOkResponse({ type: LoteDto })
   darDeBaja(

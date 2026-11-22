@@ -35,7 +35,7 @@ import { EsqueletoLista, EsqueletoResumen } from '../../componentes/Esqueletos';
  * Enfermeria y medicina no entran —lo suyo es la ficha clinica, no el padron—
  * y ponerles el boton solo produciria un 403 que parece una falla del sistema.
  */
-const CORRIGEN = ['RECEPCION', 'ADMINISTRADOR'];
+const CORRIGEN = ['RECEPCION', 'ADMINISTRADOR', 'DIRECTOR'];
 
 /** El historial clinico no es de todos: Recepcion y Farmacia no entran. */
 const VEN_EL_HISTORIAL = ['MEDICO', 'ENFERMERIA', 'DIRECTOR', 'ADMINISTRADOR'];
@@ -62,7 +62,7 @@ export function PaginaExpediente() {
   const puedeCorregir = CORRIGEN.includes(usuario?.rol ?? '');
   // Borrar es solo de administracion, y ademas el servidor exige que el
   // paciente no tenga nada clinico encima.
-  const puedeBorrar = usuario?.rol === 'ADMINISTRADOR';
+  const puedeBorrar = usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'DIRECTOR';
   const [editando, setEditando] = useState(false);
   const [borrando, setBorrando] = useState(false);
 

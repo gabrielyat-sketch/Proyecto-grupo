@@ -48,9 +48,9 @@ import {
 import { EsqueletoLista } from '../../componentes/Esqueletos';
 
 const ATIENDEN = ['MEDICO', 'ENFERMERIA'];
-const CIERRAN = ['RECEPCION', 'ADMINISTRADOR', 'ENFERMERIA'];
-/** Quien ve llegar la emergencia o quien la va a atender. El director mira, no mueve. */
-const MUEVEN = ['RECEPCION', 'ADMINISTRADOR', 'ENFERMERIA', 'MEDICO'];
+const CIERRAN = ['RECEPCION', 'ADMINISTRADOR', 'DIRECTOR', 'ENFERMERIA'];
+/** Quien ve llegar la emergencia o quien la va a atender. */
+const MUEVEN = ['RECEPCION', 'ADMINISTRADOR', 'DIRECTOR', 'ENFERMERIA', 'MEDICO'];
 
 /** Cada cuanto se vuelve a preguntar quien espera. */
 const REFRESCO_MS = 30_000;

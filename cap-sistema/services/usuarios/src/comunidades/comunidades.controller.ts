@@ -48,7 +48,7 @@ export class ComunidadesController {
   }
 
   @Post()
-  @Roles(Rol.ADMINISTRADOR)
+  @Roles(Rol.ADMINISTRADOR, Rol.DIRECTOR)
   @ApiOperation({ summary: 'Registra una comunidad' })
   @ApiCreatedResponse({ type: ComunidadDto })
   crear(@Body() dto: CrearComunidadDto): Promise<ComunidadDto> {

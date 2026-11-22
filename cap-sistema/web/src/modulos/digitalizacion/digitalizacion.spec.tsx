@@ -232,14 +232,20 @@ describe('modo de digitalizacion', () => {
       expect(screen.getAllByRole('button', { name: 'Estado' }).length).toBeGreaterThan(0);
     });
 
-    it('direccion mira el avance pero no toca nada', async () => {
+    /**
+     * Director quedo igualado a Administrador, y eso NO incluye transcribir:
+     * `TRANSCRIBEN` es de Medico y Enfermeria, porque llenar una hoja del
+     * archivo es escribir una ficha clinica y eso lo firma quien atiende.
+     * Mover el estado de la carpeta si es suyo.
+     */
+    it('direccion mueve el estado de la carpeta, pero no transcribe', async () => {
       servidor({ filas: [carpeta(1)] });
       abrir(DIRECTOR);
       await esperarPanel();
 
       await screen.findByText('EXP-2026-000001');
+      expect(screen.getAllByRole('button', { name: 'Estado' }).length).toBeGreaterThan(0);
       expect(screen.queryByRole('button', { name: 'Transcribir' })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Estado' })).not.toBeInTheDocument();
     });
 
     it('farmacia no entra al archivo', async () => {

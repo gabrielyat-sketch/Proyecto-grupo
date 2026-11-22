@@ -33,7 +33,7 @@ export interface Pagina<T> {
  * haciendo lo correcto. El control de acceso real sigue estando en el guard del
  * backend; esto solo decide qué se dibuja.
  */
-export const PUEDE_ADMINISTRAR: readonly string[] = ['FARMACIA', 'ADMINISTRADOR'];
+export const PUEDE_ADMINISTRAR: readonly string[] = ['FARMACIA', 'ADMINISTRADOR', 'DIRECTOR'];
 
 /**
  * Las alertas de lote son de farmacia, no de quien receta.

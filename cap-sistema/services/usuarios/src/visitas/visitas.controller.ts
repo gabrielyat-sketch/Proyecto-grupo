@@ -43,7 +43,7 @@ export class VisitasController {
 
   @Post()
   // Quien esta en la ventanilla es quien ve entrar a la gente.
-  @Roles(Rol.RECEPCION, Rol.ADMINISTRADOR)
+  @Roles(Rol.RECEPCION, Rol.ADMINISTRADOR, Rol.DIRECTOR)
   @ApiOperation({
     summary: 'Marca que un paciente llego y espera ser atendido',
     description:
@@ -75,7 +75,7 @@ export class VisitasController {
   @Patch(':id/orden')
   // Quien ve llegar la emergencia o quien la va a atender. El director mira,
   // no mueve.
-  @Roles(Rol.RECEPCION, Rol.ADMINISTRADOR, Rol.ENFERMERIA, Rol.MEDICO)
+  @Roles(Rol.RECEPCION, Rol.ADMINISTRADOR, Rol.ENFERMERIA, Rol.MEDICO, Rol.DIRECTOR)
   @ApiOperation({
     summary: 'Cambia el turno de alguien en la sala',
     description:
@@ -93,7 +93,7 @@ export class VisitasController {
 
   @Patch(':id/retiro')
   // La ve irse recepcion, o la llama enfermeria y no contesta nadie.
-  @Roles(Rol.RECEPCION, Rol.ADMINISTRADOR, Rol.ENFERMERIA)
+  @Roles(Rol.RECEPCION, Rol.ADMINISTRADOR, Rol.ENFERMERIA, Rol.DIRECTOR)
   @ApiOperation({
     summary: 'Saca de la sala a alguien que se fue sin atencion',
     description: 'El motivo es obligatorio: "se fue" no le sirve a nadie dentro de un mes.',

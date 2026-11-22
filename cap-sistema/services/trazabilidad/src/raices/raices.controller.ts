@@ -20,7 +20,7 @@ export class RaicesController {
    */
   @Post('cierre')
   @ApiCreatedResponse({ type: RaizDiariaDto })
-  @Roles(Rol.ADMINISTRADOR)
+  @Roles(Rol.ADMINISTRADOR, Rol.DIRECTOR)
   @ApiOperation({
     summary: 'Cierra un dia y firma su hash raiz',
     description:

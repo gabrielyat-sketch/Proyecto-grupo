@@ -650,20 +650,18 @@ describe('quien entra a administracion', () => {
     });
   });
 
-  it('el director tampoco: ve el sistema pero no administra cuentas', async () => {
+  it('el director si: administra cuentas igual que el Administrador', async () => {
     servidor();
     abrir(DIRECTOR);
 
-    await waitFor(() => {
-      expect(screen.queryByRole('heading', { name: 'Administracion' })).not.toBeInTheDocument();
-    });
+    expect(await screen.findByRole('heading', { name: 'Administracion' })).toBeInTheDocument();
   });
 
-  it('y no aparece en su menu', async () => {
+  it('y aparece en su menu', async () => {
     servidor();
     abrir(DIRECTOR, '/');
 
     const navegacion = await screen.findByRole('navigation', { name: /Modulos del sistema/i });
-    expect(navegacion).not.toHaveTextContent('Administracion');
+    expect(navegacion).toHaveTextContent('Administracion');
   });
 });

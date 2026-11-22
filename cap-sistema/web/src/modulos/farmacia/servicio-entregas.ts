@@ -71,7 +71,7 @@ export function existenciaEntregable(medicamento: MedicamentoDetalle): number {
  * Copiado del `@Roles` de `POST /v1/entregas`. El médico ve el historial —le
  * sirve saber si su paciente recogió el tratamiento— pero no despacha.
  */
-export const PUEDE_ENTREGAR: readonly string[] = ['FARMACIA', 'ADMINISTRADOR'];
+export const PUEDE_ENTREGAR: readonly string[] = ['FARMACIA', 'ADMINISTRADOR', 'DIRECTOR'];
 
 /** Los roles que consultan el historial, del `@Roles` del `GET`. */
 export const PUEDE_VER_ENTREGAS: readonly string[] = [

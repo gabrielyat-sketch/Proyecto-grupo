@@ -49,7 +49,7 @@ export class EntregasController {
   }
 
   @Post()
-  @Roles(Rol.FARMACIA, Rol.ADMINISTRADOR)
+  @Roles(Rol.FARMACIA, Rol.ADMINISTRADOR, Rol.DIRECTOR)
   @ApiOperation({
     summary: 'Registra una entrega a un paciente',
     description:
